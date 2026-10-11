@@ -1,14 +1,20 @@
 name: CI
 
-# Typecheck and the unit tests on every other branch and on pull requests. main and reskin-wip run
-# them, with the sharded full e2e, in e2e.yml, which also runs on demand on any branch.
+# Typecheck and the unit tests on every other branch and on pull requests. main, reskin-wip and the
+# task branches (task-*) run them, with the sharded full e2e, in e2e.yml, which also runs on demand on
+# any branch. This workflow runs no e2e.
 on:
   push:
-    branches-ignore: [main, reskin-wip]
+    branches-ignore: [main, reskin-wip, 'task-*']
   pull_request:
 
 permissions:
   contents: read
+
+# A newer push to the same branch (or pull request) cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

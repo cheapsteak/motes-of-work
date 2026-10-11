@@ -28,15 +28,16 @@ on:
 permissions:
   contents: read
 
-# A push cancels the run of an older push to the same branch; a run on demand is never cancelled.
+# A newer push to a branch cancels the older push's run on it. A run on demand is in a group of its own
+# (its run id), so it never cancels the branch's push run, and no push cancels it.
 concurrency:
   group: e2e-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'push' }}
   cancel-in-progress: true
 
 env:
-  # A selection of at most this many tests runs on one shard: the heaviest specs run about 2 to 4 min a
-  # test on a runner's 2 workers (clearance.spec.ts's 8 tests take about 10 min there), so a dozen stays
-  # within a quarter of an hour, and 8 shards' setup (about 3 to 4 min each) would buy little.
+  # A selection of at most this many tests runs on one shard: the heaviest tests take 2 to 4 min on a
+  # runner (clearance.spec.ts's 8 tests took 3.7 min on its 2 workers, run 38155417859), so a dozen
+  # stays within about a quarter of an hour, and 8 shards' setup (3 to 4 min each) would buy little.
   FOCUSED_MAX: 12
 
 jobs:
