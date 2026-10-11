@@ -1,8 +1,10 @@
 // The duration-aware shard dealer (tools/shard-list.mjs) and the table's refresh (tools/shard-times.mjs):
 // the shards together run every listed test exactly once, whatever the table holds.
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { dealShards, listedTests, medianTime, shardOf, testKey } from '../tools/shard-list.mjs';
-import { parseDurations } from '../tools/shard-times.mjs';
+import { dealShards, listedTests, medianTime, shardOf, shardTests, testKey, verifyReadBack } from '../tools/shard-list.mjs';
+import { checkWholeRun, parseDurations } from '../tools/shard-times.mjs';
 
 const LISTING = ['Listing tests:', ...Array.from({ length: 23 }, (_, i) => `  [chromium] › f${Math.floor(i / 5)}.spec.ts:1:1 › test ${i}`), 'Total: 23 tests in 5 files'].join('\n');
 const key = (i: number): string => `f${Math.floor(i / 5)}.spec.ts › test ${i}`;
@@ -73,13 +75,67 @@ describe('the table’s names and refresh', () => {
     expect(testKey('[chromium] › e2e/pages.spec.ts:180:7 › the pages › one page (1440x900) @full-only')).toBe('pages.spec.ts › the pages › one page (1440x900)');
   });
 
-  it('reads a run’s log into seconds a test, skipped tests at 0, and nothing else', () => {
+  it('reads a run’s log into seconds a test, with no entry for a skipped test, and nothing else', () => {
     expect(parseDurations(LOG)).toEqual({
       'defect.spec.ts › the defect at df-1, 390x844 › the flash guard, part 1 of 4 (phone)': 204,
       'pages.spec.ts › the pages › one page at a time (1440x900)': 47.3,
       'spikes.spec.ts › caps lists numeric limits': 0.1,
-      'stills.spec.ts › T6 stills, phone first': 0,
     });
     expect(testKey(LIST_LINE) in parseDurations(LOG)).toBe(true);
+  });
+
+  it('takes only the log of a whole green run: every shard job of it, no failed test', () => {
+    const job = (k: number, n: number, rest = '') => `e2e shard ${k}/${n}\te2e:full\t2026-10-11T22:06:07.6663225Z   ✓   8 [chromium] › e2e/a.spec.ts:1:1 › t (1.0s)${rest}`;
+    const whole = [job(1, 2), job(2, 2)].join('\n');
+    expect(() => checkWholeRun(whole)).not.toThrow();
+    expect(() => checkWholeRun(job(1, 2))).toThrow(/1 of 2 shards \(missing 2\)/);
+    expect(() => checkWholeRun('  ✓   8 [chromium] › e2e/a.spec.ts:1:1 › t (1.0s)')).toThrow(/whole run/);
+    expect(() => checkWholeRun(whole + '\ne2e shard 2/2\te2e:full\t2026-10-11T22:06:07Z   ✘  9 [chromium] › e2e/a.spec.ts:2:1 › u (1.0s)')).toThrow(/failed test/);
+  });
+});
+
+describe('the read-back fence', () => {
+  const line = (n: number, title: string) => `[chromium] › a.spec.ts:${n}:1 › ${title}`;
+
+  it('passes when Playwright selects exactly the dealt tests, whatever line numbers its listing gives', () => {
+    expect(() => verifyReadBack([line(1, 'one'), line(2, 'two')], [line(7, 'two'), line(9, 'one')])).not.toThrow();
+  });
+
+  it('fails on a test dealt but not selected, and on one selected twice', () => {
+    expect(() => verifyReadBack([line(1, 'one'), line(2, 'two')], [line(1, 'one')])).toThrow(/dealt but not selected[^]*two/);
+    expect(() => verifyReadBack([line(1, 'one')], [line(1, 'one'), line(5, 'one')])).toThrow(/selected but not dealt/);
+  });
+
+  // Playwright's own matcher, on a small project of its own (inside node_modules, to find @playwright/test).
+  /** A project of one config and one spec file, `body` its tests; `run` gets its folder. */
+  function inProject(body: string, run: (dir: string) => void): void {
+    const dir = mkdtempSync(join(process.cwd(), 'node_modules', '.shard-fence-'));
+    try {
+      writeFileSync(join(dir, 'playwright.config.js'), "module.exports = { testDir: '.', projects: [{ name: 'chromium' }] };\n");
+      writeFileSync(join(dir, 'a.spec.js'), "const { test } = require('@playwright/test');\n" + body);
+      run(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  const deal = (dir: string, shard: number, total: number) => shardTests({ shard, total, args: [], times: {}, cwd: dir });
+
+  it('reads the dealt shards of an ordinary project back whole', { timeout: 120_000 }, () => {
+    inProject("test('one', () => {}); test('two', () => {}); test('three', () => {}); test('four', () => {});", (dir) => {
+      expect([...deal(dir, 1, 2), ...deal(dir, 2, 2)]).toHaveLength(4);
+    });
+  });
+
+  it('fails on a title Playwright cannot match: one with a ›, one with edge spaces', { timeout: 120_000 }, () => {
+    inProject("test('fine', () => {}); test('a › b', () => {});", (dir) => expect(() => deal(dir, 1, 1)).toThrow(/dealt but not selected[^]*a › b/));
+    inProject("test('fine', () => {}); test('trailing space ', () => {});", (dir) => expect(() => deal(dir, 1, 1)).toThrow(/dealt but not selected[^]*trailing space/));
+  });
+
+  it('hears Playwright itself refuse two tests one name reaches (a describe a with a test b, and a test a › b)', { timeout: 120_000 }, () => {
+    inProject("test.describe('a', () => { test('b', () => {}); }); test('a › b', () => {});", (dir) => expect(() => deal(dir, 1, 1)).toThrow(/duplicate test title/));
+  });
+
+  it('leaves a shard dealt nothing empty rather than failing', { timeout: 120_000 }, () => {
+    inProject("test('only', () => {});", (dir) => expect(deal(dir, 2, 2)).toEqual([]));
   });
 });

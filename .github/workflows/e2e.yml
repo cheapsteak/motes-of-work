@@ -167,7 +167,13 @@ jobs:
           if [[ "$TOTAL" -gt 1 ]]; then
             # Dealt by duration, not Playwright's --shard (contiguous runs of equal test count, which
             # leave a file's heavy tests together on one shard): tools/shard-list.mjs.
+            # It reads the shard's lines back through Playwright's own --test-list matching and fails
+            # unless they select exactly the tests dealt (a title it cannot match would run nowhere).
             node tools/shard-list.mjs "$SHARD" "$TOTAL" "${args[@]}" > "${RUNNER_TEMP:-/tmp}/shard.txt"
+            if [[ ! -s "${RUNNER_TEMP:-/tmp}/shard.txt" ]]; then
+              echo "Shard $SHARD of $TOTAL is dealt no test: nothing to run."
+              exit 0
+            fi
             args+=("--test-list=${RUNNER_TEMP:-/tmp}/shard.txt")
           else
             args+=("--shard=$SHARD/$TOTAL")
