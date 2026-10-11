@@ -127,26 +127,37 @@ describe('holeTop (the hole’s clearance twin)', () => {
       for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v('strand1'), story.strands[1]), 'strand1');
       return out;
     };
-    // Mid-story: every leaf the hole reads part way, so each part's gain, the fronts and the windows count.
-    const s = closeState();
-    s.net = { ...s.net, holeLamp: 0.6, single: 0.3, strand1: 0.7, heat0: 0.4, cool1: 0.2, knots: 0.8, knotsOff: 0.25 };
+    // Two stories at the same views: none (the story's leaves at 0) and mid-story (every leaf the hole reads
+    // part way, so each part's gain, the fronts and the windows count). Each call is made right after the
+    // other story's at the same view and ambient, so the caches hold that one's list when it is asked for:
+    // a cache that missed any story key would hand it back, whatever ran before this test.
+    const none = closeState();
+    const mid = closeState();
+    mid.net = { ...mid.net, holeLamp: 0.6, single: 0.3, strand1: 0.7, heat0: 0.4, cool1: 0.2, knots: 0.8, knotsOff: 0.25 };
     const sizes = [
       { width: 390, height: 844 },
       { width: 1440, height: 900 },
     ];
     let compared = 0;
+    let differ = 0;
     for (const round of [0, 1])
       for (const t of [AMBIENT_POSE, 101, 3599.9])
-        for (const size of round === 0 ? sizes : [...sizes].reverse()) {
-          const camera = essayCamera(s.camera, g, data, size, t);
-          const got = holeDots(s, t, camera, size.width, size.height).flatMap((d) => [d.x, d.y, d.px]);
-          const want = fresh(s, t, size);
-          expect(got.length, `${size.width} at ${t}`).toBe(want.length);
-          got.forEach((x, i) => {
-            if (!Object.is(x, want[i])) expect(x, `${size.width} at ${t}, value ${i}`).toBe(want[i]);
-          });
-          compared += got.length;
-        }
+        for (const size of round === 0 ? sizes : [...sizes].reverse())
+          for (const [s, other] of round === 0 ? [[mid, none], [none, mid]] : [[none, mid], [mid, none]]) {
+            const camera = essayCamera(s.camera, g, data, size, t);
+            const before = holeDots(other, t, camera, size.width, size.height).flatMap((d) => [d.x, d.y, d.px]);
+            const got = holeDots(s, t, camera, size.width, size.height).flatMap((d) => [d.x, d.y, d.px]);
+            const want = fresh(s, t, size);
+            const where = `${s === mid ? 'mid-story' : 'no story'} on ${size.width} at ${t}`;
+            expect(got.length, where).toBe(want.length);
+            got.forEach((x, i) => {
+              if (!Object.is(x, want[i])) expect(x, `${where}, value ${i}`).toBe(want[i]);
+            });
+            if (before.length !== got.length || before.some((x, i) => !Object.is(x, got[i]))) differ++;
+            compared += got.length;
+          }
+    // Not vacuous: the two stories' lists differ at every view.
+    expect(differ).toBe(2 * 3 * 2 * 2);
     expect(compared).toBeGreaterThan(12 * 3 * HOLE_DOTS.ring);
   });
 

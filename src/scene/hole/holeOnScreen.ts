@@ -68,9 +68,11 @@ function cached<T>(size: number): (key: number | string, make: () => T) => T {
 }
 
 const placesCache = cached<HolePlaces>(16);
+/** A number as a cache key, −0 apart from +0 (a Map takes them as one key, and String gives both "0"). */
+const keyOf = (x: number): string => (Object.is(x, -0) ? '-0' : String(x));
 /** The places of every dot holeDots counts at ambient `t`, computed once per ambient. */
 function placesAt(t: number): HolePlaces {
-  return placesCache(t, () => {
+  return placesCache(keyOf(t), () => {
     const A = holeAttrsOf();
     const all = <T>(a: Float32Array, place: (i: number) => T): T[] => Array.from({ length: a.length / PART_STRIDE }, (_, i) => place(i));
     const disk: DiskPlace[] = [];
@@ -132,7 +134,7 @@ export function holeDots(s: SceneState, ambient: number, camera: PerspectiveCame
     width,
     height,
   ]
-    .map((x) => (Object.is(x, -0) ? '-0' : String(x)))
+    .map(keyOf)
     .join(',');
   return dotsCache(key, () => {
     const A = holeAttrsOf();
