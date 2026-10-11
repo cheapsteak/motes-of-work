@@ -129,11 +129,12 @@ for (const viewport of [
     test.use({ viewport });
 
     test(`the visible machine stays below the text in every page (${size})`, async ({ page }) => {
-      // Measured since the hole (re-skin Task 5): 2.8-3.1 min on CI beside a shard's other tests (run
-      // 38166992199; 2.2-2.5 min on 1 shard before it, run 38158922552), and 10.8 min locally at 390x844 at
-      // load 10.5-14, run to completion beside two full unit suites (5.8 min at load about 19 before it). 33
-      // min is over 3 times the loaded time and 10 times CI's (15 min before).
-      test.setTimeout(1_980_000);
+      // Measured since the hole's twin keeps each ambient's places and each view's dots (re-skin Task 6):
+      // 2.4-2.7 min on CI beside a shard's other tests (run 38180292823; 2.8-3.1 min before the caches, run
+      // 38166992199), and 3.4 min locally at 390x844 at load 4.8-8.4 beside the other lane (10.8 min at load
+      // 10.5-14 beside two full unit suites before the caches). 20 min is near 6 times the loaded time and
+      // 7 times CI's (33 min before the caches, 15 min before the hole).
+      test.setTimeout(1_200_000);
       const errors = await open(page);
       const story = await sections(page);
       const spans = await readSpans(page);

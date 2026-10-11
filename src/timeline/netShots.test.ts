@@ -1240,9 +1240,11 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
   });
 
   it('keeps the lit set under the band at every sample of layers and far, holds and moves, at both sizes and every AMBIENT_GRID pose', () => {
-    // Measured since the hole close is held to what is drawn (re-skin Task 5, below): 101 s on CI (run
-    // 38166992199), 127 s locally at load about 4, 468 s at load 10-14 beside a full unit suite (2.0 s on
-    // CI and 10.4 s loaded before it). 1,500 s is over 3 times the loaded time and 14 times CI's.
+    // Measured since the hole's twin keeps each ambient's places and each view's dots (re-skin Task 6): 36 s
+    // on CI with the story's keys (run 38180292823; 20.5 s before them, run 38175088677; 101 s before the
+    // caches), 25 s locally at load 1-2, 45 s at load 12-15 beside an e2e worker and the other lane. 240 s
+    // is over 5 times the loaded time and 6 times CI's (1,500 s before the caches; 2.0 s on CI before the
+    // hole close was held to what is drawn).
     // To the dive into defect, whose close lamp is held to its visible bodies (below, Task 10).
     let worst = Infinity;
     let checked = 0;
@@ -1252,12 +1254,13 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     }
     expect(checked).toBe(2001);
     expect(worst).toBeGreaterThanOrEqual(0);
-  }, 1_500_000);
+  }, 240_000);
 
   it('keeps it under the band from each lamp step of layers and far (and each via) to its move’s end, at every ten-thousandth for a hundredth after the step and every thousandth after that', () => {
-    // Measured since the hole close is held to what is drawn (re-skin Task 5): 27 s on CI (run 38166992199),
-    // 54 s locally at load about 4, 66-79 s at load 10-15 beside full unit suites (2.2 s on CI and 10.2 s
-    // loaded before it). 300 s is over 3 times the loaded time and 11 times CI's.
+    // Measured since the hole's twin keeps each ambient's places and each view's dots (re-skin Task 6): 25 s
+    // on CI (run 38180292823; 27 s before the caches), 25 s locally at load 1-2, 33 s at load 12-15 beside
+    // an e2e worker and the other lane (79 s before the caches). 150 s is over 4 times the loaded time and 6
+    // times CI's (300 s before).
     // The steps clear by fractions of a px (0.25-0.64 when fitted), and the sweep above samples every
     // 0.0034 screens, not on them: this samples each step itself and densely after it.
     const moves = ACT_TWO_MOVES.slice(0, ACT_TWO_MOVES.indexOf(NET_MOVES.dive));
@@ -1287,7 +1290,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     // 954 measured since Task 1d took ly-4's and ly-5's vias away (each step's own samples went with
     // them; over 1000 before).
     expect(checked).toBeGreaterThan(900);
-  }, 300_000);
+  }, 150_000);
 
   it('passes through a narrower set (a star’s system, a piece) only where no one step clears', () => {
     // Measured: 9.4 s on CI (run 38166992199; 2.9 s before the hole close), 15.8 s locally at load about 4,
@@ -1749,11 +1752,11 @@ describe('reviewer, trace, fix and lesson, as keyed (test 8; galaxy §15.1)', ()
   });
 
   it('keeps the lit set under the band at every thousandth of every later move (its lamp steps among them) and every hundredth of their holds, at both sizes and every AMBIENT_GRID pose', () => {
-    // Measured since the hole close is held to what is drawn (re-skin Task 5): 86 s on CI (run 38166992199),
-    // 170 s locally at load about 4, 237 s at load 9-13.5 (mostly 11-13) beside a full unit suite. Before
-    // it: 54 s on CI, 84 s alone, and 568 s at load 16-24 before the twins' speedups (3.5 times its alone
-    // time then; the defect sweep's ratio was 7.9). 900 s is 3.8 times the loaded time and 10 times CI's,
-    // and holds a loaded/alone ratio of 5.3 (1,800 s before the speedups, 300 s in between: too tight).
+    // Measured since the hole's twin keeps each ambient's places and each view's dots (re-skin Task 6): 59 s
+    // on CI (run 38180292823; 86 s before the caches), 97 s locally at load 1-2, 132 s at load 12-15 beside
+    // an e2e worker and the other lane (237 s at load 9-13.5 before the caches). 600 s is 4.5 times the
+    // loaded time and 10 times CI's, and holds a loaded/alone ratio of 6, over the 5.3 a full unit suite
+    // beside it once took (900 s before the caches, 1,800 s before the twins' speedups).
     const moves = ACT_TWO_MOVES.slice(ACT_TWO_MOVES.indexOf(LATE_MOVES.toReview));
     const grid = (a: SectionAt, b: SectionAt, step: number): SectionAt[] => {
       const out: SectionAt[] = [a];
@@ -1779,7 +1782,7 @@ describe('reviewer, trace, fix and lesson, as keyed (test 8; galaxy §15.1)', ()
     for (const m of moves) expect(has(m.lamp), `the lamp step of the move to ${m.shot} sampled`).toBe(true);
     expect(places.length).toBeGreaterThan(500);
     expect(worst.margin, worst.at).toBeGreaterThanOrEqual(0);
-  }, 900_000);
+  }, 600_000);
 
   it('runs the lineage streams under tr-1, tr-2 and fx-4 and the feed from re-3 through the trace, each fading only on its turns (galaxy §15.1)', () => {
     const leaf = (k: 'streams' | 'feed', at: SectionAt) => sampler.sample(placeProgress(at)).net[k];

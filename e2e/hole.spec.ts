@@ -12,10 +12,15 @@ import { isHoleEmber, rgChroma } from './pixels';
 // of each of its beats' holds (ly-2, up-1, tr-2, fx-1 and fx-2, all HOLE_CLOSE), its shadow black at
 // both sizes and at a pixel ratio of 2, its disk lopsided, its arch over the shadow, its jets rising,
 // R0's strand in the disk and clean, no core body drawn; and at the galaxy wide (fr-1), not a white blot.
+// And the story on it (re-skin §2.1, §9; the plan's Task 6): no ember at ly-2; the in-fall and R1's strand
+// at up-1; the ember knots from up-1 on; R0's strand heated and singled out at tr-2; the ember reading
+// against the disk's warm side on a phone; fx-1, fx-2 and fx-3 cooling the strands and stopping the knots;
+// and a deep link into R1's strand forming, the scrolled frame.
 
-// Measured: the slowest, the shadow at DPR 2, 38 s on CI beside a shard's other tests (run 38166992199);
-// locally, run to completion at load 10.5-14 beside full unit suites, the shadow at 1440x900 60 s and the
-// rest 11-54 s. 5 min is 5 times that loaded time and 7.8 times the CI one.
+// Measured: the slowest, the shadow at DPR 2, 37-38 s on CI beside a shard's other tests (runs 38166992199
+// and 38180292823; the story's tests 11-33 s); locally, run to completion at load 10.5-14 beside full unit
+// suites, the shadow at 1440x900 60 s and the rest 11-54 s (the story's, re-skin Task 6, 15-52 s at load
+// 12-15). 5 min is 5 times that loaded time and 7.8 times the CI one.
 test.setTimeout(300_000);
 
 const BG = [0x0b, 0x0d, 0x12];
