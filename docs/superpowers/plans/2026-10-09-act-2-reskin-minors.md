@@ -90,3 +90,4 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **The test name "a dot is never under 1 device px"** (hole.test.ts:591) asserts a 1 CSS px floor.    Rename it to match the code and the inspector (see the ⚠️ above).
 - [ ] **The knots' `seed` (aA.w)** is drawn and never read (holeAttrs.ts:135). This is plan-mandated by    the brief's layout, and the inspector's KNOT_VERT doesn't read it either. Note it for Task 5 so    the attribute isn't mistaken for live data.
 - [x] **The floor wording:** spec and plan said 1 device px; the code, the inspector and the brief's test value are 1 CSS px. Words corrected by the controller.
+- [ ] **The life-index fence pins the GLSL half only by regex and parity on an exact-division GPU** (re-review of 9c4b109): the TS fence guards the TS index; a GLSL-side test that runs the shader under emulated reciprocal division would make it airtight.
