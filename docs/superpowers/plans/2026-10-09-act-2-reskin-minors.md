@@ -114,3 +114,16 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **For the author (look):** R0's clean blue strand reads as blue arcs on the warm receding half; the shadow blanks background stars while the hole is unlit (up to 23 px radius in the move into ly-2, before its lamp step).
 - [ ] **Test speed: gpuInputs does not check `updateRanges` on the index or interleaved data**, and does not read interleaved `stride` or `gpuType` (re-review of fix round 1).
 - [ ] **Test speed: `assertDefaults` skips every underscore-prefixed field**, not only fields behind read getters (re-review of fix round 1).
+
+## Task 8b (review of d037ca8..8831f96: compliant and approved; no fix round)
+
+- [ ] **The dropout hides any dot whose disc touches a line** (`bodyScreen.glsl`), where G5 hides by centre: the dark band is up to a dot diameter taller than the line and the rim's cut; `dropout.ts` still says "whose centres". A per-fragment discard in `galaxyMote.frag` for the piece would match G5 exactly and still pass the 50 % test.
+- [ ] **The twin's flash guard hides by centre, the page by disc** (`dropout.test.ts`); disclosed in a comment, but the twin no longer models the drawn rule.
+- [ ] **The dressed limb test no longer tests an unscattered shell** (`e2e/network.spec.ts`): `freeze.hold: 0` turns the forced scatter, leak and dropout back on. Sent to Task 7, which re-pins it.
+- [ ] **The leak's vertex cost is estimated, not measured**: about 10 % of the shell's heavy path, about 1-3 % of vertex work against the 2 % limit. Cheap savings: reuse `shellWarpK`'s unit vector; fetch ages and seeds only inside a cone. A healthy body pays one texel fetch.
+- [x] **The drawn flash guard (about 8 min a size) made one CI shard 13.7 min against 9.4**: split into chunks with overlapping windows on branch `task-ci-balance` (pipeline fix).
+- [ ] **The shape steps when the force comes or goes** (`shell.ts` `scatterCount` counts every slot when forced): focus crossing 0.5 near defect 0.12, and the hold's release at 0.405; scroll-pure pops of 0.02 R. Disclosed.
+- [ ] **The forced scatter, leak and dropout return during the freeze's release** (hold 0 from 0.405, dress fading to 0.421), copies included. For Task 8, which tunes that window.
+- [ ] **117fd24's message claims a shell.test timeout** its diff no longer holds (main's version was taken in the rebase).
+- [ ] **The `DROPOUT_MAX` splice comment names `bodyAttrs.ts`** but the value is `DROPOUT.maxLines` from `birth.ts`; the constant is generated in two places.
+- [ ] **The 8b side-by-sides shrink the decision strip to a 400 px thumbnail**; the full-size strip is what makes the comparison possible.
