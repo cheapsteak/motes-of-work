@@ -1,0 +1,11 @@
+node_modules
+dist
+test-results
+playwright-report
+shots
+content-denylist.local.txt
+.superpowers/
+tools/script-notes/script-notes.html
+
+# Private scrub terms for scratch/tools/collect_scratch.py (never committed)
+scratch/tools/flag-terms.local.txt

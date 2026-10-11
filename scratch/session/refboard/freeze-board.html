@@ -1,0 +1,110 @@
+<title>Freeze-frame references</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Instrument+Serif:ital@1&display=swap">
+<style>
+  :root { color-scheme: dark; --bg: #0b0d12; --panel: #12151c; --fg: #e6e8ee; --muted: #9aa3b5; --rule: #232838; --ember: #ff6b57; --pick: #f3c56b; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.55 Literata, Georgia, serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 36px; }
+  header { display: grid; gap: 10px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+  h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.15; margin: 0; font-weight: 600; text-wrap: balance; }
+  h1 em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
+  h2 { font-size: 22px; margin: 0; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  .muted { color: var(--muted); }
+  section { display: grid; gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+  figure { margin: 0; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  figure img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--rule); display: block; background: #000; }
+  figcaption { font-size: 14px; color: var(--muted); display: grid; gap: 3px; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+  figcaption a { color: var(--muted); font-size: 12px; word-break: break-all; }
+  ol.rank { margin: 0; padding-left: 22px; display: grid; gap: 8px; max-width: 72ch; }
+  .card { background: var(--panel); border-radius: 8px; padding: 18px 16px; display: grid; gap: 10px; }
+  .warn { color: var(--ember); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { text-align: left; vertical-align: top; padding: 8px 10px; border-top: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Motes of work · Act II · reference board</div>
+    <h1>The freeze frame: <em>references</em></h1>
+    <p class="muted">Twenty images collected for the moment we zoom in on the defect and the frame freezes, comic-book style. The stills belong to their owners. They are private references only: nothing here is shipped or traced. A design built from this board is being drawn now.</p>
+  </header>
+
+  <section class="card">
+    <h2>One-line direction</h2>
+    <p>A held moment that moves "on twos" (each pose held for two frames). An inked outline of motes round the planet, its own two lights slightly out of register, and a dotted burst of ticks around the derping moon. The rest of the field dims and tips a few degrees, and a thin frame snaps shut round the picture. All of it is made of motes, none of it is lettering, and it can fade by the next scroll step.</p>
+  </section>
+
+  <section>
+    <h2>Into the Spider-Verse: sense lines, glitch, print</h2>
+    <div class="grid">
+      <figure><img src="img/01.jpg" alt="Wavy marks ringing a masked head on a dark city"><figcaption><b>01 · Sense marks</b>Short separate squiggles in a loose ring on a dark ground: the closest match to our dark ground.<a href="https://vfxvoice.com/?p=5908138">vfxvoice.com</a></figcaption></figure>
+      <figure><img src="img/02.jpg" alt="Three characters each with marks over their heads"><figcaption><b>02 · Marks scale with the reaction</b>A denser ring reads as a bigger reaction, and the marks have an offset edge.<a href="https://vfxvoice.com/?p=5908138">vfxvoice.com</a></figcaption></figure>
+      <figure><img src="img/03.jpg" alt="Face with radiating spikes from the frame edges"><figcaption><b>03 · Radiating burst</b>Spikes from the frame edge pointing at the subject: the cheapest way to say "stop and look".<a href="https://vfxvoice.com/?p=5908138">vfxvoice.com</a></figcaption></figure>
+      <figure><img src="img/04.jpg" alt="Annotated frame: halftone, chromatic aberration, hatching"><figcaption><b>04 · The three print layers</b>Halftone, colour fringing and hatching, labelled. Note how quiet they are: they are texture, not decoration.<a href="https://blog.garagefarm.net/blog/recreating-the-spider-verse-look-in-the-blender-node-editor">garagefarm.net</a></figcaption></figure>
+      <figure><img src="img/05.jpg" alt="Figure shattered into offset colour copies on a black field of dots"><figcaption><b>05 · Glitch as misregistration</b>Offset colour copies of one silhouette on a black field of dots and thin lines, which is almost our ground already.<a href="https://sidefx.com/community/spider-man-into-the-spider-verse">sidefx.com</a></figcaption></figure>
+      <figure><img src="img/06.jpg" alt="City skyline dissolving into blocky fragments"><figcaption><b>06 · Glitch in one place</b>The break stays in one region and the rest of the frame stays calm. The contrast carries it.<a href="https://sidefx.com/community/spider-man-into-the-spider-verse">sidefx.com</a></figcaption></figure>
+      <figure><img src="img/07.jpg" alt="Field of large round dots and splatters"><figcaption><b>07 · Kirby dots</b>Built as particle streams. Literally our medium.<a href="https://sidefx.com/community/spider-man-into-the-spider-verse">sidefx.com</a></figcaption></figure>
+      <figure><img src="img/09.jpg" alt="3D face with and without drawn ink lines"><figcaption><b>09 · Ink lines on 3D</b>Few lines, placed on the contours. Their weight varies, and they break and start again.<a href="https://sidefx.com/community/spider-man-into-the-spider-verse">sidefx.com</a></figcaption></figure>
+      <figure><img src="img/10.jpg" alt="Wall of small comic panels"><figcaption><b>10 · Panel insets</b>Good for a border snapping in. On a phone, use one frame, not many panels.<a href="https://vfxvoice.com/?p=5908138">vfxvoice.com</a></figcaption></figure>
+      <figure><img src="img/11.jpg" alt="Huge lettered impact word with a halftone starburst"><figcaption><b>11 · Impact lettering</b><span class="warn">Not for us: a label, and the most recognisable mark on the board.</span><a href="https://sidefx.com/community/spider-man-into-the-spider-verse">sidefx.com</a></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Borderlands: ink and the intro card</h2>
+    <p class="muted">No official intro-card still could be fetched; the wiki pages refused the request. What is here is the inked look and one fan-made imitation of the card's layout.</p>
+    <div class="grid">
+      <figure><img src="img/17.jpg" alt="Painted concept art with dark contour lines"><figcaption><b>17 · Painted texture plus ink outline</b>The look is hand-drawn texture plus software ink outlines, not true cel shading. Particles can do that.<a href="https://en.wikipedia.org/wiki/Borderlands_2">wikipedia.org</a></figcaption></figure>
+      <figure><img src="img/18.jpg" alt="Outlined figure against a pale tinted backdrop"><figcaption><b>18 · Outlined subject, pale backdrop</b>Outlines on everything, with a washed-out backdrop that lets the subject stand out.<a href="https://www.shacknews.com/article/113291/meet-fl4k-in-new-borderlands-3-character-trailer">shacknews.com</a></figcaption></figure>
+      <figure><img src="img/19.jpg" alt="Fan-made imitation of the intro card: slanted slab, script name, tagline"><figcaption><b>19 · Card layout (fan-made, crude)</b>A slanted slab with notched ends. For us, keep the slab shape and the held tilt at most, and <span class="warn">no lettering</span>.<a href="https://www.deviantart.com/boominalex/art/Gloomer-Borderlands-Character-Intro-829807510">deviantart.com</a></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Print and technique</h2>
+    <div class="grid">
+      <figure><img src="img/08.jpg" alt="Jack Kirby comic page with dotted energy"><figcaption><b>08 · Kirby crackle, the source</b>Dark dots hugging an energy shape. On a dark ground, invert it: bright bubbles, not dark gaps.<a href="https://www.cartoonbrew.com/feature-film/if-its-not-broke-break-it-sony-imageworks-renegade-approach-to-spider-man-into-the-spider-verse-167321.html">cartoonbrew.com</a></figcaption></figure>
+      <figure><img src="img/12.jpg" alt="Ben-Day dot diagram"><figcaption><b>12 · Ben-Day dots</b>A regular lattice of dots, where dot size sets the tone.<a href="https://en.wikipedia.org/wiki/Ben_Day_process">wikipedia.org</a></figcaption></figure>
+      <figure><img src="img/20.jpg" alt="Macro of a CMYK print with misaligned plates"><figcaption><b>20 · Real misregistration</b>The print artefact the colour offset imitates.<a href="https://en.wikipedia.org/wiki/Halftone">wikipedia.org</a></figcaption></figure>
+      <figure><img src="img/13.jpg" alt="three.js RGB halftone example"><figcaption><b>13 · Halftone pass (three.js)</b>A ready-made halftone effect with a per-channel rotated screen.<a href="https://threejs.org/examples/webgl_postprocessing_rgb_halftone.html">threejs.org</a></figcaption></figure>
+      <figure><img src="img/14.jpg" alt="three.js outline example"><figcaption><b>14 · Outline pass (three.js)</b>For particles, seed motes along the silhouette instead of drawing a line.<a href="https://threejs.org/examples/webgl_postprocessing_outline.html">threejs.org</a></figcaption></figure>
+      <figure><img src="img/15.jpg" alt="Flat-shaded scene with black outlines"><figcaption><b>15 · How an ink outline is built</b>Find the depth and normal edges, then composite them.<a href="https://en.wikipedia.org/wiki/Cel_shading">wikipedia.org</a></figcaption></figure>
+      <figure><img src="img/16.jpg" alt="Anime close-up with radial action lines"><figcaption><b>16 · Impact frame</b>Radial lines, flat ink and a held pose. An adjacent reference only.<a href="https://godotshaders.com/?p=1139">godotshaders.com</a></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>What transfers to motes, best first</h2>
+    <ol class="rank">
+      <li><b>Held frame, then "on twos":</b> the motion stops, then steps at about 12 frames a second around the moon only.</li>
+      <li><b>A dotted burst of ticks around the derping moon:</b> straight or stepped ticks, not the film's wavy squiggles.</li>
+      <li><b>Misregistration:</b> the planet and moon drawn two or three times, a few pixels apart, in our own blue and ember, with the moon offset more.</li>
+      <li><b>Coarse halftone on the planet body:</b> big dots on the lit side and small at the edge of the shadow. It has to stay coarse on a phone.</li>
+      <li><b>An inked outline of motes</b> round the planet: thicker on the lit side, thin into the shade, broken where it starts.</li>
+      <li>Hatching on the shadow side.</li>
+      <li>The camera tips 3–6° and holds.</li>
+      <li>The background dims and tints.</li>
+      <li>A thin frame snaps in round the picture.</li>
+      <li>A single-frame flash, rate-limited and off under reduced motion.</li>
+      <li>Bright bubbles drifting off after the freeze.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What we will not use</h2>
+    <div class="scroll"><table>
+      <tr><th>Thing</th><th>Why not</th></tr>
+      <tr><td>Name card, tagline, impact words, caption boxes</td><td>Labels in the picture; text stays at the top.</td></tr>
+      <tr><td>The wavy squiggle ring over a head</td><td>The film's signature mark: "in the vein of", never a copy.</td></tr>
+      <tr><td>A red-and-blue split palette</td><td>Reads as the film's identity; we use our own blue and ember.</td></tr>
+      <tr><td>Grids of many panels</td><td>Too small to read on a phone.</td></tr>
+      <tr><td>Script lettering, skulls, any logo or character</td><td>Direct imitation of a known game or film.</td></tr>
+      <tr><td>Fine halftone and hatching</td><td>They turn to noise on a phone, so they stay coarse.</td></tr>
+    </table></div>
+  </section>
+</div>

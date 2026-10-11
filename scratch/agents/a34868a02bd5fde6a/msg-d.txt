@@ -1,0 +1,11 @@
+timeline: zoom-out, the bike reflows into the first stack as the camera pulls back
+
+netShots.ts holds the Act II shots in network terms (world units, bearing from +z, a target may be a
+stack id resolved from the essay network): S10p (the last shot of Act I), N1 on the first stack and
+N2 pulled back over it, with netShotKeys and netShotOf. The zoom-out keys: the reflow over 0.04-0.40,
+the drive 1.4 to 1.9, the faint lines out by 0.08, the bike dimmed to 0.2 and then 0.03, the camera
+held to 0.02 and then S10p to N1 to N2 (held at the end until the next section exists), and the
+network scalars net.show, net.growth and clock. Act I keeps its keys; the checks that read the end
+of the essay as the finished bike now read the end of Act I.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

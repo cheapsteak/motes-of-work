@@ -1,0 +1,18 @@
+galaxy: budget every instance drawn, size the neighbourhood glow by distance, one seeded stream
+
+The budget now covers everything the renderer will draw, not only the shells and person sets: the
+dotted orbits (90 per planet, 40 per moon track in use), the bodies and the defect's ghosts, the
+glow sprites, and every stream's dots at its longest chord plus the feed. The total is
+Galaxy.motes, with the sets in Galaxy.instances; the unnamed shells thin to fit, and the hero
+planet, the core and the stars keep their lattices.
+
+The background keeps clear of each neighbourhood star's real glow at the galaxy wide, sized by
+glowPx (8.7 px on the desktop probe screen, not the 5 px floor), so no halo touches one there.
+glowPx and galaxyWideView are exported for the renderer.
+
+One seeded stream (seededStream, its first output dropped) and one salt registry serve the
+generator and the background; fitBudget reuses the one bisection. Streams name their bow's bearing
+bowBearing. C7 is born once its star is half built. The fit's counts are kept on the galaxy, and a
+test holds every planet's eccentricity in its band outside the flattened systems.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

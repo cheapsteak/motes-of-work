@@ -1,0 +1,11 @@
+galaxy: the background of stars and dust on two arms
+
+Galaxy spec section 2.1 with section 14.2's neighbourhood: the phone and desktop tiers, core stars
+and two logarithmic arms with arm 0 through the neighbourhood's middle, the brightest 15 % in their
+own set, 12 % warmed (a negative brightness), dust at 0.08 to 0.18, nothing within 16 of the centre,
+and only leak stars within 50 of the neighbourhood. Every point draws from its own seeded stream.
+
+The arm-spacing assertion (a median of 7 px at the galaxy wide) is held as an expected failure: the
+specified counts and scatter cannot meet it, and the measured median is 1.5 px.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

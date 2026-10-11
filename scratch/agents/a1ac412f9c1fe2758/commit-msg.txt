@@ -1,0 +1,15 @@
+feat: surface normals, lighting and depth cues
+
+Thread unit normals (correct and twin) from the shape sampler through
+BoundPoint, MoteAttrs and the instanced layout into MoteOut.normal, with an
+identical TS/GLSL fallback when the variant blend passes through zero. The
+GLSL MoteOut struct is generated from PARITY_FIELDS; parity gains an
+opposite-normals case and runs its hash check in the vertex stage.
+
+Settled motes are lit (fill + key + rim, back-face and depth dimming, depth
+size shrink) from constants in src/scene/lighting.ts passed as uniforms; the
+depth range is the camera to the machine's anchor sphere per frame. Adds a
+gear meshing regression test, a looks test for lit vs turned-away faces and
+SHOTS-gated three-quarter mechanism screenshots.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

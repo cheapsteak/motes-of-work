@@ -1,0 +1,17 @@
+node: the network drawn, with its streams, halos, the reviewer's ring and the feed
+
+nodeSystem.ts builds five meshes over the two textures, once per page load: the stacks' motes
+(node() in node.vert.glsl, lit and sized as the bike's motes are), the streams' drifting dots
+(stream.vert.glsl, moving only with the scroll clock; the up-stream thin and brighter), the feed
+to the ring (the same instance kind), one halo per stack (the far-glow impostor plus the highlight
+and the surge) and the ring, placed by ringAt. Each frame reads the six network scalars, clock and
+the camera; the whole group is hidden while net.show is 0, so no earlier frame changes.
+mote.frag.glsl mixes a lit mote toward ember by a vHi varying the bike writes as 0. A hero whose
+glow is under 1 is brought up to a plain mote's brightness as it grows past 120 to 300 px on
+screen, so the close shots show its crack; the far shots keep the designed glow.
+
+main.ts generates the network once, from the mote seed at the network's share of the mote budget,
+and draws it beside the bike; the far plane moves out to hold the wide shots; drawStats reports
+each visible instanced mesh's instance count.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

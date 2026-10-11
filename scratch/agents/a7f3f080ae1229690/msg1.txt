@@ -1,0 +1,7 @@
+galaxy: the cracked shell, a lattice sphere on an equation that scatters in a sweep, in both mirrors
+
+The shell's constants in birth.ts, shell.ts and shell.glsl (the equation, the
+three-cut scatter with its ring and aftershock, the lattice and its spin), and a
+parity mode held to 1e-5 R.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

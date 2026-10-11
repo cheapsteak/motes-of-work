@@ -1,0 +1,13 @@
+{
+ "head": {"cam":"HEAD","mech":{"assembly":1,"drive":0.3}},
+ "core-d0": {"cam":"CORE","mech":{"assembly":1,"drive":0}},
+ "twin-head": {"cam":"HEAD","mech":{"assembly":1,"variant":1,"drive":0.3}},
+ "twin-tq": {"cam":"TQ","mech":{"assembly":1,"variant":1,"drive":0.3}},
+ "twin-half": {"cam":"TQ","mech":{"assembly":1,"variant":0.5,"drive":0.3}},
+ "f-ratio": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"ratio":0.6}}},
+ "f-slip": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"slip":0.6}}},
+ "f-stall": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"stall":0.6}}},
+ "f-bind": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"bind":0.6}}},
+ "f-misalign": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"misalign":0.6}}},
+ "f-jitter": {"cam":"CORE","mech":{"assembly":1,"drive":0.3,"ghost":1,"faults":{"jitter":0.6}}}
+}

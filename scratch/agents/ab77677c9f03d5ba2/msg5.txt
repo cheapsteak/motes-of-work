@@ -1,0 +1,9 @@
+feat: radial vignette over the essay stage
+
+Task 9 polish (visual review item 14): a CSS radial vignette on
+body::after, above the canvas and below the story panels, with
+pointer-events none, hidden with the canvas when WebGL is gone. Pure CSS,
+so frames stay a function of state. The comparison page has its own
+stylesheet (src/compare/compare.css), so it is left alone.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

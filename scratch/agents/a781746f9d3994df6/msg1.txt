@@ -1,0 +1,11 @@
+auto-advance: one stop per scene, at its end
+
+A scene is a beat, or one line of the brief, with the motion that goes
+with it. Its stop is just before the next change of text (the next line
+coming up, or its page turning), so the motion has run and the line is
+still fully up. Where the motion outlasts the line (the orbit), the stop
+waits for it, at the latest point at rest before the next line. The
+essay's last scene runs to the end. From the top of the essay it goes
+straight on to the first stop rather than holding twice.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

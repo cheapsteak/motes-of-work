@@ -1,0 +1,1033 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galaxy tuner</title>
+<style>
+  /* Layout: one full-bleed stage (the galaxy, at phone size or desktop size, scaled to fit) with a
+     collapsible bottom sheet of controls. Single dark look by design: the essay's ground. */
+  :root {
+    --bg: #0b0d12;
+    --sheet: #12161f;
+    --sheet-edge: #232a38;
+    --fg: #e4e8f0;
+    --muted: #8b94a8;
+    --accent: #4da3ff;
+    --warm: #ffe2b0;
+    --track: #2a3243;
+    --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); overflow: hidden; }
+  #stage { position: fixed; inset: 0; overflow: hidden; background: var(--bg); touch-action: none; }
+  #frame { position: absolute; left: 50%; top: 50%; transform-origin: 0 0; }
+  #frame.boxed { outline: 1px solid #262c3a; }
+  #frame canvas { display: block; }
+  #band { position: absolute; left: 0; top: 0; width: 100%; height: 42%; background: rgba(11, 13, 18, 0.55); border-bottom: 1px dashed rgba(139, 148, 168, 0.5); box-sizing: border-box; padding: 15% 8% 0; pointer-events: none; }
+  #frame.wide #band { padding-top: 8%; }
+  #band p { margin: 0; font: 400 clamp(18px, 6vw, 24px)/1.3 Georgia, 'Times New Roman', serif; color: var(--fg); }
+  #frame.wide #band p { font-size: 22px; }
+  #band small { position: absolute; right: 8px; bottom: 4px; color: var(--muted); font: 11px var(--font); }
+  #readout { position: absolute; left: 8px; top: 6px; max-width: 95%; color: var(--muted); font: 10px/1.3 var(--mono); pointer-events: none; }
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--sheet); border-top: 1px solid var(--sheet-edge); border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45); max-height: 56vh; display: flex; flex-direction: column; }
+  #sheet.collapsed #body { display: none; }
+  #head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap; }
+  #head h1 { font-size: 15px; font-weight: 600; margin: 0 auto 0 0; letter-spacing: 0.01em; }
+  #body { overflow-y: auto; padding: 0 12px 12px; min-height: 0; }
+  button { font: inherit; color: var(--fg); background: #1b2130; border: 1px solid var(--sheet-edge); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.on { background: #1f3350; border-color: var(--accent); }
+  button.chev { padding: 4px 10px; font-size: 16px; line-height: 1; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  details { border-top: 1px solid var(--sheet-edge); }
+  summary { cursor: pointer; padding: 8px 0; font-weight: 600; color: var(--fg); list-style: none; display: flex; align-items: center; gap: 8px; }
+  summary::before { content: '▸'; color: var(--muted); font-size: 12px; }
+  details[open] summary::before { content: '▾'; }
+  summary small { color: var(--muted); font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; padding-bottom: 8px; }
+  .ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; min-width: 0; }
+  .ctl label { color: var(--fg); font-size: 13px; }
+  .ctl output { color: var(--muted); font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+  .ctl input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); height: 22px; }
+  .ctl select, .ctl input[type=color] { grid-column: 1 / -1; background: #1b2130; color: var(--fg); border: 1px solid var(--sheet-edge); border-radius: 6px; padding: 4px 6px; font: inherit; }
+  .ctl input[type=color] { height: 30px; padding: 2px; }
+  .ctl.changed label::after { content: ' •'; color: var(--warm); }
+  .note { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+  #json { width: 100%; box-sizing: border-box; height: 120px; background: #0e1119; color: var(--fg); border: 1px solid var(--sheet-edge); border-radius: 8px; font: 11px/1.4 var(--mono); padding: 8px; margin-top: 6px; }
+  #toast { color: var(--warm); font-size: 12px; }
+  #sheet.peek { visibility: hidden; pointer-events: none; }
+  /* Hold to see lives in the open sheet; while held the sheet hides but the button stays so it can be released. */
+  #peek { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #peek.on { background: #1f3350; border-color: var(--accent); }
+  #sheet.peek #peek { visibility: visible; }
+  /* Compare mode (the default): the sheet is gone, the readout hidden, a small pill is the only UI. */
+  #sheet.closed { display: none; }
+  body:not(.open) #readout { display: none; }
+  #pill { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 14px 7px; border-radius: 999px; background: rgba(18, 22, 31, 0.55); border: 1px solid rgba(139, 148, 168, 0.18); color: var(--fg); font: 12px/1.2 var(--font); opacity: 0.45; transition: opacity 0.6s ease, background 0.6s ease; -webkit-tap-highlight-color: transparent; }
+  #pill.flash { opacity: 1; background: rgba(27, 33, 48, 0.85); transition: none; }
+  #pill:hover, #pill:focus-visible { opacity: 0.9; }
+  #pill-dots { display: flex; gap: 5px; }
+  #pill-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(228, 232, 240, 0.3); }
+  #pill-dots i.on { background: var(--fg); }
+  #pill-dots2 { display: flex; gap: 4px; margin-top: -1px; }
+  #pill-dots2 i { width: 3px; height: 3px; border-radius: 50%; background: rgba(228, 232, 240, 0.3); }
+  #pill-dots2 i.on { background: var(--fg); }
+  body.open #pill { display: none; }
+  #hood-row { align-items: center; }
+  #hood-row .lbl { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  button.chip { border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  button.chip.on { background: #1f3350; border-color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { #pill { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { #sheet { transition: none; } }
+</style>
+
+<div id="stage">
+  <div id="frame">
+    <div id="band" hidden><p>From far away, everything looks right.</p><small>text band · top 42 %</small></div>
+    <div id="readout"></div>
+  </div>
+</div>
+
+<button id="pill" type="button" aria-label="Show the controls"><span id="pill-name"></span><span id="pill-dots" aria-hidden="true"></span><span id="pill-dots2" aria-hidden="true"></span></button>
+
+<div id="sheet" class="closed">
+  <div id="head">
+    <h1>Galaxy tuner</h1>
+    <button id="preset-today" type="button">Today</button>
+    <button id="preset-rec" type="button">Recommended</button>
+    <button id="preset-rec-soft" type="button" title="Recommended with soft arm edges: an unbounded cross-arm profile, no clearance (halos may overlap), the lane as a smooth dip">Recommended (soft)</button>
+    <button id="preset-wisps" type="button" title="Arms that emerge from a flow-aligned noise field: wisps, no outline">Wisps</button>
+    <button id="preset-wisps-reviewed" type="button" title="Wisps, reviewed: gradient noise on ridges, two scales (segments and feathers), a forking bias that rises outward, beads of knots, a lane filament, a visible old disc">Wisps (reviewed)</button>
+    <button id="preset-wave" type="button" title="Shape mode A: arms where elliptical orbits crowd">Density wave</button>
+    <button id="preset-field" type="button" title="Shape mode B: stars drawn from a smooth density field">Smooth field</button>
+    <button id="preset-m74" type="button" title="Shape mode C: the research recipe, an Sc like M74, as specified">M74 recipe</button>
+    <button id="preset-readable" type="button" title="The M74 recipe tuned so the two arms read at a glance on a phone">Readable</button>
+    <button id="preset-readable-colour" type="button" title="Readable with the star colour model">Readable + colour</button>
+    <button id="preset-wave-colour" type="button" title="The density wave with the star colour model">Density wave + colour</button>
+    <button id="copy" type="button">Copy values</button>
+    <button id="peek" type="button" aria-label="Hold to hide the controls">Hold to see</button>
+    <button id="close" class="chev" type="button" aria-label="Close the controls">✕</button>
+  </div>
+  <div id="body">
+    <div class="row">
+      <button id="cam-reset" type="button" title="Back to the essay framing, unturned, and forget the saved camera">Reset camera</button>
+      <button id="cam-essay" type="button" title="The essay's galaxy wide: distance 640, fov 40, elevation 86, aimed at the core, reframed for the frame's size">Essay framing</button>
+      <button id="cam-over" type="button">Overhead</button>
+      <button id="cam-tilt" type="button">Tilted 70°</button>
+      <button id="band-toggle" type="button">Text band</button>
+      <button id="spin" type="button">Rotate</button>
+      <select id="frame-size" aria-label="Frame size">
+        <option value="fit">Fit window</option>
+        <option value="phone">Phone 390 × 844</option>
+        <option value="desktop">Desktop 1440 × 900</option>
+      </select>
+    </div>
+    <div class="row" id="hood-row"><span class="lbl">Neighbourhood</span><button class="chip" type="button" data-hood="today" title="The 30 spots as uniform agent-blue sprites, bit for bit">As today</button><button class="chip" type="button" data-hood="blend" title="The positions stay; each spot's far look (brightness, size, colour) is drawn from the background population around it, seeded per spot; the real sprite fades in on approach">Blend</button><button class="chip" type="button" data-hood="dissolve" title="At the galaxy wide the 30 are not drawn as themselves: the nearest background star is pulled onto each spot; the real sprite fades in on approach">Dissolve</button><button class="chip" type="button" data-hood="dissolve-late" title="Dissolve with a later handover band (its own sliders), so the far form holds until the camera is nearer">Dissolve (late)</button><button class="chip" type="button" data-hood="jitter" title="For comparison: the spots moved off their even spacing by a seeded jitter snapped to the densest background, keeping a minimum gap (reported in the readout)">Jitter</button></div>
+    <p class="note">Swipe sideways (or ← →, a trackpad swipe, a click-drag) to change preset, up or down (or ↑ ↓) to change the neighbourhood option; the camera stays put. Pinch or wheel to zoom; two-finger drag, right-drag or modifier-drag to orbit. A dot marks a value that differs from today's. Values in brackets are today's.</p>
+    <div id="sections"></div>
+    <span id="toast"></span>
+    <textarea id="json" hidden readonly aria-label="Parameters as JSON"></textarea>
+  </div>
+</div>
+
+<script type="module">
+/*GEN*/
+
+import { AddEquation, BufferAttribute, CustomBlending, GLSL3, Group, InstancedBufferAttribute, InstancedBufferGeometry, Mesh, OneFactor, OneMinusSrcColorFactor, PerspectiveCamera, RawShaderMaterial, Scene, Vector2, Vector3, WebGLRenderer, Color } from '../../../node_modules/three/build/three.module.js';
+
+const DEG = Math.PI / 180;
+const $ = (s) => document.querySelector(s);
+
+// ---- parameters and their controls ----
+// [key, label, min, max, step, section, kind, options]
+const CONTROLS = [
+  ['shape', 'Shape (arms: today and recommended)', 0, 0, 0, 'Shape', 'select', ['arms', 'wave', 'field', 'recipe', 'wisps']],
+  ['place', 'Placement (halo clearance)', 0, 0, 0, 'Shape', 'select', ['roomiest', 'reject', 'none']],
+  ['youngShare', 'Young share (blue, in the arms)', 0, 0.8, 0.01, 'Shape', 'range'],
+  ['youngContrast', 'Young arm contrast A (peak = 1 + A)', 0, 40, 0.5, 'Shape', 'range'],
+  ['youngSharp', 'Young arm sharpness', 0.5, 30, 0.5, 'Shape', 'range'],
+  ['youngBright', 'Young brightness boost', 0, 1.5, 0.05, 'Shape', 'range'],
+  ['oldDim', 'Old stars dimmed by', 0, 0.8, 0.01, 'Shape', 'range'],
+  ['oldContrast', 'Old arm contrast A', 0, 10, 0.1, 'Shape', 'range'],
+  ['oldSharp', 'Old arm sharpness', 0.5, 12, 0.5, 'Shape', 'range'],
+  ['oldWarm', 'Old warm share at the rim', 0, 1, 0.01, 'Shape', 'range'],
+  ['armStart', 'Arms fade in by (share of R)', 0, 0.5, 0.01, 'Shape', 'range'],
+  ['discFade', 'Disc fades out from (share of R)', 0.3, 1, 0.01, 'Shape', 'range'],
+  ['waveEIn', 'Orbit ellipticity at the centre (wave)', 0, 0.3, 0.005, 'Shape', 'range'],
+  ['waveEOut', 'Orbit ellipticity at the rim (wave)', 0, 0.3, 0.005, 'Shape', 'range'],
+  ['dustContrast', 'Dust arm contrast A', 0, 10, 0.1, 'Shape', 'range'],
+  ['dustSharp', 'Dust arm sharpness', 0.5, 12, 0.5, 'Shape', 'range'],
+  ['starColour', 'Colour variety (0 off: the two tints)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['youngTempSpread', 'Young temperature spread (× the mixture)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['oldTempSpread', 'Old temperature spread (× the mixture)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['colourLum', 'Coloured star brightness (× the agents\' blue)', 0.3, 3, 0.05, 'Star colour', 'range'],
+  ['dustLane', 'Dust crest into the lane (0 crest, 1 lane)', 0, 1, 0.05, 'Shape', 'range'],
+  ['armScale', 'Young scale length (× disc scale)', 0.6, 2, 0.05, 'Shape', 'range'],
+  ['modDepth', 'Along-arm modulation depth (± share)', 0, 1, 0.05, 'Shape', 'range'],
+  ['modPeriod', 'Along-arm modulation period (in ln r)', 0.1, 1.5, 0.05, 'Shape', 'range'],
+  ['armStartIn', 'Arms begin fading in at (share of R; 0: half the end)', 0, 0.5, 0.01, 'Shape', 'range'],
+  ['armEndOut', 'Arms gone by (share of R, when they dissolve)', 0.8, 1.3, 0.01, 'Shape', 'range'],
+  ['discFadeEnd', 'Disc taper ends at (share of R)', 1, 1.4, 0.01, 'Shape', 'range'],
+
+  ['widthOld', 'Old arm FWHM (× r)', 0.05, 0.8, 0.01, 'Recipe (M74)', 'range'],
+  ['widthYoung', 'Young arm FWHM (× r)', 0.02, 0.4, 0.005, 'Recipe (M74)', 'range'],
+  ['sersicN', 'Cross-arm Sérsic n (0.5 gaussian, 1 exponential)', 0.3, 1.5, 0.05, 'Recipe (M74)', 'range'],
+  ['youngOffset', 'Young crest downstream (old half-widths)', -1, 1, 0.01, 'Recipe (M74)', 'range'],
+  ['knotSigma', 'Knot spread (× r)', 0.005, 0.15, 0.005, 'Recipe (M74)', 'range'],
+  ['spurShare', 'Spur share of the stars', 0, 0.2, 0.01, 'Recipe (M74)', 'range'],
+  ['spurCount', 'Spurs', 0, 60, 1, 'Recipe (M74)', 'range'],
+  ['spurAngle', 'Spur angle from the arm (°)', 0, 90, 1, 'Recipe (M74)', 'range'],
+  ['spurLength', 'Spur length (× r)', 0.02, 0.5, 0.01, 'Recipe (M74)', 'range'],
+  ['spurWidth', 'Spur width (× r)', 0.002, 0.05, 0.001, 'Recipe (M74)', 'range'],
+  ['dustLaneGain', 'Dust peak in the lane (gain)', 0, 8, 0.1, 'Recipe (M74)', 'range'],
+  ['dustArmShare', 'Dust drawn on the arms (share)', 0, 1, 0.05, 'Recipe (M74)', 'range'],
+  ['zOld', 'Old vertical σ (× disc scale)', 0, 0.4, 0.01, 'Recipe (M74)', 'range'],
+  ['zYoung', 'Young vertical σ (× disc scale)', 0, 0.2, 0.005, 'Recipe (M74)', 'range'],
+  ['zDust', 'Dust vertical σ (× disc scale)', 0, 0.3, 0.005, 'Recipe (M74)', 'range'],
+
+  ['wispBias', 'Spiral bias contrast A (peak = 1 + A)', 0, 6, 0.05, 'Wisps', 'range'],
+  ['wispSharp', 'Spiral bias sharpness', 0.5, 12, 0.5, 'Wisps', 'range'],
+  ['wispAlong', 'Noise scale along the flow (× r)', 0.05, 2, 0.01, 'Wisps', 'range'],
+  ['wispAcross', 'Noise scale across the flow (× r)', 0.005, 0.3, 0.005, 'Wisps', 'range'],
+  ['wispAniso', 'Anisotropy strength (0 round, 1 as set, 2 doubled)', 0, 2, 0.05, 'Wisps', 'range'],
+  ['wispOctaves', 'Noise octaves', 1, 6, 1, 'Wisps', 'range'],
+  ['wispRidge', 'Ridged blend (0 soft streaks, 1 filaments)', 0, 1, 0.05, 'Wisps', 'range'],
+  ['wispPower', 'Contrast power (wisps vs gaps)', 1, 12, 0.25, 'Wisps', 'range'],
+  ['wispShear', 'Shear off the arm (°, + outward)', -30, 30, 0.5, 'Wisps', 'range'],
+  ['wispYoung', 'Young field sharpness (power of the field)', 1, 6, 0.1, 'Wisps', 'range'],
+  ['wispOld', 'Old disc wisp texture (share)', 0, 1, 0.05, 'Wisps', 'range'],
+  ['clumpShare', 'Knot share of the stars', 0, 0.4, 0.01, 'Wisps', 'range'],
+  ['youngShare', 'Young share (the rest after bulge and knots is old)', 0, 0.8, 0.01, 'Wisps', 'range'],
+  ['wispKnotGap', 'Knot spacing at least (× R)', 0, 0.4, 0.01, 'Wisps', 'range'],
+
+  ['wispNoise', 'Noise (value: a draw per lattice point; gradient: Perlin, on ridges)', 0, 0, 0, 'Wisps (reviewed)', 'select', ['value', 'gradient']],
+  ['wispRidgeFeed', 'Ridged multifractal feed (detail only on the ridges)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispWarp', 'Meander: domain warp across the flow (u)', 0, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispWarpAlong', 'Meander scale along the flow (× r)', 0.3, 4, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBiasRise', 'Bias contrast rises outward by (share)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBiasRiseTo', 'Bias contrast reaches full by (share of R)', 0.1, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['modDepth', 'Along-arm segments: modulation depth (± share)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['modPeriod', 'Along-arm segment period (in ln r)', 0.1, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBranch', 'Branch: a second bias of this × A past the fork', 0, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBranchPitch', 'Branch pitch (more open than the arm)', 0.15, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispBranchFrom', 'Branch leaves the arm at (share of R)', 0.2, 0.9, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispFeather', 'Feathers: weight added on the outer flank', 0, 2, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherShear', 'Feather angle off the arm (°, outward)', 0, 80, 1, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAlong', 'Feather length (× r)', 0.03, 0.6, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAcross', 'Feather width (× r)', 0.004, 0.08, 0.001, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAt', 'Feathers centred at (bias σ, + outer flank)', -2, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherWidth', 'Feather window σ (bias σ)', 0.1, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherOctaves', 'Feather noise octaves', 1, 6, 1, 'Wisps (reviewed)', 'range'],
+  ['wispLaneAlong', 'Lane filament length (× r; 0: the wisps\' geometry)', 0, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispLaneAcross', 'Lane filament width (× r)', 0.005, 0.1, 0.005, 'Wisps (reviewed)', 'range'],
+  ['wispKnotMode', 'Knots (densest wisps, or beads walked along the arms)', 0, 0, 0, 'Wisps (reviewed)', 'select', ['densest', 'beads']],
+  ['wispKnotJitter', 'Bead spacing jitter (± share of the mean gap)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['dustWispShare', 'Arm dust tracing the wisps (share; the rest peaks in the lane)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['clumpOut', 'Beads sit downstream of the crest (bias σ)', -1.5, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['knotSigma', 'Knot spread (× r)', 0.005, 0.15, 0.005, 'Wisps (reviewed)', 'range'],
+  ['clumpCount', 'Knots', 4, 120, 1, 'Wisps (reviewed)', 'range'],
+  ['oldDim', 'Old stars dimmed by', 0, 0.8, 0.01, 'Wisps (reviewed)', 'range'],
+  ['oldWarm', 'Old warm share at the rim', 0, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['armEnd', 'Arms dissolve past (share of R)', 0.4, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['armEndOut', 'Arms gone by (share of R)', 0.8, 1.3, 0.01, 'Wisps (reviewed)', 'range'],
+
+  ['hoodLod0', 'Far form whole below (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLod1', 'Real form whole above (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLateLod0', 'Dissolve (late): far form whole below (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLateLod1', 'Dissolve (late): real form whole above (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodJitter', 'Jitter σ (units; Jitter mode)', 0, 30, 0.5, 'Neighbourhood', 'range'],
+  ['hoodGap', 'Minimum gap between spots (units; Jitter mode)', 0, 30, 0.5, 'Neighbourhood', 'range'],
+  ['hoodSnap', 'Snap to the densest background (0 pure jitter, 1 densest candidate)', 0, 1, 0.05, 'Neighbourhood', 'range'],
+
+  ['tier', 'Tier (sets the halo clearance)', 0, 0, 0, 'Budget', 'select', ['phone', 'desktop']],
+  ['stars', 'Background stars', 500, 8000, 50, 'Budget', 'range'],
+  ['dust', 'Dust motes', 0, 12000, 100, 'Budget', 'range'],
+  ['seed', 'Seed', 1, 99, 1, 'Budget', 'range'],
+  ['hood', 'Neighbourhood sprites (30)', 0, 1, 1, 'Budget', 'range'],
+
+  ['arms', 'Arm count', 1, 5, 1, 'Arms', 'range'],
+  ['pitch', 'Pitch (θ = ln(r/2) / pitch)', 0.12, 0.8, 0.01, 'Arms', 'range'],
+  ['armMode', 'Scatter', 0, 0, 0, 'Arms', 'select', ['bearing', 'perp']],
+  ['armSoft', 'Edge softness (0 uniform, 1 gaussian)', 0, 1, 0.05, 'Arms', 'range'],
+  ['armCross', 'Cross-arm profile (perp mode)', 0, 0, 0, 'Arms', 'select', ['gauss3', 'normal', 'sersic']],
+  ['scatter', 'Bearing scatter (rad, bearing mode)', 0, 1.2, 0.01, 'Arms', 'range'],
+  ['scatterRim', 'Bearing scatter at the rim (× centre)', 0, 2, 0.05, 'Arms', 'range'],
+  ['sigmaCore', 'Arm σ at the centre (units, perp mode)', 0.5, 20, 0.5, 'Arms', 'range'],
+  ['sigmaRim', 'Arm σ at the rim (units, perp mode)', 1, 60, 0.5, 'Arms', 'range'],
+  ['armEnd', 'Arms dissolve past (share of radius)', 0.4, 1, 0.01, 'Arms', 'range'],
+
+  ['radialLaw', 'Radial law', 0, 0, 0, 'Disc and bulge', 'select', ['power', 'exp']],
+  ['starExp', 'Power-law exponent (r = R·u^exp)', 0.3, 1.5, 0.01, 'Disc and bulge', 'range'],
+  ['discScale', 'Exponential scale length (share of R)', 0.1, 0.6, 0.01, 'Disc and bulge', 'range'],
+  ['discShare', 'Inter-arm disc share', 0, 0.8, 0.01, 'Disc and bulge', 'range'],
+  ['radius', 'Radius (units)', 100, 320, 5, 'Disc and bulge', 'range'],
+  ['coreShare', 'Bulge share of the stars', 0, 0.6, 0.01, 'Disc and bulge', 'range'],
+  ['bulgeMode', 'Bulge', 0, 0, 0, 'Disc and bulge', 'select', ['rings', 'exp']],
+  ['coreAt', 'Rings reach (share of R, rings mode)', 0.1, 0.8, 0.01, 'Disc and bulge', 'range'],
+  ['bulgeScale', 'Bulge scale (share of R, exp mode)', 0.03, 0.3, 0.005, 'Disc and bulge', 'range'],
+  ['bulgeFlat', 'Bulge flattening (y scale)', 0.1, 1, 0.05, 'Disc and bulge', 'range'],
+  ['coreExclusion', 'Core exclusion (room for the black hole)', 0, 60, 1, 'Disc and bulge', 'range'],
+  ['starY', 'Star height scatter (±)', 0, 12, 0.1, 'Disc and bulge', 'range'],
+
+  ['brightShare', 'Bright set share', 0, 0.5, 0.01, 'Stars and colour', 'range'],
+  ['brightFloor', 'Brightness floor', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['brightPow', 'Brightness power (higher: more faint)', 0.5, 6, 0.1, 'Stars and colour', 'range'],
+  ['warmShare', 'Warm share (flat)', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['warmGradient', 'Warm gradient strength', 0, 1, 0.05, 'Stars and colour', 'range'],
+  ['warmCore', 'Warm share at the centre', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['warmRim', 'Warm share at the rim', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['agent', 'Cool tint', 0, 0, 0, 'Stars and colour', 'color'],
+  ['warm', 'Warm tint', 0, 0, 0, 'Stars and colour', 'color'],
+  ['warmMix', 'Warm mix toward the warm tint', 0, 1, 0.01, 'Stars and colour', 'color-range'],
+  ['hazeWarm', 'Warm core haze', 0, 1, 1, 'Stars and colour', 'range'],
+
+  ['clumpShare', 'Share of stars in knots', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['clumpCount', 'Knots', 4, 120, 1, 'Knots and dust lanes', 'range'],
+  ['clumpRadius', 'Knot radius (units)', 1, 15, 0.5, 'Knots and dust lanes', 'range'],
+  ['clumpOut', 'Knots sit outward (σ)', -1.5, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['clumpBright', 'Knot brightness boost', 0, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneDepth', 'Dust lane depth (share removed)', 0, 1, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneOffset', 'Lane position (σ, − inner edge)', -1.5, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneWidth', 'Lane width (σ)', 0.05, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneShape', 'Lane shape (arms generator)', 0, 0, 0, 'Knots and dust lanes', 'select', ['band', 'dip']],
+  ['dustMode', 'Dust motes lie', 0, 0, 0, 'Knots and dust lanes', 'select', ['arms', 'disc', 'lanes']],
+  ['dustScatter', 'Dust bearing scatter (arms mode)', 0, 2, 0.05, 'Knots and dust lanes', 'range'],
+  ['dustExp', 'Dust radial exponent', 0.3, 1.5, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustFloor', 'Dust brightness floor', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustRange', 'Dust brightness range', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustY', 'Dust height scatter (±)', 0, 12, 0.1, 'Knots and dust lanes', 'range'],
+
+  ['haloStar', 'Star sprite from afar (px)', 1, 6, 0.5, 'Sprites', 'range'],
+  ['maxStar', 'Star sprite nearer, at most (px)', 1, 12, 0.5, 'Sprites', 'range'],
+  ['worldStar', 'Star world size', 0.1, 3, 0.1, 'Sprites', 'range'],
+  ['haloBright', 'Bright sprite from afar (px)', 1, 8, 0.5, 'Sprites', 'range'],
+  ['maxBright', 'Bright sprite nearer, at most (px)', 1, 16, 0.5, 'Sprites', 'range'],
+  ['worldBright', 'Bright world size', 0.1, 4, 0.1, 'Sprites', 'range'],
+  ['dustPx', 'Dust mote (px)', 0.5, 3, 0.5, 'Sprites', 'range'],
+  ['hazePx', 'Core haze (px)', 0, 160, 2, 'Sprites', 'range'],
+  ['hazeGain', 'Core haze brightness', 0, 1, 0.01, 'Sprites', 'range'],
+  ['gain', 'Overall gain', 0, 2, 0.01, 'Sprites', 'range'],
+];
+const GEN_KEYS = new Set(['dustWispShare', 'wispFeatherOctaves', 'wispNoise', 'wispRidgeFeed', 'wispWarp', 'wispWarpAlong', 'wispBiasRise', 'wispBiasRiseTo', 'wispBranch', 'wispBranchPitch', 'wispBranchFrom', 'wispFeather', 'wispFeatherShear', 'wispFeatherAlong', 'wispFeatherAcross', 'wispFeatherAt', 'wispFeatherWidth', 'wispLaneAlong', 'wispLaneAcross', 'wispKnotMode', 'wispKnotJitter', 'wispBias', 'wispSharp', 'wispAlong', 'wispAcross', 'wispAniso', 'wispOctaves', 'wispRidge', 'wispPower', 'wispShear', 'wispYoung', 'wispOld', 'wispKnotGap', 'armCross', 'laneShape', 'starColour', 'youngTempSpread', 'oldTempSpread', 'shape', 'place', 'oldDim', 'dustLane', 'armScale', 'modDepth', 'modPeriod', 'armStartIn', 'armEndOut', 'discFadeEnd', 'widthOld', 'widthYoung', 'sersicN', 'youngOffset', 'knotSigma', 'spurShare', 'spurCount', 'spurAngle', 'spurLength', 'spurWidth', 'dustLaneGain', 'dustArmShare', 'zOld', 'zYoung', 'zDust', 'youngShare', 'youngContrast', 'youngSharp', 'youngBright', 'oldContrast', 'oldSharp', 'oldWarm', 'armStart', 'discFade', 'waveEIn', 'waveEOut', 'dustContrast', 'dustSharp', 'tier', 'stars', 'dust', 'seed', 'hood', 'arms', 'pitch', 'armMode', 'armSoft', 'scatter', 'scatterRim', 'sigmaCore', 'sigmaRim', 'armEnd', 'radialLaw', 'starExp', 'discScale', 'discShare', 'radius', 'coreShare', 'bulgeMode', 'coreAt', 'bulgeScale', 'bulgeFlat', 'coreExclusion', 'starY', 'brightShare', 'brightFloor', 'brightPow', 'warmShare', 'warmGradient', 'warmCore', 'warmRim', 'clumpShare', 'clumpCount', 'clumpRadius', 'clumpOut', 'clumpBright', 'laneDepth', 'laneOffset', 'laneWidth', 'dustMode', 'dustScatter', 'dustExp', 'dustFloor', 'dustRange', 'dustY', 'haloStar', 'haloBright']);
+
+// TODAY and RECOMMENDED do not name the shape modes' keys: BASE is today with the shape defaults (shape 'arms',
+// place 'roomiest'), which generate exactly what TODAY alone did. The brackets and dots compare against it.
+const BASE = { ...SHAPE_DEFAULTS, ...TODAY };
+let P = { ...BASE };
+// The camera: the essay's galaxy wide. `turn` is the galaxy's pose in the stills (galaxyTurn(AMBIENT_POSE)).
+const ESSAY_CAM = { bearing: 0, elevation: 86, distance: 640, fov: 40, essay: true, turn: 0.04979659524447205 * 180 / Math.PI, spinPeriod: 120 };
+let C = { ...ESSAY_CAM };
+let spinning = false;
+let frameMode = 'fit';
+// The presets the swipe walks through, in order. Each one's geometry is generated once per tier and cached.
+const PRESETS = [
+  ['Today', TODAY],
+  ['Recommended', RECOMMENDED],
+  ['Recommended (soft)', RECOMMENDED_SOFT],
+  ['Wisps', WISPS],
+  ['Wisps (reviewed)', WISPS_REVIEWED],
+  ['Density wave', DENSITY_WAVE],
+  ['Smooth field', SMOOTH_FIELD],
+  ['M74 recipe', RECIPE_M74],
+  ['Readable', RECIPE_READABLE],
+  ['Readable + colour', RECIPE_READABLE_COLOUR],
+  ['Density wave + colour', DENSITY_WAVE_COLOUR],
+];
+let cur = 4; // the preset shown: Wisps (reviewed) on a first visit
+// The neighbourhood's representation (shape-notes §12), applied on top of whatever preset is showing.
+const HOOD_MODES = [['today', 'As today'], ['blend', 'Blend'], ['dissolve', 'Dissolve'], ['dissolve-late', 'Dissolve (late)'], ['jitter', 'Jitter']];
+let hoodMode = 'dissolve-late'; // the first visit lands on the proposed combination (Wisps (reviewed) · Dissolve (late)); localStorage restores a later choice
+let edited = false; // a slider moved since the preset was shown
+// The viewer's camera (and preset) survive a reload; storage may be refused, so every access is guarded.
+const CAM_KEY = 'galaxy-tuner/camera/v1';
+function saveCam() {
+  clearTimeout(saveCam.t);
+  saveCam.t = setTimeout(() => {
+    try { localStorage.setItem(CAM_KEY, JSON.stringify({ C, frameMode, preset: cur, hoodMode })); } catch {}
+  }, 200);
+}
+function loadCam() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CAM_KEY) ?? 'null');
+    if (s && typeof s.C === 'object') C = { ...ESSAY_CAM, ...s.C };
+    if (s && ['fit', 'phone', 'desktop'].includes(s.frameMode)) frameMode = s.frameMode;
+    if (s && Number.isInteger(s.preset) && s.preset >= 0 && s.preset < PRESETS.length) cur = s.preset;
+    if (s && HOOD_MODES.some(([m]) => m === s.hoodMode)) hoodMode = s.hoodMode;
+  } catch {}
+}
+
+// ---- UI ----
+const sections = new Map();
+const inputs = new Map();
+const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(v < 1 ? 3 : 2).replace(/0+$/, '').replace(/\.$/, '')) : String(v));
+for (const [key, label, min, max, step, section, kind, options] of CONTROLS) {
+  if (!sections.has(section)) {
+    const d = document.createElement('details');
+    d.innerHTML = `<summary>${section} <small></small></summary><div class="grid"></div>`;
+    $('#sections').append(d);
+    sections.set(section, d);
+  }
+  const grid = sections.get(section).querySelector('.grid');
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  const id = `c-${key}` + (inputs.has(key) ? `-${inputs.get(key).length + 1}` : '');
+  let input;
+  if (kind === 'select') {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><select id="${id}">${options.map((o) => `<option>${o}</option>`).join('')}</select>`;
+  } else if (kind === 'color') {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><input id="${id}" type="color">`;
+  } else {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><input id="${id}" type="range" min="${min}" max="${max}" step="${step}">`;
+  }
+  grid.append(wrap);
+  input = wrap.querySelector('select, input');
+  inputs.set(key, [...(inputs.get(key) ?? []), { input, wrap, out: wrap.querySelector('output'), kind }]);
+  input.addEventListener('input', () => {
+    const v = input.type === 'range' ? Number(input.value) : input.value;
+    P[key] = v;
+    edited = true;
+    updatePill(false);
+    refreshOne(key);
+    if (GEN_KEYS.has(key)) scheduleGen();
+    else if (key.startsWith('hood') && key !== 'hood') applyHood();
+    else applySprites();
+  });
+}
+function refreshOne(key) {
+  const v = P[key];
+  for (const c of inputs.get(key) ?? []) {
+    if (c.input.type === 'range') c.input.value = v;
+    else c.input.value = String(v);
+    c.out.textContent = `${fmt(v)}${v !== BASE[key] ? ` (${fmt(BASE[key])})` : ''}`;
+    c.wrap.classList.toggle('changed', v !== BASE[key]);
+  }
+}
+function refreshAll() {
+  for (const key of inputs.keys()) refreshOne(key);
+  for (const [name, d] of sections) {
+    const n = CONTROLS.filter((c) => c[5] === name && P[c[0]] !== BASE[c[0]]).length;
+    d.querySelector('summary small').textContent = n ? `${n} changed` : '';
+  }
+}
+function tierFor() {
+  return frameMode === 'desktop' || (frameMode === 'fit' && Math.min(stage.clientWidth, stage.clientHeight) >= 600) ? 'desktop' : 'phone';
+}
+const TIER_COUNTS = { phone: [2400, 4000], desktop: [4000, 8000] };
+/** Parameters `p` with the essay's tier (by the frame's shorter side) when its counts are still a tier's defaults. */
+function tierAdjusted(p) {
+  const tier = tierFor();
+  const [s0, d0] = TIER_COUNTS[p.tier];
+  if (p.tier !== tier && p.stars === s0 && p.dust === d0) return { ...p, tier, stars: TIER_COUNTS[tier][0], dust: TIER_COUNTS[tier][1] };
+  return p;
+}
+function followTier() {
+  const q = tierAdjusted(P);
+  const changed = q !== P;
+  P = q;
+  return changed;
+}
+// ---- the preset carousel: cached geometry, instant swaps, the camera untouched ----
+const geomCache = new Map();
+const cacheKey = (k) => `${k}/${tierFor()}`;
+function presetGeometry(k) {
+  const key = cacheKey(k);
+  let hit = geomCache.get(key);
+  if (!hit) {
+    const p = tierAdjusted({ ...SHAPE_DEFAULTS, ...PRESETS[k][1] });
+    const t0 = performance.now();
+    const bg = linearise(generateBackground(p));
+    hit = { p, bg, ms: performance.now() - t0 };
+    geomCache.set(key, hit);
+  }
+  return hit;
+}
+/** Show preset k (wrapping): only the galaxy changes; the camera, framing and zoom stay exactly as they are. */
+function showPreset(k, flash = true) {
+  cur = ((k % PRESETS.length) + PRESETS.length) % PRESETS.length;
+  const { p, bg, ms } = presetGeometry(cur);
+  clearTimeout(genTimer);
+  P = { ...p };
+  edited = false;
+  refreshAll();
+  genMs = ms;
+  upload(bg);
+  updatePill(flash);
+  saveCam();
+}
+const step = (dir) => showPreset(cur + dir);
+/** Fill the cache in the background, one preset per slice, so every swipe is a buffer swap. */
+function pregenerate() {
+  clearTimeout(pregenerate.t);
+  const k = PRESETS.findIndex((_, i) => !geomCache.has(cacheKey(i)));
+  if (k >= 0) {
+    presetGeometry(k);
+    pregenerate.t = setTimeout(pregenerate, 30);
+  }
+}
+function applyPreset(preset) {
+  const k = PRESETS.findIndex(([, q]) => q === preset);
+  if (k >= 0) return showPreset(k);
+  P = { ...SHAPE_DEFAULTS, ...preset };
+  followTier();
+  edited = true;
+  updatePill(true);
+  refreshAll();
+  scheduleGen(0);
+}
+const PRESET_BUTTONS = ['#preset-today', '#preset-rec', '#preset-rec-soft', '#preset-wisps', '#preset-wisps-reviewed', '#preset-wave', '#preset-field', '#preset-m74', '#preset-readable', '#preset-readable-colour', '#preset-wave-colour'];
+PRESET_BUTTONS.forEach((sel, k) => $(sel).addEventListener('click', () => showPreset(k)));
+// The pill: the preset's name and a dot per preset; it brightens on a switch, then fades back.
+$('#pill-dots').innerHTML = PRESETS.map(() => '<i></i>').join('');
+$('#pill-dots2').innerHTML = HOOD_MODES.map(() => '<i></i>').join('');
+const hoodIndex = () => Math.max(0, HOOD_MODES.findIndex(([m]) => m === hoodMode));
+function updatePill(flash) {
+  $('#pill-name').textContent = PRESETS[cur][0] + (edited ? ' (edited)' : '') + ' · ' + HOOD_MODES[hoodIndex()][1];
+  $('#pill-dots').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === cur));
+  $('#pill-dots2').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === hoodIndex()));
+  PRESET_BUTTONS.forEach((sel, i) => $(sel).classList.toggle('on', i === cur && !edited));
+  const pill = $('#pill');
+  if (flash) {
+    pill.classList.add('flash');
+    clearTimeout(updatePill.t);
+    updatePill.t = setTimeout(() => pill.classList.remove('flash'), 700);
+  }
+}
+function openSheet(open) {
+  document.body.classList.toggle('open', open);
+  $('#sheet').classList.toggle('closed', !open);
+  layout();
+}
+$('#pill').addEventListener('click', () => openSheet(true));
+$('#close').addEventListener('click', () => openSheet(false));
+$('#copy').addEventListener('click', async () => {
+  const text = JSON.stringify({ galaxy: P, camera: { ...C, frame: frameMode }, note: 'Motes of Work galaxy tuner: galaxy keys follow src/galaxy/background.ts BG + galaxySystem.ts sprites; the rest are the recommended additions.' }, null, 2);
+  const box = $('#json');
+  box.value = text;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied');
+  } catch {
+    box.hidden = false;
+    box.focus();
+    box.select();
+    toast('Clipboard refused: the values are selected below');
+  }
+});
+// Hold to see: while the button is held, the control sheet is transparent and lets touches through.
+{
+  const peek = $('#peek');
+  const on = (ev) => { ev.preventDefault(); peek.setPointerCapture?.(ev.pointerId); $('#sheet').classList.add('peek'); peek.classList.add('on'); };
+  const off = () => { $('#sheet').classList.remove('peek'); peek.classList.remove('on'); };
+  peek.addEventListener('pointerdown', on);
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) peek.addEventListener(type, off);
+  peek.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Keyboard: hold the space bar on the focused button.
+  peek.addEventListener('keydown', (ev) => { if (ev.key === ' ') { ev.preventDefault(); $('#sheet').classList.add('peek'); peek.classList.add('on'); } });
+  peek.addEventListener('keyup', (ev) => { if (ev.key === ' ') off(); });
+}
+function toast(msg) {
+  $('#toast').textContent = msg;
+  setTimeout(() => ($('#toast').textContent = ''), 2500);
+}
+$('#cam-essay').addEventListener('click', () => { C = { ...ESSAY_CAM, spinPeriod: C.spinPeriod, turn: C.turn }; pose(); });
+$('#cam-reset').addEventListener('click', () => { C = { ...ESSAY_CAM }; spinning = false; $('#spin').classList.remove('on'); pose(); });
+$('#cam-over').addEventListener('click', () => { C.elevation = 89.5; C.essay = true; pose(); });
+$('#cam-tilt').addEventListener('click', () => { C.elevation = 70; C.essay = true; pose(); });
+$('#band-toggle').addEventListener('click', () => { $('#band').hidden = !$('#band').hidden; $('#band-toggle').classList.toggle('on', !$('#band').hidden); });
+$('#spin').addEventListener('click', () => { spinning = !spinning; $('#spin').classList.toggle('on', spinning); });
+$('#frame-size').addEventListener('change', (e) => {
+  frameMode = e.target.value;
+  layout();
+  retier();
+});
+/** After the frame changes size: follow the tier (from the cache when the preset is unedited). */
+function retier() {
+  if (!edited) {
+    if (tierAdjusted({ ...SHAPE_DEFAULTS, ...PRESETS[cur][1] }).tier !== P.tier) showPreset(cur, false);
+  } else if (followTier()) {
+    refreshAll();
+    scheduleGen(0);
+  }
+  pregenerate();
+}
+
+// ---- rendering ----
+const VERT = `precision highp float;
+in vec2 aCorner;
+in vec4 aStar;
+in vec3 aTint;
+uniform float uUseTint;
+uniform float uLum;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform vec2 uViewport;
+uniform float uPixelRatio;
+uniform float uSizeWorld;
+uniform float uMinPx;
+uniform float uMaxPx;
+uniform float uGain;
+// The neighbourhood's cross-fade (§12): uFade 1 fades in, 2 out, by the spot's glow sprite size, clamp(uGlowWorld·ppu, uGlowMin, uGlowMax) CSS px, over [uLod0, uLod1].
+uniform float uFade;
+uniform float uGlowWorld;
+uniform float uGlowMin;
+uniform float uGlowMax;
+uniform float uLod0;
+uniform float uLod1;
+uniform vec3 uAgent;
+uniform vec3 uWarm;
+uniform float uWarmMix;
+out vec2 vUv;
+out vec3 vColor;
+flat out float vRadiusPx;
+void main() {
+  vec4 view = modelViewMatrix * vec4(aStar.xyz, 1.0);
+  float focalDev = projectionMatrix[1][1] * uViewport.y * 0.5;
+  float ppuCss = focalDev / max(1e-4, -view.z) / uPixelRatio;
+  float px = clamp(uSizeWorld * ppuCss, uMinPx, uMaxPx) * uPixelRatio;
+  vec4 clip = projectionMatrix * view;
+  clip.xy += aCorner * (px / uViewport) * clip.w;
+  gl_Position = clip;
+  vUv = aCorner;
+  vec3 tint = aStar.w < 0.0 ? mix(uAgent, uWarm, uWarmMix) : uAgent;
+  // Star colour model: the star's own (guarded, linear) blackbody tint at the luminance uLum.
+  if (uUseTint > 0.5) tint = aTint * (uLum / max(1e-4, dot(aTint, vec3(0.2126, 0.7152, 0.0722))));
+  float glow = clamp(uGlowWorld * ppuCss, uGlowMin, uGlowMax);
+  float near = smoothstep(uLod0, uLod1, glow);
+  float fade = uFade < 0.5 ? 1.0 : uFade < 1.5 ? near : 1.0 - near;
+  vColor = tint * abs(aStar.w) * uGain * fade;
+  vRadiusPx = 0.5 * px;
+}`;
+const FRAG = `precision highp float;
+in vec2 vUv;
+in vec3 vColor;
+flat in float vRadiusPx;
+uniform int uProfile;
+out vec4 outColor;
+void main() {
+  float r = length(vUv);
+  if (r > 1.0) discard;
+  float alpha;
+  if (uProfile == 0) {
+    alpha = 1.0 - smoothstep(1.0 - 1.0 / max(vRadiusPx, 1.0), 1.0, r);
+  } else if (uProfile == 1) {
+    alpha = (1.0 - smoothstep(0.0, 0.35, r)) + 0.45 * (1.0 - r) * (1.0 - r);
+  } else {
+    alpha = (1.0 - r) * (1.0 - r);
+  }
+  alpha = min(alpha, 1.0);
+  outColor = vec4(vColor * alpha, alpha);
+}`;
+
+const stage = $('#stage');
+const frame = $('#frame');
+const renderer = new WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+renderer.setClearColor(new Color('#0b0d12'), 1);
+frame.prepend(renderer.domElement);
+const scene = new Scene();
+const camera = new PerspectiveCamera(40, 1, 1, 5000);
+const galaxy = new Group();
+scene.add(galaxy);
+const viewport = { value: new Vector2(1, 1) };
+const pixelRatio = { value: 1 };
+const QUAD = [-1, -1, 1, -1, 1, 1, -1, 1];
+const QUAD_INDEX = [0, 1, 2, 0, 2, 3];
+const SETS = {
+  haze: { profile: 2 },
+  dust: { profile: 0 },
+  stars: { profile: 1 },
+  bright: { profile: 1 },
+  hood: { profile: 1 },
+  farDim: { profile: 1 }, // the neighbourhood's far form (Blend, Dissolve): star-sized sprites that fade out on approach
+  farBright: { profile: 1 },
+};
+const parts = {};
+for (const [name, set] of Object.entries(SETS)) {
+  const g = new InstancedBufferGeometry();
+  g.setAttribute('aCorner', new BufferAttribute(new Float32Array(QUAD), 2));
+  g.setIndex(QUAD_INDEX);
+  g.setAttribute('aStar', new InstancedBufferAttribute(new Float32Array(4), 4));
+  g.setAttribute('aTint', new InstancedBufferAttribute(new Float32Array(3), 3));
+  g.instanceCount = 0;
+  const material = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: VERT,
+    fragmentShader: FRAG,
+    uniforms: {
+      uSizeWorld: { value: 0 }, uMinPx: { value: 1 }, uMaxPx: { value: 1 }, uGain: { value: 1 }, uUseTint: { value: 0 }, uLum: { value: 0.35 },
+      uFade: { value: 0 }, uGlowWorld: { value: 4.5 }, uGlowMin: { value: 5 }, uGlowMax: { value: 18 }, uLod0: { value: 6 }, uLod1: { value: 12 },
+      uProfile: { value: set.profile }, uViewport: viewport, uPixelRatio: pixelRatio,
+      uAgent: { value: new Color(P.agent) }, uWarm: { value: new Color(P.warm) }, uWarmMix: { value: P.warmMix },
+    },
+    blending: CustomBlending, blendEquation: AddEquation, blendSrc: OneFactor, blendDst: OneMinusSrcColorFactor,
+    depthWrite: false, depthTest: false, transparent: true,
+  });
+  const mesh = new Mesh(g, material);
+  mesh.frustumCulled = false;
+  galaxy.add(mesh);
+  parts[name] = { mesh, g, material };
+}
+/** Upload instances; `tint` (linear RGB per instance) switches the material to the star colour model. */
+function setData(name, data, tint = null) {
+  const p = parts[name];
+  const n = data.length / 4;
+  p.g.setAttribute('aStar', new InstancedBufferAttribute(data, 4));
+  p.g.setAttribute('aTint', new InstancedBufferAttribute(tint ?? new Float32Array(Math.max(3, 3 * n)), 3));
+  p.material.uniforms.uUseTint.value = tint ? 1 : 0;
+  p.g.instanceCount = n;
+}
+/** sRGB 0..1 → linear, as three's ColorManagement treats the tint uniforms (#4DA3FF and the rest). */
+const toLinear = (a) => a.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+function linearise(bg) {
+  if (bg.starsTint && !bg.starsTintLin) {
+    bg.starsTintLin = toLinear(bg.starsTint);
+    bg.brightTintLin = toLinear(bg.brightTint);
+  }
+  return bg;
+}
+let genMs = 0;
+let bgCounts = { stars: 0, bright: 0, dust: 0 };
+let bgTouch = { bright: 0, all: 0 };
+function applySprites() {
+  const u = (name, world, min, max, gain) => {
+    const m = parts[name].material.uniforms;
+    m.uSizeWorld.value = world; m.uMinPx.value = min; m.uMaxPx.value = max; m.uGain.value = gain;
+    m.uAgent.value.set(P.agent); m.uWarm.value.set(P.warm); m.uWarmMix.value = P.warmMix;
+  };
+  u('haze', 0, P.hazePx, P.hazePx, P.gain);
+  parts.haze.material.uniforms.uWarmMix.value = 1; // the haze takes the warm tint whole
+  u('dust', 0, P.dustPx, P.dustPx, P.gain);
+  u('stars', P.worldStar, P.haloStar, P.maxStar, P.gain);
+  u('bright', P.worldBright, P.haloBright, P.maxBright, P.gain);
+  u('hood', 4.5, 5, 18, P.gain);
+  u('farDim', P.worldStar, P.haloStar, P.maxStar, P.gain);
+  u('farBright', P.worldBright, P.haloBright, P.maxBright, P.gain);
+  const lod = hoodMode === 'blend' || hoodMode === 'dissolve' || hoodMode === 'dissolve-late';
+  const [lod0, lod1] = hoodBand();
+  for (const [name, mode] of [['hood', lod ? 1 : 0], ['farDim', 2], ['farBright', 2]]) {
+    const m = parts[name].material.uniforms;
+    m.uFade.value = mode; m.uLod0.value = lod0; m.uLod1.value = lod1;
+  }
+  // Coloured stars take the agents' blue's luminance (× colourLum), so colour changes hue, not brightness.
+  const agent = parts.stars.material.uniforms.uAgent.value;
+  const lum = (0.2126 * agent.r + 0.7152 * agent.g + 0.0722 * agent.b) * (P.colourLum ?? 1);
+  parts.stars.material.uniforms.uLum.value = lum;
+  parts.bright.material.uniforms.uLum.value = lum;
+  setData('haze', new Float32Array([0, 0, 0, P.hazeWarm ? -P.hazeGain : P.hazeGain]));
+  readout();
+}
+let genTimer = 0;
+function scheduleGen(delay = 90) {
+  clearTimeout(genTimer);
+  genTimer = setTimeout(regenerate, delay);
+}
+function regenerate() {
+  const t0 = performance.now();
+  let bg;
+  try {
+    bg = generateBackground(P);
+  } catch (e) {
+    toast(String(e.message || e));
+    return;
+  }
+  genMs = performance.now() - t0;
+  upload(linearise(bg));
+}
+/** Put a generated background on screen (a buffer swap: the camera is not touched). */
+let lastBg = null;
+let hoodReport = { mode: 'today', moved: [], pulled: [] };
+/** The nearest background stars to (x, z): indices into the dim set (i < nDim) or the bright set (i − nDim), nearest first. */
+function nearestStars(bg, x, z, n, taken) {
+  const nDim = bg.stars.length / 4;
+  const best = [];
+  const consider = (i, arr, j) => {
+    if (taken?.has(i)) return;
+    const d = Math.hypot(arr[j] - x, arr[j + 2] - z);
+    if (best.length < n || d < best[best.length - 1].d) {
+      best.push({ i, d });
+      best.sort((a, b) => a.d - b.d);
+      if (best.length > n) best.pop();
+    }
+  };
+  for (let j = 0; j < bg.stars.length; j += 4) consider(j / 4, bg.stars, j);
+  for (let j = 0; j < bg.bright.length; j += 4) consider(nDim + j / 4, bg.bright, j);
+  return best;
+}
+/**
+ * Represent the 30 neighbourhood spots in the chosen mode (shape-notes §12) on top of the generated background,
+ * which is never changed: the sets get copies. today: the uniform sprites. blend: the positions stay; each spot's far
+ * form takes the class (dim/bright) and brightness of one of its 12 nearest background stars, drawn per spot from
+ * stream bgHoodLook (salt 20), and the real sprite fades in on approach. dissolve: the nearest background star is
+ * pulled onto each spot (one star per spot, nearest first) as its far form, so the zoom-in lands on a real star; the
+ * real sprite fades in. jitter: the spots move (16 seeded candidates per spot, σ hoodJitter, stream bgHoodJitter,
+ * salt 21; the one on the densest background by hoodSnap, never nearer than hoodGap to a spot already placed).
+ */
+function applyHood() {
+  const bg = lastBg;
+  if (!bg) return;
+  const seed = P.seed | 0;
+  const nDim = bg.stars.length / 4;
+  let stars = bg.stars, bright = bg.bright, starsTint = bg.starsTintLin ?? null, brightTint = bg.brightTintLin ?? null;
+  const hood = [], farDim = [], farBright = [], farDimTint = [], farBrightTint = [];
+  const report = { mode: hoodMode, moved: [], pulled: [] };
+  const entryOf = (i) => (i < nDim ? { arr: bg.stars, j: 4 * i, bright: false, tint: starsTint, t: 3 * i } : { arr: bg.bright, j: 4 * (i - nDim), bright: true, tint: brightTint, t: 3 * (i - nDim) });
+  const pushFar = (x, z, e) => {
+    const v = e.arr[e.j + 3];
+    (e.bright ? farBright : farDim).push(x, 0, z, v);
+    if (e.tint) (e.bright ? farBrightTint : farDimTint).push(e.tint[e.t], e.tint[e.t + 1], e.tint[e.t + 2]);
+  };
+  if (hoodMode === 'blend') {
+    bg.hood.forEach(([x, z], k) => {
+      hood.push(x, 0, z, 1);
+      const rng = streamFor(seed, 'bgHoodLook', k);
+      const near = nearestStars(bg, x, z, 12);
+      pushFar(x, z, entryOf(near[Math.floor(rng() * near.length) % near.length].i));
+    });
+  } else if (hoodMode === 'dissolve' || hoodMode === 'dissolve-late') {
+    stars = bg.stars.slice(); bright = bg.bright.slice();
+    const taken = new Set();
+    bg.hood.forEach(([x, z]) => {
+      hood.push(x, 0, z, 1);
+      const [n] = nearestStars(bg, x, z, 1, taken);
+      taken.add(n.i);
+      const e = entryOf(n.i);
+      pushFar(x, z, e);
+      (e.bright ? bright : stars)[e.j + 3] = 0; // not drawn where it was: it now stands on the spot
+      report.pulled.push(n.d);
+    });
+  } else if (hoodMode === 'jitter') {
+    const sig = P.hoodJitter ?? 8, gap = P.hoodGap ?? 14, snap = P.hoodSnap ?? 1;
+    const density = (x, z) => {
+      let n = 0;
+      for (const arr of [bg.stars, bg.bright]) for (let j = 0; j < arr.length; j += 4) if (Math.hypot(arr[j] - x, arr[j + 2] - z) < 6) n++;
+      return n;
+    };
+    const placed = [];
+    bg.hood.forEach(([x0, z0], k) => {
+      const rng = streamFor(seed, 'bgHoodJitter', k);
+      const gaussN = () => Math.sqrt(-2 * Math.log(Math.max(1e-12, rng()))) * Math.cos(2 * Math.PI * rng());
+      const cands = [];
+      for (let t = 0; t < 16; t++) cands.push([x0 + sig * gaussN(), z0 + sig * gaussN()]);
+      const dens = cands.map(([x, z]) => density(x, z)), dMax = Math.max(1, ...dens);
+      let best = null, bestScore = -Infinity;
+      cands.forEach(([x, z], t) => {
+        if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < gap)) return;
+        const score = snap * (dens[t] / dMax) - (1 - snap) * (t / 16);
+        if (score > bestScore) { bestScore = score; best = [x, z]; }
+      });
+      best ??= [x0, z0]; // no candidate clears the gap: the spot stays put
+      placed.push(best);
+      hood.push(best[0], 0, best[1], 1);
+      report.moved.push(Math.hypot(best[0] - x0, best[1] - z0));
+    });
+  } else {
+    bg.hood.forEach(([x, z]) => hood.push(x, 0, z, 1));
+  }
+  setData('stars', stars, starsTint);
+  setData('bright', bright, brightTint);
+  setData('hood', new Float32Array(hood));
+  setData('farDim', new Float32Array(farDim), starsTint ? new Float32Array(farDimTint) : null);
+  setData('farBright', new Float32Array(farBright), brightTint ? new Float32Array(farBrightTint) : null);
+  hoodReport = report;
+  for (const b of document.querySelectorAll('#hood-row .chip')) b.classList.toggle('on', b.dataset.hood === hoodMode);
+  applySprites();
+}
+function setHoodMode(mode, flash = true) {
+  if (!HOOD_MODES.some(([m]) => m === mode)) return;
+  hoodMode = mode;
+  applyHood();
+  updatePill(flash);
+  saveCam();
+}
+/** The second swipe axis: the next or previous neighbourhood option (wrapping); the camera is not touched. */
+const stepHood = (dir) => setHoodMode(HOOD_MODES[((hoodIndex() + dir) % HOOD_MODES.length + HOOD_MODES.length) % HOOD_MODES.length][0]);
+for (const b of document.querySelectorAll('#hood-row .chip')) b.addEventListener('click', () => setHoodMode(b.dataset.hood));
+/** The handover band in use (glow px): Dissolve (late) has its own, the other fading modes share hoodLod0/1. */
+function hoodBand() {
+  const lod0 = hoodMode === 'dissolve-late' ? P.hoodLateLod0 ?? 11 : P.hoodLod0 ?? 6;
+  const lod1 = hoodMode === 'dissolve-late' ? P.hoodLateLod1 ?? 16 : P.hoodLod1 ?? 12;
+  return [lod0, Math.max(lod0 + 0.01, lod1)];
+}
+/** Each neighbourhood spot's glow sprite size (CSS px, the essay's glowPx) and its real form's share at the current camera. */
+function hoodLod() {
+  camera.updateMatrixWorld(true);
+  const focalCss = (camera.projectionMatrix.elements[5] * H) / 2;
+  const [lod0, lod1] = hoodBand();
+  const ss = (x) => { const t = Math.min(1, Math.max(0, (x - lod0) / (lod1 - lod0))); return t * t * (3 - 2 * t); };
+  const spots = [];
+  const hoodArr = parts.hood.g.getAttribute('aStar').array;
+  for (let i = 0; i < hoodArr.length; i += 4) {
+    const v = new Vector3(hoodArr[i], hoodArr[i + 1], hoodArr[i + 2]).applyMatrix4(galaxy.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+    const glow = Math.min(18, Math.max(5, (4.5 * focalCss) / Math.max(1e-4, -v.z)));
+    const clip = new Vector3(hoodArr[i], hoodArr[i + 1], hoodArr[i + 2]).applyMatrix4(galaxy.matrixWorld).project(camera);
+    spots.push({ glow, near: ss(glow), x: ((clip.x + 1) / 2) * W, y: ((1 - clip.y) / 2) * H });
+  }
+  return spots;
+}
+function upload(bg) {
+  lastBg = bg;
+  setData('dust', bg.dust);
+  applyHood();
+  bgTouch = bg.touch;
+  window.__tunerTouch = bg.touch;
+  bgCounts = { stars: bg.stars.length / 4, bright: bg.bright.length / 4, dust: bg.dust.length / 4, hood: bg.hood.length };
+  applySprites();
+  window.__tunerGen = (window.__tunerGen || 0) + 1;
+}
+function readout() {
+  const n = bgCounts.stars + bgCounts.bright + bgCounts.dust + 1;
+  $('#readout').textContent = `${bgCounts.stars + bgCounts.bright} stars · ${bgCounts.dust} dust · ${n} of 76,000 · ${genMs.toFixed(0)} ms · dpr ${pixelRatio.value} · ${C.elevation.toFixed(0)}° / ${C.distance.toFixed(0)} · ${P.shape}/${P.place} · halos touch: bright ${(100 * bgTouch.bright).toFixed(1)} %, all ${(100 * bgTouch.all).toFixed(1)} % · neighbourhood ${hoodMode}${hoodReport.moved.length ? ` (moved mean ${(hoodReport.moved.reduce((a, b) => a + b, 0) / hoodReport.moved.length).toFixed(1)}, max ${Math.max(...hoodReport.moved).toFixed(1)} units)` : ''}${hoodReport.pulled.length ? ` (pulled mean ${(hoodReport.pulled.reduce((a, b) => a + b, 0) / hoodReport.pulled.length).toFixed(1)}, max ${Math.max(...hoodReport.pulled).toFixed(1)} units)` : ''}`;
+}
+
+// ---- camera ----
+let W = 390, H = 844;
+function layout() {
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const sheetH = $('#sheet').offsetHeight;
+  if (frameMode === 'fit') { W = sw; H = sh; } else if (frameMode === 'desktop') { W = 1440; H = 900; } else { W = 390; H = 844; }
+  const avail = frameMode === 'fit' ? sh : Math.max(200, sh - (frameMode === 'phone' ? 0 : sheetH));
+  const scale = frameMode === 'fit' ? 1 : Math.min(1, sw / W, avail / H);
+  frame.style.width = `${W}px`;
+  frame.style.height = `${H}px`;
+  frame.style.transform = `translate(${-W * scale / 2}px, ${-H * scale / 2 - (frameMode === 'fit' ? 0 : (frameMode === 'phone' ? 0 : sheetH / 2))}px) scale(${scale})`;
+  frame.classList.toggle('boxed', frameMode !== 'fit');
+  frame.classList.toggle('wide', W > H);
+  pixelRatio.value = Math.min(3, window.devicePixelRatio || 1);
+  renderer.setPixelRatio(pixelRatio.value);
+  renderer.setSize(W, H, true);
+  viewport.value.set(W * pixelRatio.value, H * pixelRatio.value);
+  pose();
+}
+function pose() {
+  const aspect = W / H;
+  let d = C.distance, fov = C.fov;
+  if (C.essay && aspect < 1) {
+    const k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+    d *= k;
+    fov = (2 * Math.atan(Math.tan((fov * DEG) / 2) * k)) / DEG;
+  }
+  const b = C.bearing * DEG, e = Math.min(89.5, Math.max(2, C.elevation)) * DEG;
+  camera.position.set(Math.cos(e) * Math.sin(b) * d, Math.sin(e) * d, Math.cos(e) * Math.cos(b) * d);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0, 0);
+  camera.aspect = aspect;
+  camera.fov = fov;
+  if (C.essay) {
+    const at = aspect < 1 ? { x: 0.5, y: 0.62 } : { x: 0.5, y: 0.66 };
+    camera.setViewOffset(aspect, 1, (0.5 - at.x) * aspect, 0.5 - at.y, aspect, 1);
+  } else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+  readout();
+  saveCam();
+}
+
+// Gestures. One finger (or a plain click-drag) sideways: the next or previous preset; up or down: the next or previous
+// neighbourhood option (§12). The dominant axis wins (1.2× the other), so a diagonal swipe picks one; one step per swipe,
+// and a one-finger drag never orbits. Two fingers: pinch to zoom, drag to orbit or tilt. Desktop: wheel to
+// zoom, a trackpad's sideways swipe or ← → to change preset, right-drag or modifier-drag to orbit.
+const pointers = new Map();
+let gesture = null; // 'swipe' | 'orbit' | 'two' | 'done'
+let two0 = null;
+const SWIPE_PX = 36; // forgiving: 36 px sideways, at least 1.2× the vertical travel
+const orbitBy = (dx, dy, from) => {
+  C.bearing = from.bearing - dx * 0.3;
+  C.elevation = Math.min(89.5, Math.max(2, from.elevation + dy * 0.3));
+};
+const pair = () => {
+  const [a, b] = [...pointers.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+};
+stage.addEventListener('contextmenu', (ev) => ev.preventDefault());
+stage.addEventListener('pointerdown', (ev) => {
+  stage.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY });
+  if (pointers.size === 1) {
+    const orbit = ev.pointerType === 'mouse' && (ev.button === 2 || ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey);
+    gesture = orbit ? 'orbit' : 'swipe';
+    two0 = { bearing: C.bearing, elevation: C.elevation };
+  } else if (pointers.size === 2) {
+    const q = pair();
+    gesture = 'two';
+    two0 = { ...q, distance: C.distance, bearing: C.bearing, elevation: C.elevation };
+  }
+});
+stage.addEventListener('pointermove', (ev) => {
+  const p = pointers.get(ev.pointerId);
+  if (!p) return;
+  p.x = ev.clientX;
+  p.y = ev.clientY;
+  if (gesture === 'orbit' && pointers.size === 1) {
+    orbitBy(p.x - p.x0, p.y - p.y0, two0);
+    pose();
+  } else if (gesture === 'two' && pointers.size === 2) {
+    const q = pair();
+    if (two0.d > 0 && q.d > 0) C.distance = Math.min(3000, Math.max(20, (two0.distance * two0.d) / q.d));
+    orbitBy(q.mx - two0.mx, q.my - two0.my, two0);
+    pose();
+  } else if (gesture === 'swipe' && pointers.size === 1) {
+    const dx = p.x - p.x0, dy = p.y - p.y0;
+    if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) >= 1.2 * Math.abs(dy)) {
+      gesture = 'done'; // one step per swipe
+      step(dx < 0 ? 1 : -1);
+    } else if (Math.abs(dy) >= SWIPE_PX && Math.abs(dy) >= 1.2 * Math.abs(dx)) {
+      gesture = 'done';
+      stepHood(dy < 0 ? 1 : -1); // swipe up: the next option
+    }
+  }
+});
+const up = (ev) => {
+  pointers.delete(ev.pointerId);
+  if (pointers.size === 0) gesture = null;
+  else if (gesture === 'two') gesture = 'done'; // lifting one of two fingers never turns into a swipe
+};
+stage.addEventListener('pointerup', up);
+stage.addEventListener('pointercancel', up);
+let wheelX = 0, wheelLast = 0, wheelStep = 0;
+stage.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const now = performance.now();
+  if (!ev.ctrlKey && Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+    // A trackpad's sideways swipe: accumulate, one step per swipe (its momentum tail is ignored by the cooldown).
+    if (now - wheelLast > 250) wheelX = 0;
+    wheelLast = now;
+    wheelX += ev.deltaX;
+    if (Math.abs(wheelX) > 60 && now - wheelStep > 600) {
+      step(wheelX > 0 ? 1 : -1);
+      wheelX = 0;
+      wheelStep = now;
+    }
+    return;
+  }
+  C.distance = Math.min(3000, Math.max(20, C.distance * Math.exp(ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0012))));
+  pose();
+}, { passive: false });
+window.addEventListener('keydown', (ev) => {
+  if (ev.target?.closest?.('input, select, textarea')) return;
+  if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
+  else if (ev.key === 'ArrowLeft') { ev.preventDefault(); step(-1); }
+  else if (ev.key === 'ArrowUp') { ev.preventDefault(); stepHood(1); }
+  else if (ev.key === 'ArrowDown') { ev.preventDefault(); stepHood(-1); }
+  else if (ev.key === 'Escape' && document.body.classList.contains('open')) openSheet(false);
+});
+
+// ---- loop ----
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (spinning) C.turn = (C.turn + (360 * dt) / C.spinPeriod) % 360;
+  galaxy.rotation.y = C.turn * DEG;
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+window.addEventListener('resize', () => { layout(); retier(); });
+new ResizeObserver(layout).observe($('#sheet'));
+loadCam();
+$('#frame-size').value = frameMode;
+refreshAll();
+layout();
+showPreset(cur, false);
+requestAnimationFrame(tick);
+setTimeout(pregenerate, 250);
+window.tuner = { get P() { return P; }, get C() { return C; }, get index() { return cur; }, get hoodMode() { return hoodMode; }, setHoodMode, hoodLod, get hoodReport() { return hoodReport; }, HOOD_MODES, pose, stepHood, hoodBand, get cached() { return geomCache.size; }, names: PRESETS.map(([n]) => n), applyPreset, showPreset, step, openSheet, TODAY, RECOMMENDED, RECOMMENDED_SOFT, WISPS, WISPS_REVIEWED, DENSITY_WAVE, SMOOTH_FIELD, RECIPE_M74, RECIPE_READABLE, RECIPE_READABLE_COLOUR, DENSITY_WAVE_COLOUR, SHAPE_DEFAULTS };
+</script>

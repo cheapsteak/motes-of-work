@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hardware spikes</title>
+    <link rel="stylesheet" href="./spikes.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1>Hardware spikes</h1>
+      <p class="muted">
+        Open each page on the device you are testing, let it run for a few seconds, then use Copy results and paste the
+        JSON back. Every timing is a rolling 60-frame average with p95: CPU is the JavaScript time to update and draw a
+        frame, frame interval is the gap between frames, and GPU is the draw time when the browser can measure it.
+      </p>
+      <ul>
+        <li>
+          <a href="./fill.html">Spike 1: fill rate</a>. 30,000 motes drawn as large halos at the worst camera framing.
+          Add <code>?n=</code> and <code>?dpr=</code> to vary them. The GPU frame time on a recent iPhone and a 2023
+          mid-range Android decides the DPR cap and the per-tier halo pixel cap.
+        </li>
+        <li>
+          <a href="./vertex.html">Spike 2: vertex cost</a>. 100,000 motes with every fault and the drift field on, on an
+          integrated-GPU laptop. Add <code>?isolate=1</code> to measure mostly vertex work. Vertex time above about 4 ms
+          means the optional position pass is needed.
+        </li>
+        <li>
+          <a href="./floattex.html">Spike 3: float texture read</a>. A vertex shader reads an RGBA32F texture on iOS
+          Safari. PASS keeps float transform storage; FAIL means a different transform format.
+        </li>
+        <li>
+          <a href="./caps.html">Spike 5: point size limits</a>. Records the aliased point size range and the other
+          limits on each test device. A small maximum point size confirms that motes are quads.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

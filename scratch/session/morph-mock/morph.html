@@ -1,0 +1,314 @@
+<meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Morph and scatter</title>
+    <style>
+      @font-face { font-family: 'Literata'; font-style: normal; font-weight: 400; src: url(./literata-400.woff) format('woff'); }
+      :root { --bg: #0b0d12; --ink: #e8e6ee; --ink-superseded: #bcbbc2; --text-top: 7vh; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); height: 100%; overflow: hidden; }
+      body { font: 400 1.1875rem/1.55 'Literata', Georgia, serif; -webkit-font-smoothing: antialiased;
+        text-shadow: 0 1px 2px rgba(11,13,18,.9), 0 0 14px rgba(11,13,18,.95), 0 0 30px rgba(11,13,18,.8); }
+      #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+      #scrim { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22svh, transparent 42svh); }
+      #panel { position: fixed; top: var(--text-top); left: 0; right: 0; width: min(36rem, 100%); margin: 0 auto; padding: 0 clamp(1rem, 5vw, 4rem); box-sizing: border-box; }
+      #panel p { margin: 0 0 .85em; }
+      #panel p.dim { color: var(--ink-superseded); }
+      #tags { position: fixed; left: 0; right: 0; top: 69%; font: 13px/1.3 system-ui, sans-serif; color: #9b99a6; text-shadow: none; pointer-events: none; }
+      #tags span { position: absolute; width: 50%; text-align: center; }
+      #tags .l { left: 0; } #tags .r { left: 50%; }
+      #ui { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 12px 10px; background: linear-gradient(to top, rgba(11,13,18,.96), rgba(11,13,18,.7) 70%, transparent); font: 13px/1.4 system-ui, sans-serif; text-shadow: none; color: #cfcdd6; }
+      #ui .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+      #ui button { font: inherit; background: #1b1f2a; color: #e8e6ee; border: 1px solid #343a4a; border-radius: 6px; padding: 3px 9px; }
+      #ui button.on { background: #2b3550; border-color: #4da3ff; }
+      #ui .stat { color: #8f8d99; font-size: 11px; white-space: pre; }
+      #ui .stat b { color: #cfcdd6; font-weight: 500; }
+    </style>
+    <canvas id="stage"></canvas>
+    <div id="scrim"></div>
+    <div id="panel">
+      <p class="dim">Come closer. Out here, one piece of code has a defect.</p>
+      <p>Up close, if you watch, you can see it. So you fix it.</p>
+    </div>
+    <div id="tags"><span class="l">healthy: a perfect sphere</span><span class="r">defect: the equation, and the scatter</span></div>
+    <div id="ui">
+      <div class="row">
+        <button id="bPlay" class="on">play</button>
+        <button id="bPause">pause</button>
+        <button id="bSlow">slow ×0.2</button>
+        <button id="bNow">scatter now</button>
+        <button id="bFreeze">freeze mid-scatter</button>
+        <button id="bReduced">reduced motion</button>
+      </div>
+      <div class="row">
+        <button id="tMorph" class="on">morph</button>
+        <button id="tScatter" class="on">scatter</button>
+        <button id="tRing" class="on">settle ring</button>
+        <button id="tSpin" class="on">spin</button>
+        <button id="tBoth">morph on healthy too</button>
+        <button id="bStep">step the shape</button>
+      </div>
+      <div class="stat" id="stat">…</div>
+    </div>
+    <script type="module">
+      import * as THREE from '../../../node_modules/three/build/three.module.js';
+
+      // ---------- constants (one source; the renderer would splice these into the GLSL as NODE_* are) ----------
+      const SEED = 20261007;
+      const LATTICE = { rows: 60, cols: 160 };  // the shell is a lat/long lattice of motes (rows of dots), ~6,100 motes
+      // the equation (revision 2): r = 1 + A [ sin(p·lon + φ1 + ω1 t) · sin(q·(lat + π/2) + φ2 + ω2 t) + 0.45 sin(p2·lon + φ3 − ω3 t) · sin(q2·(lat + π/2) + φ4) ]
+      const EQ_A = 0.02;                          // of R: the limb scallops at ±0.02–0.03 R (measured ±0.021–0.025 R on the reference)
+      const EQ_P = [12, 14, 16, 18, 20];          // lobes round a parallel; the limb shows 17–20 early in the clip and 10–12 later
+      const EQ_Q_OFF = [-1, 0, 1];                // q = p/2 + this: half-waves pole to pole
+      const EQ_W = [0.35, -0.22, 0.5];            // rad/s: the wave walks along the rows between events
+      const SPIN = { period: 14 };                // s per turn of the lattice about a seeded tilted axis (the reference turns its hue map in ~12 s)
+      const DERP_T = 2.2, DERP_D = 1.0;           // the derp schedule (galaxy §5.2)
+      const SCATTER_P = 0.7;                      // mock only: probability a slot's event is a scatter
+      const SC = {                                // the scatter, seconds inside the event (revision 1, unchanged)
+        sweep: 0.08, hold: [0.12, 0.18], steps: [0.55, 0.25, 0.0], stepDt: 0.05,
+        ampMin: 0.12, ampMax: 0.40, inwardP: 0.22, jitter: 0.03,
+        after: 0.55, afterAmp: 0.45, afterP: 0.5,
+        ring: { amp: 0.06, decay: 0.16, hz: 6 },
+      };
+
+      // ---------- rng / hash ----------
+      function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      function hash01(seed, k) { let h = (Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(k + 1, 0xc2b2ae35)) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2f) >>> 0; h ^= h >>> 15; return (h >>> 8) / 16777216; }
+      const fract = (x) => x - Math.floor(x);
+      const hashf = (a, b) => fract(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453);
+      const F = (v) => (Number.isInteger(v) ? v + '.0' : String(v)); // GLSL float literals
+
+      // ---------- the schedule ----------
+      function eventAt(seed, t) {
+        const k = Math.floor(t / DERP_T);
+        for (const kk of [k, k - 1]) {
+          if (kk < 0) continue;
+          const t0 = kk * DERP_T + hash01(seed, kk * 64 + 1) * (DERP_T - DERP_D);
+          if (t >= t0 && t < t0 + DERP_D) return { k: kk, t0, s: t - t0, scatter: hash01(seed, kk * 64 + 2) < SCATTER_P };
+        }
+        return null;
+      }
+      function nextScatterT0(seed, t) { let k = Math.floor(t / DERP_T); for (let i = 0; i < 40; i++, k++) { const t0 = k * DERP_T + hash01(seed, k * 64 + 1) * (DERP_T - DERP_D); if (t0 > t && hash01(seed, k * 64 + 2) < SCATTER_P) return t0; } return t; }
+      // how many scatter events have STARTED by t (the shape steps per mote as it lands inside the event; after the event every mote is on the new shape)
+      function scatterCountStarted(seed, t) { let n = 0; const k = Math.floor(t / DERP_T); for (let kk = 0; kk <= k; kk++) { const t0 = kk * DERP_T + hash01(seed, kk * 64 + 1) * (DERP_T - DERP_D); if (t0 <= t && hash01(seed, kk * 64 + 2) < SCATTER_P) n++; } return n; }
+      // the shape's parameters for step n: a pure function of (seed, n); they step (hard cut) as each mote lands in a scatter
+      function shapeAt(seed, n) {
+        const p = EQ_P[Math.floor(hash01(seed, n * 16 + 1) * EQ_P.length)];
+        const q = p / 2 + EQ_Q_OFF[Math.floor(hash01(seed, n * 16 + 2) * 3)];
+        const p2 = p + 3 + Math.floor(hash01(seed, n * 16 + 3) * 5); const q2 = Math.max(3, q - 1 - Math.floor(hash01(seed, n * 16 + 4) * 3));
+        return { p, q, ph1: hash01(seed, n * 16 + 5) * 6.2832, ph2: hash01(seed, n * 16 + 6) * 6.2832, p2, q2, ph3: hash01(seed, n * 16 + 7) * 6.2832, ph4: hash01(seed, n * 16 + 8) * 6.2832 };
+      }
+
+      // ---------- shellWarp, JS side (mirror of the GLSL) ----------
+      function eqN(ll, t, sh) {
+        const lat = ll[0] + 1.5708, lon = ll[1];
+        return Math.sin(sh.p * lon + sh.ph1 + EQ_W[0] * t) * Math.sin(sh.q * lat + sh.ph2 + EQ_W[1] * t) + 0.45 * Math.sin(sh.p2 * lon + sh.ph3 - EQ_W[2] * t) * Math.sin(sh.q2 * lat + sh.ph4);
+      }
+      function rotAxis(v, ax, a) { const c = Math.cos(a), s = Math.sin(a); const d = ax[0] * v[0] + ax[1] * v[1] + ax[2] * v[2]; const cr = [ax[1] * v[2] - ax[2] * v[1], ax[2] * v[0] - ax[0] * v[2], ax[0] * v[1] - ax[1] * v[0]]; return [v[0] * c + cr[0] * s + ax[0] * d * (1 - c), v[1] * c + cr[1] * s + ax[1] * d * (1 - c), v[2] * c + cr[2] * s + ax[2] * d * (1 - c)]; }
+      function shellWarpJS(u0, ll, h, t, ev, sweep, shOld, shNew, axis, spin, opts) {
+        const u = rotAxis(u0, axis, spin * t);
+        let k = 0, s = -1, tLand = 1e9, afterK = 0;
+        if (ev && opts.scatter) {
+          s = ev.s; const su = u[0] * sweep[0] + u[1] * sweep[1] + u[2] * sweep[2];
+          const tDep = SC.sweep * 0.5 * (su + 1); const tRet = tDep + SC.hold[0] + (SC.hold[1] - SC.hold[0]) * h[4];
+          if (s >= tDep) k = 1; if (s >= tRet) k = SC.steps[0]; if (s >= tRet + SC.stepDt) k = SC.steps[1]; if (s >= tRet + 2 * SC.stepDt) k = SC.steps[2];
+          tLand = tRet + 2 * SC.stepDt;
+          if (h[5] < SC.afterP) { const a = s - SC.after; if (a >= tDep && a < tRet) afterK = SC.afterAmp; }
+        }
+        const sh = s >= tLand ? shNew : shOld;
+        const r = 1 + (opts.morph ? EQ_A * eqN(ll, t, sh) : 0);
+        let ring = 0;
+        if (opts.ring && s >= tLand) { const a = s - tLand; ring = SC.ring.amp * Math.exp(-a / SC.ring.decay) * Math.cos(6.2832 * SC.ring.hz * a); }
+        let p = [u[0] * (r + ring), u[1] * (r + ring), u[2] * (r + ring)];
+        const kk = Math.max(k, afterK);
+        if (kk > 0) {
+          const inward = h[4] < SC.inwardP ? -0.6 : 1.0;
+          let d = [u[0] * inward * (0.35 + 0.65 * h[0]) + 0.9 * (h[1] - 0.5), u[1] * inward * (0.35 + 0.65 * h[0]) + 0.9 * (h[2] - 0.5), u[2] * inward * (0.35 + 0.65 * h[0]) + 0.9 * (h[3] - 0.5)];
+          const l = Math.hypot(d[0], d[1], d[2]); d = d.map((v) => v / l);
+          const amp = SC.ampMin + (SC.ampMax - SC.ampMin) * h[5] * h[5];
+          const slot = Math.floor(s * 30); const j = [hashf(h[1] * 97, slot) - 0.5, hashf(h[2] * 97, slot) - 0.5, hashf(h[3] * 97, slot) - 0.5];
+          p = [p[0] + d[0] * amp * kk + j[0] * 2 * SC.jitter, p[1] + d[1] * amp * kk + j[1] * 2 * SC.jitter, p[2] + d[2] * amp * kk + j[2] * 2 * SC.jitter];
+        }
+        return p;
+      }
+
+      // ---------- GLSL side ----------
+      const GLSL_COMMON = `
+        uniform float uT, uR, uMorphAmp, uEvS, uScatterOn, uRingOn, uGain, uSpin;
+        uniform vec3 uSweep, uAxis;
+        uniform vec4 uShapeOld, uShapeNew, uShape2Old, uShape2New; // (p, q, φ1, φ2) and (p2, q2, φ3, φ4)
+        const float SC_SWEEP = ${F(SC.sweep)}, SC_HOLD0 = ${F(SC.hold[0])}, SC_HOLD1 = ${F(SC.hold[1])}, SC_STEP0 = ${F(SC.steps[0])}, SC_STEP1 = ${F(SC.steps[1])}, SC_STEPDT = ${F(SC.stepDt)};
+        const float SC_AMPMIN = ${F(SC.ampMin)}, SC_AMPMAX = ${F(SC.ampMax)}, SC_INWARDP = ${F(SC.inwardP)}, SC_JIT = ${F(SC.jitter)}, SC_AFTER = ${F(SC.after)}, SC_AFTERAMP = ${F(SC.afterAmp)}, SC_AFTERP = ${F(SC.afterP)};
+        const float RING_AMP = ${F(SC.ring.amp)}, RING_DECAY = ${F(SC.ring.decay)}, RING_HZ = ${F(SC.ring.hz)};
+        const float W1 = ${F(EQ_W[0])}, W2 = ${F(EQ_W[1])}, W3 = ${F(EQ_W[2])};
+        float hashf(float a, float b) { return fract(sin(a * 12.9898 + b * 78.233) * 43758.5453); }
+        vec3 rotAxis(vec3 v, vec3 ax, float a) { float c = cos(a), s = sin(a); return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c); }
+        // the equation, on the lattice's own (lat, lon): the rows carry the wave, so it reads as a pattern and not a noise
+        float eqN(vec2 ll, float t, vec4 sh, vec4 sh2) {
+          float lat = ll.x + 1.5708, lon = ll.y;
+          return sin(sh.x * lon + sh.z + W1 * t) * sin(sh.y * lat + sh.w + W2 * t) + 0.45 * sin(sh2.x * lon + sh2.z - W3 * t) * sin(sh2.y * lat + sh2.w);
+        }
+        float scatterK(vec3 u, vec2 h2, float s) {
+          if (s < 0.0 || uScatterOn < 0.5) return 0.0;
+          float su = dot(u, uSweep); float tDep = SC_SWEEP * 0.5 * (su + 1.0); float tRet = tDep + SC_HOLD0 + (SC_HOLD1 - SC_HOLD0) * h2.x;
+          float k = 0.0; if (s >= tDep) k = 1.0; if (s >= tRet) k = SC_STEP0; if (s >= tRet + SC_STEPDT) k = SC_STEP1; if (s >= tRet + 2.0 * SC_STEPDT) k = 0.0; return k;
+        }
+        // shellWarp: the mote's position on the (spinning, breathing, scattering) shell, in units of R
+        vec3 shellWarp(vec3 u0, vec2 ll, vec4 h, vec2 h2, float t, float s) {
+          vec3 u = rotAxis(u0, uAxis, uSpin * t);
+          float k = 0.0, afterK = 0.0, tLand = 1e9;
+          if (s >= 0.0 && uScatterOn > 0.5) {
+            float su = dot(u, uSweep);
+            float tDep = SC_SWEEP * 0.5 * (su + 1.0);
+            float tRet = tDep + SC_HOLD0 + (SC_HOLD1 - SC_HOLD0) * h2.x;
+            if (s >= tDep) k = 1.0; if (s >= tRet) k = SC_STEP0; if (s >= tRet + SC_STEPDT) k = SC_STEP1; if (s >= tRet + 2.0 * SC_STEPDT) k = 0.0;
+            tLand = tRet + 2.0 * SC_STEPDT;
+            if (h2.y < SC_AFTERP) { float a = s - SC_AFTER; if (a >= tDep && a < tRet) afterK = SC_AFTERAMP; }
+          }
+          bool landed = s >= tLand;
+          float r = 1.0 + uMorphAmp * eqN(ll, t, landed ? uShapeNew : uShapeOld, landed ? uShape2New : uShape2Old);
+          float ring = 0.0;
+          if (uRingOn > 0.5 && landed) { float a = s - tLand; ring = RING_AMP * exp(-a / RING_DECAY) * cos(6.2832 * RING_HZ * a); }
+          vec3 p = u * (r + ring);
+          float kk = max(k, afterK);
+          if (kk > 0.0) {
+            float inward = h2.x < SC_INWARDP ? -0.6 : 1.0;
+            vec3 d = normalize(u * inward * (0.35 + 0.65 * h.x) + 0.9 * (h.yzw - 0.5));
+            float amp = SC_AMPMIN + (SC_AMPMAX - SC_AMPMIN) * h2.y * h2.y;
+            float slot = floor(s * 30.0);
+            vec3 j = vec3(hashf(h.y * 97.0, slot), hashf(h.z * 97.0, slot), hashf(h.w * 97.0, slot)) - 0.5;
+            p += d * amp * kk + j * 2.0 * SC_JIT;
+          }
+          return p;
+        }
+      `;
+      const baseUniforms = () => ({ uT: { value: 0 }, uR: { value: 1 }, uMorphAmp: { value: 0 }, uEvS: { value: -1 }, uScatterOn: { value: 1 }, uRingOn: { value: 1 }, uGain: { value: 1 }, uSpin: { value: 0 }, uSweep: { value: new THREE.Vector3(1, 0, 0) }, uAxis: { value: new THREE.Vector3(0, 1, 0) }, uShapeOld: { value: new THREE.Vector4() }, uShapeNew: { value: new THREE.Vector4() }, uShape2Old: { value: new THREE.Vector4() }, uShape2New: { value: new THREE.Vector4() }, uColor: { value: new THREE.Color('#4da3ff') } });
+      const moteMat = () => new THREE.ShaderMaterial({
+        uniforms: { ...baseUniforms(), uSize: { value: 2.0 }, uDpr: { value: 1 } },
+        vertexShader: `attribute vec3 aUnit; attribute vec2 aLL; attribute vec4 aHash; attribute vec2 aHash2; uniform float uSize, uDpr; varying float vK; varying float vF;
+          ${GLSL_COMMON}
+          void main(){
+            vec3 p = shellWarp(aUnit, aLL, aHash, aHash2, uT, uEvS) * uR;
+            vec3 u = rotAxis(aUnit, uAxis, uSpin * uT);
+            vK = scatterK(u, aHash2, uEvS);
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            vec3 n = normalize(normalMatrix * u); vF = 1.0 - abs(n.z);
+            gl_Position = projectionMatrix * mv;
+            gl_PointSize = clamp(uSize * 300.0 / -mv.z, 1.0, 3.0) * uDpr; }`,
+        fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vK; varying float vF; void main(){ vec2 d = gl_PointCoord - 0.5; if (length(d) > 0.5) discard;
+          float limb = 0.35 + 0.65 * pow(vF, 1.6); gl_FragColor = vec4(uColor * uGain * limb * (1.0 + 0.6 * vK), 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const rimMat = () => new THREE.ShaderMaterial({
+        uniforms: { ...baseUniforms(), uScatterDim: { value: 0 } },
+        vertexShader: `varying vec3 vN; varying vec3 vV;
+          ${GLSL_COMMON}
+          void main(){ vec3 u0 = normalize(position); vec2 ll = vec2(asin(clamp(u0.y, -1.0, 1.0)), atan(u0.z, u0.x));
+            // the mesh breathes with the shell (same equation on the same lattice frame) and spins with it; it does not scatter (its fill dims instead)
+            vec3 u = rotAxis(u0, uAxis, uSpin * uT);
+            vec3 p = u * (1.0 + uMorphAmp * eqN(ll, uT, uShapeOld, uShape2Old)) * uR;
+            vN = normalize(normalMatrix * u); vec4 mv = modelViewMatrix * vec4(p, 1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `uniform vec3 uColor; uniform float uGain, uScatterDim; varying vec3 vN; varying vec3 vV; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); float rim = pow(f, 2.6) * 0.55; gl_FragColor = vec4(uColor * uGain * (0.035 + rim) * (1.0 - 0.5 * uScatterDim), 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+
+      // ---------- scene ----------
+      const canvas = document.getElementById('stage');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true });
+      renderer.setClearColor(new THREE.Color('#0B0D12'), 1);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+      const R = 1.0;
+      // a lat/long lattice: rows of motes, columns per row by cos(lat) so the spacing is even; odd rows offset half a step
+      function lattice(seed) {
+        const unit = [], ll = [], hash = [], hash2 = [], pos = []; let i = 0;
+        for (let r = 0; r < LATTICE.rows; r++) {
+          const lat = -1.5708 + 3.14159 * (r + 0.5) / LATTICE.rows; const n = Math.max(6, Math.round(LATTICE.cols * Math.cos(lat)));
+          for (let c = 0; c < n; c++) {
+            const lon = 6.28318 * (c + 0.5 * (r % 2)) / n;
+            unit.push(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon)); ll.push(lat, lon); pos.push(0, 0, 0);
+            hash.push(hash01(seed, i * 8), hash01(seed, i * 8 + 1), hash01(seed, i * 8 + 2), hash01(seed, i * 8 + 3)); hash2.push(hash01(seed, i * 8 + 4), hash01(seed, i * 8 + 5)); i++;
+          }
+        }
+        return { unit, ll, hash, hash2, pos, n: i };
+      }
+      function body(x, seed, defective) {
+        const g = new THREE.Group(); g.position.set(x, 0, 0); scene.add(g);
+        const L = lattice(seed);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(L.pos, 3));
+        geo.setAttribute('aUnit', new THREE.Float32BufferAttribute(L.unit, 3));
+        geo.setAttribute('aLL', new THREE.Float32BufferAttribute(L.ll, 2));
+        geo.setAttribute('aHash', new THREE.Float32BufferAttribute(L.hash, 4));
+        geo.setAttribute('aHash2', new THREE.Float32BufferAttribute(L.hash2, 2));
+        geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2);
+        const pm = moteMat(); const pts = new THREE.Points(geo, pm); pts.frustumCulled = false; g.add(pts);
+        const rm = rimMat(); const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 4), rm); mesh.scale.setScalar(R); g.add(mesh);
+        // a seeded tilted spin axis, 25–40° off the vertical
+        const a = hash01(seed, 7) * 6.2832, tilt = 0.44 + 0.26 * hash01(seed, 8); const axis = [Math.sin(tilt) * Math.cos(a), Math.cos(tilt), Math.sin(tilt) * Math.sin(a)];
+        return { g, pm, rm, seed, defective, L, axis, sweep: [1, 0, 0], motes: L.n };
+      }
+      const healthy = body(-1.3, SEED + 1, false);
+      const defect = body(1.3, SEED + 2, true);
+
+      // ---------- clocks and ui ----------
+      const S = { playing: true, speed: 1, ambient: 0, reduced: false, morph: true, scatter: true, ring: true, spin: true, both: false, stepOffset: 0 };
+      const AMBIENT_POSE = (() => { const t0 = nextScatterT0(defect.seed, 0.5); return t0 + 0.16; })();
+      let last = performance.now(), frames = 0, fpsT = last, fps = 0;
+      function sweepFor(seed, k) { const a = hash01(seed, k * 64 + 3) * 6.2832, z = hash01(seed, k * 64 + 4) * 2 - 1, rr = Math.sqrt(1 - z * z); return [rr * Math.cos(a), z, rr * Math.sin(a)]; }
+      function setUniforms(b, t) {
+        const ev = b.defective ? eventAt(b.seed, t) : null; const sc = ev && ev.scatter ? ev : null;
+        const n = (b.defective ? scatterCountStarted(b.seed, t) - (sc ? 1 : 0) : 0) + S.stepOffset; // during a scatter: old = the shape before it, new = the one its motes land on
+        const shOld = shapeAt(b.seed, n), shNew = shapeAt(b.seed, n + 1);
+        const sweep = sc ? sweepFor(b.seed, sc.k) : [1, 0, 0]; b.sweep = sweep;
+        const spin = S.spin ? 6.2832 / SPIN.period : 0;
+        for (const m of [b.pm, b.rm]) {
+          const U = m.uniforms;
+          U.uT.value = t; U.uR.value = R; U.uEvS.value = sc ? sc.s : -1;
+          U.uMorphAmp.value = (b.defective || S.both) && S.morph ? EQ_A : 0;
+          U.uShapeOld.value.set(shOld.p, shOld.q, shOld.ph1, shOld.ph2); U.uShapeNew.value.set(shNew.p, shNew.q, shNew.ph1, shNew.ph2);
+          U.uShape2Old.value.set(shOld.p2, shOld.q2, shOld.ph3, shOld.ph4); U.uShape2New.value.set(shNew.p2, shNew.q2, shNew.ph3, shNew.ph4);
+          U.uScatterOn.value = S.scatter ? 1 : 0; U.uRingOn.value = S.ring ? 1 : 0; U.uSpin.value = spin;
+          U.uSweep.value.set(sweep[0], sweep[1], sweep[2]); U.uAxis.value.set(b.axis[0], b.axis[1], b.axis[2]);
+        }
+        b.pm.uniforms.uDpr.value = renderer.getPixelRatio();
+        b.rm.uniforms.uScatterDim.value = sc && sc.s < 0.36 ? 1 : 0;
+        return { ev, sc, shOld, shNew, n, spin };
+      }
+      function resize() { const w = innerWidth, h = innerHeight; renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+        const want = 2.6 + 2 * R * 1.25; const dist = want / 2 / Math.tan((camera.fov * Math.PI / 180) / 2) / camera.aspect; camera.position.set(0, 0.9, Math.max(dist, 6)); camera.lookAt(0, 0.9, 0); }
+      addEventListener('resize', resize); resize();
+      const stat = document.getElementById('stat');
+      function render(now) {
+        const dt = Math.min(0.1, (now - last) / 1000); last = now;
+        if (S.playing && !S.reduced) S.ambient += dt * S.speed;
+        const t = S.reduced ? AMBIENT_POSE : S.ambient;
+        setUniforms(healthy, t); const d = setUniforms(defect, t);
+        renderer.render(scene, camera);
+        frames++; if (now - fpsT > 500) { fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; }
+        let maxOff = 0; const opts = { morph: S.morph, scatter: S.scatter, ring: S.ring }; const L = defect.L;
+        for (let i = 0; i < 300; i++) { const j = (i * 20) % L.n; const u = L.unit.slice(j * 3, j * 3 + 3); const ll = L.ll.slice(j * 2, j * 2 + 2); const h = [...L.hash.slice(j * 4, j * 4 + 4), ...L.hash2.slice(j * 2, j * 2 + 2)];
+          const p = shellWarpJS(u, ll, h, t, d.sc, defect.sweep, d.shOld, d.shNew, defect.axis, d.spin, opts); maxOff = Math.max(maxOff, Math.abs(Math.hypot(p[0], p[1], p[2]) - 1)); }
+        const ph = d.sc ? `scatter s=${d.sc.s.toFixed(3)} s` : d.ev ? 'event (other kind)' : 'calm';
+        const sh = d.shOld, sn = d.shNew; const shape = (x) => `p=${x.p} q=${x.q} φ=(${x.ph1.toFixed(2)}, ${x.ph2.toFixed(2)}) · p2=${x.p2} q2=${x.q2} φ=(${x.ph3.toFixed(2)}, ${x.ph4.toFixed(2)})`;
+        stat.innerHTML = `ambient ${t.toFixed(2)} s · ${S.reduced ? 'reduced motion: held pose' : S.playing ? `playing ×${S.speed}` : 'paused'} · ${fps} fps · ${defect.motes} motes a shell (${LATTICE.rows} rows)\n` +
+          `<b>${ph}</b> · max |r−R| ${(maxOff).toFixed(3)} R (JS mirror, 300 motes)\n` +
+          `shape ${d.n}: r = 1 + ${EQ_A} [ sin(p·lon + φ1 + ${EQ_W[0]} t) sin(q·lat' + φ2 ${EQ_W[1]} t) + 0.45 sin(p2·lon + φ3 − ${EQ_W[2]} t) sin(q2·lat' + φ4) ]\n` +
+          `  now  ${shape(sh)}\n  next ${shape(sn)} (lands with the next scatter)\n  spin ${d.spin.toFixed(3)} rad/s about (${defect.axis.map((v) => v.toFixed(2)).join(', ')})`;
+        requestAnimationFrame(render);
+      }
+      requestAnimationFrame(render);
+      const $ = (id) => document.getElementById(id);
+      const sync = () => { $('bPlay').classList.toggle('on', S.playing && S.speed === 1); $('bSlow').classList.toggle('on', S.playing && S.speed !== 1); $('bPause').classList.toggle('on', !S.playing); $('bReduced').classList.toggle('on', S.reduced); $('tMorph').classList.toggle('on', S.morph); $('tScatter').classList.toggle('on', S.scatter); $('tRing').classList.toggle('on', S.ring); $('tSpin').classList.toggle('on', S.spin); $('tBoth').classList.toggle('on', S.both); };
+      $('bPlay').onclick = () => { S.playing = true; S.speed = 1; S.reduced = false; sync(); };
+      $('bPause').onclick = () => { S.playing = false; sync(); };
+      $('bSlow').onclick = () => { S.playing = true; S.speed = 0.2; S.reduced = false; sync(); };
+      $('bNow').onclick = () => { S.reduced = false; S.ambient = nextScatterT0(defect.seed, S.ambient) - 0.05; sync(); };
+      $('bFreeze').onclick = () => { S.reduced = false; S.playing = false; S.ambient = nextScatterT0(defect.seed, S.ambient) + 0.16; sync(); };
+      $('bReduced').onclick = () => { S.reduced = !S.reduced; sync(); };
+      $('tMorph').onclick = () => { S.morph = !S.morph; sync(); };
+      $('tScatter').onclick = () => { S.scatter = !S.scatter; sync(); };
+      $('tRing').onclick = () => { S.ring = !S.ring; sync(); };
+      $('tSpin').onclick = () => { S.spin = !S.spin; sync(); };
+      $('tBoth').onclick = () => { S.both = !S.both; sync(); };
+      $('bStep').onclick = () => { S.stepOffset++; }; // mock only: step the shape's parameters without a scatter, to compare shapes side by side
+      window.mock = { setAmbient(t) { S.playing = false; S.reduced = false; S.ambient = t; sync(); }, nextScatterT0: (t) => nextScatterT0(defect.seed, t), state: S, pose: AMBIENT_POSE };
+    </script>

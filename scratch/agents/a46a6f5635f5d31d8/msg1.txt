@@ -1,0 +1,9 @@
+galaxy: body kinds, sizes, counts, lattices and orbital elements
+
+The pure laws of galaxy spec sections 12 to 14 for the four kinds of body: the lat/long lattice
+(hero 6,116, core 900, star 706, a 0.30 planet 324 motes), planet and moon lattices scaled with the
+radius, planets per star 2 + floor(8u^2) on orbits from 2.2 out to the count-scaled last within 9.6,
+log-normal planet and moon radii, the moon count and its three tracks, planet periods, and the
+seeded Kepler elements (apoapsis r, a = r / (1 + e)) in each kind's band. Nothing imports it yet.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

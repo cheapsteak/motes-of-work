@@ -1,0 +1,25 @@
+story: "Done" plays over one lap round the riding bike
+
+vb-4 is one lap of the camera round the bike, from S1' back to S1', with
+the bearing always rising: a low wide pass along the drive side, a crane
+up behind looking down the bike's length, a high telephoto diagram from
+the far side, a dive over the front onto the saddle on its mast (framed
+close), then out across the front to rest. The bike rides meanwhile.
+
+The lap is generated, not hand-keyed: orbitKeys() in shots.ts runs a
+centripetal Catmull-Rom spline through seven waypoints in bearing,
+elevation, ln distance, fov and target, against one inOutCubic over the
+lap, so it leaves the hold and returns to it at zero speed. It keys every
+1/36 of the lap and each waypoint; the keys are pasted into the keyframes
+and a test regenerates them and holds the file to them. Other tests read
+back each waypoint at its local, the start and end as S1', one rising
+turn of 360 degrees, and the twin under the text band all the way round.
+
+Two waypoints moved out to keep the text clear on a wide screen: the
+crane to 5.2 m at fov 38, and the diagram to 6.3 m, still further and
+longer-lensed than the crane. The dive's lens shift starts at the diagram,
+0.006 earlier than designed, for the same reason.
+
+The named frames of the cold open join the screenshot run.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

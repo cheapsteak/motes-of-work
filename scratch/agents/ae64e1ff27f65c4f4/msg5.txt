@@ -1,0 +1,10 @@
+timeline: zoom-out stays close on the first stack, clear of the text band with the network drawn
+
+With the network drawn, the clearance test found the plans and rules crossing the text band as
+the camera pulled back from N1 to N2. On a phone any pull-back past about 9.5 units brings them in
+through the top of the frame, and a lower elevation or a higher target only lets them in sooner. So
+N1 looks down at 14 degrees (12 let the first stack's plan into the band as it was born), and N2
+swings round the first stack to bearing 40 and looks down at 18 degrees from the same 9 units,
+instead of pulling back to 26 over a point above it. The boundary with Act I is unchanged.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

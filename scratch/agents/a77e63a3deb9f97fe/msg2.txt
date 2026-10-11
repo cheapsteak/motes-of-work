@@ -1,0 +1,9 @@
+story: drop the running labels and the brief label
+
+The labels over each panel (01 - The brief and the rest) read as
+metadata and gave the reader little. The label: front matter key, its
+loader field, its rendering and styles go; so does the mono label above
+the brief, now opened by its ask alone. The text e2e checks that no
+panel carries a running label.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

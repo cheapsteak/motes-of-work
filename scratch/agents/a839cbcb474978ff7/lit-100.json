@@ -1,0 +1,336 @@
+{
+  "config": {
+    "configFile": "/home/user/motes-of-work/playwright.config.ts",
+    "rootDir": "/home/user/motes-of-work/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/user/motes-of-work/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/user/motes-of-work/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 2,
+    "webServer": {
+      "command": "npm run build && npm run preview -- --port 4196 --strictPort",
+      "port": 4196,
+      "reuseExistingServer": true
+    }
+  },
+  "suites": [
+    {
+      "title": "looks.spec.ts",
+      "file": "looks.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "bike",
+          "file": "looks.spec.ts",
+          "line": 144,
+          "column": 8,
+          "specs": [
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "900034 / 794513"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1551,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T17:01:05.516Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "900034 / 794513"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-163e9601f3ca92c7e524",
+              "file": "looks.spec.ts",
+              "line": 169,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "gears",
+          "file": "looks.spec.ts",
+          "line": 144,
+          "column": 8,
+          "specs": [
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "973897 / 780157"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1355,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T17:01:07.179Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "973897 / 780157"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-b36673472cb79e807cf5",
+              "file": "looks.spec.ts",
+              "line": 169,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "steam",
+          "file": "looks.spec.ts",
+          "line": 144,
+          "column": 8,
+          "specs": [
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "467015 / 342192"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1258,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T17:01:08.548Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "467015 / 342192"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-abadb1bab57080128ff5",
+              "file": "looks.spec.ts",
+              "line": 169,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "strandbeest",
+          "file": "looks.spec.ts",
+          "line": 144,
+          "column": 8,
+          "specs": [
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "1074763 / 675968"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1213,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T17:01:09.822Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "1074763 / 675968"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-6f912f154cca428efd4d",
+              "file": "looks.spec.ts",
+              "line": 169,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "watch",
+          "file": "looks.spec.ts",
+          "line": 144,
+          "column": 8,
+          "specs": [
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "750383 / 478609"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1612,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T17:01:11.054Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "750383 / 478609"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-f9ca552eaa8e25a83781",
+              "file": "looks.spec.ts",
+              "line": 169,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-03T17:01:03.727Z",
+    "duration": 9053.935000000001,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

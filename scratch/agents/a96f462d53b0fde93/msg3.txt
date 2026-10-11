@@ -1,0 +1,8 @@
+timeline: the rule close-ups stand at 12, framed three quarters close
+
+At 10 the warm motes of R0's fix cross a desktop's text band at the
+instant they all count as landed (by 79 px; at 11, by 2), which the
+page grid steps over. At 12, framed 0.75, they land clear on both sizes
+and the whole rule stays on a phone's screen.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

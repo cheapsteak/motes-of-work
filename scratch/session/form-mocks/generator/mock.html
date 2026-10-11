@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>form mock</title>
+    <style>
+      @font-face { font-family: 'Literata'; font-style: normal; font-weight: 400; src: url(/fonts/literata-400.woff) format('woff'); }
+      :root { --bg: #0b0d12; --ink: #e8e6ee; --ink-superseded: #bcbbc2; --text-top: 7vh; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); height: 100%; overflow: hidden; }
+      body { font: 400 1.1875rem/1.55 'Literata', Georgia, serif; -webkit-font-smoothing: antialiased;
+        text-shadow: 0 1px 2px rgba(11,13,18,.9), 0 0 14px rgba(11,13,18,.95), 0 0 30px rgba(11,13,18,.8); }
+      #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+      #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 62%, transparent 55%, rgba(0,0,0,.45) 100%); }
+      #scrim { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22svh, transparent 42svh); }
+      #panel { position: fixed; top: var(--text-top); left: 0; right: 0; width: min(36rem, 100%); margin: 0 auto; padding: 0 clamp(1rem, 5vw, 4rem); box-sizing: border-box; }
+      #panel p { margin: 0 0 .85em; }
+      #panel p.dim { color: var(--ink-superseded); }
+      #label { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font: 12px/1.3 system-ui, sans-serif; color: #6f6d7a; text-shadow: none; }
+      #band { position: fixed; left: 0; right: 0; top: 0; height: 30vh; pointer-events: none; border-bottom: 1px dashed rgba(255,255,255,.12); }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="vignette"></div>
+    <div id="scrim"></div>
+    <div id="band"></div>
+    <div id="panel"></div>
+    <div id="label"></div>
+    <script type="module">
+      import * as THREE from '/three.module.js';
+
+      // ---------- params ----------
+      const q = new URLSearchParams(location.search);
+      const SYS = q.get('sys') || 'terraces';
+      const PIECE = q.get('piece') || 'crate';
+      const MOMENT = q.get('moment') || 'layers';
+      const SEED = Number(q.get('seed') || 7);
+      const OVER = q.get('cam'); // optional "bearing,elev,dist,fov,tx,ty,tz"
+
+      // ---------- rng ----------
+      function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      const rng = mulberry32(SEED * 7919 + 13);
+      const rand = (a, b) => a + (b - a) * rng();
+
+      // ---------- colours ----------
+      const AGENT = new THREE.Color('#4da3ff');
+      const HUMAN = new THREE.Color('#ffb347');
+      const EMBER = new THREE.Color('#ff6a3a');
+      const BG = new THREE.Color('#0B0D12');
+
+      // ---------- layers (cube unit, cube counts) ----------
+      const LAYERS = {
+        code: { unit: 0.42, cubes: [5, 7] },
+        plan: { unit: 0.65, cubes: [9, 12] },
+        rule: { unit: 1.1, cubes: [16, 22] },
+      };
+
+      // ---------- piece shapes: integer cells (x, y, z), y up, y=0 the ground course ----------
+      function cellsFor(piece, layer, n) {
+        const corners = (f) => { const out = []; for (let x = 0; x < f; x++) for (let z = 0; z < f; z++) out.push([x, z]); return out; };
+        const pickFromTop = (f, k) => { // the first k of a stable corner-first order
+          const all = corners(f); const c = (f - 1) / 2;
+          all.sort((a, b) => (Math.abs(b[0] - c) + Math.abs(b[1] - c)) - (Math.abs(a[0] - c) + Math.abs(a[1] - c)));
+          // rotate so pieces differ
+          const rot = Math.floor(rng() * 4);
+          return all.map(([x, z]) => { for (let i = 0; i < rot; i++) [x, z] = [z, f - 1 - x]; return [x, z]; }).slice(0, k);
+        };
+        if (piece === 'crate') {
+          const f = layer === 'rule' ? 3 : 2; const per = f * f;
+          const cells = []; let left = n; let y = 0;
+          while (left >= per) { for (const [x, z] of corners(f)) cells.push([x, y, z]); left -= per; y++; }
+          for (const [x, z] of pickFromTop(f, left)) cells.push([x, y, z]);
+          return cells;
+        }
+        if (piece === 'pillar') {
+          const f = 2; const per = 4;
+          const cells = []; let left = n; let y = 0;
+          while (left >= per) { for (const [x, z] of corners(f)) cells.push([x, y, z]); left -= per; y++; }
+          for (const [x, z] of pickFromTop(f, left)) cells.push([x, y, z]);
+          return cells;
+        }
+        if (piece === 'block') {
+          // the bounding near-cube, bites taken out of its corners
+          const dims = layer === 'code' ? [2, 2, 2] : layer === 'plan' ? [2, 3, 2] : [3, 3, 3];
+          const all = []; for (let y = 0; y < dims[1]; y++) for (let x = 0; x < dims[0]; x++) for (let z = 0; z < dims[2]; z++) all.push([x, y, z]);
+          let remove = all.length - n;
+          // bite order: top-course corners first, then upper edges, random among ties
+          const score = ([x, y, z]) => y * 3 + (x === 0 || x === dims[0] - 1 ? 1 : 0) + (z === 0 || z === dims[2] - 1 ? 1 : 0) + rng() * 1.5;
+          const order = all.map((c) => [score(c), c]).sort((a, b) => b[0] - a[0]).map((p) => p[1]);
+          const removed = new Set();
+          for (const c of order) { if (remove <= 0) break; if (c[1] === 0) continue; removed.add(c.join(',')); remove--; }
+          return all.filter((c) => !removed.has(c.join(',')));
+        }
+        if (piece === 'cluster') {
+          // accretion: each new cube face-adjacent, supported, preferring shared faces and low height
+          const cells = [[0, 0, 0]]; const has = new Set(['0,0,0']);
+          const key = (c) => c.join(',');
+          while (cells.length < n) {
+            const cands = new Map();
+            for (const [x, y, z] of cells) for (const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,0,1],[0,0,-1]]) {
+              const c = [x + dx, y + dy, z + dz]; if (c[1] < 0 || has.has(key(c))) continue;
+              if (c[1] > 0 && !has.has(key([c[0], c[1] - 1, c[2]]))) continue;
+              let shared = 0; for (const [ex, ey, ez] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) if (has.has(key([c[0]+ex, c[1]+ey, c[2]+ez]))) shared++;
+              const s = shared * 1.3 - c[1] * 0.45 - (Math.abs(c[0]) + Math.abs(c[2])) * 0.55 + rng() * 1.6;
+              if (!cands.has(key(c)) || cands.get(key(c))[0] < s) cands.set(key(c), [s, c]);
+            }
+            const best = [...cands.values()].sort((a, b) => b[0] - a[0])[0][1];
+            cells.push(best); has.add(key(best));
+          }
+          return cells;
+        }
+        throw new Error('piece ' + piece);
+      }
+
+      function buildPiece(piece, layer, n) {
+        const u = LAYERS[layer].unit; const cells = cellsFor(piece, layer, n);
+        let mx = 0, mz = 0, maxy = 0; for (const c of cells) { mx += c[0]; mz += c[2]; maxy = Math.max(maxy, c[1]); }
+        mx /= cells.length; mz /= cells.length;
+        const boxes = cells.map(([x, y, z]) => ({ c: [(x - mx) * u, (y + 0.5) * u, (z - mz) * u], s: u * 0.94 }));
+        let r = 0; for (const b of boxes) r = Math.max(r, Math.hypot(b.c[0], b.c[2]) + u * 0.7);
+        return { boxes, radius: r, height: (maxy + 1) * u, u };
+      }
+
+      // ---------- layouts ----------
+      const COUNTS = { zoom: [22, 6, 3], layers: [48, 10, 4], twelve: [84, 14, 4], pieces: [0, 0, 0] };
+
+      function layout(sys, counts) {
+        const [nc, np, nr] = counts;
+        const nodes = []; const edges = [];
+        const add = (layer, pos, parent, extra = {}) => {
+          const n = LAYERS[layer].cubes[0] + Math.floor(rng() * (LAYERS[layer].cubes[1] - LAYERS[layer].cubes[0] + 1));
+          const node = { layer, pos, parent, cubes: n, yaw: rand(-0.35, 0.35), ...extra, idx: nodes.length };
+          node.shape = buildPiece(PIECE, layer, n);
+          nodes.push(node); if (parent != null) edges.push([parent, node.idx]);
+          return node;
+        };
+        const spaced = (layer, pos, r) => nodes.every((o) => o.layer !== layer || Math.hypot(o.pos[0]-pos[0], (o.pos[1]-pos[1])*0.6, o.pos[2]-pos[2]) > 1.15 * (o.shape.radius + r));
+        const rApprox = { code: 0.75, plan: 1.0, rule: 2.0 };
+        const place = (layer, draw) => { for (let t = 0; t < 400; t++) { const p = draw(t); if (spaced(layer, p, rApprox[layer])) return p; } return draw(400); };
+
+        if (sys === 'column') {
+          // three stacked clouds on one axis: rules r 3 at y 26, plans r 7 at y 13, code r 11 at y 0; each a thick slab
+          for (let i = 0; i < nr; i++) add('rule', place('rule', () => { const a = rng()*6.28, r = 3*Math.sqrt(rng()); return [r*Math.cos(a), 26 + rand(-1,1), r*Math.sin(a)]; }), null);
+          for (let i = 0; i < np; i++) { const par = Math.floor(rng()*nr); add('plan', place('plan', () => { const a = rng()*6.28, r = 7*Math.sqrt(rng()); return [r*Math.cos(a), 13 + rand(-2,2), r*Math.sin(a)]; }), par); }
+          for (let i = 0; i < nc; i++) { const par = nr + Math.floor(rng()*np); const pp = nodes[par].pos; add('code', place('code', (t) => { const a = rng()*6.28, r = (t < 200 ? 5 : 11)*Math.sqrt(rng()); return [clamp(pp[0]*0.6 + r*Math.cos(a), -11, 11), rand(-3,3), clamp(pp[2]*0.6 + r*Math.sin(a), -11, 11)]; }), par); }
+        } else if (sys === 'chandelier') {
+          // a hanging tree: rules on a small ring at the apex, each plan on a ring below its rule, each code on a ring below its plan
+          for (let i = 0; i < nr; i++) { const a = (i / Math.max(nr,1)) * 6.28 + 0.4; add('rule', [3.2*Math.cos(a), 26 + rand(-0.5,0.5), 3.2*Math.sin(a)], null); }
+          for (let i = 0; i < np; i++) { const par = Math.floor(rng()*nr); const pp = nodes[par].pos; add('plan', place('plan', (t) => { const a = rng()*6.28, r = rand(3, 6) + t*0.02; return [pp[0]*1.4 + r*Math.cos(a), 13 + rand(-1,1), pp[2]*1.4 + r*Math.sin(a)]; }), par); }
+          for (let i = 0; i < nc; i++) { const par = nr + Math.floor(rng()*np); const pp = nodes[par].pos; add('code', place('code', (t) => { const a = rng()*6.28, r = rand(1.8, 4.2) + t*0.02; return [pp[0]*1.35 + r*Math.cos(a), rand(-0.8,0.8), pp[2]*1.35 + r*Math.sin(a)]; }), par); }
+        } else if (sys === 'terraces') {
+          // three steps rising away from the reader: code nearest and lowest, rules farthest and highest
+          for (let i = 0; i < nr; i++) add('rule', place('rule', () => [rand(-6, 6), 16, rand(-25, -19)]), null);
+          for (let i = 0; i < np; i++) { const par = Math.floor(rng()*nr); const pp = nodes[par].pos; add('plan', place('plan', (t) => [clamp(pp[0] + rand(-6,6) * (1 + t/100), -11, 11), 8, rand(-15, -8)]), par); }
+          for (let i = 0; i < nc; i++) { const par = nr + Math.floor(rng()*np); const pp = nodes[par].pos; const f = i / Math.max(nc-1,1); add('code', place('code', (t) => [clamp(pp[0] + rand(-5,5) * (1 + t/80), -13, 13), 0, -3 + 18 * f + rand(-2.5, 2.5)]), par); }
+        } else if (sys === 'galaxy') {
+          // seen from above: rules at the hub, plans the inner ring, code out along three arms; a shallow cone so the side view still has a top
+          const arms = 3; const twist = 0.22;
+          for (let i = 0; i < nr; i++) { const a = rng()*6.28, r = 2.2*Math.sqrt(rng()); add('rule', place('rule', () => { const a = rng()*6.28, r = 2.4*Math.sqrt(rng()); return [r*Math.cos(a), 4, r*Math.sin(a)]; }), null, { arm: i % arms }); }
+          for (let i = 0; i < np; i++) { const par = Math.floor(rng()*nr); const arm = nodes[par].arm; add('plan', place('plan', () => { const r = rand(4.5, 9); const a = arm*6.28/arms + twist*r + rand(-0.35,0.35); return [r*Math.cos(a), 2, r*Math.sin(a)]; }), par, { arm }); }
+          for (let i = 0; i < nc; i++) { const par = nr + Math.floor(rng()*np); const arm = nodes[par].arm; add('code', place('code', () => { const r = rand(9.5, 22); const a = arm*6.28/arms + twist*r + rand(-0.3,0.3); return [r*Math.cos(a), 0, r*Math.sin(a)]; }), par, { arm }); }
+        }
+        return { nodes, edges };
+      }
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+      // ---------- the twelve ----------
+      function markTwelve(net) {
+        const plans = net.nodes.filter((n) => n.layer === 'plan');
+        const byChildren = (p) => net.nodes.filter((n) => n.parent === p.idx);
+        // the three plans of one rule with the most code under them
+        const rules = net.nodes.filter((n) => n.layer === 'rule');
+        let best = null;
+        for (const r of rules) {
+          const ps = plans.filter((p) => p.parent === r.idx).sort((a, b) => byChildren(b).length - byChildren(a).length).slice(0, 3);
+          const score = ps.reduce((s, p) => s + byChildren(p).length, 0);
+          if (ps.length === 3 && (!best || score > best.score)) best = { ps, score };
+        }
+        if (!best) best = { ps: plans.slice(0, 3) };
+        const lit = new Set(best.ps.map((p) => p.idx));
+        let code = best.ps.flatMap(byChildren);
+        if (code.length < 10) { // borrow neighbours of the first plan's code so twelve can be counted
+          const c0 = code[0] || net.nodes.find((n) => n.layer === 'code');
+          const more = net.nodes.filter((n) => n.layer === 'code' && !code.includes(n)).sort((a, b) => dist(a.pos, c0.pos) - dist(b.pos, c0.pos));
+          code = code.concat(more.slice(0, 10 - code.length));
+        }
+        const fixed = code[0]; fixed.fixed = true;
+        for (const c of code.slice(1, 10)) lit.add(c.idx);
+        for (const i of lit) net.nodes[i].lit = true;
+        net.nodes[best.ps[0].idx].source = true;
+      }
+      const dist = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]);
+
+      // ---------- scene ----------
+      const canvas = document.getElementById('stage');
+      const W = innerWidth, H = innerHeight;
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(devicePixelRatio); renderer.setSize(W, H, false); renderer.setClearColor(BG, 1);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(2, 3, 5); scene.add(key);
+      const rim = new THREE.DirectionalLight(0x88aaff, 0.5); rim.position.set(-3, 2, -4); scene.add(rim);
+
+      const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+      const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+      const faceMat = (col, op) => new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: op, depthWrite: false });
+      const edgeMat = (col, op) => new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op });
+      const mats = {
+        agent: [faceMat(AGENT.clone().multiplyScalar(0.55), 0.34), edgeMat(AGENT, 0.55)],
+        lit: [faceMat(EMBER.clone().multiplyScalar(0.95), 0.62), edgeMat(new THREE.Color('#ffa07a'), 0.95)],
+        fixed: [faceMat(AGENT.clone().multiplyScalar(0.4), 0.3), edgeMat(HUMAN, 0.5)],
+      };
+
+      function haloTexture() {
+        const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+        const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.35, 'rgba(255,255,255,0.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grd; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+      }
+      const HALO = haloTexture();
+
+      const specklePos = []; const speckleCol = [];
+      const streamPos = []; const streamCol = [];
+
+      function addNode(node, mutedGlow = 1) {
+        const g = new THREE.Group(); g.position.set(...node.pos); g.rotation.y = node.yaw; scene.add(g);
+        const kind = node.lit ? 'lit' : node.fixed ? 'fixed' : 'agent';
+        const col = node.lit ? EMBER : node.fixed ? AGENT.clone().multiplyScalar(0.6) : AGENT;
+        for (const b of node.shape.boxes) {
+          const m = new THREE.Mesh(boxGeo, mats[kind][0]); m.position.set(...b.c); m.scale.setScalar(b.s); g.add(m);
+          const e = new THREE.LineSegments(edgeGeo, mats[kind][1]); e.position.set(...b.c); e.scale.setScalar(b.s); g.add(e);
+          // speckle on the faces
+          const nPts = node.layer === 'rule' ? 26 : node.layer === 'plan' ? 16 : 10;
+          for (let i = 0; i < nPts; i++) {
+            const f = Math.floor(rng() * 6); let p = [rand(-0.5,0.5), rand(-0.5,0.5), rand(-0.5,0.5)];
+            p[f % 3] = f < 3 ? 0.52 : -0.52;
+            const v = new THREE.Vector3(p[0]*b.s + b.c[0], p[1]*b.s + b.c[1], p[2]*b.s + b.c[2]).applyAxisAngle(new THREE.Vector3(0,1,0), node.yaw).add(new THREE.Vector3(...node.pos));
+            specklePos.push(v.x, v.y, v.z);
+            const c = node.fixed && b === node.shape.boxes[node.shape.boxes.length-1] ? HUMAN : col;
+            speckleCol.push(c.r, c.g, c.b);
+          }
+        }
+        if (node.fixed) { // the warm dusting on the fixed one
+          const top = node.shape.boxes[node.shape.boxes.length-1];
+          for (let i = 0; i < 40; i++) { const v = new THREE.Vector3(rand(-0.6,0.6)*top.s + top.c[0], top.c[1] + top.s*0.55 + rand(0,0.3), rand(-0.6,0.6)*top.s + top.c[2]).applyAxisAngle(new THREE.Vector3(0,1,0), node.yaw).add(new THREE.Vector3(...node.pos)); specklePos.push(v.x,v.y,v.z); speckleCol.push(HUMAN.r,HUMAN.g,HUMAN.b); }
+        }
+        // No round halo: a lit stack is carried by its own ember body and edges (the author read the halos as blur).
+      }
+
+      function addStream(a, b, lit) {
+        const pa = new THREE.Vector3(a.pos[0], a.pos[1], a.pos[2]); const pb = new THREE.Vector3(b.pos[0], b.pos[1] + b.shape.height, b.pos[2]);
+        const mid = pa.clone().add(pb).multiplyScalar(0.5); const d = pb.clone().sub(pa); const side = new THREE.Vector3(-d.z, 0, d.x).normalize().multiplyScalar(d.length() * 0.12 * (rng() < 0.5 ? 1 : -1));
+        const c = mid.add(side);
+        const n = Math.max(10, Math.round(d.length() * 2.2)); const col = lit ? EMBER : AGENT;
+        for (let i = 0; i <= n; i++) { const t = (i + rng()*0.6) / n; const om = 1 - t; const p = pa.clone().multiplyScalar(om*om).add(c.clone().multiplyScalar(2*om*t)).add(pb.clone().multiplyScalar(t*t)); streamPos.push(p.x, p.y, p.z); const k = lit ? 0.9 : 0.55; streamCol.push(col.r*k, col.g*k, col.b*k); }
+      }
+
+      function flushPoints(pos, col, size, opacity) {
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        const m = new THREE.PointsMaterial({ size, vertexColors: true, transparent: true, opacity, sizeAttenuation: true, blending: THREE.AdditiveBlending, depthWrite: false });
+        scene.add(new THREE.Points(g, m));
+      }
+
+      // ---------- cameras (bearing deg about y from +z, elev deg, dist, fov, target) ----------
+      const CAMS = {
+        column: {
+          zoom: { b: 20, e: 86, d: 44, fov: 40, t: [0, 4, 0] },
+          layers: { b: 30, e: 6, d: 50, fov: 40, t: [0, 14, 0] },
+          twelve: { b: -30, e: 10, d: 52, fov: 40, t: [0, 14, 0] },
+        },
+        chandelier: {
+          zoom: { b: 20, e: 86, d: 46, fov: 40, t: [0, 4, 0] },
+          layers: { b: 30, e: 6, d: 58, fov: 40, t: [0, 15, 0] },
+          twelve: { b: -30, e: 10, d: 60, fov: 40, t: [0, 15, 0] },
+        },
+        terraces: {
+          zoom: { b: 0, e: 72, d: 52, fov: 40, t: [0, 6, -9] },
+          layers: { b: 8, e: 24, d: 60, fov: 40, t: [0, 7, -8] },
+          twelve: { b: -14, e: 26, d: 56, fov: 40, t: [0, 7, -6] },
+        },
+        galaxy: {
+          zoom: { b: 0, e: 88, d: 52, fov: 40, t: [0, 0, 0] },
+          layers: { b: 20, e: 62, d: 50, fov: 40, t: [0, 1, 0] },
+          twelve: { b: -10, e: 70, d: 52, fov: 40, t: [0, 1, 0] },
+        },
+        pieces: { pieces: { b: 14, e: 16, d: 21, fov: 36, t: [-0.4, 1.0, -2] } },
+      };
+
+      const camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 400);
+      function aim(c) {
+        const t = new THREE.Vector3(...c.t); const br = c.b * Math.PI / 180, er = c.e * Math.PI / 180;
+        camera.position.set(t.x + c.d * Math.cos(er) * Math.sin(br), t.y + c.d * Math.sin(er), t.z + c.d * Math.cos(er) * Math.cos(br));
+        camera.fov = c.fov; camera.up.set(0, 1, 0); camera.lookAt(t);
+        // portrait rig: widen by sqrt(m) in distance and fov (as cameraRig.ts does), then compose the target at 62 % of the height
+        const aspect = W / H; const k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+        if (k > 1) { const dir = camera.position.clone().sub(t).normalize(); camera.position.copy(t.clone().add(dir.multiplyScalar(c.d * k))); camera.fov = Math.min(100, c.fov * k); }
+        camera.updateProjectionMatrix();
+        const y = c.frameY ?? (aspect < 1 ? 0.62 : 0.66);
+        camera.setViewOffset(W, H, 0, -(y - 0.5) * H, W, H);
+      }
+
+      // ---------- text ----------
+      const LINES = {
+        zoom: [['Now let’s zoom out.', 1], ['You want a hundred things built, and the agents build all day.', 0]],
+        layers: [['Rules shape plans, and plans shape code.', 0]],
+        twelve: [['Now step back.', 1], ['The agents kept building. Whatever is built on a defect carries it too.', 1], ['Twelve new defects. You fixed one.', 0]],
+        pieces: [[`Piece: ${PIECE}`, 0]],
+      };
+      document.getElementById('panel').innerHTML = (LINES[MOMENT] || []).map(([s, dim]) => `<p class="${dim ? 'dim' : ''}">${s}</p>`).join('');
+      document.getElementById('label').textContent = MOMENT === 'pieces' ? `piece: ${PIECE} (code, plan, rule; and code far)` : `system: ${SYS} · piece: ${PIECE} · ${MOMENT}`;
+      if (!q.get('band')) document.getElementById('band').style.display = 'none';
+
+      // ---------- build ----------
+      if (MOMENT === 'pieces') {
+        const nodes = [];
+        const mk = (layer, pos, n) => { const node = { layer, pos, cubes: n, yaw: rand(-0.3, 0.3), idx: nodes.length }; node.shape = buildPiece(PIECE, layer, n); nodes.push(node); return node; };
+        mk('code', [-4.6, 0, 1.5], 6); mk('plan', [-2.2, 0, 0.5], 11); mk('rule', [2.2, 0, -1.5], 19);
+        for (let i = 0; i < 14; i++) mk('code', [rand(-9, 9), 0, rand(-14, -8)], 5 + Math.floor(rng()*3));
+        for (let i = 0; i < 4; i++) mk('plan', [rand(-10, 10), 0, rand(-22, -16)], 9 + Math.floor(rng()*4));
+        for (const n of nodes) addNode(n);
+        aim(OVER ? parse(OVER) : CAMS.pieces.pieces);
+      } else {
+        const net = layout(SYS, COUNTS[MOMENT]);
+        if (MOMENT === 'twelve') markTwelve(net);
+        for (const [a, b] of net.edges) addStream(net.nodes[a], net.nodes[b], !!(net.nodes[a].lit && net.nodes[b].lit) || !!(net.nodes[b].fixed && net.nodes[a].lit));
+        for (const n of net.nodes) addNode(n);
+        aim(OVER ? parse(OVER) : CAMS[SYS][MOMENT]);
+        window.__count = { nodes: net.nodes.length, lit: net.nodes.filter((n) => n.lit).length };
+      }
+      function parse(s) { const v = s.split(',').map(Number); return { b: v[0], e: v[1], d: v[2], fov: v[3], t: [v[4], v[5], v[6]] }; }
+      flushPoints(specklePos, speckleCol, 0.11, 0.9);
+      flushPoints(streamPos, streamCol, 0.14, 0.7);
+      renderer.render(scene, camera);
+      window.__done = true;
+    </script>
+  </body>
+</html>

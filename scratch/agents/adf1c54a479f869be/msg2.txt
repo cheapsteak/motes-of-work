@@ -1,0 +1,14 @@
+galaxy: name the derps' salt layout, hold their parity to 1e-4, and sample every kind across its profile
+
+The fine salts' strides and the wobble's height share and the tremble's thirds are named in
+birth.ts and spliced into derp.glsl, so neither mirror carries a bare copy, and the salt-families
+test reads the named values. ZERO_DERP is frozen through, its wobble too.
+
+The derp parity is held to 1e-4 rather than the other libraries' 1e-3, since a moon's wobble is a
+few thousandths of a unit; it measures under 1e-5. Each kind's first two events are sampled at
+s 0.1, 0.3, 0.5, 0.65 and 0.85, so the coverage no longer rests on what the grid happens to
+catch, and the search for them is capped. New unit tests hold the tremble's sine envelope, the
+skip's lift ring above a quarter of its lift, the stall above 0.7 of its hold, and a scatter's
+clock unchanged by v.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

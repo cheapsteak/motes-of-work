@@ -1,0 +1,14 @@
+fix: blend the watch twin in parameter space, so the morph never flips
+
+Mid-morph the watch slerped two independently spinning rotations along the
+shorter arc, which flips hemisphere every time their dot product crosses
+zero: parts snapped through half turns as drive moved during the rewind.
+Each part now carries its rest orientation, spin angle and fault tilts;
+the rest and tilts slerp between fixed or small rotations and the spin
+blends as an angle. Both endpoint poses are unchanged.
+
+Adds a part-pose continuity test for every mechanism: drive swept across
+the story's range at five variants, and the whole story, measured on real
+sampled points; the largest step must halve as sampling doubles.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

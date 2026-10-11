@@ -1,0 +1,10 @@
+mechanisms: a part may close its offset on its own arrival curve
+
+By default a part closes its exploded offset on the motes' smoothstep
+over its settle window. A part can now give an arrival(x) curve instead,
+0 at the start of its window and 1 at the end, free to hold, fall and
+rebound in between, so an entrance can have some character while staying
+a pure function of assembly. The contract test bounds any such curve;
+the monotone check applies to the default curve only.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

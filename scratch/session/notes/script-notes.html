@@ -1,0 +1,339 @@
+<title>Motes of Work script notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one reading column, phone first; each script line is a row you tap to annotate, notes sit in the margin of the line itself. */
+  :root {
+    color-scheme: dark;
+    --night: #0b0d12;       /* the essay's stage */
+    --ink: #e8e6ee;         /* text */
+    --ink-dim: #9f9dab;     /* stage directions, meta */
+    --ink-faint: #5d5b6b;   /* rules and quiet marks */
+    --gold: #e3b04b;        /* a person's attention: your notes */
+    --gold-wash: rgba(227, 176, 75, 0.09);
+    --well: #14171f;        /* note field */
+    --serif: "Literata", Georgia, "Times New Roman", serif;
+    --display: "Instrument Serif", "Literata", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--night);
+    color: var(--ink);
+    font: 400 1.0625rem/1.55 var(--serif);
+    margin: 0;
+    padding-inline: 16px;
+    padding-block: 0 96px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; display: grid; gap: 28px; }
+  .bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    margin-inline: -16px; padding: 10px 16px;
+    background: linear-gradient(to bottom, var(--night) 70%, rgba(11, 13, 18, 0));
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .status { font: 400 0.75rem/1.3 var(--mono); color: var(--ink-dim); letter-spacing: 0.04em; flex: 1 1 auto; min-width: 0; }
+  .status b { color: var(--gold); font-weight: 500; }
+  button {
+    font: inherit; color: inherit; background: none; border: 0; cursor: pointer;
+  }
+  .act {
+    font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--night); background: var(--gold); padding: 10px 14px; border-radius: 999px; min-height: 40px;
+  }
+  .act.quiet { background: none; color: var(--ink-dim); padding: 10px 6px; }
+  .act:focus-visible, .line-btn:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  header { display: grid; gap: 10px; padding-top: 8px; }
+  h1 { font: 400 clamp(2rem, 9vw, 2.75rem)/1.05 var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.005em; }
+  .meta { font: 400 0.75rem/1.4 var(--mono); color: var(--ink-dim); letter-spacing: 0.04em; }
+  .intro p { margin: 0 0 0.7em; color: var(--ink-dim); font-size: 0.9375rem; }
+  .notice { font-size: 0.875rem; color: var(--ink-dim); border-left: 2px solid var(--gold); padding: 4px 0 4px 12px; }
+  h2 { font: 400 1.5rem/1.2 var(--display); margin: 0; font-style: italic; }
+  .page { display: grid; gap: 4px; }
+  .page-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .page-head .rule { flex: 1; height: 1px; background: var(--ink-faint); opacity: 0.5; }
+  .line { position: relative; padding-left: 14px; }
+  .line::before {
+    content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 2px; border-radius: 2px;
+    background: transparent;
+  }
+  .line.has-note::before { background: var(--gold); }
+  .line-btn { display: block; width: 100%; text-align: left; padding: 10px 0; min-height: 44px; }
+  .line-text { font-size: 1.125rem; line-height: 1.45; }
+  .line-meta { font: 400 0.6875rem/1 var(--mono); color: var(--ink-faint); margin-left: 6px; white-space: nowrap; }
+  .dir { display: block; margin-top: 6px; font-style: italic; font-size: 0.875rem; line-height: 1.45; color: var(--ink-dim); }
+  .note-box { display: grid; gap: 6px; padding: 2px 0 14px; }
+  textarea {
+    width: 100%; min-height: 84px; resize: vertical;
+    font: 400 1rem/1.45 var(--serif); color: var(--ink);
+    background: var(--well); border: 1px solid #262a36; border-radius: 10px; padding: 10px 12px;
+  }
+  textarea::placeholder { color: var(--ink-faint); }
+  .note-state { font: 400 0.6875rem/1 var(--mono); color: var(--ink-dim); letter-spacing: 0.04em; min-height: 1em; }
+  .note-preview { margin: 0 0 12px; padding: 8px 12px; background: var(--gold-wash); border-radius: 8px; color: var(--ink); font-size: 0.9375rem; white-space: pre-wrap; }
+  .choices { display: grid; gap: 4px; }
+  .choice-text { font-size: 0.9375rem; line-height: 1.5; color: var(--ink); }
+  .choice-text strong { font-weight: 500; }
+  .overall textarea { min-height: 120px; }
+  .filter-on .line:not(.has-note), .filter-on .page:not(.has-any) { display: none; }
+  .copied { color: var(--gold); }
+  @media (prefers-reduced-motion: no-preference) { .note-box { animation: rise 160ms ease-out; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  @media (min-width: 720px) { body { font-size: 1.125rem; } .wrap { gap: 34px; } }
+</style>
+
+<div class="wrap" id="app">
+  <div class="bar">
+    <span class="status" id="status" role="status">Loading notes…</span>
+    <button class="act quiet" id="filter" type="button" aria-pressed="false">Only noted</button>
+    <button class="act" id="copy" type="button">Copy all notes</button>
+  </div>
+  <header>
+    <span class="meta" id="version"></span>
+    <h1 id="title">Act II script</h1>
+    <p class="notice" id="mode">Tap any line to leave a note on it. Notes save as you type, and Claude reads them from here.</p>
+  </header>
+  <section class="intro" id="intro"></section>
+  <section class="overall" id="overall"></section>
+  <div id="pages"></div>
+  <section id="choices-sec">
+    <div class="page-head"><h2>Choices the writer made</h2><span class="rule"></span></div>
+    <div class="choices" id="choices"></div>
+  </section>
+</div>
+
+<script>
+const SCRIPT = {"title": "Act II script: the incorrect rule (draft 4, for the author: the galaxy)", "intro": ["Act I spent one close look on one drawing. Act II shows where a close look pays most across many pieces of work: the few things at the centre that every agent reads, because a rule that is wrong but agrees with everything built from it gets copied faster than a person can find the copies, and the only fix is at the source.", "**From Act I:** the correct bike is riding when Act II opens; its particles gather into the first piece of work, one small body with its satellites far out on an arm, and the camera pulls away until it is one of hundreds. **To the Coda:** the last line, \"the closer to the centre a thing sits, the longer you look at it\", is the Coda's map said in one sentence; the map is rings around a centre.", "The prose names things by what they are, not by how the picture draws them (author, 2026-10-05): rules, plans, code, a defect, a reviewer. Where a thing sits is said in words that are true of the picture without naming it: the centre, around them, out at the edge. The picture keeps its own vocabulary in the stage directions only: the hub, the ring and the arms; bodies and the satellites that go round them; streams; and the stutter that shows a defect up close. The prose never says galaxy, planet, moon, atom or orbit; the reader may see any of them."], "labels": ["**No labels** (the author, 2026-10-06). Pages 2 to 4 name the three regions in the lines, one scene each, in the order the camera visits them: in to the centre first, then out with the streams; after that the shapes carry it, and later lines say \"at the centre\", \"out here\"."], "pages": [{"n": 1, "lines": [{"text": "Now let's zoom out. (4) `zo-1`", "words": 6, "dir": "The camera lifts straight up from the riding bike. Its particles loosen and gather into one small body with a few satellites going round it: the bike becomes the first piece of work.", "id": "act2-d4-p1-l1"}, {"text": "You want a hundred things built, and the agents build all day. (12) `zo-2`", "words": 14, "dir": "The camera keeps rising. More pieces come up near and far along the same curve; the curve shows itself as one arm of a spiral, then the other arms, then the whole: a few large bodies at the hub, a ring of middling ones around them, the small ones strung out along the arms. Powers of ten: one piece, its arm, all of it. The first piece is one of hundreds by the end, and the growth never stops.", "id": "act2-d4-p1-l2"}]}, {"n": 2, "lines": [{"text": "Each piece of work is built from what its agent reads. (11) `ly-1`", "words": 13, "dir": "Medium shot of a few pieces on an arm. Fine streams run out to them from nearer the centre, and a piece grows each time its stream arrives.", "id": "act2-d4-p2-l1"}, {"text": "At the centre, the rules every agent reads before it starts. (11) `ly-2`", "words": 13, "dir": "The camera flies in along the arm to the hub: a handful of large bodies, slow to change, with many streams leaving them outward.", "id": "act2-d4-p2-l2"}]}, {"n": 3, "lines": [{"text": "Around them, the plans: the instructions for one piece of work. (11) `ly-3`", "words": 13, "dir": "The camera comes back out to the ring around the hub: more bodies, smaller, each fed by a stream from the centre.", "id": "act2-d4-p3-l1"}]}, {"n": 4, "lines": [{"text": "Out at the edge, the code, written from the plans. (10) `ly-4`", "words": 12, "dir": "The camera rides a stream out along an arm: many small pieces, quick to appear, the newest farthest out.", "id": "act2-d4-p4-l1"}]}, {"n": 5, "lines": [{"text": "Rules shape plans, and plans shape code. (7) `ly-5`", "words": 9, "dir": "The camera pulls up and back until the whole is in view: hub, ring and arms, streams running outward the whole way.", "id": "act2-d4-p5-l1"}, {"text": "All of it is one system. (6) `ly-6` (new)", "words": 9, "dir": "Hold the wide shot while it grows. The first full frame of everything, and the word for it.", "id": "act2-d4-p5-l2"}]}, {"n": 6, "lines": [{"text": "From far away, everything looks right. (6) `fr-1`", "words": 8, "dir": "Very wide, slow overhead turn. The whole, growing. Every piece the same as its neighbours, down to the satellites going round. Nothing is marked.", "id": "act2-d4-p6-l1"}]}, {"n": 7, "lines": [{"text": "Come closer. Out here, one piece of code has a defect. (11) `df-1`", "words": 13, "dir": "The camera dives to one small piece far out on an arm and settles beside it: a body with its satellites going round, like any other.", "id": "act2-d4-p7-l1"}, {"text": "Up close, if you watch, you can see it. So you fix it. (13) `df-2`", "words": 15, "dir": "Hold close. As the line comes up, one satellite stutters: it skips ahead, snaps back, and goes on round as if nothing happened. A moment later it does it again. Then the person's work lands on the piece; its satellites go round smoothly, and keep going.", "id": "act2-d4-p7-l2"}]}, {"n": 8, "lines": [{"text": "Now step back. (3) `df-3`", "words": 5, "dir": "The camera pulls up and out to the wide shot. The whole has grown while we were close.", "id": "act2-d4-p8-l1"}, {"text": "The agents kept building. Whatever is built on a defect carries it too. (13) `df-4`", "words": 15, "dir": "A highlight picks out the defective pieces, spreading outward along the arm from the plan the fixed one came from, and sideways to neighbours that copied it.", "id": "act2-d4-p8-l2"}, {"text": "Twelve new defects. You fixed one. (6) `df-5`", "words": 8, "dir": "Exactly twelve highlighted pieces. The fixed one sits dark among them.", "id": "act2-d4-p8-l3"}]}, {"n": 9, "lines": [{"text": "One agent wrote down what it built, so the next agent would know. Now the defect is in the rules too. (21) `up-1`", "words": 23, "dir": "A thin stream runs inward from a defective piece, through the ring, to the hub, where a new large body forms. Its satellites stutter too.", "id": "act2-d4-p9-l1"}]}, {"n": 10, "lines": [{"text": "You cannot fix them one at a time as fast as they are made. (14) `up-2`", "words": 16, "dir": "Wordless first: a quick dive to a second defective piece, which stutters, is rebuilt and runs smooth; a quick pull-out. Then hold wide as the line comes up: the highlighted lineage has grown, outward, sideways and in to the centre, and new defective pieces keep appearing; the two fixed ones are lost among them.", "id": "act2-d4-p10-l1"}]}, {"n": 11, "lines": [{"text": "So you ask a reviewer to look at every new piece of work before it is kept. (17) `re-1`", "words": 19, "dir": "A small circle of light, the reviewer's, passes over each new piece as it forms at the rim, pauses, and moves on.", "id": "act2-d4-p11-l1"}, {"text": "The reviewer says they are all fine. (7) `re-2`", "words": 9, "dir": "The light pauses on a defective piece; a satellite stutters under it; the light moves on and leaves the piece glowing like the rest. And the next. And the next.", "id": "act2-d4-p11-l2"}, {"text": "The reviewer read the same rule. (6) `re-3`", "words": 8, "dir": "A stream runs out from the hub to the light. The camera starts to follow it inward.", "id": "act2-d4-p11-l3"}]}, {"n": 12, "lines": [{"text": "Follow the defects back. (4) `tr-1`", "words": 6, "dir": "The camera flies inward along the highlighted lineage, from the rim through the ring toward the hub. Branches merge as it goes.", "id": "act2-d4-p12-l1"}, {"text": "They all lead to one place at the centre: one incorrect rule. (12) `tr-2`", "words": 14, "dir": "The source: a large body in the hub. Up close, one of its satellites stutters. Every highlighted branch converges on it. Then, still under this line, the camera lifts a little and the source's streams fan out: into the ring, out along the arms, across to the reviewer's light, and over to the second defective body in the hub: one mistake, copied, with no words needed.", "id": "act2-d4-p12-l2"}]}, {"n": 13, "lines": [{"text": "Fix the rule. (3) `fx-1`", "words": 5, "dir": "The person's work lands on the source. Its satellites run smooth.", "id": "act2-d4-p13-l1"}, {"text": "And fix the rule an agent wrote from it, or the defect will spread again. (15) `fx-2`", "words": 17, "dir": "The camera pans across the hub to the second defective body; it is rebuilt too.", "id": "act2-d4-p13-l2"}, {"text": "Now new work built from them is correct. (8) `fx-3`", "words": 10, "dir": "New streams leave both; new pieces form on the ring and along the arms, and none is marked.", "id": "act2-d4-p13-l3"}]}, {"n": 14, "lines": [{"text": "Then trace everything built from the incorrect rule, and fix what it already made. (14) `fx-4`", "words": 16, "dir": "The highlight runs outward along the lineage from the source, and each defective piece is rebuilt as it is reached, hub to rim. The highlight goes out.", "id": "act2-d4-p14-l1"}]}, {"n": 15, "lines": [{"text": "The closer to the centre a thing sits, the longer you look at it. (14) `ls-1`", "words": 16, "dir": "Overhead of the hub: the few large bodies at the centre, the ring around them, the arms fanning out to the edge of the frame. The camera settles and holds. The Coda's map comes up over it: rings around a centre.", "id": "act2-d4-p15-l1"}]}], "choices": [{"id": "act2-d4-c1", "text": "**II.1 (zoom out):** the pull-away is now the powers of ten the author asked for (one piece, its arm, all of it), straight up, with the bike's particles gathering into the first piece as the other pieces come up. No line names the scales; the picture does them."}, {"id": "act2-d4-c2", "text": "**II.2 (the regions):** three regions, one scene each (pages 2–4), in the order rules → plans → code, which is the lineage's order: the camera flies in to the centre and then rides a stream out, so the tour travels the way the streams flow. Then a wide shot of how they connect (page 5). Pace layering is seen (big and slow at the centre, small and quick at the edge), not said."}, {"id": "act2-d4-c3", "text": "**The defect is a behaviour, not a shape.** A piece that derps is a piece whose motion is wrong once in a while; that is the essay's premise (mechanical systems whose motion reveals whether they work) and it is why the defect is invisible from far away and needs watching up close. The prose says \"defect\" and \"watch\"; the picture decides whether it is a satellite or the body that stutters, and how often."}, {"id": "act2-d4-c4", "text": "**II.4 (overload) cut; II.5 (promotion)** survives only as the inward stream on page 9, told as the risk; **II.6 (meta)** is cut, its one sentence is the last line. (As draft 3.)"}, {"id": "act2-d4-c5", "text": "**Colour:** no colour or dot words anywhere. Who did what is carried by the verbs and by distance."}, {"id": "act2-d4-c6", "text": "**The tally** (\"twelve new defects\") is in page 8's last line; the storyboard must show exactly twelve."}, {"id": "act2-d4-c7", "text": "**No fence** at the source's outflow (the author, 2026-10-06)."}, {"id": "act2-d4-c8", "text": "**\"System\" lands once**, on page 5, as its own line over the first frame that holds everything. The placements weighed are in the next section."}], "version": "2026-10-07, draft 4 (the galaxy)", "scriptId": "act2-d4"};
+const SCRIPT_ID = SCRIPT.scriptId;
+const $ = (id) => document.getElementById(id);
+
+const state = { notes: {}, open: new Set(), db: null, local: false, writing: {}, timers: {} };
+
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k) n.append(k);
+  return n;
+}
+
+function inlineBold(text) {
+  const frag = document.createDocumentFragment();
+  text.split(/(\*\*[^*]+\*\*)/).forEach((part) => {
+    if (part.startsWith('**') && part.endsWith('**')) frag.append(el('strong', { text: part.slice(2, -2) }));
+    else frag.append(document.createTextNode(part.replace(/\*([^*]+)\*/g, '$1')));
+  });
+  return frag;
+}
+
+function anchors() {
+  const out = {};
+  SCRIPT.pages.forEach((p) => p.lines.forEach((l) => { out[l.id] = { kind: 'line', page: p.n, anchor: l.text }; }));
+  SCRIPT.choices.forEach((c, i) => { out[c.id] = { kind: 'choice', page: null, anchor: c.text.slice(0, 160) }; });
+  out[SCRIPT_ID + '-overall'] = { kind: 'overall', page: null, anchor: 'Overall notes on the Act II script' };
+  return out;
+}
+const ANCHORS = anchors();
+
+function noteField(id, label) {
+  const ta = el('textarea', { id: 'note-' + id, 'aria-label': label, placeholder: 'Your note, or a rewrite of this line…' });
+  ta.value = state.notes[id]?.note || '';
+  const st = el('span', { class: 'note-state', id: 'state-' + id });
+  ta.addEventListener('input', () => scheduleSave(id, ta.value));
+  return el('div', { class: 'note-box' }, ta, st);
+}
+
+function renderLine(page, line) {
+  const has = !!state.notes[line.id]?.note;
+  const wrap = el('div', { class: 'line' + (has ? ' has-note' : ''), id: 'row-' + line.id });
+  const btn = el('button', { class: 'line-btn', type: 'button', 'aria-expanded': String(state.open.has(line.id)) });
+  const text = el('span', { class: 'line-text', text: line.text });
+  btn.append(text, el('span', { class: 'line-meta', text: line.words + ' words' }));
+  if (line.dir) btn.append(el('span', { class: 'dir', text: line.dir }));
+  btn.addEventListener('click', () => toggle(line.id));
+  wrap.append(btn);
+  if (state.open.has(line.id)) wrap.append(noteField(line.id, 'Note on: ' + line.text));
+  else if (has) wrap.append(el('p', { class: 'note-preview', text: state.notes[line.id].note }));
+  return wrap;
+}
+
+function renderChoice(c) {
+  const has = !!state.notes[c.id]?.note;
+  const wrap = el('div', { class: 'line' + (has ? ' has-note' : ''), id: 'row-' + c.id });
+  const btn = el('button', { class: 'line-btn', type: 'button', 'aria-expanded': String(state.open.has(c.id)) });
+  const span = el('span', { class: 'choice-text' });
+  span.append(inlineBold(c.text));
+  btn.append(span);
+  btn.addEventListener('click', () => toggle(c.id));
+  wrap.append(btn);
+  if (state.open.has(c.id)) wrap.append(noteField(c.id, 'Note on a writer choice'));
+  else if (has) wrap.append(el('p', { class: 'note-preview', text: state.notes[c.id].note }));
+  return wrap;
+}
+
+function render() {
+  const focused = document.activeElement && document.activeElement.tagName === 'TEXTAREA' ? document.activeElement.id : null;
+  const caret = focused ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
+  $('pages').replaceChildren(...SCRIPT.pages.map((p) => {
+    const any = p.lines.some((l) => state.notes[l.id]?.note);
+    const sec = el('section', { class: 'page' + (any ? ' has-any' : '') },
+      el('div', { class: 'page-head' }, el('h2', { text: 'Page ' + p.n }), el('span', { class: 'rule' })));
+    p.lines.forEach((l) => sec.append(renderLine(p, l)));
+    return sec;
+  }));
+  $('choices').replaceChildren(...SCRIPT.choices.map(renderChoice));
+  const overall = $('overall');
+  overall.replaceChildren(el('div', { class: 'page-head' }, el('h2', { text: 'Overall notes' }), el('span', { class: 'rule' })),
+    noteField(SCRIPT_ID + '-overall', 'Overall notes on the Act II script'));
+  if (focused && $(focused)) { const t = $(focused); t.focus(); if (caret) t.setSelectionRange(caret[0], caret[1]); }
+  updateStatus();
+}
+
+// Rows are patched in place, never rebuilt, so an open note box keeps its focus, caret and keyboard.
+function patchRow(id) {
+  const row = $('row-' + id);
+  if (!row) return;
+  const note = state.notes[id]?.note || '';
+  row.classList.toggle('has-note', !!note);
+  const btn = row.querySelector('.line-btn');
+  if (btn) btn.setAttribute('aria-expanded', String(state.open.has(id)));
+  const box = row.querySelector('.note-box');
+  const preview = row.querySelector('.note-preview');
+  if (state.open.has(id)) {
+    if (preview) preview.remove();
+    if (!box) row.append(noteField(id, 'Note on: ' + (ANCHORS[id]?.anchor || '')));
+  } else {
+    if (box) box.remove();
+    if (note) {
+      if (preview) preview.textContent = note;
+      else row.append(el('p', { class: 'note-preview', text: note }));
+    } else if (preview) preview.remove();
+  }
+  const page = row.closest('.page');
+  if (page) page.classList.toggle('has-any', !!page.querySelector('.line.has-note'));
+}
+
+function toggle(id) {
+  if (state.open.has(id)) state.open.delete(id); else state.open.add(id);
+  patchRow(id);
+  const t = $('note-' + id); if (t) t.focus();
+}
+
+function updateStatus(msg) {
+  const n = Object.values(state.notes).filter((x) => x.note).length;
+  const where = state.local ? 'saved in this browser only' : 'saved for Claude';
+  $('status').replaceChildren(document.createTextNode(msg || ''), msg ? ' · ' : '', el('b', { text: String(n) }), ' ' + (n === 1 ? 'note' : 'notes') + ', ' + where);
+}
+
+function setNoteState(id, text) { const s = $('state-' + id); if (s) s.textContent = text; }
+
+function scheduleSave(id, value) {
+  state.notes[id] = { ...(state.notes[id] || {}), note: value };
+  const s = $('state-' + id);
+  if (s && s.textContent !== 'Typing…') s.textContent = 'Typing…';
+  clearTimeout(state.timers[id]);
+  state.timers[id] = setTimeout(() => save(id, value), 700);
+}
+
+async function save(id, value) {
+  const a = ANCHORS[id];
+  const body = { id, script: SCRIPT_ID, kind: a.kind, page: a.page, anchor: a.anchor, note: value.trim(), version: SCRIPT.version, updatedAt: new Date().toISOString() };
+  const prev = state.writing[id] || Promise.resolve();
+  const run = prev.catch(() => {}).then(async () => {
+    if (state.local) { localSave(); return; }
+    const ref = state.db.doc('notes/' + id);
+    if (body.note) await ref.set(body); else await ref.delete();
+  });
+  state.writing[id] = run;
+  try {
+    await run;
+    setNoteState(id, body.note ? 'Saved' : 'Cleared');
+    const row = $('row-' + id); if (row) row.classList.toggle('has-note', !!body.note);
+    updateStatus();
+  } catch (e) {
+    if (e && e.code === 'invalid_argument') { state.local = true; localSave(); setNoteState(id, 'Saved in this browser (no permission to save for Claude)'); }
+    else if (e && e.code === 'quota_exceeded') setNoteState(id, 'Not saved: the notes store is full. Copy your notes instead.');
+    else setNoteState(id, 'Not saved yet; it will retry on your next edit.');
+  }
+}
+
+function localSave() {
+  try { localStorage.setItem('script-notes-' + SCRIPT_ID, JSON.stringify(state.notes)); } catch (_) { /* storage blocked */ }
+}
+function localLoad() {
+  try { return JSON.parse(localStorage.getItem('script-notes-' + SCRIPT_ID) || '{}') || {}; } catch (_) { return {}; }
+}
+
+function allNotesMarkdown() {
+  const lines = ['# Notes on the ' + SCRIPT.title + ' (' + SCRIPT.version + ')', ''];
+  const o = state.notes[SCRIPT_ID + '-overall']?.note; if (o) lines.push('## Overall', '', o, '');
+  SCRIPT.pages.forEach((p) => p.lines.forEach((l) => {
+    const n = state.notes[l.id]?.note; if (n) lines.push('**Page ' + p.n + ':** ' + l.text, '', '> ' + n.replace(/\n/g, '\n> '), '');
+  }));
+  SCRIPT.choices.forEach((c) => {
+    const n = state.notes[c.id]?.note; if (n) lines.push('**Choice:** ' + c.text.slice(0, 120) + '…', '', '> ' + n.replace(/\n/g, '\n> '), '');
+  });
+  return lines.join('\n');
+}
+
+$('copy').addEventListener('click', async () => {
+  const text = allNotesMarkdown();
+  try { await navigator.clipboard.writeText(text); $('copy').textContent = 'Copied'; }
+  catch (_) {
+    const ta = el('textarea', { 'aria-label': 'All notes' }); ta.value = text; $('overall').append(ta); ta.select();
+    $('copy').textContent = 'Select and copy';
+  }
+  setTimeout(() => { $('copy').textContent = 'Copy all notes'; }, 1800);
+});
+$('filter').addEventListener('click', () => {
+  const on = !$('app').classList.contains('filter-on');
+  $('app').classList.toggle('filter-on', on);
+  $('filter').setAttribute('aria-pressed', String(on));
+  $('filter').textContent = on ? 'Show all' : 'Only noted';
+});
+
+function renderStatic() {
+  $('title').textContent = SCRIPT.title.replace(/\s*\(.*\)$/, '');
+  $('version').textContent = 'Draft ' + SCRIPT.version + ' · ' + SCRIPT.pages.length + ' pages';
+  $('intro').replaceChildren(...SCRIPT.intro.map((t) => { const p = el('p'); p.append(inlineBold(t)); return p; }),
+    ...SCRIPT.labels.map((t) => { const p = el('p'); p.append(inlineBold(t)); return p; }));
+}
+
+async function boot() {
+  renderStatic();
+  render();
+  updateStatus('Connecting');
+  let db = null;
+  try { db = window.claude ? await window.claude.use('db') : null; } catch (_) { db = null; }
+  if (!db) {
+    state.local = true;
+    state.notes = localLoad();
+    $('mode').textContent = 'Notes save in this browser only here. Use "Copy all notes" and paste them to Claude.';
+    render();
+    return;
+  }
+  state.db = db;
+  let first = true;
+  db.collection('notes').onSnapshot((snap) => {
+    const next = {};
+    snap.docs.forEach((d) => { const v = d.data(); if (v && v.script === SCRIPT_ID) next[d.id] = v; });
+    // A note box that is open is the source of truth for its own text: never overwrite it from the store.
+    for (const id of state.open) if (state.notes[id]) next[id] = state.notes[id];
+    const changed = new Set([...Object.keys(next), ...Object.keys(state.notes)]);
+    state.notes = next;
+    if (first) {
+      first = false;
+      for (const id of changed) {
+        const t = $('note-' + id);
+        if (t && document.activeElement !== t && t.value !== (next[id]?.note || '')) t.value = next[id]?.note || '';
+      }
+    }
+    for (const id of changed) if (!state.open.has(id)) patchRow(id);
+    updateStatus();
+  }, () => { updateStatus('Live updates stopped; reload to see new notes'); });
+}
+boot();
+</script>

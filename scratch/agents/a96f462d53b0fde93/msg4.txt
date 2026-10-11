@@ -1,0 +1,12 @@
+e2e: the network in pixels: the crack near and far, the twelve, the budget, every fix and wide top
+
+Test 11 compares a cracked stack's crack cube whole and cracked, the
+highlight held at 0 and the warm dusting left out, at its close shot (at
+least 400 changed pixels on a phone, 900 on a desktop) and at the far
+shot (at most 20), for C1 and R0. Test 12 counts twelve ember shapes
+under df-5 on both sizes. Test 16 holds the network within its budget
+and the bike's motes unchanged. The clearance test also samples every
+fix at the instant its warm motes all count as landed, and holds a wide
+shot's top, points above the screen counted, under the text.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

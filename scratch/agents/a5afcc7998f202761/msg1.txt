@@ -1,0 +1,15 @@
+text: a brief line comes up in full ink, and a superseded line steps back gently
+
+A brief line was absent until its turn but then showed in the dim ink
+until its parts landed, which read as greyed out. It now comes up in
+full ink; met, it brightens a touch and takes the agent's faint blue
+halo, so the met state is marked without dimming anything.
+
+A narration line superseded on its page stepped back to the dim ink,
+about 67% of the ink over the stage. It now steps back to 80%
+(--ink-superseded), which still reads as text.
+
+The brief test checks that an unmet line once up has the full ink, and
+a new text test holds a superseded line to at least 70% of the ink.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

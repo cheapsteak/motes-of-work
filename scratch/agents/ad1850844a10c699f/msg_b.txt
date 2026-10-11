@@ -1,0 +1,32 @@
+story: the basket and the mudguards get lines of their own
+
+The author, on the front wheel's line: add the basket too, with a line
+like "a basket too for holding stuff", and animate it in after the wheel
+turns. Then: a mudguards line after the frame's, without lengthening the
+animation or the section.
+
+The brief now has six lines. "A basket too, for carrying things." follows
+the front wheel's. The basket, its stays and its headlamp, which were
+geometry inside the fork, are their own part, at the same density, last in
+the list so no other part's sample moves. It has a stage of its own after
+the turn: its motes gather into it in the air above the fork, then it
+drops onto the fork and hops once (its own arrival curve), on the front
+shot, which holds through it. The stage adds 0.8 screen, so vibe-build is
+7.2 screens; nothing before the end of the turn moves.
+
+"Mudguards, so puddles don't splash you." follows the frame's line and
+takes no time: it comes up inside the frame's stage as the mudguards set
+out, and they land just after the frame is laid. The frame's line now
+names only the frame; the brakes and the ground land with the mudguards,
+named by no line.
+
+A fifth stage needs room in assembly 0..1, so the core's role window is
+[0.08, 0.32] (was 0.44): the holds are 0.33, 0.49, 0.61 and 0.73, the
+spec section's core hold is 0.34, and the loose bolts land with the
+fork. Re-sampling the fork moved the camera anchors by a few millimetres,
+so every camera key is re-expressed against them (the same shots in bike
+terms) and the lap is regenerated. The brief is 62 words, so the document
+word limit is 64. The storyboard and the round-2 design record it all,
+dated, with the author's reasons.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

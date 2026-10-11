@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Defect inspector</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --ink: #d9dee8;
+    --muted: #8a93a6;
+    --faint: #3a4152;
+    --agent: #4da3ff;
+    --ember: #ff6b57;
+    --pill: rgba(255, 107, 87, 0.12);
+    --pill-line: rgba(255, 107, 87, 0.45);
+    --band: 42vh;
+  }
+  /* The essay is dark only: the inspector keeps its background in both schemes. */
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0d12; } }
+  :root[data-theme="dark"] { --bg: #0b0d12; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; overscroll-behavior: none; }
+  canvas#c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  #band { position: fixed; left: 0; right: 0; top: 0; height: var(--band); box-sizing: border-box; padding: 18px 16px 10px;
+          display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  #band > * { pointer-events: auto; }
+  .essay { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; font-size: 17px; line-height: 1.45; color: var(--ink); margin: 0; max-width: 34em; }
+  .essay.muted { color: var(--muted); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--pill);
+          border: 1px solid var(--pill-line); color: #ffd9d2; font-size: 13px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pill b { color: var(--ember); font-weight: 600; }
+  button { font: inherit; color: var(--ink); background: rgba(255,255,255,0.06); border: 1px solid var(--faint); border-radius: 8px;
+           padding: 4px 10px; min-width: 34px; min-height: 30px; cursor: pointer; }
+  button:active { background: rgba(255,255,255,0.12); }
+  label { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--ember); }
+  .slider { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 560px; }
+  .slider span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .val { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 3.6em; text-align: right; font-size: 12px; }
+  .hint { color: var(--faint); font-size: 11px; }
+  body.ui-min .ctl { display: none; }
+  body.ui-none #band { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="band">
+  <p class="essay muted ctl">Come closer. Out here, one piece of code has a defect.</p>
+  <p class="essay">Up close, if you watch, you can see it.</p>
+  <div class="row">
+    <button class="ctl" id="prev" aria-label="Previous variant">&lsaquo;</button>
+    <span class="pill" id="pill"><b id="pillN">0</b><span id="pillName">Today</span></span>
+    <button class="ctl" id="next" aria-label="Next variant">&rsaquo;</button>
+  </div>
+  <div class="slider ctl"><span>if you watch</span><input id="inten" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Intensity"><span>full</span><span class="val" id="intenV">0.35</span></div>
+  <div class="slider ctl"><button id="play" aria-label="Pause">Pause</button><input id="scrub" type="range" min="0" max="40" step="0.0333333" value="0" aria-label="Time"><span class="val" id="timeV">0.00 s</span></div>
+  <div class="row ctl"><label><input type="checkbox" id="reduced"> Reduced motion (static equivalent)</label></div>
+  <div class="hint ctl">Swipe or &larr; &rarr; for variants &middot; pinch or wheel to zoom &middot; two-finger drag to orbit</div>
+</div>
+<script type="module">
+import * as THREE from '../../../node_modules/three/build/three.module.js';
+
+// ---------------------------------------------------------------------------------------------
+// Hash: the essay's PCG hash01 (src/scene/mote/mote.glsl), ported with Math.imul. Every random
+// choice below is hash01 of a body seed and a salt built from a stepped time or a cell index.
+// ---------------------------------------------------------------------------------------------
+function pcg(v) {
+  const s = (Math.imul(v >>> 0, 747796405) + 2891336453) >>> 0;
+  const w = Math.imul(((s >>> ((s >>> 28) + 4)) ^ s) >>> 0, 277803737) >>> 0;
+  return ((w >>> 22) ^ w) >>> 0;
+}
+function h01(seed, salt) {
+  return (pcg((seed ^ Math.imul(salt >>> 0, 0x9e3779b9)) >>> 0) >>> 8) / 16777216;
+}
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
+const FPS = 30; // the glitch kit's frame: patterns hold for whole 1/30 s frames
+const frameOf = (t) => Math.floor(t * FPS + 1e-6);
+// Smooth 1-D value noise in [-1, 1].
+function vnoise(seed, salt, x) {
+  const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+  const a = 2 * h01(seed, (salt + i) >>> 0) - 1, b = 2 * h01(seed, (salt + i + 1) >>> 0) - 1;
+  return a + (b - a) * u;
+}
+function hashDir(seed, salt) {
+  const z = 2 * h01(seed, salt) - 1, az = TAU * h01(seed, salt + 1), r = Math.sqrt(Math.max(0, 1 - z * z));
+  return [r * Math.cos(az), z, r * Math.sin(az)];
+}
+
+// ---------------------------------------------------------------------------------------------
+// The essay's constants (src/scene/node/birth.ts), the ones the mock reproduces.
+// ---------------------------------------------------------------------------------------------
+const EQ = { A: 0.02, W: [0.35, -0.22, 0.5], SECOND: 0.45, P: [12, 14, 16, 18, 20] };
+const SC = { PERIOD: 2.2, DUR: 1.0, SWEEP: 0.04, HOLD: [0.12, 0.06], RETURN: [0.55, 0.25, 0], STEP: 0.05,
+             JIT_HZ: 30, JIT_AXIS: 0.03 / Math.sqrt(3), INWARD: [0.22, -0.6], NORMAL: [0.35, 0.65], FUZZ: 0.9,
+             AMP: [0.12, 0.28], CAP_PLANET: 0.4, CAP_MOON: 0.3, RING: [0.06, 0.16, 6], AFTER: [0.55, 0.5, 0.45], OUT_GAIN: 0.6 };
+const SHELL_SALT = 0x60000000, SPIN_PERIOD = 14;
+const AGENT = [0.3019608, 0.6392157, 1.0], EMBER = [1.0, 0.4196078, 0.3411765];
+const LIT = AGENT.map((a, i) => a + (EMBER[i] - a) * 0.8); // NODE_EMBER_MIX 0.8
+// Brightness: the essay's shell is 0.7; lit it is x2.5, which at 2-3 px dots clips to near white.
+// The mock caps the lit gain at 1.15 so the ember hue survives (noted in notes.md).
+const SHELL_B = 0.7, LIT_B = 1.15;
+
+// ---------------------------------------------------------------------------------------------
+// Bodies: the defective planet (the hero lattice 60 x 160), two moons on its pitch, their dotted
+// tracks, and one healthy planet that never derps.
+// ---------------------------------------------------------------------------------------------
+function latticeRowCols(rows, cols) {
+  const out = [];
+  for (let i = 0; i < rows; i++) out.push(Math.max(6, Math.round(cols * Math.cos(-Math.PI / 2 + (Math.PI * (i + 0.5)) / rows))));
+  return out;
+}
+function makeBody(o) {
+  const per = latticeRowCols(o.rows, o.cols);
+  const n = per.reduce((a, b) => a + b, 0);
+  const lat = new Float32Array(n), lon = new Float32Array(n), u = new Float32Array(3 * n), h = new Float32Array(8 * n);
+  let i = 0;
+  per.forEach((m, row) => {
+    for (let j = 0; j < m; j++, i++) {
+      lat[i] = -Math.PI / 2 + (Math.PI * (row + 0.5)) / o.rows;
+      lon[i] = (TAU * (j + (row % 2 === 1 ? 0.5 : 0))) / m;
+      const c = Math.cos(lat[i]);
+      u[3 * i] = c * Math.cos(lon[i]); u[3 * i + 1] = Math.sin(lat[i]); u[3 * i + 2] = c * Math.sin(lon[i]);
+      for (let k = 0; k < 8; k++) h[8 * i + k] = h01(o.seed, i * 8 + k);
+    }
+  });
+  const tilt = (25 + 15 * h01(o.seed, SHELL_SALT)) * Math.PI / 180, az = TAU * h01(o.seed, SHELL_SALT + 1);
+  const axis = [Math.sin(tilt) * Math.cos(az), Math.cos(tilt), Math.sin(tilt) * Math.sin(az)];
+  return { ...o, n, lat, lon, u, h, axis, dotWorld: (0.5 * Math.PI * o.R) / o.rows };
+}
+const PLANET = makeBody({ name: 'planet', seed: 0x3c11, R: 1.0, rows: 60, cols: 160, lit: true, piece: true, cap: SC.CAP_PLANET });
+const MOONS = [
+  makeBody({ name: 'moon1', seed: 0x3c12, R: 0.2, rows: 12, cols: 32, lit: true, piece: true, cap: SC.CAP_MOON,
+             orbit: { r: 1.7, incl: 0.32, node: 0.6, period: 7.5, phase: 0.15 } }),
+  makeBody({ name: 'moon2', seed: 0x3c13, R: 0.13, rows: 8, cols: 21, lit: true, piece: true, cap: SC.CAP_MOON,
+             orbit: { r: 2.25, incl: -0.22, node: 2.2, period: 12.0, phase: 0.62 } }),
+];
+const HEALTHY = makeBody({ name: 'healthy', seed: 0x3c21, R: 0.62, rows: 60, cols: 160, lit: false, piece: false, centre: [2.55, 1.5, -2.7] });
+// Moon tracks: a dot every 0.06 world units, 0.02 world across (BODY_LOOK.trackDot).
+const TRACKS = MOONS.map((m) => ({ moon: m, n: Math.round((TAU * m.orbit.r) / 0.06) }));
+
+function orbitPos(o, t) {
+  const th = TAU * (t / o.period + o.phase);
+  let x = o.r * Math.cos(th), y = 0, z = o.r * Math.sin(th);
+  const ci = Math.cos(o.incl), si = Math.sin(o.incl);
+  [y, z] = [y * ci - z * si, y * si + z * ci];
+  const cn = Math.cos(o.node), sn = Math.sin(o.node);
+  return [x * cn + z * sn, y, -x * sn + z * cn];
+}
+function spinMatrix(axis, t) {
+  const a = TAU * (((t / SPIN_PERIOD) % 1) + 1) % TAU, c = Math.cos(a), s = Math.sin(a), k = 1 - c;
+  const [x, y, z] = axis;
+  // Rodrigues: p c + (axis x p) s + axis (axis . p)(1 - c)
+  return [c + x * x * k, -z * s + x * y * k, y * s + x * z * k,
+          z * s + y * x * k, c + y * y * k, -x * s + y * z * k,
+          -y * s + z * x * k, x * s + z * y * k, c + z * z * k];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Today (variant 0): the essay's morph and scatter, step for step (shell.ts / shell.glsl).
+// ---------------------------------------------------------------------------------------------
+function shapeAt(seed, n) {
+  const h = (j) => h01(seed, SHELL_SALT + 16 + n * 8 + j);
+  const pick = (x, lo, hi) => lo + Math.min(hi - lo, Math.floor(x * (hi - lo + 1)));
+  const p = EQ.P[pick(h(0), 0, 4)], q = p / 2 + pick(h(1), -1, 1), p2 = p + pick(h(2), 3, 7), q2 = Math.max(3, q - pick(h(3), 1, 3));
+  return { p, q, p2, q2, phi: [TAU * h(4), TAU * h(5), TAU * h(6), TAU * h(7)] };
+}
+function morphTerm(lat, lon, t, s, wScale = 1) {
+  const l1 = lat + Math.PI / 2;
+  return Math.cos(lat) * (Math.sin(s.p * lon + s.phi[0] + EQ.W[0] * wScale * t) * Math.sin(s.q * l1 + s.phi[1] + EQ.W[1] * wScale * t) +
+    EQ.SECOND * Math.sin(s.p2 * lon + s.phi[2] - EQ.W[2] * wScale * t) * Math.sin(s.q2 * l1 + s.phi[3]));
+}
+function todayEvent(seed, t, I) {
+  const pOn = 0.5 + 0.5 * I; // intensity: a scatter in half the 2.2 s slots at 0, every slot at 1
+  const k = Math.floor(t / SC.PERIOD);
+  const slot = (j) => {
+    const on = h01(seed, 2 * j + 1) < pOn;
+    const t0 = j * SC.PERIOD + h01(seed, 2 * j) * (SC.PERIOD - SC.DUR);
+    return { on, t0 };
+  };
+  let n = 0;
+  for (let j = 0; j < k; j++) if (slot(j).on) n++;
+  const cur = slot(k);
+  let sec = -1;
+  if (cur.on) {
+    sec = t - cur.t0;
+    if (sec >= SC.DUR) { n++; sec = -1; } else if (sec < 0) sec = -1;
+  }
+  return { sec, t0: cur.t0, on: cur.on, sweep: hashDir(seed, k * 64 + 2), aftershock: h01(seed, k * 64 + 4) < SC.AFTER[1],
+           shape: shapeAt(seed, n), next: shapeAt(seed, n + 1) };
+}
+function scatterK(sec, su, h4) {
+  const a = sec - SC.SWEEP * (su + 1);
+  if (!(a >= 0)) return 0;
+  const back = a - (SC.HOLD[0] + SC.HOLD[1] * h4);
+  if (back < 0) return 1;
+  const cut = Math.floor(back / SC.STEP);
+  return cut < 3 ? SC.RETURN[cut] : 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Motions. Each has prep(body, t, I, ctx) -> state, and dot(state, body, i, o) which moves o.p
+// (units of R, lattice frame, before the spin), and may set o.spinT, o.gain, o.flung. post(state,
+// p, u) bends the spun point in the world frame. onsets(seed, a, b, I) lists event times.
+// amp(I) = 0.35 + 0.65 I scales sizes; rates scale with I as each says.
+// ---------------------------------------------------------------------------------------------
+const ampOf = (I) => 0.35 + 0.65 * I;
+const q30 = (x) => Math.floor(x * FPS + 1e-6) / FPS;
+
+// A heartbeat's profile, s seconds after it: a hard rise in 45 ms, then a ringing fall (an undershoot).
+function beatProfile(s) {
+  if (s < 0 || s > 1.1) return 0;
+  if (s < 0.045) return s / 0.045;
+  const e = s - 0.045;
+  return Math.exp(-e / 0.11) * Math.cos(TAU * 2.6 * e);
+}
+
+const MOTIONS = {
+  none: { prep: () => ({}), dot: () => {} },
+
+  today: {
+    prep(b, t, I) { return { ev: todayEvent(b.seed, t, I), t }; },
+    dot(st, b, i, o) {
+      const ev = st.ev, u0 = b.u[3 * i], u1 = b.u[3 * i + 1], u2 = b.u[3 * i + 2], H = b.h, hb = 8 * i;
+      const su = u0 * ev.sweep[0] + u1 * ev.sweep[1] + u2 * ev.sweep[2];
+      const hold = SC.HOLD[0] + SC.HOLD[1] * H[hb + 4];
+      const land = SC.SWEEP * (su + 1) + hold + 2 * SC.STEP;
+      const landed = ev.sec >= 0 && ev.sec >= land;
+      let r = 1 + EQ.A * morphTerm(b.lat[i], b.lon[i], st.t, landed ? ev.next : ev.shape);
+      if (landed) { const a = ev.sec - land; r += SC.RING[0] * Math.exp(-a / SC.RING[1]) * Math.cos(TAU * SC.RING[2] * a); }
+      let x = u0 * r, y = u1 * r, z = u2 * r;
+      let k = 0;
+      if (ev.sec >= 0) {
+        k = scatterK(ev.sec, su, H[hb + 4]);
+        if (ev.aftershock) { const a = ev.sec - SC.AFTER[0] - SC.SWEEP * (su + 1); if (a >= 0 && a < hold) k += SC.AFTER[2]; }
+      }
+      if (k > 0) {
+        const w = (H[hb + 6] < SC.INWARD[0] ? SC.INWARD[1] : 1) * (SC.NORMAL[0] + SC.NORMAL[1] * H[hb]);
+        const dx = u0 * w + SC.FUZZ * (H[hb + 1] - 0.5), dy = u1 * w + SC.FUZZ * (H[hb + 2] - 0.5), dz = u2 * w + SC.FUZZ * (H[hb + 3] - 0.5);
+        const amp = Math.min(SC.AMP[0] + SC.AMP[1] * H[hb + 5] * H[hb + 5], b.cap) / Math.max(Math.hypot(dx, dy, dz), 1e-6);
+        const js = Math.round(H[hb + 7] * 16777216), tick = Math.floor(ev.sec * SC.JIT_HZ) * 3;
+        x += k * (dx * amp + (2 * h01(js, tick) - 1) * SC.JIT_AXIS);
+        y += k * (dy * amp + (2 * h01(js, tick + 1) - 1) * SC.JIT_AXIS);
+        z += k * (dz * amp + (2 * h01(js, tick + 2) - 1) * SC.JIT_AXIS);
+        o.gain *= 1 + SC.OUT_GAIN * k;
+        o.flung = true;
+      }
+      o.p[0] = x; o.p[1] = y; o.p[2] = z;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let k = Math.max(0, Math.floor(a / SC.PERIOD) - 1); k * SC.PERIOD <= b; k++) {
+        if (h01(seed, 2 * k + 1) < 0.5 + 0.5 * I) { const t0 = k * SC.PERIOD + h01(seed, 2 * k) * (SC.PERIOD - SC.DUR); if (t0 >= a && t0 <= b) out.push({ t: t0, s: 1 }); }
+      }
+      return out;
+    },
+  },
+
+  // 1. Arrhythmia: a ~65 bpm pulse whose beats are sometimes skipped (the next one then lands hard)
+  // or doubled, each beat lopsided toward its own hashed side.
+  arrhythmia: {
+    B: 0.92,
+    beat(seed, k, I) {
+      const B = this.B, hk = h01(seed, 9000 + k);
+      const skip = hk < 0.1 + 0.14 * I, dbl = !skip && hk > 0.86 - 0.12 * I;
+      const prevSkip = h01(seed, 9000 + k - 1) < 0.1 + 0.14 * I;
+      const t = q30(k * B + (h01(seed, 9100 + k) - 0.5) * 0.16 * B * (0.5 + I));
+      const s = (0.75 + 0.35 * h01(seed, 9200 + k)) * (prevSkip ? 1.6 : 1);
+      return { k, t, s, skip, dbl, dir: hashDir(seed, 9300 + 2 * k) };
+    },
+    prep(b, t, I) {
+      let P = 0, dir = [0, 1, 0], best = -1;
+      const k0 = Math.floor(t / this.B);
+      for (let k = k0 - 2; k <= k0 + 1; k++) {
+        if (k < 0) continue;
+        const bt = this.beat(b.seed, k, I);
+        if (bt.skip) continue;
+        const v = bt.s * beatProfile(t - bt.t) + (bt.dbl ? 0.75 * bt.s * beatProfile(t - bt.t - 0.21) : 0);
+        P += v;
+        if (t >= bt.t && bt.t > best) { best = bt.t; dir = bt.dir; }
+      }
+      return { P, dir, a: 0.075 * ampOf(I), off: dir.map((d) => d * 0.02 * P * ampOf(I)) };
+    },
+    dot(st, b, i, o) {
+      const u = b.u, c = u[3 * i] * st.dir[0] + u[3 * i + 1] * st.dir[1] + u[3 * i + 2] * st.dir[2];
+      const w = 0.6 + 0.8 * Math.pow(0.5 + 0.5 * c, 2), grain = 0.8 + 0.4 * b.h[8 * i];
+      const r = 1 + st.a * st.P * w * grain;
+      o.p[0] *= r; o.p[1] *= r; o.p[2] *= r;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let k = Math.max(0, Math.floor(a / this.B) - 1); k * this.B <= b + 1; k++) {
+        const bt = this.beat(seed, k, I);
+        if (bt.skip) continue;
+        if (bt.t >= a && bt.t <= b) out.push({ t: bt.t, s: bt.s, k });
+        if (bt.dbl && bt.t + 0.21 >= a && bt.t + 0.21 <= b) out.push({ t: q30(bt.t + 0.21), s: 0.75 * bt.s, k: k + 0.5 });
+      }
+      return out;
+    },
+  },
+
+  // 2. Stutter: the piece's clock (spin, wave, moons) stands still for irregular holds, then lurches
+  // past where it should be for two frames and drops back into step.
+  stutter: {
+    L: 0.3,
+    hold(seed, c, I) {
+      const on = h01(seed, 7000 + c) < 0.45 + 0.35 * I;
+      const start = q30(c * this.L + h01(seed, 7100 + c) * 0.08);
+      const d = Math.max(2, Math.round((0.07 + 0.2 * h01(seed, 7200 + c) * (0.6 + 0.4 * I)) * FPS)) / FPS;
+      return { on, start, d };
+    },
+    tau(seed, t, I) {
+      const c = Math.floor(t / this.L);
+      for (const cc of [c, c - 1]) {
+        if (cc < 0) continue;
+        const hd = this.hold(seed, cc, I);
+        if (!hd.on) continue;
+        if (t >= hd.start && t < hd.start + hd.d) return hd.start;
+        if (t >= hd.start + hd.d && t < hd.start + hd.d + 2 / FPS) return t + 0.35 * hd.d;
+      }
+      return t;
+    },
+    prep(b, t, I, ctx) {
+      const tau = ctx.pieceTau !== undefined ? ctx.pieceTau : this.tau(PLANET.seed, t, I);
+      return { tau, a: 0.045 * ampOf(I), shape: shapeAt(b.seed, 3), bodyT: tau };
+    },
+    dot(st, b, i, o) {
+      const r = 1 + st.a * morphTerm(b.lat[i], b.lon[i], st.tau, st.shape, 3);
+      o.p[0] *= r; o.p[1] *= r; o.p[2] *= r;
+      o.spinT = st.tau;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let c = Math.max(0, Math.floor(a / this.L) - 1); c * this.L <= b; c++) {
+        const hd = this.hold(seed, c, I);
+        const tj = hd.start + hd.d;
+        if (hd.on && tj >= a && tj <= b) out.push({ t: q30(tj), s: hd.d * 5, k: c });
+      }
+      return out;
+    },
+  },
+
+  // 3. Spasm and slump: a hard two-frame clench along a hashed axis, then the body sags under its
+  // own weight, slowly, and comes back past round before it settles.
+  spasm: {
+    L: 1.7,
+    ev(seed, c, I) {
+      return { on: h01(seed, 6000 + c) < 0.55 + 0.35 * I, t0: q30(c * this.L + h01(seed, 6100 + c) * 0.6), axis: hashDir(seed, 6200 + 2 * c), jerk: hashDir(seed, 6400 + 2 * c), c };
+    },
+    prep(b, t, I) {
+      const A = ampOf(I);
+      let tw = 0, sl = 0, axis = [1, 0, 0], jerk = [0, 0, 0], frame = 0, cTw = -1;
+      const c0 = Math.floor(t / this.L);
+      for (let c = c0 - 2; c <= c0; c++) {
+        if (c < 0) continue;
+        const e = this.ev(PLANET.seed, c, I);
+        if (!e.on || t < e.t0) continue;
+        const s = t - e.t0;
+        const twv = s < 2 / FPS ? 1 : s < 3 / FPS ? 0.45 : 0;
+        if (twv > 0) { tw = twv; axis = e.axis; jerk = e.jerk; frame = frameOf(s); cTw = c; }
+        const x = s - 0.08;
+        if (x > 0) {
+          const alpha = (y, tc) => (y > 0 ? (y / tc) * Math.exp(1 - y / tc) : 0);
+          sl += alpha(x, 0.5) - 0.4 * alpha(x - 1.0, 0.55);
+        }
+      }
+      return { tw, sl, axis, frame, cTw, sq: 0.22 * A, sag: 0.17 * A, off: jerk.map((d) => d * 0.05 * A * tw) };
+    },
+    dot(st, b, i, o) {
+      if (st.tw > 0) {
+        const a = st.axis, p = o.p, d = p[0] * a[0] + p[1] * a[1] + p[2] * a[2];
+        const f = st.sq * st.tw, sh = 1 - 0.05 * st.tw;
+        const js = (b.seed + st.cTw * 7919) >>> 0, jt = (i * 4 + st.frame * 131071) >>> 0;
+        for (let k = 0; k < 3; k++) p[k] = (p[k] - f * d * a[k]) * sh + 0.025 * st.tw * (h01(js, jt + k) - 0.5);
+      }
+    },
+    post(st, p) {
+      if (st.sl === 0) return;
+      const y = p[1], s = st.sag * st.sl;
+      p[1] = y - s * (0.6 - 0.4 * y);
+      const widen = 1 + 0.35 * s * Math.max(0, -y);
+      p[0] *= widen; p[2] *= widen;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let c = Math.max(0, Math.floor(a / this.L) - 1); c * this.L <= b; c++) {
+        const e = this.ev(seed, c, I);
+        if (e.on && e.t0 >= a && e.t0 <= b) out.push({ t: e.t0, s: 1, k: c });
+      }
+      return out;
+    },
+  },
+
+  // 4. Lumps: two bulges and a cave on the shell, wandering; now and then the cave lurches to a new place.
+  lumps: {
+    L: 2.6,
+    lurchSum(seed, t, I) {
+      let sum = 0;
+      const c0 = Math.floor(t / this.L);
+      for (let c = 0; c <= c0; c++) {
+        if (h01(seed, 5000 + c) >= 0.5 + 0.3 * I) continue;
+        const t0 = q30(c * this.L + h01(seed, 5100 + c) * 1.2);
+        const step = (h01(seed, 5200 + c) < 0.5 ? -1 : 1) * (0.7 + 0.8 * h01(seed, 5300 + c));
+        sum += step * smooth(t0, t0 + 0.12, t);
+      }
+      return sum;
+    },
+    prep(b, t, I) {
+      const A = ampOf(I), s = b.seed, lurch = this.lurchSum(s, t, I);
+      const base = [0.24, 0.12, -0.2], widths = [0.36, 0.22, 0.42];
+      const blobs = base.map((a0, j) => {
+        // The wander's own speed wanders: a squirm, never a steady drift.
+        const wv = 0.55 + 0.45 * vnoise(s, 4900 + j * 97, t * 0.7);
+        const lat = 0.9 * vnoise(s, 4000 + j * 97, t * 0.45 * wv + j * 3.1);
+        const lon = j * 2.1 + 2.5 * vnoise(s, 4300 + j * 97, t * 0.4 * wv + j) + (j === 2 ? lurch : 0.25 * lurch);
+        const c = Math.cos(lat);
+        return { d: [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)], a: a0 * A * (0.7 + 0.3 * vnoise(s, 4600 + j * 97, t * 1.3)), w: widths[j] };
+      });
+      return { blobs };
+    },
+    dot(st, b, i, o) {
+      const u = b.u;
+      let r = 1;
+      for (const bl of st.blobs) {
+        const c = u[3 * i] * bl.d[0] + u[3 * i + 1] * bl.d[1] + u[3 * i + 2] * bl.d[2];
+        r += bl.a * Math.exp(-(1 - c) / bl.w);
+      }
+      o.p[0] *= r; o.p[1] *= r; o.p[2] *= r;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let c = Math.max(0, Math.floor(a / this.L) - 1); c * this.L <= b; c++) {
+        if (h01(seed, 5000 + c) >= 0.5 + 0.3 * I) continue;
+        const t0 = q30(c * this.L + h01(seed, 5100 + c) * 1.2);
+        if (t0 >= a && t0 <= b) out.push({ t: t0, s: 1, k: c });
+      }
+      return out;
+    },
+  },
+
+  // 5. Leaking: a wound opens somewhere on the shell; a few of its dots drift out, dimming, linger,
+  // and snap back in a single frame.
+  leak: {
+    L: 1.3,
+    cell(seed, c, I) {
+      return { on: h01(seed, 3000 + c) < 0.55 + 0.4 * I, sc: q30(c * this.L + h01(seed, 3100 + c) * 0.4),
+               w: hashDir(seed, 3200 + 2 * c), cosT: Math.cos(0.33 + 0.15 * h01(seed, 3400 + c)), c };
+    },
+    prep(b, t, I) {
+      const c0 = Math.floor(t / this.L), cells = [];
+      for (let c = c0 - 2; c <= c0; c++) if (c >= 0) { const e = this.cell(b.seed, c, I); if (e.on && t >= e.sc) cells.push(e); }
+      return { cells, t, A: ampOf(I) };
+    },
+    dot(st, b, i, o) {
+      const u = b.u, u0 = u[3 * i], u1 = u[3 * i + 1], u2 = u[3 * i + 2];
+      for (const e of st.cells) {
+        const cw = u0 * e.w[0] + u1 * e.w[1] + u2 * e.w[2];
+        if (cw < e.cosT) continue;
+        const ds = (b.seed + e.c * 7919) >>> 0;
+        if (h01(ds, i * 4) > (this.frac ?? 0.4)) continue;
+        const s0 = e.sc + 0.25 * (1 - (cw - e.cosT) / (1 - e.cosT)) + 0.1 * h01(ds, i * 4 + 1);
+        const D = 0.5 + 0.6 * h01(ds, i * 4 + 2), Lg = 0.25 + 0.7 * h01(ds, i * 4 + 3);
+        const s = st.t - s0;
+        if (s < 0 || s >= D + Lg) continue;
+        let k;
+        if (s < D) { const x = s / D; k = 1 - Math.pow(1 - x, 3); }
+        else k = 1 + 0.08 * (s - D) / Lg;
+        const tg = hashDir(ds, 100000 + i * 2);
+        let dx = u0 + 0.5 * tg[0], dy = u1 + 0.5 * tg[1], dz = u2 + 0.5 * tg[2];
+        const n = Math.hypot(dx, dy, dz);
+        const hd = h01(ds, 200000 + i);
+        const dist = (0.12 + 0.4 * hd * hd) * (this.reach ?? 1) * st.A / n;
+        // While lingering it shivers on a held 12 Hz tick.
+        const jt = s >= D ? Math.floor(st.t * 12) : -1;
+        const jx = jt >= 0 ? 0.012 * (h01(ds, 300000 + i * 3 + jt * 7) - 0.5) : 0;
+        o.p[0] += dx * dist * k + jx; o.p[1] += dy * dist * k + jx; o.p[2] += dz * dist * k;
+        o.gain *= 1 - (this.dim ?? 0.35) * Math.min(1, k);
+        o.flung = true;
+        break;
+      }
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let c = Math.max(0, Math.floor(a / this.L) - 1); c * this.L <= b; c++) {
+        const e = this.cell(seed, c, I);
+        if (e.on && e.sc >= a && e.sc <= b) out.push({ t: e.sc, s: 1, k: c });
+      }
+      return out;
+    },
+  },
+
+  // 6. Desync: every dot keeps its own clock: its own pulse period and phase, and its own drift of
+  // the spin, so the lattice's rows ripple apart and the surface seethes.
+  desync: {
+    prep(b, t, I) { return { t, A: ampOf(I) }; },
+    dot(st, b, i, o) {
+      const H = b.h, hb = 8 * i;
+      const P = 1.05 * (0.8 + 0.4 * H[hb + 1]);
+      const x = (((st.t / P + H[hb + 2]) % 1) + 1) % 1 * P;
+      const r = 1 + 0.06 * st.A * (0.6 + 0.8 * H[hb + 3]) * beatProfile(x);
+      o.p[0] *= r; o.p[1] *= r; o.p[2] *= r;
+      o.spinT = st.t + 0.12 * st.A * Math.sin(TAU * (st.t / (2 + 2 * H[hb + 4]) + H[hb + 5]));
+    },
+    onsets() { return []; },
+  },
+
+  // 7. Tremor: a constant fine shiver, each dot on a held 24 Hz tick and the whole body on a 17 Hz
+  // one, its strength wandering and now and then surging.
+  tremor: {
+    L: 2.1,
+    env(seed, t, I) {
+      let e = 0.7 + 0.3 * vnoise(seed, 2000, t * 0.9);
+      const c = Math.floor(t / this.L);
+      if (c >= 0 && h01(seed, 2100 + c) < 0.35 + 0.35 * I) {
+        const t0 = q30(c * this.L + h01(seed, 2200 + c) * 1.2), d = 0.35 + 0.25 * h01(seed, 2300 + c);
+        if (t >= t0 && t < t0 + d) e *= 2.2;
+      }
+      return e;
+    },
+    prep(b, t, I) {
+      const A = ampOf(I) * (this.scale || 1), env = this.env(PLANET.seed, t, I), tk = Math.floor(t * 17);
+      const off = [0, 1, 2].map((k) => (h01(b.seed, 2400 + tk * 3 + k) - 0.5) * 2 * 0.012 * A * env);
+      return { tick: Math.floor(t * 24), a: 0.016 * A * env, off };
+    },
+    dot(st, b, i, o) {
+      const s = (b.seed + st.tick * 2654435761) >>> 0;
+      o.p[0] += (h01(s, i * 3) - 0.5) * 2 * st.a;
+      o.p[1] += (h01(s, i * 3 + 1) - 0.5) * 2 * st.a;
+      o.p[2] += (h01(s, i * 3 + 2) - 0.5) * 2 * st.a;
+    },
+    onsets(seed, a, b, I) {
+      const out = [];
+      for (let c = Math.max(0, Math.floor(a / this.L) - 1); c * this.L <= b; c++) {
+        if (h01(seed, 2100 + c) < 0.35 + 0.35 * I) { const t0 = q30(c * this.L + h01(seed, 2200 + c) * 1.2); if (t0 >= a && t0 <= b) out.push({ t: t0, s: 1, k: c }); }
+      }
+      return out;
+    },
+  },
+};
+// The combination's quieter tremor.
+MOTIONS.tremorLow = Object.assign(Object.create(MOTIONS.tremor), { scale: 0.6 });
+// Leaks keyed to today's burst: each scatter slot opens two wounds, the first as the burst's dots come
+// home (0.30-0.40 s after its onset), the second 0.18-0.38 s after that, so the wounds trail the burst.
+MOTIONS.leakBurst = Object.assign(Object.create(MOTIONS.leak), {
+  // Stronger than the plain leak: three in four of a wound's dots go, 1.8x as far, dimming 15 %;
+  // wounds 0.12 rad wider. shift: the burst schedule runs 5.07 s ahead, so the first burst lands at 4.00 s.
+  frac: 0.75, reach: 1.8, dim: 0.15, widen: 0.12, shift: 5.07,
+  wounds(seed, j, I) {
+    const on = h01(seed, 2 * j + 1) < 0.5 + 0.5 * I;
+    const t0 = j * SC.PERIOD + h01(seed, 2 * j) * (SC.PERIOD - SC.DUR);
+    const s1 = q30(t0 + 0.30 + 0.10 * h01(seed, 3500 + 2 * j)), s2 = q30(s1 + 0.18 + 0.20 * h01(seed, 3500 + 2 * j + 1));
+    return [s1, s2].map((sc, w) => {
+      const c = 2 * j + w;
+      return { on, sc, w: hashDir(seed, 3200 + 2 * c), cosT: Math.cos(0.33 + this.widen + 0.15 * h01(seed, 3400 + c)), c };
+    });
+  },
+  prep(b, t, I) {
+    const ts = t + this.shift, k = Math.floor(ts / SC.PERIOD), cells = [];
+    for (let j = k - 2; j <= k; j++) if (j >= 0) for (const e of this.wounds(b.seed, j, I)) if (e.on && ts >= e.sc) cells.push(e);
+    return { cells, t: ts, A: ampOf(I) };
+  },
+  onsets(seed, a, b, I) {
+    const out = [], sh = this.shift;
+    for (let j = Math.max(0, Math.floor((a + sh) / SC.PERIOD) - 1); j * SC.PERIOD <= b + sh; j++)
+      for (const e of this.wounds(seed, j, I)) if (e.on && e.sc >= a + sh && e.sc <= b + sh) out.push({ t: e.sc - sh, s: 1, k: e.c });
+    return out;
+  },
+});
+// Today's burst on the same 5.07 s shifted schedule (the breathing keeps the real clock).
+MOTIONS.todayEarly = Object.assign(Object.create(MOTIONS.today), {
+  shift: 5.07,
+  prep(b, t, I) { return { ev: todayEvent(b.seed, t + this.shift, I), t }; },
+  onsets(seed, a, b, I) { return MOTIONS.today.onsets(seed, a + this.shift, b + this.shift, I).map((o) => ({ ...o, t: o.t - this.shift })); },
+});
+
+// ---------------------------------------------------------------------------------------------
+// The glitch kit (screen space, the defective piece only, inside a box of 3 R about the planet).
+// Each kind has its own schedule of cells; an event starts on a whole 1/30 s frame, lasts a few
+// frames, and every pattern inside it is hash01(GSEED, cell * 64 + frame step * 8 + j).
+// ---------------------------------------------------------------------------------------------
+const GSEED = 0x6117c4;
+const GK = {
+  split: { salt: 100000, cell: 0.55, p: [0.25, 0.35], f: [2, 4] },
+  tear: { salt: 200000, cell: 0.7, p: [0.22, 0.38], f: [2, 3] },
+  snap: { salt: 300000, cell: 0.8, p: [0.2, 0.35], f: [2, 4] },
+  hold: { salt: 400000, cell: 1.2, p: [0.3, 0.4], f: [8, 18] },
+  drop: { salt: 500000, cell: 0.5, p: [0.25, 0.35], f: [2, 5] },
+  burst: { salt: 600000, cell: 2.8, p: [0.3, 0.45], f: [6, 10] },
+};
+function gEvent(kind, t, I) {
+  const g = GK[kind], c0 = Math.floor(t / g.cell), tf = frameOf(t);
+  for (const c of [c0, c0 - 1]) {
+    if (c < 0) continue;
+    const hs = g.salt + c * 4;
+    if (h01(GSEED, hs) >= g.p[0] + g.p[1] * I) continue;
+    const dur = g.f[0] + Math.floor(h01(GSEED, hs + 1) * (g.f[1] - g.f[0] + 1));
+    const f0 = Math.floor((c * g.cell + h01(GSEED, hs + 2) * Math.max(0, g.cell - dur / FPS)) * FPS);
+    if (tf >= f0 && tf < f0 + dur) return { kind, c, f: tf - f0, dur, t0: f0 / FPS, key: g.salt + c * 64 };
+  }
+  return null;
+}
+function gOnsets(kind, a, b, I) {
+  const g = GK[kind], out = [];
+  for (let c = Math.max(0, Math.floor(a / g.cell) - 1); c * g.cell <= b; c++) {
+    const hs = g.salt + c * 4;
+    if (h01(GSEED, hs) >= g.p[0] + g.p[1] * I) continue;
+    const dur = g.f[0] + Math.floor(h01(GSEED, hs + 1) * (g.f[1] - g.f[0] + 1));
+    const t0 = Math.floor((c * g.cell + h01(GSEED, hs + 2) * Math.max(0, g.cell - dur / FPS)) * FPS) / FPS;
+    if (t0 >= a && t0 <= b) out.push({ t: t0, s: 1 });
+  }
+  return out;
+}
+// A glitch event triggered by a motion's onset (the combinations): the latest onset within 0.6 s.
+function coupledEvent(kind, onsetList, t, frames, minS = 0) {
+  const tf = frameOf(t);
+  for (let j = onsetList.length - 1; j >= 0; j--) {
+    const o = onsetList[j];
+    if (o.s < minS) continue;
+    const f0 = frameOf(o.t);
+    const dur = frames[0] + Math.floor(h01(GSEED, 700000 + f0) * (frames[1] - frames[0] + 1));
+    if (tf >= f0 && tf < f0 + dur) return { kind, c: f0, f: tf - f0, dur, t0: f0 / FPS, key: GK[kind].salt + 777 + f0 * 64 };
+  }
+  return null;
+}
+// Turn the active events into one frame's glitch parameters (px, about the planet's centre cx, cy, radius Rp).
+function glitchParams(events, I, cx, cy, Rp) {
+  const A = ampOf(I), ks = Rp / 95;
+  const G = { split: [0, 0], tear: [], snap: 0, snapO: [0, 0], drop: [], hold: null, box: [cx - 3 * Rp, cy - 3 * Rp, cx + 3 * Rp, cy + 3 * Rp] };
+  const doSplit = (key, m) => {
+    const s = (3 + 5 * h01(GSEED, key + 1)) * A * ks * m, an = (h01(GSEED, key + 2) - 0.5) * 0.5;
+    const sg = h01(GSEED, key + 3) < 0.5 ? -1 : 1;
+    G.split = [sg * s * Math.cos(an), s * Math.sin(an)];
+  };
+  const doTear = (key, m) => {
+    let y = cy - 2.8 * Rp, j = 0;
+    while (y < cy + 2.8 * Rp && j < 24) {
+      const hgt = (0.08 + 0.3 * h01(GSEED, key + 10 + 3 * j)) * Rp * (j % 3 === 0 ? 1.6 : 1);
+      const hv = h01(GSEED, key + 11 + 3 * j);
+      const dx = hv < 0.45 ? 0 : (h01(GSEED, key + 12 + 3 * j) < 0.5 ? -1 : 1) * (4 + 24 * (hv - 0.45) / 0.55) * A * ks * m;
+      G.tear.push([y, y + hgt, dx]);
+      y += hgt; j++;
+    }
+  };
+  const doSnap = (key, m) => {
+    G.snap = (6 + 8 * h01(GSEED, key + 40)) * ks * Math.min(1.4, m) * (0.6 + 0.4 * A);
+    G.snapO = [(h01(GSEED, key + 41) - 0.5) * G.snap, (h01(GSEED, key + 42) - 0.5) * G.snap];
+  };
+  const doDrop = (key, m) => {
+    const n = 1 + Math.floor(h01(GSEED, key + 50) * 3 * (0.5 + I) * m);
+    for (let j = 0; j < Math.min(5, n); j++) {
+      const y = cy + (h01(GSEED, key + 51 + 2 * j) - 0.5) * 2.2 * Rp, hh = (2 + 6 * h01(GSEED, key + 52 + 2 * j)) * ks;
+      G.drop.push([y, y + hh]);
+    }
+  };
+  for (const e of events) {
+    if (!e) continue;
+    if (e.kind === 'split') doSplit(e.key + (e.f >> 1) * 8, 1);
+    else if (e.kind === 'tear') doTear(e.key, 1);
+    else if (e.kind === 'snap') doSnap(e.key, 1);
+    else if (e.kind === 'drop') doDrop(e.key + (e.f >> 1) * 8, 1);
+    else if (e.kind === 'hold') {
+      const an = TAU * h01(GSEED, e.key + 60), off = (h01(GSEED, e.key + 61) - 0.5) * 0.8 * Rp;
+      G.hold = { t0: e.t0, n: [Math.cos(an), Math.sin(an)], d: off };
+    } else if (e.kind === 'burst') {
+      // Several glitches stacked, re-rolled every 2 frames.
+      const q = e.key + 8 * (e.f >> 1);
+      const pick = (j) => h01(GSEED, q + 90 + j) < 0.6;
+      let any = false;
+      if (pick(0)) { doSplit(q, 1.3); any = true; }
+      if (pick(1)) { doTear(q, 1.3); any = true; }
+      if (pick(2)) { doSnap(q, 1.2); any = true; }
+      if (pick(3)) { doDrop(q, 1.2); any = true; }
+      if (!any) doTear(q, 1.3);
+    }
+  }
+  return G;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Variants.
+// ---------------------------------------------------------------------------------------------
+const VARIANTS = [
+  { id: 'v00-today', name: 'Today', motions: ['today'], glitch: [],
+    desc: 'The essay as built: the shell breathes on its equation (A = 0.02 R) and, in its derp slots, scatters: the dots leave in an 80 ms sweep, hold 120-180 ms with held jitter, come home in three hard cuts and ring onto the next shape. Intensity only changes how many 2.2 s slots carry a scatter (half at 0, all at 1). Regular slot, one gesture, symmetric: the calm the author calls soothing.' },
+  { id: 'v01-arrhythmia', name: 'Arrhythmia', motions: ['arrhythmia'], glitch: [],
+    desc: 'A heartbeat at about 65 bpm that cannot keep time: each beat is a hard 45 ms swell with a ringing undershoot, lopsided toward its own side of the shell, and beats are skipped (the next then lands 1.6 times as hard) or doubled 0.21 s apart. Almost regular, which is what makes the misses read as sickness.' },
+  { id: 'v02-stutter', name: 'Stutter', motions: ['stutter'], glitch: [],
+    desc: 'The piece\'s own clock (its spin, a faster drifting wave on the shell, and the moons on their tracks) stands still for irregular holds of 70-270 ms, then lurches ahead of time for two frames and drops back into step. Nothing deforms much; it is the motion that is broken, like a dropped-frame video of the planet.' },
+  { id: 'v03-spasm', name: 'Spasm and slump', motions: ['spasm'], glitch: [],
+    desc: 'A two-frame clench squeezes the sphere along a hashed axis with a jerk and a held jitter, then the body sags under its own weight over half a second, its bottom widening, and comes back up past round before it settles. Violent then exhausted; events 0.6-2.8 s apart.' },
+  { id: 'v04-lumps', name: 'Lumps', motions: ['lumps'], glitch: [],
+    desc: 'Two bulges (+0.24 R, +0.12 R) and a cave (-0.2 R) wander over the shell on slow noise, their sizes swelling and easing; every few seconds the cave lurches to a new place in 120 ms. Asymmetric and tumour-like rather than a breath; reads best as a silhouette.' },
+  { id: 'v05-leaking', name: 'Leaking', motions: ['leak'], glitch: [],
+    desc: 'A wound opens at a hashed place on the shell and two in five of its dots drift out over 0.5-1.1 s, dimming by a third, linger 0.25-0.95 s with a small held shiver, then snap home in one frame. The rest of the sphere stays perfect, which makes the escaping dots read as something wrong inside.' },
+  { id: 'v06-desync', name: 'Desync', motions: ['desync'], glitch: [],
+    desc: 'Every dot keeps its own clock: its own pulse period (0.84-1.26 s) and phase, and its own wobble of the spin. The lattice\'s clean rows ripple apart and the surface seethes continuously; no event, no rest. The healthy planet beside it shows what the rows should look like.' },
+  { id: 'v07-tremor', name: 'Tremor', motions: ['tremor'], glitch: [],
+    desc: 'A constant fine shiver: every dot jumps on a held 24 Hz tick and the whole body on a 17 Hz one, the strength wandering and surging x2.2 for a third of a second now and then. Never still, never large; the cold-sweat option.' },
+  { id: 'v08-g1-split', name: 'G1 Colour split', motions: ['none'], glitch: ['split'],
+    desc: 'Red and blue copies of the piece step 3-8 px apart (mostly sideways) for 2-4 frames, the green staying home; where the copies overlap they add back to the dot\'s own colour, so the body\'s brightness barely changes. The essay\'s freeze frame already uses offset cold and warm copies, so this rhymes with it.' },
+  { id: 'v09-g2-tear', name: 'G2 Slice tear', motions: ['none'], glitch: ['tear'],
+    desc: 'Horizontal bands of uneven height across the piece jump sideways by different amounts (4-28 px, about half the bands stay put), hold 2-3 frames and snap back. The signature glitch-game move; the rim disc tears with the dots.' },
+  { id: 'v10-g3-snap', name: 'G3 Block snap', motions: ['none'], glitch: ['snap'],
+    desc: 'For 2-4 frames every dot of the piece is pulled to the nearest node of a coarse screen grid (6-14 px) anchored near the planet, so the sphere becomes a chunky block mosaic, the rim disc pixelated with it.' },
+  { id: 'v11-g4-hold', name: 'G4 Frame hold', motions: ['none'], glitch: ['hold'],
+    desc: 'A part of the piece, on one side of a hashed line through the planet, stops in its own past for 8-18 frames while the rest keeps spinning, then catches up in one frame. On the bare spin the seam is quiet; it is meant to stack with a motion (see C2).' },
+  { id: 'v12-g5-dropout', name: 'G5 Dropout lines', motions: ['none'], glitch: ['drop'],
+    desc: 'One to four scanlines 2-8 px tall go dark across the piece (dots and rim) for 2-5 frames, re-rolled every two frames. Removes light rather than adding it, so it is the gentlest of the kit on the eyes.' },
+  { id: 'v13-g6-burst', name: 'G6 Burst', motions: ['none'], glitch: ['burst'],
+    desc: 'Rare (a cell of 2.8 s, 30-75 % of cells) and sudden: for 6-10 frames the split, tear, snap and dropout stack, each re-rolled every two frames at 1.2-1.3 times their size. The panic attack of the kit.' },
+  { id: 'v14-c1-arrhythmia-tear', name: 'C1 Arrhythmia + tear', motions: ['arrhythmia'], glitch: [], coupled: [['tear', [2, 3], 0], ['split', [2, 2], 1.0]],
+    desc: 'The arrhythmic heartbeat, and every beat that lands tears the piece for 2-3 frames; the hard compensatory beats after a skip also split the colour. The glitch becomes the pulse, so its irregularity is the motion\'s.' },
+  { id: 'v15-c2-stutter-hold', name: 'C2 Stutter + hold + split', motions: ['stutter'], glitch: ['hold'], coupled: [['split', [2, 2], 0]],
+    desc: 'The stuttering clock, a two-frame colour split on every lurch, and frame holds that freeze part of the piece mid-stutter so the halves disagree. The most "broken video" of the set.' },
+  { id: 'v16-c3-spasm-burst', name: 'C3 Spasm + burst', motions: ['spasm'], glitch: [], coupled: [['burst', [5, 7], 0]],
+    desc: 'Each clench fires a 5-7 frame burst (split, tear, snap and dropout stacked), then the slow slump plays out clean. The contrast between the violent instant and the tired sag is the point.' },
+  { id: 'v17-c4-tremor-leak-drop', name: 'C4 Tremor + leak + dropout', motions: ['tremorLow', 'leak'], glitch: ['drop'],
+    desc: 'A quieter tremor all the time, wounds leaking dots, and dropout scanlines now and then. Chronic rather than acute: nothing big happens, nothing is ever right.' },
+  { id: 'v18-c5-burst-leak-drop', name: 'C5 Burst + leak + dropout', motions: ['todayEarly', 'leakBurst'], glitch: ['drop'],
+    desc: 'C4 with the tremor replaced by today\'s burst (the derp-slot scatter, unchanged, its schedule moved 5.07 s earlier so the first burst lands at 4.0 s). Each burst opens two wide wounds that trail it: the first as its dots come home, 0.30-0.40 s after the onset, the second 0.18-0.38 s later. Three in four of a wound\'s dots leak, 1.8 times as far as C4\'s, dimming only 15 %, for up to two seconds. Dropout scanlines as in C4.' },
+];
+
+// ---------------------------------------------------------------------------------------------
+// Camera and projection (CSS px). The picture's centre sits in the lower 58 %, under the text band.
+// ---------------------------------------------------------------------------------------------
+const BAND = 0.42;
+const view = { az: -0.32, el: 0.22, dist: 17.0, target: [0.6, 0.6, -0.6], zoom: 1, W: 390, H: 844 };
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+let VM = new Float32Array(16), FOC = 1, CX = 0, CY = 0;
+function updateCamera() {
+  const d = view.dist / view.zoom, [tx, ty, tz] = view.target;
+  cam.position.set(tx + d * Math.cos(view.el) * Math.sin(view.az), ty + d * Math.sin(view.el), tz + d * Math.cos(view.el) * Math.cos(view.az));
+  cam.lookAt(tx, ty, tz);
+  cam.updateMatrixWorld();
+  VM = cam.matrixWorldInverse.elements;
+  FOC = (view.H / 2) / Math.tan((30 * Math.PI / 180) / 2);
+  if (view.W > view.H) FOC *= 0.8;
+  CX = view.W / 2; CY = BAND * view.H + (1 - BAND) * view.H / 2;
+}
+// World -> [x_px, y_px, px per world unit]
+function project(x, y, z, out) {
+  const e = VM;
+  const vx = e[0] * x + e[4] * y + e[8] * z + e[12], vy = e[1] * x + e[5] * y + e[9] * z + e[13], vz = e[2] * x + e[6] * y + e[10] * z + e[14];
+  const s = FOC / Math.max(1e-3, -vz);
+  out[0] = CX + vx * s; out[1] = CY - vy * s; out[2] = s;
+}
+
+// ---------------------------------------------------------------------------------------------
+// One frame: every dot of every body in CSS px, the glitch on the piece. Pure in (t, I, variant, camera).
+// ---------------------------------------------------------------------------------------------
+const PIECE = [PLANET, ...MOONS];
+const NPIECE = PIECE.reduce((a, b) => a + b.n, 0) + TRACKS.reduce((a, t) => a + t.n, 0);
+const NALL = NPIECE + HEALTHY.n;
+function makeBuf(n) { return { x: new Float32Array(n), y: new Float32Array(n), s: new Float32Array(n), g: new Float32Array(n), vis: new Uint8Array(n), kind: new Uint8Array(n) }; }
+const BUF = makeBuf(NALL), HOLDBUF = makeBuf(NPIECE);
+const pr = [0, 0, 0];
+const onsetCache = new Map();
+function onsetsFor(V, a, b, I) {
+  const key = V.id + '|' + I.toFixed(3) + '|' + Math.floor(a);
+  let list = onsetCache.get(key);
+  if (!list) {
+    list = [];
+    for (const m of V.motions) if (MOTIONS[m].onsets) list.push(...MOTIONS[m].onsets(PLANET.seed, Math.floor(a) - 1, Math.floor(a) + 3, I));
+    list.sort((p, q) => p.t - q.t);
+    onsetCache.set(key, list);
+  }
+  return list.filter((o) => o.t <= b + 1e-9);
+}
+const o = { p: [0, 0, 0], spinT: NaN, gain: 1, flung: false };
+// The body-level frame of a body: its centre (world), spin matrix, its states for each motion.
+function evalPiece(V, t, I, buf, calm) {
+  const motions = calm ? [] : V.motions.map((m) => MOTIONS[m]);
+  const ctx = {};
+  // The piece's own clock (only the stutter changes it): moons and spin follow the planet's.
+  const pst = motions.map((M) => M.prep(PLANET, t, I, ctx));
+  let pieceT = t;
+  pst.forEach((s) => { if (s.bodyT !== undefined) pieceT = s.bodyT; });
+  ctx.pieceTau = pieceT;
+  let idx = 0;
+  for (const b of PIECE) {
+    const st = b === PLANET ? pst : motions.map((M) => M.prep(b, t, I, ctx));
+    const centre = b.orbit ? orbitPos(b.orbit, pieceT) : [0, 0, 0];
+    const off = [0, 0, 0];
+    st.forEach((s) => { if (s.off) for (let k = 0; k < 3; k++) off[k] += s.off[k] * b.R; });
+    const M0 = spinMatrix(b.axis, pieceT);
+    const base = b.lit ? LIT_B : SHELL_B;
+    for (let i = 0; i < b.n; i++, idx++) {
+      o.p[0] = b.u[3 * i]; o.p[1] = b.u[3 * i + 1]; o.p[2] = b.u[3 * i + 2];
+      o.spinT = NaN; o.gain = 1; o.flung = false;
+      for (let m = 0; m < motions.length; m++) motions[m].dot(st[m], b, i, o);
+      const M = isNaN(o.spinT) ? M0 : spinMatrix(b.axis, o.spinT);
+      const p = [M[0] * o.p[0] + M[1] * o.p[1] + M[2] * o.p[2], M[3] * o.p[0] + M[4] * o.p[1] + M[5] * o.p[2], M[6] * o.p[0] + M[7] * o.p[1] + M[8] * o.p[2]];
+      for (let m = 0; m < motions.length; m++) if (motions[m].post) motions[m].post(st[m], p);
+      project(centre[0] + off[0] + b.R * p[0], centre[1] + off[1] + b.R * p[1], centre[2] + off[2] + b.R * p[2], pr);
+      buf.x[idx] = pr[0]; buf.y[idx] = pr[1]; buf.s[idx] = Math.max(1, b.dotWorld * pr[2]);
+      buf.g[idx] = base * o.gain; buf.vis[idx] = 1; buf.kind[idx] = b === PLANET ? (o.flung ? 2 : 1) : 3;
+    }
+  }
+  for (const tr of TRACKS) {
+    for (let j = 0; j < tr.n; j++, idx++) {
+      const oo = tr.moon.orbit, th = TAU * j / tr.n;
+      const q = orbitPos({ ...oo, period: 1, phase: 0 }, th / TAU);
+      project(q[0], q[1], q[2], pr);
+      buf.x[idx] = pr[0]; buf.y[idx] = pr[1]; buf.s[idx] = Math.max(1, 0.02 * pr[2]); buf.g[idx] = 0.32; buf.vis[idx] = 1; buf.kind[idx] = 4;
+    }
+  }
+  return idx;
+}
+function evalHealthy(t, buf, at) {
+  const b = HEALTHY, M = spinMatrix(b.axis, t), c = b.centre;
+  for (let i = 0; i < b.n; i++) {
+    const u0 = b.u[3 * i], u1 = b.u[3 * i + 1], u2 = b.u[3 * i + 2];
+    project(c[0] + b.R * (M[0] * u0 + M[1] * u1 + M[2] * u2), c[1] + b.R * (M[3] * u0 + M[4] * u1 + M[5] * u2), c[2] + b.R * (M[6] * u0 + M[7] * u1 + M[8] * u2), pr);
+    const k = at + i;
+    buf.x[k] = pr[0]; buf.y[k] = pr[1]; buf.s[k] = Math.max(1, b.dotWorld * pr[2]); buf.g[k] = SHELL_B; buf.vis[k] = 1; buf.kind[k] = 5;
+  }
+}
+function planetScreen() { project(0, 0, 0, pr); return { cx: pr[0], cy: pr[1], Rp: PLANET.R * pr[2] }; }
+function healthyScreen() { const c = HEALTHY.centre; project(c[0], c[1], c[2], pr); return { cx: pr[0], cy: pr[1], Rp: HEALTHY.R * pr[2] }; }
+
+function activeEvents(V, t, I) {
+  const ev = V.glitch.map((k) => gEvent(k, t, I));
+  if (V.coupled) {
+    const ons = onsetsFor(V, t - 1, t, I);
+    for (const [kind, frames, minS] of V.coupled) ev.push(coupledEvent(kind, ons, t, frames, minS));
+  }
+  return ev.filter(Boolean);
+}
+// Apply the glitch kit to the piece's dots in buf[0..n): tear, snap, dropout (the split is drawn as copies).
+function applyGlitch(G, buf, n, t, V, I) {
+  const [bx0, by0, bx1, by1] = G.box;
+  if (G.hold) {
+    // Frame hold: where the held frame's dot falls on the held side, draw it from the held time.
+    evalPiece(V, G.hold.t0, I, HOLDBUF, false);
+    const { cx, cy } = planetScreen();
+    for (let i = 0; i < n; i++) {
+      const dx = HOLDBUF.x[i] - cx, dy = HOLDBUF.y[i] - cy;
+      if (dx * G.hold.n[0] + dy * G.hold.n[1] > G.hold.d) { buf.x[i] = HOLDBUF.x[i]; buf.y[i] = HOLDBUF.y[i]; buf.g[i] = HOLDBUF.g[i]; buf.kind[i] = HOLDBUF.kind[i]; }
+    }
+  }
+  const ps = planetScreen();
+  const ox = ps.cx + G.snapO[0], oy = ps.cy + G.snapO[1];
+  for (let i = 0; i < n; i++) {
+    let x = buf.x[i], y = buf.y[i];
+    if (x < bx0 || x > bx1 || y < by0 || y > by1) continue;
+    for (const [a, b, dx] of G.tear) if (y >= a && y < b) { x += dx; break; }
+    if (G.snap > 0) {
+      x = ox + Math.round((x - ox) / G.snap) * G.snap; y = oy + Math.round((y - oy) / G.snap) * G.snap;
+    }
+    for (const [a, b] of G.drop) if (y >= a && y < b) { buf.vis[i] = 0; break; }
+    buf.x[i] = x; buf.y[i] = y;
+  }
+}
+
+// The full frame (no drawing): fills BUF, returns the glitch parameters and the piece's count.
+function computeFrame(V, t, I) {
+  const n = evalPiece(V, t, I, BUF, false);
+  evalHealthy(t, BUF, n);
+  const ps = planetScreen();
+  const G = glitchParams(activeEvents(V, t, I), I, ps.cx, ps.cy, ps.Rp);
+  applyGlitch(G, BUF, n, t, V, I);
+  return { G, n, ps };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Drawing (three.js): the rim discs (the body mesh's fill and rim, with the glitch's tear, snap,
+// split and dropout as uniforms) and the dots as points, both in CSS px, screen-blended.
+// ---------------------------------------------------------------------------------------------
+const canvas = document.getElementById('c');
+THREE.ColorManagement.enabled = false;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.setClearColor(new THREE.Color(0x0b0d12), 1);
+const scene = new THREE.Scene();
+const ocam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const screenBlend = { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor,
+                      blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor, depthTest: false, depthWrite: false, transparent: true };
+const MAXPTS = NPIECE * 3 + HEALTHY.n;
+const pGeo = new THREE.BufferGeometry();
+const aPos = new THREE.BufferAttribute(new Float32Array(MAXPTS * 3), 3), aSize = new THREE.BufferAttribute(new Float32Array(MAXPTS), 1), aCol = new THREE.BufferAttribute(new Float32Array(MAXPTS * 3), 3);
+[aPos, aSize, aCol].forEach((a) => a.setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('position', aPos); pGeo.setAttribute('aSize', aSize); pGeo.setAttribute('aCol', aCol);
+const common = { uView: { value: new THREE.Vector2(390, 844) }, uDpr: { value: 1 } };
+const pMat = new THREE.RawShaderMaterial({
+  glslVersion: THREE.GLSL3, ...screenBlend,
+  uniforms: common,
+  vertexShader: `precision highp float;
+in vec3 position; in float aSize; in vec3 aCol;
+uniform vec2 uView; uniform float uDpr;
+out vec3 vCol; out float vR;
+void main() {
+  gl_Position = vec4(position.x / uView.x * 2.0 - 1.0, 1.0 - position.y / uView.y * 2.0, 0.0, 1.0);
+  float px = max(1.0, aSize * uDpr);
+  gl_PointSize = px + 1.0;
+  vR = 0.5 * px; vCol = aCol;
+}`,
+  fragmentShader: `precision highp float;
+in vec3 vCol; in float vR; out vec4 outColor;
+void main() {
+  // Point: a hard disc with a 1 px edge (galaxyMote.frag.glsl), premultiplied for the screen blend.
+  float r = length(gl_PointCoord - 0.5) * 2.0 * (vR + 0.5);
+  float a = 1.0 - smoothstep(vR - 1.0, vR, r);
+  if (a <= 0.0) discard;
+  outColor = vec4(min(vCol, vec3(1.0)) * a, a);
+}`,
+});
+const points = new THREE.Points(pGeo, pMat);
+points.frustumCulled = false;
+
+const NT = 24, ND = 5, NPROF = 64;
+function rimMaterial() {
+  return new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3, ...screenBlend,
+    uniforms: { ...common, uC: { value: new THREE.Vector2() }, uR: { value: 50 }, uCol: { value: new THREE.Vector3() }, uGain: { value: 1 },
+                uTear: { value: Array.from({ length: NT }, () => new THREE.Vector3()) }, uNT: { value: 0 },
+                uSnap: { value: 0 }, uSnapO: { value: new THREE.Vector2() }, uSplit: { value: new THREE.Vector2() },
+                uDrop: { value: Array.from({ length: ND }, () => new THREE.Vector2()) }, uND: { value: 0 },
+                uBox: { value: new THREE.Vector4(-1e9, -1e9, 1e9, 1e9) }, uProf: { value: new Float32Array(NPROF).fill(1) }, uBufH: { value: 844 } },
+    vertexShader: `precision highp float;
+in vec3 position; uniform vec2 uView;
+void main() { gl_Position = vec4(position.x / uView.x * 2.0 - 1.0, 1.0 - position.y / uView.y * 2.0, 0.0, 1.0); }`,
+    fragmentShader: `precision highp float;
+uniform vec2 uC; uniform float uR; uniform vec3 uCol; uniform float uGain; uniform float uDpr; uniform float uBufH;
+uniform vec3 uTear[${NT}]; uniform int uNT; uniform float uSnap; uniform vec2 uSnapO; uniform vec2 uSplit;
+uniform vec2 uDrop[${ND}]; uniform int uND; uniform vec4 uBox; uniform float uProf[${NPROF}];
+out vec4 outColor;
+float prof(vec2 d) {
+  float a = (atan(d.y, d.x) / 6.2831853 + 0.5) * ${NPROF}.0;
+  int i0 = int(floor(a)) % ${NPROF}; int i1 = (i0 + 1) % ${NPROF};
+  return mix(uProf[i0], uProf[i1], fract(a));
+}
+float disc(vec2 q) {
+  vec2 d = q - uC;
+  float rr = length(d) / (uR * prof(d));
+  if (rr >= 1.0) return 0.0;
+  float f = 1.0 - sqrt(1.0 - rr * rr);
+  return min(1.0, (0.035 + 0.55 * pow(f, 2.6)) * uGain);
+}
+vec2 unglitch(vec2 p) {
+  if (p.x < uBox.x || p.x > uBox.z || p.y < uBox.y || p.y > uBox.w) return p;
+  for (int j = 0; j < ${NT}; j++) { if (j >= uNT) break; if (p.y >= uTear[j].x && p.y < uTear[j].y) { p.x -= uTear[j].z; break; } }
+  if (uSnap > 0.0) { vec2 o = uC + uSnapO; p = o + floor((p - o) / uSnap + 0.5) * uSnap; }
+  return p;
+}
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uBufH - gl_FragCoord.y) / uDpr;
+  for (int j = 0; j < ${ND}; j++) { if (j >= uND) break; if (p.y >= uDrop[j].x && p.y < uDrop[j].y && p.x > uBox.x && p.x < uBox.z) discard; }
+  float r = disc(unglitch(p - uSplit)), g = disc(unglitch(p)), b = disc(unglitch(p + uSplit));
+  vec3 c = vec3(uCol.r * r, uCol.g * g, uCol.b * b);
+  if (max(c.r, max(c.g, c.b)) <= 0.0) discard;
+  outColor = vec4(c, max(r, max(g, b)));
+}`,
+  });
+}
+const RIMS = [PLANET, ...MOONS, HEALTHY].map((b) => {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3));
+  const mesh = new THREE.Mesh(geo, rimMaterial());
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  return { b, mesh };
+});
+scene.add(points);
+
+// The limb's radius per screen angle, from the planet's own dots (not the flung ones), for the rim disc.
+const profTmp = new Float32Array(NPROF);
+function limbProfile(buf, ps) {
+  profTmp.fill(0);
+  for (let i = 0; i < PLANET.n; i++) {
+    if (buf.kind[i] !== 1) continue;
+    const dx = buf.x[i] - ps.cx, dy = buf.y[i] - ps.cy;
+    const k = Math.min(NPROF - 1, Math.floor((Math.atan2(dy, dx) / TAU + 0.5) * NPROF));
+    const r = Math.hypot(dx, dy) / ps.Rp;
+    if (r > profTmp[k]) profTmp[k] = r;
+  }
+  const out = new Float32Array(NPROF);
+  for (let k = 0; k < NPROF; k++) out[k] = clamp((profTmp[(k + NPROF - 1) % NPROF] + 2 * profTmp[k] + profTmp[(k + 1) % NPROF]) / 4 / 0.995, 0.8, 1.6);
+  return out;
+}
+
+let cssW = 390, cssH = 844, dpr = 1;
+function resize() {
+  cssW = window.innerWidth; cssH = window.innerHeight; dpr = Math.min(window.devicePixelRatio || 1, 3);
+  renderer.setPixelRatio(dpr); renderer.setSize(cssW, cssH, false);
+  view.W = cssW; view.H = cssH;
+  common.uView.value.set(cssW, cssH); common.uDpr.value = dpr;
+}
+
+function draw(V, t, I) {
+  updateCamera();
+  const { G, n, ps } = computeFrame(V, t, I);
+  const pos = aPos.array, siz = aSize.array, col = aCol.array;
+  let k = 0;
+  const split = Math.hypot(G.split[0], G.split[1]) > 0.25;
+  const put = (x, y, s, c0, c1, c2) => { pos[3 * k] = x; pos[3 * k + 1] = y; pos[3 * k + 2] = 0; siz[k] = s; col[3 * k] = c0; col[3 * k + 1] = c1; col[3 * k + 2] = c2; k++; };
+  const [bx0, by0, bx1, by1] = G.box;
+  // Block snap: the dots that land on one grid node become one block-dot of the node's light (the
+  // screen blend would otherwise stack them to white, a brightness jump the guard does not want).
+  if (G.snap > 0) {
+    const cells = new Map();
+    for (let i = 0; i < n; i++) {
+      if (!BUF.vis[i]) continue;
+      const x = BUF.x[i], y = BUF.y[i];
+      if (x < bx0 || x > bx1 || y < by0 || y > by1) continue;
+      const key = Math.round(x * 8) * 100003 + Math.round(y * 8);
+      const c = cells.get(key);
+      if (c) { c.g += BUF.g[i]; c.m++; } else cells.set(key, { x, y, g: BUF.g[i], m: 1, s: BUF.s[i] });
+      BUF.vis[i] = 2; // drawn by its cell
+    }
+    for (const c of cells.values()) {
+      const g = Math.min(1.25, 0.45 + 0.12 * c.g), s = Math.min(0.55 * G.snap, c.s * (1 + 0.25 * Math.sqrt(c.m)));
+      if (split) {
+        put(c.x + G.split[0], c.y + G.split[1], s, LIT[0] * g, 0, 0);
+        put(c.x, c.y, s, 0, LIT[1] * g, 0);
+        put(c.x - G.split[0], c.y - G.split[1], s, 0, 0, LIT[2] * g);
+      } else put(c.x, c.y, s, LIT[0] * g, LIT[1] * g, LIT[2] * g);
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    if (BUF.vis[i] !== 1) continue;
+    const kind = BUF.kind[i], g = BUF.g[i];
+    const c = kind === 4 ? [LIT[0] * 0.6 + AGENT[0] * 0.4, LIT[1] * 0.6 + AGENT[1] * 0.4, LIT[2] * 0.6 + AGENT[2] * 0.4] : LIT;
+    const x = BUF.x[i], y = BUF.y[i];
+    if (split && x > bx0 && x < bx1 && y > by0 && y < by1) {
+      put(x + G.split[0], y + G.split[1], BUF.s[i], c[0] * g, 0, 0);
+      put(x, y, BUF.s[i], 0, c[1] * g, 0);
+      put(x - G.split[0], y - G.split[1], BUF.s[i], 0, 0, c[2] * g);
+    } else put(x, y, BUF.s[i], c[0] * g, c[1] * g, c[2] * g);
+  }
+  for (let i = n; i < n + HEALTHY.n; i++) put(BUF.x[i], BUF.y[i], BUF.s[i], AGENT[0] * BUF.g[i], AGENT[1] * BUF.g[i], AGENT[2] * BUF.g[i]);
+  pGeo.setDrawRange(0, k);
+  aPos.needsUpdate = aSize.needsUpdate = aCol.needsUpdate = true;
+  // Rims.
+  const prof = V.motions[0] === 'none' ? null : limbProfile(BUF, ps);
+  for (const { b, mesh } of RIMS) {
+    const U = mesh.material.uniforms;
+    let c;
+    if (b === HEALTHY) c = healthyScreen();
+    else if (b === PLANET) c = ps;
+    else {
+      const st = V.motions.map((m) => MOTIONS[m].prep(PLANET, t, I, {}));
+      let pt = t; st.forEach((s) => { if (s.bodyT !== undefined) pt = s.bodyT; });
+      const q = orbitPos(b.orbit, pt); project(q[0], q[1], q[2], pr); c = { cx: pr[0], cy: pr[1], Rp: b.R * pr[2] };
+    }
+    U.uC.value.set(c.cx, c.cy); U.uR.value = c.Rp; U.uBufH.value = cssH * dpr;
+    const lit = b.lit;
+    U.uCol.value.set(...(lit ? LIT : AGENT));
+    U.uGain.value = lit ? 1.35 : 1.0;
+    const piece = b !== HEALTHY;
+    U.uNT.value = piece ? G.tear.length : 0;
+    G.tear.forEach((tr, j) => U.uTear.value[j].set(tr[0], tr[1], tr[2]));
+    U.uSnap.value = piece ? G.snap : 0; U.uSnapO.value.set(G.snapO[0] + (piece ? ps.cx - c.cx : 0), G.snapO[1] + (piece ? ps.cy - c.cy : 0));
+    U.uSplit.value.set(piece ? G.split[0] : 0, piece ? G.split[1] : 0);
+    U.uND.value = piece ? G.drop.length : 0;
+    G.drop.forEach((d, j) => U.uDrop.value[j].set(d[0], d[1]));
+    U.uBox.value.set(...(piece ? G.box : [-1e9, -1e9, 1e9, 1e9]));
+    U.uProf.value = b === PLANET && prof ? prof : new Float32Array(NPROF).fill(1);
+    const ext = c.Rp * 1.7 + 45, arr = mesh.geometry.attributes.position.array;
+    const [x0, y0, x1, y1] = [c.cx - ext, c.cy - ext, c.cx + ext, c.cy + ext];
+    arr.set([x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y0, 0, x1, y1, 0, x0, y1, 0]);
+    mesh.geometry.attributes.position.needsUpdate = true;
+  }
+  renderer.render(scene, ocam);
+  return { G, ps };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Measures (no drawing): over 20 s at 30 fps, the planet's own dots against the calm sphere.
+// ---------------------------------------------------------------------------------------------
+const CALM = makeBuf(NPIECE);
+function frameMetrics(V, t, I) {
+  const { G, ps } = computeFrame(V, t, I);
+  evalPiece(V, t, I, CALM, true);
+  return { G, ps };
+}
+function measure(vi, I, t0 = 2, secs = 20) {
+  const V = VARIANTS[vi];
+  updateCamera();
+  const nF = Math.round(secs * FPS), n = PLANET.n;
+  let prevDx = new Float32Array(n), prevDy = new Float32Array(n), prevVis = new Uint8Array(n), prevSplit = 0;
+  const dx = new Float32Array(n), dy = new Float32Array(n);
+  let changed = 0, peak = 0, peakT = t0;
+  const change = [], score = [], lum = [];
+  let lumCalm = 0;
+  for (let f = 0; f <= nF; f++) {
+    const t = t0 + f / FPS;
+    const { G } = frameMetrics(V, t, I);
+    let mx = 0, hiddenDiff = 0, L = 0, Lc = 0, p95 = [];
+    let maxDev = 0, hidden = 0;
+    for (let i = 0; i < n; i++) {
+      dx[i] = BUF.x[i] - CALM.x[i]; dy[i] = BUF.y[i] - CALM.y[i];
+      const vis = BUF.vis[i];
+      if (vis) {
+        const d = Math.hypot(dx[i], dy[i]);
+        if (d > maxDev) maxDev = d;
+        if ((i & 7) === 0) p95.push(d);
+        L += BUF.g[i] * BUF.s[i] * BUF.s[i];
+      } else hidden++;
+      Lc += CALM.g[i] * CALM.s[i] * CALM.s[i];
+      if (f > 0) {
+        if (vis && prevVis[i]) { const c = Math.hypot(dx[i] - prevDx[i], dy[i] - prevDy[i]); if (c > mx) mx = c; }
+        else if (vis !== prevVis[i]) hiddenDiff++;
+      }
+    }
+    const sp = Math.hypot(G.split[0], G.split[1]);
+    p95.sort((a, b) => a - b);
+    const p = p95[Math.floor(p95.length * 0.95)] || 0;
+    if (f > 0) {
+      const ch = mx > 1.0 || hiddenDiff > n * 0.002 || Math.abs(sp - prevSplit) > 0.5;
+      change.push(ch ? 1 : 0);
+      if (ch) changed++;
+    }
+    const sc = p + sp + (hidden / n) * 60;
+    score.push(sc);
+    if (Math.max(maxDev, sp) > peak) { peak = Math.max(maxDev, sp); peakT = t; }
+    lum.push(L / Math.max(1e-6, Lc));
+    prevDx.set(dx); prevDy.set(dy); prevVis.set(BUF.vis.subarray(0, n)); prevSplit = sp;
+  }
+  // Onsets: a change after at least three quiet frames.
+  const onsets = [];
+  for (let f = 3; f < change.length; f++) if (change[f] && !change[f - 1] && !change[f - 2] && !change[f - 3]) onsets.push(t0 + (f + 1) / FPS);
+  const iv = onsets.slice(1).map((x, j) => x - onsets[j]);
+  const mean = iv.reduce((a, b) => a + b, 0) / Math.max(1, iv.length);
+  const sd = Math.sqrt(iv.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, iv.length));
+  // Flash guard: luminance swings > 10 % of the calm body between frames, opposite-signed pairs per second.
+  let flashMax = 0;
+  const swings = [];
+  for (let f = 1; f < lum.length; f++) { const d = lum[f] - lum[f - 1]; swings.push(Math.abs(d) > 0.1 ? Math.sign(d) : 0); }
+  for (let f = 0; f + FPS <= swings.length; f++) {
+    let flips = 0, last = 0;
+    for (let j = f; j < f + FPS; j++) if (swings[j]) { if (last && swings[j] !== last) flips++; last = swings[j]; }
+    flashMax = Math.max(flashMax, Math.ceil(flips / 2));
+  }
+  const lumSwing = Math.max(...lum) - Math.min(...lum);
+  return { fracChanging: changed / nF, onsets: onsets.length, cv: iv.length >= 3 ? sd / mean : null, meanInterval: iv.length ? mean : null,
+           peakPx: peak, peakT, flashesPerSec: flashMax, lumSwing, onsetTimes: onsets, score, t0 };
+}
+// The moment strips start at: the first onset at or after 4 s (two frames before it), else 4 s.
+// The static (reduced motion) frame: the most disturbed frame in the 3 s after that.
+function seedMoments(vi, I) {
+  const m = measure(vi, I, 2, 14);
+  const on = m.onsetTimes.find((x) => x >= 4.0);
+  const start = on !== undefined ? Math.max(0, on - 2 / FPS) : 4.0;
+  let best = -1, bestT = start;
+  m.score.forEach((s, f) => { const t = m.t0 + f / FPS; if (t >= start && t <= start + 3 && s > best) { best = s; bestT = t; } });
+  return { start, staticT: Math.round(bestT * FPS) / FPS };
+}
+
+// ---------------------------------------------------------------------------------------------
+// State, UI and input.
+// ---------------------------------------------------------------------------------------------
+const params = new URLSearchParams(location.search);
+const state = { v: +(params.get('v') || 0), I: +(params.get('i') ?? 0.35), t: +(params.get('t') || 0), paused: params.get('paused') === '1',
+                reduced: params.get('reduced') === '1' || (params.get('reduced') === null && matchMedia('(prefers-reduced-motion: reduce)').matches) };
+if (params.get('ui') === 'min') document.body.classList.add('ui-min');
+if (params.get('ui') === 'none') document.body.classList.add('ui-none');
+const staticCache = new Map();
+function staticTime() {
+  const key = state.v + '|' + state.I.toFixed(2);
+  if (!staticCache.has(key)) staticCache.set(key, seedMoments(state.v, state.I).staticT);
+  return staticCache.get(key);
+}
+const $ = (id) => document.getElementById(id);
+function syncUI() {
+  const V = VARIANTS[state.v];
+  $('pillN').textContent = String(state.v);
+  $('pillName').textContent = V.name + (state.reduced ? ' (static)' : '');
+  $('inten').value = state.I; $('intenV').textContent = state.I.toFixed(2);
+  $('scrub').value = state.t; $('timeV').textContent = state.t.toFixed(2) + ' s';
+  $('play').textContent = state.paused ? 'Play' : 'Pause';
+  $('reduced').checked = state.reduced;
+}
+function setVariant(v) { state.v = (v + VARIANTS.length) % VARIANTS.length; syncUI(); }
+$('prev').onclick = () => setVariant(state.v - 1);
+$('next').onclick = () => setVariant(state.v + 1);
+$('inten').oninput = (e) => { state.I = +e.target.value; syncUI(); };
+$('scrub').oninput = (e) => { state.t = +e.target.value; syncUI(); };
+$('play').onclick = () => { state.paused = !state.paused; syncUI(); };
+$('reduced').onchange = (e) => { state.reduced = e.target.checked; syncUI(); };
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') setVariant(state.v + 1);
+  else if (e.key === 'ArrowLeft') setVariant(state.v - 1);
+  else if (e.key === 'ArrowUp') { state.I = clamp(state.I + 0.05, 0, 1); syncUI(); }
+  else if (e.key === 'ArrowDown') { state.I = clamp(state.I - 0.05, 0, 1); syncUI(); }
+  else if (e.key === ' ') { state.paused = !state.paused; syncUI(); e.preventDefault(); }
+});
+// Pointers: one finger swipes between variants; two pinch to zoom and drag to orbit.
+const ptrs = new Map();
+let swipe = null, pinch = null;
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 1) swipe = { x: e.clientX, y: e.clientY };
+  if (ptrs.size === 2) {
+    swipe = null;
+    const [a, b] = [...ptrs.values()];
+    pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], zoom: view.zoom, az: view.az, el: view.el };
+  }
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2 && pinch) {
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    view.zoom = clamp(pinch.zoom * d / Math.max(1, pinch.d), 0.4, 6);
+    view.az = pinch.az - (m[0] - pinch.m[0]) * 0.006;
+    view.el = clamp(pinch.el + (m[1] - pinch.m[1]) * 0.006, -1.3, 1.3);
+  }
+});
+const endPtr = (e) => {
+  if (swipe && ptrs.size === 1) {
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) setVariant(state.v + (dx < 0 ? 1 : -1));
+  }
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) swipe = null;
+};
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); view.zoom = clamp(view.zoom * Math.exp(-e.deltaY * 0.0015), 0.4, 6); }, { passive: false });
+window.addEventListener('resize', resize);
+
+let last = performance.now(), auto = true;
+function tick(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (auto) {
+    if (!state.paused && !state.reduced) { state.t = (state.t + dt) % 40; $('scrub').value = state.t; $('timeV').textContent = state.t.toFixed(2) + ' s'; }
+    draw(VARIANTS[state.v], state.reduced ? staticTime() : state.t, state.I);
+  }
+  requestAnimationFrame(tick);
+}
+resize(); syncUI();
+requestAnimationFrame(tick);
+
+// For the evidence scripts: drive frames by hand.
+window.inspector = {
+  VARIANTS: VARIANTS.map((v) => ({ id: v.id, name: v.name, desc: v.desc })),
+  manual() { auto = false; },
+  render(v, t, I) { state.v = v; state.I = I; state.t = t; syncUI(); resize(); return draw(VARIANTS[v], t, I).ps; },
+  measure(v, I) { const m = measure(v, I); delete m.score; return m; },
+  seedMoments,
+  onsets(v, a, b, I) { const V = VARIANTS[v], out = []; for (const m of V.motions) if (MOTIONS[m].onsets) out.push(...MOTIONS[m].onsets(PLANET.seed, a, b, I).map((o) => ({ m, t: o.t }))); return out.sort((p, q) => p.t - q.t); },
+  setZoom(z) { view.zoom = z; },
+  setView(v) { Object.assign(view, v); },
+  getView() { return { ...view }; },
+  planetScreen() { updateCamera(); return planetScreen(); },
+  healthyScreen() { updateCamera(); return healthyScreen(); },
+  counts: { planet: PLANET.n, moons: MOONS.map((m) => m.n), healthy: HEALTHY.n },
+};
+window.__ready = true;
+</script>
+</body>
+</html>

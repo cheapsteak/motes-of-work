@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plans as schematics</title>
+<style>
+  :root { --bg: #0b0d12; --ink: #d8dce6; --dim: #8a90a0; --line: rgba(216,220,230,0.14); --panel: rgba(216,220,230,0.05);
+          --agent: #4DA3FF; --ember: #FF6B57; --human: #FFB347; --phosphor: #8FE3C8; --bone: #C9D1DC; color-scheme: dark; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 0 16px 80px; }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { font: 500 28px/1.2 Georgia, serif; margin: 32px 0 6px; }
+  h2 { font: 500 20px/1.3 Georgia, serif; margin: 44px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+  h3 { font-size: 15px; font-weight: 600; margin: 24px 0 6px; }
+  p, li { max-width: 72ch; }
+  .lede { color: var(--dim); font-size: 14px; }
+  code { font: 12.5px/1.4 ui-monospace, Menlo, Consolas, monospace; background: rgba(216,220,230,0.08); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 10px 0 18px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 500; }
+  td.ok { color: var(--phosphor); } td.warn { color: var(--human); } td.bad { color: var(--ember); }
+  .tier { display: inline-block; font: 600 10.5px/1 ui-monospace, monospace; padding: 2px 5px; border-radius: 3px; background: rgba(216,220,230,0.1); color: var(--dim); margin-right: 4px; }
+  .tier.t1 { color: var(--phosphor); } .tier.t2 { color: var(--agent); } .tier.t4 { color: var(--ember); }
+  .stills { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; margin: 10px 0 6px; }
+  .stills figure { margin: 0; flex: 0 1 auto; }
+  .stills img { display: block; border: 1px solid var(--line); border-radius: 8px; background: #000; }
+  .stills img.phone { width: 234px; height: auto; }
+  .stills img.desk { width: 100%; max-width: 940px; height: auto; }
+  figcaption { color: var(--dim); font-size: 12px; margin-top: 4px; max-width: 234px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+  .card.reco { border-color: rgba(143,227,200,0.45); }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+  dl { display: grid; grid-template-columns: 11em 1fr; gap: 4px 12px; font-size: 14px; }
+  dt { color: var(--dim); } dd { margin: 0; max-width: 70ch; }
+  .dm { font: 13px/1.5 ui-monospace, Menlo, monospace; letter-spacing: 0.12em; color: var(--phosphor); }
+  a { color: var(--agent); text-decoration: none; } a:hover { text-decoration: underline; }
+  @media (max-width: 640px) { dl { grid-template-columns: 1fr; } .stills img.phone { width: calc(50% - 6px); } figcaption { max-width: none; } }
+</style>
+<body><main>
+<p>Sections 7 to 9 of the schematic research page: the plan concepts, the author's pick (R up close, H in the neighbourhood) and the round-4 hand-over. The earlier research sections stay out of the repo.</p>
+<h2 id="round2">7. Round 2: plan, not monitoring</h2>
+<p class="lede">The author's verdict on round 1: B and C look better; A reads as "monitoring" rather than "plan"; B's sweep goes. The principle for this round: a plan is prescriptive, drawn before the thing exists, and shows intent (intended positions, dimensions, tolerances, construction). Sweeps, live counts, blinking warnings and scan readouts are monitoring language, and every one of them is gone from the new concepts. Kept from round 1: dots only, phosphor, the band and legibility rules, numbers only, the level-of-detail plan (nothing at the far level), the three states, the swipe. The new concepts come first in the swipe; A–D stay behind them for comparison.</p>
+
+<div class="card">
+  <p><strong>What "off plan" means in every mock.</strong> A defective body sits 0.22 rad further round its ring, 0.9 units outside it, and 1.2× its planned size (<code>DRIFT</code> in <code>mock.html</code>). Every plan mark is drawn at the <em>planned</em> position and size; the body is drawn where it <em>is</em>. Healthy bodies coincide with their marks exactly, so nothing on a healthy system is an event. The one ember mark a concept may add is the departure itself (a second dimension, an ember band edge, a deviating arc, an ember stalk or tick), never a lamp, a counter or a glyph. The star still lights ember at df-5 as the essay has it; that is the body, not the schematic.</p>
+  <p><strong>Level of detail, revised.</strong> Far: nothing. Low (40–110 px): the outer ring only, plus the concept's ember departure where one exists. Mid (110–300 px): every ring, thin, plus stalks or placeholders. Full (≥ 300 px, at most two systems): bands, graduations, dimensions, outlines and the planned values.</p>
+</div>
+
+<h3>E · Placeholders</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-E-close-healthy.png" alt=""><figcaption>Healthy: each body fills its wireframe outline; the moons' outlines too.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-E-close-defect.png" alt=""><figcaption>Defect: the outline stays where the plan put it; the body is beside it and too big for it.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-E-hood-healthy.png" alt=""><figcaption>Hood, healthy: a ring and a small circle per intended body.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-E-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember bodies beside empty circles.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>Faint wireframe outlines of the planets and moons the plan intends, at their intended places and sizes: a screen-facing silhouette circle, an equator and a meridian facing the star. The code fills its outline. Rings stay as plain dotted circles.</dd>
+  <dt>The defect</dt><dd>The body does not fit: it sits beside its outline, drifted round and out, and overflows the size. The outline stays. Nothing turns ember except the body itself.</dd>
+  <dt>Beats</dt><dd>ly-3: the outlines draw in empty, the plan before the thing exists; ly-4: the bodies fill them; df-1/df-2: one body is seen beside its outline when you look; df-5/up-2: ember bodies beside empty outlines across the neighbourhood.</dd>
+  <dt>Risks</dt><dd>The quietest defect signal: at the hood the drift is 3 px, so the empty circle and the ember dot touch; the reader has to look. Outlines on a healthy body add a ring of dots round every planet, which can read as a glow the re-skin removed. 772 dots close, 2,294 at the hood.</dd>
+</dl>
+
+<h3>F · Construction</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-F-close-healthy.png" alt=""><figcaption>Healthy: centre mark, radius lines, compass tick-arcs, one dimension reading 8.5.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-F-close-defect.png" alt=""><figcaption>Defect: a second, ember dimension to where the body really is, reading 9.4 past it.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-F-hood-healthy.png" alt=""><figcaption>Hood, healthy: ring and centre mark.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-F-hood-twelve.png" alt=""><figcaption>Hood, twelve: an ember radius line to each body off plan.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>Orbits drawn as a drafter constructs them: a crosshair and small circle on the star; a faint radius line to each intended position; a short compass tick-arc either side of the ring where the radius meets it; one dimension line for the focused body, with a tick end, an extension past the ring and its planned value in dot-matrix numerals.</dd>
+  <dt>The defect</dt><dd>A second dimension, in ember, from the centre to the body's actual position, with the actual value placed beyond the body. Two numbers, one plan, one reality; nothing blinks.</dd>
+  <dt>Beats</dt><dd>ly-3: the centre mark, then the radius lines, then the arcs and the dimension draw in (a drafter's order); ly-4: the bodies land on the radius ends; df-2: the ember dimension appears as the body is seen off its line; up-2: ember radius lines across the neighbourhood.</dd>
+  <dt>Risks</dt><dd>The two dimension lines are 12° apart and both pass near the body; the values need the placement rule (planned value mid-line, actual value past the body) or they collide, as they did in the first cut. Radius lines through the system add clutter at mid detail. 850–973 dots close.</dd>
+</dl>
+
+<h3>G · Tolerance bands</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-G-close-healthy.png" alt=""><figcaption>Healthy: each orbit a thin band; every body inside its band.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-G-close-defect.png" alt=""><figcaption>Defect: the body outside, the outer edge ember where it crossed.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-G-hood-healthy.png" alt=""><figcaption>Hood, healthy: outer rings only.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-G-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember arcs where bodies crossed; no counter.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>Each orbit is a band of allowed range, ±0.45 units: two dotted edges and a sparse fill. A healthy body sits inside. The plan says "here, within this much".</dd>
+  <dt>The defect</dt><dd>The body is outside the band, and the outer edge goes ember over ±0.3 rad where it crossed. At the hood the ember arcs show the spread with no number.</dd>
+  <dt>Beats</dt><dd>ly-3: the bands draw in; ly-4: bodies inside them; df-2: the ember edge; df-5/up-2: ember arcs across the neighbourhood, more as you scroll.</dd>
+  <dt>Risks</dt><dd>Three bands are nine rings of dots: 1,344 close and, at the hood, they merge into a thick ring (one edge drawn there instead). The ember arc is the strongest hood signal of the round, but it sits on the ring, not on the body, so a reader can take it for a ring that has lit rather than a body that has left. Bands imply tolerance; the essay has not said tolerance, so an alt text would.</dd>
+</dl>
+
+<h3>H · Mission plan</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-H-close-healthy.png" alt=""><figcaption>Healthy: dashed forward arcs, node markers, chevrons; the rest of the ring faint.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-H-close-defect.png" alt=""><figcaption>Defect: the body off its node; an ember arc deviating outward with its own chevron.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-H-hood-healthy.png" alt=""><figcaption>Hood, healthy: outer ring with nodes.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-H-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember deviations.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>Orbits as planned trajectories, in the manner of mission diagrams and manoeuvre nodes: from each intended position a dashed forward arc of 100°, node markers (small crosses) at 0°, 35° and 70° ahead, and a chevron at the arc's end for direction. The ring itself is faint.</dd>
+  <dt>The defect</dt><dd>The body is off its node, and from where it is an ember dashed arc curves outward with its own chevron: the path it is on instead.</dd>
+  <dt>Beats</dt><dd>ly-3: nodes, then arcs, then chevrons; ly-4: bodies on their first nodes; df-2: the deviating arc; up-2: ember arcs across the neighbourhood.</dd>
+  <dt>Risks</dt><dd>It is the most "spaceflight" and the least "blueprint": arcs and chevrons say manoeuvre, and nodes at set times say schedule, which the essay has no line for. Nodes at the hood become texture (3,731 dots). The ember arc is a strong signal but it is motion language, the closest of the round to monitoring.</dd>
+</dl>
+
+<h3>B′ · Design hologram</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-B2-close-healthy.png" alt=""><figcaption>Healthy: plane grid, planned stalks with feet, one planned dimension on a tag.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-B2-close-defect.png" alt=""><figcaption>Defect: an ember stalk where the body really stands; the tag still points at the planned place.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-B2-hood-healthy.png" alt=""><figcaption>Hood, healthy.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-B2-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember stalks.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>B without the sweep, the brackets and the counts: the faint plane grid, the rings, a stalk from the plane to each intended position with a foot cross, and one tag giving the focused body's planned radius, anchored to the planned place.</dd>
+  <dt>The defect</dt><dd>A second, ember stalk under the body where it actually stands; the planned stalk stays, empty at the top.</dd>
+  <dt>Beats</dt><dd>ly-3: the grid and stalks rise, a design tool's scene before the parts are placed; ly-4: bodies on the stalks; df-2: the ember stalk; up-2: ember stalks across the neighbourhood.</dd>
+  <dt>Risks</dt><dd>Still the busiest at full detail (2,351 dots) and the grid still competes with the background stars. At the hood an ember stalk is a 2–3 px vertical, weak. The tag pointing at empty space is correct and strange; an alt text would have to say it.</dd>
+</dl>
+
+<h3>C′ · Engineering</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-C2-close-healthy.png" alt=""><figcaption>Healthy: dial rings, graduations, a tick per body, the table of planned radii.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-C2-close-defect.png" alt=""><figcaption>Defect: an ember tick where the body really is; the table unchanged.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-C2-hood-healthy.png" alt=""><figcaption>Hood, healthy.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-C2-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember ticks.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>C with every monitoring habit removed: no brackets on the star, no flicker, no drifted value. Dial rings with 24 graduations, a phosphor tick where each body is planned, and the table "1 5.0 / 2 8.5 / 3 13.0" of planned radii in the lower-left.</dd>
+  <dt>The defect</dt><dd>Only geometry: an ember tick at the body's actual radius and angle. The table keeps saying 8.5, because the plan still does.</dd>
+  <dt>Beats</dt><dd>ly-3: rings, graduations and the table draw in; ly-4: ticks and bodies; df-2: the ember tick; up-2: ember ticks across the neighbourhood.</dd>
+  <dt>Risks</dt><dd>The defect is a 4-dot ember tick under the body; at the hood it vanishes (the same failure as C). The table reads as a parts list more than a drawing, and at phone size it owns the lower-left corner where A's bar did.</dd>
+</dl>
+
+<h3>R · Recommended combination</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r2-R-close-healthy.png" alt=""><figcaption>Healthy: bands with graduations, planned stalks, outlines filled, one dimension 8.5.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-R-close-defect.png" alt=""><figcaption>Defect: the body outside its band and its outline, the ember edge, the ember stalk, the second dimension 9.4.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-R-hood-healthy.png" alt=""><figcaption>Hood, healthy: outer rings and placeholders.</figcaption></figure>
+  <figure><img class="phone" src="stills/r2-R-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember edges beside empty placeholders.</figcaption></figure>
+</div>
+<div class="stills">
+  <figure><img class="desk" src="stills/r2-R-close-defect-desktop.png" alt=""><figcaption style="max-width:none">Desktop 1440×900, defect.</figcaption></figure>
+  <figure><img class="desk" src="stills/r2-R-hood-twelve-desktop.png" alt=""><figcaption style="max-width:none">Desktop 1440×900, the neighbourhood with twelve.</figcaption></figure>
+</div>
+<dl>
+  <dt>Description</dt><dd>B′'s plane and stalks (no grid), C′'s graduations and centre mark, E's placeholders, G's bands, and one F dimension on the focused body, drawn 1.2× bolder than the others. Bands say where; outlines say what size; stalks say the plane; the dimension says how far, in a number.</dd>
+  <dt>The defect</dt><dd>Four departures that are all the same fact: the body is outside its band (ember edge), beside its outline (empty), off its stalk (ember stalk), and a second ember dimension reads 9.4 past it where the plan says 8.5. At the hood, ember edges beside empty circles, no number.</dd>
+  <dt>Beats</dt><dd>ly-3: centre mark, bands and graduations, then outlines and stalks, then the dimension: a drawing completing itself before anything exists on it. ly-4: the bodies fill the outlines on their stalks. ly-5: the stream from the centre lands on the drawing. fr-1: gone. df-1: the body in its place, 8.5 steady. df-2: the ember edge, the empty outline, the 9.4. df-2b: gold lands, the body returns inside its band and outline, the ember marks go. df-5 / up-2: ember edges across the neighbourhood, the plan stars ember. tr/fx: the ember edges cool outward from the centre.</dd>
+  <dt>Risks</dt><dd>The most dots of the plan concepts at full detail (1,813 healthy, 1,934 defect; 2,939–3,071 at the hood, mostly placeholders) and the densest picture: the bands plus outlines plus stalks are near the limit of what the phone frame can carry without reading as a mesh; the grid was the first thing dropped for that reason. If it is still too much, drop the stalks (the plane is already implied by the bands' ellipses) before dropping the outlines. The desktop hood needed its framing lowered to clear the band; the essay's own framing governs that.</dd>
+</dl>
+
+<h3>Comparison, round 2</h3>
+<table>
+<tr><th></th><th>E placeholders</th><th>F construction</th><th>G bands</th><th>H mission</th><th>B′ hologram</th><th>C′ engineering</th><th>R combined</th></tr>
+<tr><td>Reads as a plan (prescriptive)</td><td class="ok">yes</td><td class="ok">yes, a drafter's</td><td class="ok">yes, a tolerance</td><td class="warn">a schedule</td><td class="ok">yes, a design scene</td><td class="ok">yes, a parts drawing</td><td class="ok">yes</td></tr>
+<tr><td>Any monitoring language left</td><td class="ok">none</td><td class="ok">none</td><td class="ok">none</td><td class="warn">chevrons move</td><td class="ok">none</td><td class="ok">none</td><td class="ok">none</td></tr>
+<tr><td>Defect, close</td><td class="warn">body beside outline</td><td class="ok">second dimension</td><td class="ok">ember edge</td><td class="ok">ember arc</td><td class="warn">ember stalk</td><td class="warn">ember tick</td><td class="ok">all four</td></tr>
+<tr><td>Defect, hood</td><td class="warn">dot touching circle</td><td class="warn">ember radius line</td><td class="ok">ember arc</td><td class="ok">ember arc</td><td class="bad">2 px vertical</td><td class="bad">4-dot tick</td><td class="ok">ember arc + empty circle</td></tr>
+<tr><td>Dots, phone close (healthy / defect)</td><td class="ok">772 / 772</td><td class="ok">850 / 973</td><td class="warn">1,344 / 1,369</td><td class="ok">699 / 751</td><td class="bad">2,351 / 2,365</td><td class="ok">804 / 808</td><td class="warn">1,813 / 1,934</td></tr>
+<tr><td>Dots, phone hood (healthy / twelve)</td><td>2,294 / 2,294</td><td>2,220 / 2,309</td><td class="ok">1,514 / 1,583</td><td class="warn">3,731 / 3,829</td><td>1,684 / 1,747</td><td>1,826 / 1,862</td><td class="warn">2,939 / 3,071</td></tr>
+<tr><td>Band clearance, phone (close / hood)</td><td colspan="7">58 px / 19.5 px on every still of the round (measured); R desktop close 8.0 px, desktop hood after reframing</td></tr>
+<tr><td>Readable numbers on a phone</td><td>0</td><td>1 (2 on defect)</td><td>0</td><td>0</td><td>1</td><td>3 rows</td><td>1 (2 on defect)</td></tr>
+<tr><td>Bold enough at arm's length</td><td class="warn">faint</td><td class="warn">lines faint, numbers fine</td><td class="ok">yes</td><td class="ok">yes</td><td class="ok">yes</td><td class="warn">faint</td><td class="ok">yes</td></tr>
+<tr><td>Words the alt text would need</td><td>outline, fit</td><td>dimension, measure</td><td>band, range, outside</td><td>path, ahead, node</td><td>plane, stand</td><td>tick, table</td><td>band, outline, measure</td></tr>
+</table>
+
+<div class="card reco">
+  <p><strong>Recommendation for round 2: R, with G's ember edge as the one defect mark that must survive every cut.</strong> R is the only concept whose healthy picture already reads as a finished drawing on a phone (bands, graduations, outlines, one dimension) and whose defect is the same fact told four ways, none of them a lamp. Its budget risk is real at the hood (about 3,000 dots, mostly placeholders): if that is too much, keep the ember edges and drop the hood placeholders first, then the stalks. If the author wants fewer concepts to carry forward, G alone is the strongest single idea of the round (cheapest strong hood signal, 1,344 dots close), and E is the one that most directly says "the plan was drawn before the thing existed".</p>
+</div>
+
+
+<h2 id="rh">8. R + H: the author's pick, with a hand-over</h2>
+<p class="lede">The author's decision after round 2: "I like R for the one-system view but prefer H for the neighbourhood view." So one concept, first in the swipe: R at full detail, H at the neighbourhood, and a cross-fade between them by projected size rather than a switch, so a zoom from the neighbourhood into one system morphs H's arcs into R's bands, outlines and stalks.</p>
+
+<div class="card reco">
+  <p><strong>The hand-over band: 220 → 320 CSS px of the system's projected outer diameter</strong> (<code>HANDOVER</code> in <code>mock.html</code>; in the essay's <code>s_px</code>, which is the projected outer <em>radius</em>, that is 110 → 160). H's marks are drawn at 1 − w and R's at w, with w = smoothstep(220, 320, px). Below 220 px the system is wholly H; above 320 px wholly R. The band starts where H's chevrons are still readable (at 220 px an arc is about 90 px long) and ends under the essay's full-detail threshold (300 px here), so by the time the moons and tracks are whole the drawing is R's. In the mock the midpoint (hero at 275 px) is zoom 0.704; the band runs from zoom 0.568 to 0.818.</p>
+  <p><strong>Scrubbing it.</strong> The <em>zoom (slider)</em> framing holds the neighbourhood model with the close framing's system at its centre and moves the camera continuously from the hood framing (0) to the close framing (1): distance log-linear, elevation 42° → 28°, azimuth 12° → −24°. A slider appears under the chips; the wheel scrubs too; <code>?f=zoom&amp;z=0.7</code> or <code>?px=270</code> (ask for the hero's diameter in px) sets it from the URL; <code>&amp;solo=1</code> draws the hero alone to count its dots. The camera never moves in the other framings.</p>
+</div>
+
+<h3>Stills</h3>
+<div class="stills">
+  <figure><img class="phone" src="stills/r3-RH-close-healthy.png" alt=""><figcaption>Close, healthy: R, exactly as round 2.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-close-defect.png" alt=""><figcaption>Close, defect: R's four departures.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-hood-healthy.png" alt=""><figcaption>Hood, healthy: H's arcs, nodes and chevrons. Identical to H's hood.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-hood-twelve.png" alt=""><figcaption>Hood, twelve: ember deviation arcs, no counter.</figcaption></figure>
+</div>
+<div class="stills">
+  <figure><img class="phone" src="stills/r3-RH-mid-healthy.png" alt=""><figcaption>Mid-zoom, healthy: hero at 275 px (the band's middle), H at 0.5 and R at 0.5.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-mid-defect.png" alt=""><figcaption>Mid-zoom, defect: the ember arc fading out as the ember band edge and the empty outline fade in.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-zoom-start.png" alt=""><figcaption>Hand-over start, 219 px: still H.</figcaption></figure>
+  <figure><img class="phone" src="stills/r3-RH-zoom-end.png" alt=""><figcaption>Hand-over end, 331 px: R whole; a neighbour below has reached full detail too (its 7.5).</figcaption></figure>
+</div>
+
+<h3>Dot counts (phone, 390×844)</h3>
+<table>
+<tr><th>Framing</th><th>Hero's projected diameter</th><th>Schematic dots, hero alone</th><th>Schematic dots, whole frame</th></tr>
+<tr><td>Hood (H)</td><td>96 px</td><td>about 110</td><td>2,730 for the 25 systems on screen (twelve) ; 2,730 healthy</td></tr>
+<tr><td>Hand-over start</td><td>224 px</td><td>384</td><td>5,958</td></tr>
+<tr><td>Hand-over middle</td><td>275 px</td><td>461 (healthy 425)</td><td>7,117 (healthy 7,081)</td></tr>
+<tr><td>Hand-over end</td><td>326 px</td><td>1,523</td><td>5,621</td></tr>
+<tr><td>Close (R)</td><td>427 px</td><td>1,934 (healthy 1,813)</td><td>1,934 in the close framing (one system); 7,309 in the zoom framing with neighbours in frame</td></tr>
+</table>
+<p>The whole-frame numbers in the zoom framing are inflated by neighbours the mock's straight-line camera brings close to the lens; the essay's shots walk their target and would not. Two rules the mock now applies that the essay already has: at most two systems at full detail (the two largest on screen), and nothing drawn for a system wholly off screen or beside the camera. The mid-zoom still's top-left neighbour touches the band line: that is the mock's zoom camera, not the concept; the essay's clearance sweep governs its own framings. The close and hood stills clear the band by 58 px and 19.5 px as before.</p>
+
+<h3>Port notes for the essay</h3>
+<dl>
+  <dt>Around the star, not instead of it</dt><dd>Keep the plan's star as it is: the 160-dot self-lit cloud and its 4 or 6 screen-space spikes. The author's model says plans are self-lit; the schematic is the plan's <em>drawing</em>, around the plan's <em>light</em>. R's centre mark duplicates the spikes, so port only its small circle (radius 1.3 units) and drop the crosshair whenever the spikes show (`starSpikeShare` &gt; 0); at the hood the spikes are already the star's mark. Nothing of the schematic is drawn inside the star's glow sprite radius, so the star stays the brightest thing in its drawing. The planets keep their terminator shading inside E's outlines; an outline is 2 px wider than the body, so the body's rim and the outline do not merge.</dd>
+  <dt>Files it touches</dt><dd><code>src/scene/node/plan.ts</code> + <code>plan.glsl</code> (new mirror pair, parity case in <code>e2e/parity.spec.ts</code>): rings, bands, arcs with dashes, node crosses, chevrons, stalks, outlines' equator and meridian, all as world-space dots keyed to a body's orbit; <code>planScreen.glsl</code> beside <code>bodyScreen.glsl</code> for the screen-space parts (silhouette circles, dimension numerals), the way <code>net-spikes</code> is drawn. <code>src/scene/node/classLook.ts</code>: a <code>PLAN_LOOK</code> block (phosphor, pitches, band half-width 0.45, HANDOVER, the 5×7 digit font as a bit table) spliced by <code>shaderSource.ts</code>, so a re-tune is one line. <code>src/math/salts.ts</code>: <code>planDash</code>, <code>planNode</code>, <code>planOutline</code> appended after the hole's 50, and <code>STREAM_SALT</code> entries for any CPU draw. <code>bodySystem.ts</code>: two new meshes, <code>net-plan</code> and <code>net-plan-screen</code>, counted in the drawn-equals-counted fences (its sum test, <code>e2e/galaxy.spec.ts</code>'s budget test, <code>e2e/network.spec.ts</code>'s <code>GALAXY_MESHES</code>). <code>lod.ts</code> + <code>lod.glsl</code>: new <code>LodElement</code>s and the hand-over gain (below), with <code>lodSkipElement</code> extended so a hidden plan dot takes the early-out. <code>galaxyOnScreen.ts</code> (<code>visibleGalaxy</code>, <code>visibleTracks</code>) and <code>netShots.ts</code>'s <code>bandClearance</code>: every plan dot joins the clearance twin, and the numerals need a top like <code>spriteHalfTop</code> gives the sprites; the numerals also take <code>streamBandMask</code>, as the streams do, so no digit can enter the band. <code>src/galaxy/generate.ts</code> <code>fitBudget</code>: the plan's reservation. Alt texts for ly-3, ly-4, df-2, df-5 and up-2 (the §10 route; the visible lines do not change).</dd>
+  <dt>Level-of-detail bands, in the essay's <code>s_px</code> (projected outer radius, CSS px)</dt><dd>Existing: planet points 10 → 20, shells 25 → 50, moons, tracks, orbits and derps 60 → 120; spikes by glow px 6 → 12 (<code>spikeLod</code>) and by nearness 60 → 80 (<code>spikeNear</code>); the neighbourhood's Dissolve (late) by plain glow 11 → 16 px (<code>HOOD_LOD.glowPx</code>). Proposed for the plan: <em>PlanRing</em> (the outer ring only) 20 → 35, with the planet points whole; <em>PlanArc</em> and <em>PlanNode</em> (H) 30 → 55, so the hood language is whole before the moons' band opens; <em>PlanChevron</em> 55 → 70; the hand-over H → R 110 → 160 (the mock's 220 → 320 px of diameter); <em>PlanBand</em>, <em>PlanStalk</em>, <em>PlanOutline</em> and <em>PlanDim</em> rise with the hand-over and are whole above 160; moon outlines ride the moons' band 60 → 120 but are gated by the hand-over too. Nothing below 20: that is the far level, where "Nothing is marked" and where a plan star is still its far form (the Dissolve band sits at glow 11 → 16 px, which for a 13-unit outer radius is <code>s_px</code> ≈ 32 → 46; the ring would open just above the real form's arrival). <code>lodLevel</code>'s three levels become four (star only, star and planets, H, R), and <code>FULL_DETAIL_MAX</code> 2 governs R exactly as it governs the moons.</dd>
+  <dt>Budget</dt><dd>Measured on the phone: one system at R 1,813 healthy / 1,934 defect; two full systems about 3,900; the hood at H about 110 per system, 2,730 for 25. A shot never has both a hood's worth of H and two Rs, so a reservation of 6,000 (6.4 % of 93,500) covers the worst frame with headroom; take it from <code>fitBudget</code>'s remainder (the planets and moons), or raise <code>GALAXY_SHARE</code> provisionally as the author allowed ("err on more, dial down later") with the same removal trigger. The numerals are the cheap part (a 3-glyph value is about 60 dots); the bands are the dear part (three bands of three rings each at 5 px pitch is about 1,000 dots close), so the first saving if needed is the band's fill ring.</dd>
+  <dt>H's "planned positions at set times" in the essay's orbit model</dt><dd>The essay's bodies move on Kepler ellipses, mean anomaly M = phase·2π + 2π t/period solved by <code>keplerE</code> (<code>orbit.ts</code>/<code>orbit.glsl</code>), with the ambient clock as t. The plan is the orbit itself: a node at "k steps ahead" is <code>orbitPos(t + k·period/12)</code> evaluated in the same vertex path, so every node is true of the model and no second set of phases exists. A healthy body is on plan by construction. The forward arc is the same ellipse sampled from the body's current anomaly ahead by 100°, dashed by a hash on the sample index (<code>planDash</code>). Because t is the ambient, the nodes and the arc rotate with the body on the ambient clock and hold under <code>?test=1</code> and reduced motion like everything else; at the hourly wrap they jump with the orbits (accepted).</dd>
+  <dt>"Off plan" against the essay's defect states</dt><dd>The plan marks are drawn from the orbit <em>without</em> the derp; the body is drawn with it. So the gap between a body and its node, outline, band or stalk is exactly the derp the essay already computes (<code>derp.ts</code>: events on <code>derpSeed</code>/<code>derpPhase</code> for every body with <code>cracked</code>), and no new "actual versus planned" state is needed. By state: <em>cracked</em> (the data's lineage flag, from R0 by hop) draws nothing on its own, so "From far away, everything looks right" holds; <em>lit</em> (<code>hiAt</code>, the ember lamp by <code>Lamp</code> membership and <code>net.highlight</code>) turns the body's deviation arc, band edge and second dimension ember with the lamp, so df-4, df-5 and up-2 read as they do now, with the arcs in place of the round-1 triangles and no counter; <em>derp</em> (the continuous events, close only) is what moves the body off its marks, visible at df-1 if you watch and plain at df-2; <em>freeze</em> (<code>FREEZE_PINS.C1</code>, the pinned frame at df-2 with the off-path moon and its faint double) keeps its own marks, and the plan's empty moon outline beside the doubled moon is the same sentence as the alt's "marks drawn round both"; <em>fix</em> (<code>fixAt</code>, <code>net.fix</code>, the gold landing) returns the body into its outline and band and cools the ember marks to phosphor as the lamp goes out, fx-4 outward from the centre. The mock's <code>DRIFT</code> (0.22 rad on, 0.9 units out, 1.2× size) is a stand-in for the derp's reach; the port uses the derp and draws no drift of its own.</dd>
+  <dt>Beats</dt><dd>ly-3: the drawing draws in round the plan star, H's arcs first then (the camera is close) R's bands and outlines, by scroll through the dash-reveal mechanism Act I's pen used. ly-4: bodies in their outlines and on their nodes. ly-5: the stream from the centre lands on the drawing. fr-1 and ls-1: nothing. df-1: the piece on its node, the dimension steady. df-2: the body off its marks, the second dimension. df-2b: it returns. df-4/df-5: ember arcs and edges with the lamp, the mended body dark in its outline. up-2: the hood in H with ember arcs multiplying. re-1..3: unchanged. tr-1/tr-2: the ember arcs point the way back along the streams. fx-1..4: the arcs cool from the centre outward.</dd>
+  <dt>What the port task is</dt><dd>One new instanced pair (world and screen) driven by the existing orbit and derp paths, a LOD table extended by six elements and one hand-over gain, a 6,000-dot reservation, clearance and budget fences extended to the new meshes, and five alt texts. No visible line changes. No new animation system: every mark is a pure function of (scroll, ambient) through the orbit, the lamp and the LOD gain.</dd>
+</dl>
+
+
+<h2 id="r4">9. Round 4: the hand-over as one geometry</h2>
+<p class="lede">The author: the R + H zoom transition "is a bit sudden". The coordinator's diagnosis was checked by scrubbing the zoom in 200 steps and reading the per-step change in schematic dot count and summed brightness (Σ alpha × size²), old against new, before and after each change.</p>
+
+<h3>What made it sudden (confirmed, refuted)</h3>
+<table>
+<tr><th>Claim</th><th>Verdict</th><th>Evidence</th></tr>
+<tr><td>1. Two drawings cross-fading instead of morphing: additive half-alpha copies of two geometries read as a swap and look muddy mid-band</td><td class="ok">confirmed</td><td>In the old strip (<code>r4-RH0-strip.png</code>) the 240–320 px frames show H's dashed arcs and R's band edges at once, both dim; the summed brightness dips mid-band (the old series' brightness is lowest where both are at half). The new morph keeps one ring per orbit throughout, so brightness rises monotonically with zoom.</td></tr>
+<tr><td>2. Everything in R arrives in one 220 → 320 px window, numerals included</td><td class="ok">confirmed</td><td>The old series' per-step brightness has its 95th percentile at 293 (new 120): the whole of R's brightness arrived inside half the zoom range. The new windows spread the arrivals over 150 → 420 px.</td></tr>
+<tr><td>3a. Hard switch low → mid at 110 px (outer ring only → every ring; stalks appear)</td><td class="ok">confirmed</td><td>A count step of about 300 dots at 110 px in the old series, with the inner rings' dots all arriving in one frame. Now the inner rings dissolve in over 110 → 170 px by hash rank.</td></tr>
+<tr><td>3b. Hard switch to full at 300 px (sphere 90 → 220 dots)</td><td class="ok">confirmed</td><td>In the old series the sphere count doubles in one frame at 300 px (zoom 0.76), on top of the cross-fade; the old scrub's largest brightness step sits inside the hand-over (zoom 0.730, hero 285 px). Now a sphere's dots dissolve in by hash rank from 41 % to 100 % over 200 → 320 px.</td></tr>
+<tr><td>3c. The body's point → sphere switch at 14 px</td><td class="warn">confirmed, small</td><td>A step of a few hundred dots per body in the old series; now a cross-fade over 12 → 18 px of body diameter with the sphere dissolving in.</td></tr>
+<tr><td>3d. <code>capFull</code> snapping a system to H when it leaves the top two</td><td class="ok">confirmed</td><td>The old count series steps by about 2,000 when a neighbour overtakes the hero's companion in the top two. Now a system's full-detail gain is its lead over the third-largest system, smoothed over ±24 px, so it fades.</td></tr>
+<tr><td>(found by scrubbing) The mock's own culls: a system wholly off screen or within 4 units of the camera was dropped outright</td><td class="bad">a pop the diagnosis did not list</td><td>Before the fix the largest count step in both series sat at zoom 0.745 (1,945 old, 4,836 new), where a neighbour's outer ring leaves the frame, and it did not move when the hand-over changed. Now a system fades over a 40 px margin outside the frame and over 4 → 10 units of depth, and a dot too faint to see is not drawn, so the count follows the brightness.</td></tr>
+</table>
+
+<h3>The new hand-over: windows per element</h3>
+<p>Every window is a smoothstep over the system's projected outer diameter D in CSS px (<code>WINDOWS</code> in <code>mock.html</code>); the essay's <code>s_px</code> is the projected outer radius, D/2. Every dot set inside a window dissolves in by hash rank (a dot shows once the window's fraction passes its hash, with a 0.08 ramp), so counts ramp rather than pop. Big structure first, fine detail and numerals last.</p>
+<table>
+<tr><th>Element</th><th>D (px)</th><th>s_px</th><th>What happens over the window</th></tr>
+<tr><td>Outer ring</td><td>40 → 80</td><td>20 → 40</td><td>H's ring dissolves in, the first mark of a system.</td></tr>
+<tr><td>Forward arcs and nodes (H)</td><td>60 → 110</td><td>30 → 55</td><td>The dashed forward arcs, the node at the body and the two nodes ahead dissolve in.</td></tr>
+<tr><td>Chevrons (H)</td><td>90 → 130</td><td>45 → 65</td><td>The direction chevrons draw in.</td></tr>
+<tr><td>Inner rings</td><td>110 → 170</td><td>55 → 85</td><td>The inner orbits' rings dissolve in by rank (no more low → mid switch).</td></tr>
+<tr><td>Chevrons and the nodes ahead leave</td><td>150 → 210</td><td>75 → 105</td><td>They fade; the node at the body stays.</td></tr>
+<tr><td>The arc closes</td><td>150 → 230</td><td>75 → 115</td><td>The dashes' gaps fill (gap dots' alpha 0 → 1) and the arc's span runs 100° → 360°; H's plain ring fades out as the arc takes its place, so the ring is never drawn twice.</td></tr>
+<tr><td>Band edges peel</td><td>200 → 300</td><td>100 → 150</td><td>Two edges grow out of the ring, half-width 0 → 0.45 units; the closed arc dims to the band's fill. The ember deviation arc shortens (1.2 → 0.6 rad), loses its outward growth and settles on the band's outer edge as the ember mark; its chevron fades.</td></tr>
+<tr><td>Sphere detail</td><td>200 → 320</td><td>100 → 160</td><td>A body's sphere dots rise from 41 % to 100 % by rank (the old 90 → 220 switch).</td></tr>
+<tr><td>Stalks rise</td><td>220 → 300</td><td>110 → 150</td><td>From the plane foot up to the body; an ember one under a body off plan.</td></tr>
+<tr><td>Node → outline</td><td>240 → 320</td><td>120 → 160</td><td>The node cross at the body shrinks as a silhouette circle grows from its centre to the body's radius + 2 px.</td></tr>
+<tr><td>Outline wire, moon outlines</td><td>280 → 360</td><td>140 → 180</td><td>The equator and meridian dissolve in; moons' outlines with them (gated by the moon's own 10 → 14 px).</td></tr>
+<tr><td>Graduations</td><td>280 → 360</td><td>140 → 180</td><td>24 ticks grow out of the outer ring from zero length, and the ring they sit on moves out to +1.2 units.</td></tr>
+<tr><td>Centre circle</td><td>300 → 360</td><td>150 → 180</td><td>Opens from the star's centre.</td></tr>
+<tr><td>Dimension line</td><td>320 → 380</td><td>160 → 190</td><td>Draws from the centre outward; the tick and extension appear over its last 15 %. The ember second dimension draws with it when the body is off plan.</td></tr>
+<tr><td>Dimension value</td><td>360 → 420</td><td>180 → 210</td><td>The numerals dissolve in by rank, last of all.</td></tr>
+</table>
+<p>Against the essay's bands: nothing below s_px 20 (the far level; the Dissolve band of 11 → 16 px glow lies there for a 13-unit system); the outer ring opens with the planet points (10 → 20); H is whole by s_px 65, before the moons' band (60 → 120) opens; the hand-over to R runs 75 → 210, straddling the moons' band, so the moon outlines ride both; the numerals finish at 210, well inside full detail. <code>FULL_DETAIL_MAX</code> 2 gates every R window by the system's full-detail gain, which is now a smoothed lead rather than a rank.</p>
+
+<h3>Smoothness, old against new</h3>
+<p>Zoom scrubbed in 200 equal steps from the hood framing to the close framing, defect state (the healthy state is within 1 % of it), whole frame with neighbours, phone size. A pop shows as a spike in the per-step change.</p>
+<table>
+<tr><th></th><th>Count: max step</th><th>Count: 95th percentile</th><th>Brightness: max step</th><th>Brightness: 95th percentile</th><th>Count range</th><th>Brightness range</th></tr>
+<tr><td>RH0 (old, round 3)</td><td>1,324 at zoom 0.335</td><td>397</td><td>918 at zoom 0.730</td><td>293</td><td>2,430 – 8,577</td><td>5,256 – 13,299</td></tr>
+<tr><td>RH (new)</td><td>774 at zoom 0.525</td><td>613</td><td>712 at zoom 0.730</td><td>120</td><td>1,922 – 11,120</td><td>4,621 – 11,691</td></tr>
+</table>
+<p>Read the two together: a pop is a step far above the typical step, so the ratio max / 95th percentile is the spikiness. Old: count 3.3, brightness 3.1. New: count 1.3, brightness 5.9 on a 95th percentile less than half the old one (the new brightness max is a single neighbour's dissolve at the frame edge, zoom 0.73, not the hand-over). The new count's 95th percentile is higher than the old because the new drawing has more dots and they dissolve in steadily (1,906 → 11,120 over the scrub, about 46 a step on average), which is a ramp, not a pop; brightness, the thing the eye sees, changes less than half as much per step.</p>
+<p>RH0 is measured with the same soft culls as RH (they live in the shared system loop), so its numbers are better than round 3's code would give; the remaining gap is the hand-over itself. The series are in <code>stills/r4-{RH,RH0}-{defect,healthy}-series.json</code> (one row per step: count, brightness).</p>
+
+<h3>Strips</h3>
+<div class="stills">
+  <figure><img class="desk" src="stills/r4-RH-strip.png" alt=""><figcaption style="max-width:none">New: the hero's projected diameter 120 → 480 px in ten steps (defect state). Arcs close into rings, bands peel, the node becomes the outline, graduations and the dimension come last.</figcaption></figure>
+  <figure><img class="desk" src="stills/r4-RH0-strip.png" alt=""><figcaption style="max-width:none">Old: the same ten steps with the round-3 cross-fade.</figcaption></figure>
+</div>
+<div class="stills">
+  <figure><img class="phone" src="stills/r4-RH-close-defect.png" alt=""><figcaption>Close, defect, new RH.</figcaption></figure>
+  <figure><img class="phone" src="stills/r4-RH-close-healthy.png" alt=""><figcaption>Close, healthy.</figcaption></figure>
+  <figure><img class="phone" src="stills/r4-RH-hood-twelve.png" alt=""><figcaption>Hood, twelve (H's language, unchanged).</figcaption></figure>
+  <figure><img class="phone" src="stills/r4-RH-step-4.png" alt=""><figcaption>Mid-zoom, hero at 280 px: bands peeling, the ember arc settling onto the edge.</figcaption></figure>
+</div>
+
+<h3>Dot counts (phone, schematic only, new RH)</h3>
+<table>
+<tr><th>Framing</th><th>Hero's projected diameter</th><th>Hero alone</th><th>Whole frame</th></tr>
+<tr><td>Hood (H)</td><td>96 px</td><td>about 80</td><td>2,051 for the systems on screen (twelve)</td></tr>
+<tr><td>Hand-over, 228 px</td><td>228 px</td><td>1,183</td><td>—</td></tr>
+<tr><td>Hand-over, 280 px</td><td>280 px</td><td>1,450</td><td>13,500 with neighbours (the mock's zoom camera brings them close)</td></tr>
+<tr><td>Hand-over, 332 px</td><td>332 px</td><td>1,880</td><td>—</td></tr>
+<tr><td>Close (R)</td><td>427 px</td><td>2,600 defect / 2,476 healthy</td><td>2,600 in the close framing</td></tr>
+</table>
+<p>The close count rose from round 3's 1,934 to 2,600: the closed arcs are kept as the bands' fill (round 3's fill ring was sparser), the sphere outlines are drawn for every body and moon, and graduations and the centre circle are on. If that is too many, the first saving is the fill (about 300 dots per band at this size); the morph does not depend on it.</p>
+
+<h3>Port notes, amended</h3>
+<p>Replaces the LOD paragraph in §8. <code>LodElement</code> gains PlanRingOuter [20, 40], PlanArc [30, 55], PlanChevron [45, 65], PlanRingInner [55, 85], PlanClose [75, 115] (the arc's span and gap fill; also PlanChevron's fade-out [75, 105]), PlanBand [100, 150], PlanStalk [110, 150], PlanOutline [120, 160], PlanWire [140, 180], PlanGrad [140, 180], PlanCentre [150, 180], PlanDim [160, 190], PlanNum [180, 210], all in s_px, each a <code>lodGain</code> smoothstep as the existing bands are, and each applied as a per-dot rank dissolve in the vertex path: a plan dot's instance carries a hash (<code>planRank</code> salt), and <code>lodSkip</code> treats a dot whose window fraction is under its hash minus the ramp as hidden, so the early-out still skips it. The bodies' sphere count stops switching at level 2: the shell's dots take the same rank dissolve from 41 % to 100 % over s_px 100 → 160 (a new entry beside <code>LOD_BANDS</code>, not a change to the shells' 25 → 50 arrival). <code>FULL_DETAIL_MAX</code> stays 2, but its hand-over is the smoothed lead (<code>detailPx</code> with <code>FULL_DETAIL_SOFT</code>) applied as a gain on every R window, never a snap. The mock's soft culls have essay twins already (<code>offScreenSkip</code> is exactly conservative; a dot that leaves the frame is simply not drawn), so no change there. Budget: the close reservation rises to about 2,600 per full system (5,200 for two) and the hood stays about 80 per system; 7,500 (8 % of 93,500) covers the worst frame.</p>
+
+
+</main></body>

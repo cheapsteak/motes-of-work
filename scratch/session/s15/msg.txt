@@ -1,0 +1,12 @@
+design: streams show only on lineage beats, quieter, fading from parent to child
+
+Galaxy spec section 15 (revision 7): a story leaf net.streams, keyed per beat, shows the lineage
+streams and the feed only on the beats about lineage and hides them everywhere else, the whole
+zoom-out included. When shown they are 1 px dots at a wider pitch, capped at 0.3 of a star glow's
+core, faded from parent to child, slightly curved, flowing on the ambient clock. The per-beat tables
+mark the beats that lose their streams.
+
+The Act II galaxy plan follows: the renderer task gets the leaf, the cap, the fade and their tests,
+and each keyframe task keys net.streams per beat.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

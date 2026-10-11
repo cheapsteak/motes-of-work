@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motes of work</title>
+    <script>
+      // The first script: with JavaScript the story is driven by scroll; without it, it is a plain document.
+      document.documentElement.classList.remove('no-js');
+    </script>
+  </head>
+  <body>
+    <canvas id="stage" aria-hidden="true"></canvas>
+    <main id="story"></main>
+    <footer id="site-footer">
+      <button type="button" class="link" id="credits-open">Credits and licences</button>
+    </footer>
+    <dialog id="credits" aria-labelledby="credits-title">
+      <div class="dialog-head">
+        <h2 id="credits-title">Credits and licences</h2>
+        <button type="button" id="credits-close">Close</button>
+      </div>
+      <div id="credits-body"></div>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

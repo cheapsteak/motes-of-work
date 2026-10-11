@@ -1,0 +1,14 @@
+story: the steering swings, and the late parts fly in from below
+
+Two authored swings of mech.steer make two lines true on cue. While the
+brief's front-wheel line lights (vibe-build 0.64 to 0.72) the wheel goes
+from the drive's own lock to the other and back; while rv-3 is up (reveal
+0.29 to 0.40) the wheel, and the twin's saddle on its mast, swing to the
+other lock and back. Nowhere else is steering added.
+
+The fork, brakes, mudguards and frame used to fall into place from up to
+0.6 m above the bike, through the text at the top of the screen, while
+the brief's lines were lighting. They now come in from below or level;
+their settle windows are unchanged, so the brief lights as before.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

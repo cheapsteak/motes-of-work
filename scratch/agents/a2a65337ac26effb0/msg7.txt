@@ -1,0 +1,25 @@
+bike: a front basket, a bigger headlamp and a rear rack mark front and back
+
+The twin still read as a normal bike facing the other way: the saddle on
+its mast looked like a seat post, the bars on the stub like a stem. A town
+bike's front basket now rides the fork over the front wheel (an open box
+of thin panels with a rim, on stays to the crown and the axle), so on the
+twin the saddle perches just behind and above it. The headlamp, larger,
+hangs under the front of the basket against the dark below it, and a rear
+rack (a deck on side rails, legs to the dropouts, struts to the seat
+stays) rides the rear mudguard. All three are the same on both bikes and
+belong to existing parts, so no new part ids or brief lines.
+
+Broad panels would take the fork's share from the whole bike, so a solid
+may carry a weight attribute: weighted() in partGeometry, honoured by both
+samplers and by surfaceArea, so the basket panels and the rack deck draw a
+fifth or so of their part's density. The added area re-pins the bike's
+counts (the fork rises to 3409, the frame falls to 4286); other machines
+are unchanged. The heavier front lifts the bike's anchor centre, so the
+cold open's last camera key drops from y 0.18 to 0.14 (and the compare
+page's Cold open preset with it) to stay below the tyre tops. The
+mannequin's thighs splay 7 degrees, not 4, so its shanks clear the
+basket's sides. The spec describes the cues and the telescopic column
+(see the next commit for the copy).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

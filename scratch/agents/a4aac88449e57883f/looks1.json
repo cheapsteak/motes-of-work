@@ -1,0 +1,10 @@
+{
+ "head": {"cam":"HEAD","mech":{"assembly":1,"drive":0.3}},
+ "core-d0": {"cam":"CORE","mech":{"assembly":1,"drive":0}},
+ "core-d0.03": {"cam":"CORE","mech":{"assembly":1,"drive":0.03}},
+ "core-d0.0625": {"cam":"CORE","mech":{"assembly":1,"drive":0.0625}},
+ "core-d0.125": {"cam":"CORE","mech":{"assembly":1,"drive":0.125}},
+ "twin-head": {"cam":"HEAD","mech":{"assembly":1,"variant":1,"drive":0.3}},
+ "twin-tq": {"cam":"TQ","mech":{"assembly":1,"variant":1,"drive":0.3}},
+ "twin-half": {"cam":"TQ","mech":{"assembly":1,"variant":0.5,"drive":0.3}}
+}

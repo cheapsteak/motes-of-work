@@ -1,0 +1,13 @@
+[["before-focus", {"local": 0.33, "before": true, "compare": false, "still": true}],
+ ["after-freeze", {"local": 0.33, "before": false, "still": true}],
+ ["s1-live", {"local": 0.25, "ambient": 4.0, "before": false, "still": true}],
+ ["s2-cut", {"local": 0.2605, "ambient": 4.0, "still": true}],
+ ["s3-dressing", {"local": 0.272, "ambient": 4.0, "still": true}],
+ ["s4-dressed", {"local": 0.292, "ambient": 4.0, "still": true}],
+ ["s5-held", {"local": 0.33, "ambient": 4.0, "still": true}],
+ ["s6-fix-landing", {"local": 0.395, "ambient": 4.0, "still": true}],
+ ["s7-release", {"local": 0.413, "ambient": 4.0, "still": true}],
+ ["s8-mended-rest", {"local": 0.437, "ambient": 4.0, "still": true}],
+ ["reduced-motion", {"local": 0.33, "reduced": true, "still": true}],
+ ["compare-before-fix", {"compare": true, "cmpFixed": false, "reduced": false, "ambient": 4.0, "still": true}],
+ ["compare-fix-landed", {"compare": true, "cmpFixed": true, "ambient": 4.0, "still": true}]]

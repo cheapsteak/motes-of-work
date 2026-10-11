@@ -1,0 +1,14 @@
+e2e: six brief lines, the basket's frames, and clearance under the lines that are up
+
+The brief checks count six lines; the named cold-open frames move to
+the 7.2-screen locals, line 4 is the basket's, 5 the frame's and 6 the
+mudguards', and a frame of the basket dropping onto the fork is added.
+
+The clearance check held the machine under the panel's full height. With
+six lines that reaches 0.40 of a wide screen, and the bike under line 1
+and on the move to the front shot came within the margin, though the
+lines below were not yet up. A brief line is absent until its own at, so
+the machine is now held under the lowest line, or the ask, that is up;
+the panel's full height still has to sit inside the text band.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

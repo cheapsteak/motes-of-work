@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Disk: dots vs shader</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --ink: #d8dce6;
+    --dim: #8a90a0;
+    --line: rgba(216, 220, 230, 0.14);
+    --glass: rgba(11, 13, 18, 0.62);
+    --accent: #4da3ff;
+  }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; overscroll-behavior: none; }
+  body { font: 13px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
+  #stage { position: fixed; inset: 0; background: var(--bg); touch-action: none; -webkit-user-select: none; user-select: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  #hud {
+    position: fixed; left: 0; right: 0;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    padding: 0 calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+    display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+  }
+  #hud > * { pointer-events: auto; }
+  #pill {
+    display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%;
+    padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    font-variant-numeric: tabular-nums; white-space: nowrap; transition: background 0.25s;
+  }
+  #pill .mode { font-weight: 600; }
+  #pill .sep { color: var(--dim); }
+  #pill .ms { color: var(--dim); font-size: 12px; }
+  #pill.flash { background: rgba(77, 163, 255, 0.28); transition: none; }
+
+  #sheet {
+    display: none; width: min(320px, 100%); box-sizing: border-box; padding: 10px 12px 12px;
+    border-radius: 14px; border: 1px solid var(--line);
+    background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  #sheet.open { display: block; }
+  #sheet h2 { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 6px 0 5px; }
+  #sheet h2:first-child { margin-top: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { background: rgba(216, 220, 230, 0.08); border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; font-size: 12px; }
+  .chips button:active { background: rgba(216, 220, 230, 0.18); }
+  .chips button.on { background: rgba(77, 163, 255, 0.22); border-color: rgba(77, 163, 255, 0.6); }
+  #sheet .note { color: var(--dim); font-size: 11.5px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="hud">
+  <div id="sheet" role="dialog" aria-label="Comparison settings">
+    <h2>Shader dots</h2>
+    <div class="chips" id="counts"></div>
+    <h2>View</h2>
+    <div class="chips">
+      <button id="framing" class="on">Essay framing</button>
+      <button id="reset">Reset view</button>
+      <button id="pause">Pause</button>
+    </div>
+    <p class="note">Swipe sideways (or ← →) to switch. Pinch or wheel to zoom; two fingers or shift-drag to orbit.</p>
+  </div>
+  <button id="pill" aria-expanded="false" aria-controls="sheet">
+    <span class="mode" id="modeLabel">Dots</span> <span class="sep">·</span> <span id="countLabel">26,000</span> <span class="sep">·</span> <span class="ms" id="msLabel">– ms on this device</span>
+  </button>
+</div>
+
+<script type="module">
+import * as THREE from '../../../../node_modules/three/build/three.module.js';
+
+// One canvas, one camera, one clock: the black hole's accretion disk drawn two ways.
+//   Dots   = the inspector's disk (bhmock/blackhole.html via mock.html): 26,000 gl.POINTS, both lens images.
+//   Shader = the per-pixel hashed dot field (disk-field.html): a coarse annulus mesh, both lens images.
+// The GLSL of both is copied verbatim from those pages; only the plumbing around it is new.
+
+const B_CRIT = 2.6;
+const OMEGA0 = 3.1;           // ω(r) = OMEGA0 · r^-1.5  (period 10 s at the ISCO)
+const REF_DIST = 75;          // camera distance at which dot sizes are their CSS size
+const R_IN = 2.75, R_OUT = 12.5, DR = 0.35, TAU = 6.283185307179586;
+const N_DISK = 26000;
+const COUNTS = [26000, 50000, 100000];
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+// =============================== Dots: the inspector's disk (verbatim GLSL) ===============================
+
+const COMMON = /* glsl */`
+  uniform float uTime, uScale, uDpr, uRefDist, uBcrit, uLop, uGain, uBend;
+  uniform vec3 uCamPos;
+  uniform mat3 uInvRot;
+  varying vec4 vC; varying float vS;
+  float hash(float n){ return fract(sin(n*12.9898+78.233)*43758.5453); }
+  float hash2(float a,float b){ return hash(a*7.13+b*3.71+1.7); }
+  // Doppler beaming for matter at local p moving along unit v at beta: (gain, factor).
+  vec2 doppler(vec3 p, vec3 v, float beta){
+    vec3 toCam = normalize(uCamPos - p);
+    float c = dot(v, toCam);
+    float g = sqrt(max(1.0 - beta*beta, 0.0)) / (1.0 - beta*c);
+    return vec2(pow(g, 3.0*uLop), g);
+  }
+  // Disk colour: orange-white receding, blue-white approaching, whiter when hot.
+  vec3 temp(float g, float heat){
+    vec3 warm = vec3(1.0, 0.64, 0.36), cool = vec3(0.55, 0.76, 1.0), white = vec3(0.96, 0.97, 1.0);
+    float m = smoothstep(0.72, 1.32, 1.0 + (g - 1.0)*uLop);
+    return mix(mix(warm, cool, m), white, heat*0.42);
+  }
+  // Bend a view-space point pv about the hole at hv. image 0: primary; 1: the far side's underside arc.
+  vec3 lens(vec3 pv, vec3 hv, float image, out float ok){
+    vec3 rel = (pv - hv) / uScale;
+    float d = -rel.z;                      // depth behind the hole, in r_s
+    vec2 t = rel.xy; float b = length(t);
+    float deff = max(d, 0.0) + 0.45*exp(-abs(d));
+    float disc = sqrt(b*b + 8.0*uBend*deff);
+    float bp; ok = 1.0;
+    if (image < 0.5) {
+      bp = 0.5*(b + disc);
+      if (d > 0.0 && bp < uBcrit) ok = 0.0;       // captured
+      ok *= 1.0 + 0.45*smoothstep(0.0, 3.0, d);   // the far side's image is magnified
+    } else {
+      if (d < 0.4) ok = 0.0;                      // only the far side has an underside image
+      bp = 0.5*(disc - b);
+      bp = uBcrit + (bp - uBcrit)*0.35;           // hugs the shadow
+      t = -t;
+    }
+    float x = bp - uBcrit; float k = 10.0;
+    float sp = log(1.0 + exp(k*min(x, 30.0)))/k;  // softplus: inside piles up at the edge
+    ok *= mix(0.22, 1.0, smoothstep(-0.3, 0.45, x)); // what piles on the rim is smeared thin
+    bp = uBcrit + 0.03 + sp;
+    vec2 tp = (b > 1e-4) ? t*(bp/b) : vec2(0.0, bp);
+    float w = d > 0.0 ? 1.0 : exp(d/3.0);         // flatten to the hole's plane near it
+    float z = mix(rel.z, 0.0, w);
+    return hv + vec3(tp, z)*uScale;
+  }
+  void emit(vec3 viewPos, vec3 rgb, float a, float sizePx, float ok){
+    gl_Position = projectionMatrix * vec4(viewPos, 1.0);
+    float s = sizePx * uDpr * clamp(uRefDist / max(-viewPos.z, 1.0), 0.4, 2.2);
+    s = max(s, 1.0*uDpr);
+    gl_PointSize = s; vS = s; vC = vec4(rgb, clamp(a*min(ok, 1.0), 0.0, 1.0));
+    if (ok < 0.01) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vC.a = 0.0; }
+  }
+  vec3 holeView(){ return (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; }
+`;
+
+const POINT_FRAG = /* glsl */`
+  varying vec4 vC; varying float vS;
+  void main(){
+    vec2 q = (gl_PointCoord - 0.5) * vS;
+    float d = length(q); float r = vS*0.5;
+    float e = 1.0 - smoothstep(r - 0.75, r + 0.25, d);
+    float a = vC.a * e;
+    gl_FragColor = vec4(vC.rgb * a, a);
+  }
+`;
+
+const DISK_VERT = COMMON + /* glsl */`
+  attribute float aR, aPhi, aH, aBright, aSize;
+  uniform float uImage, uDiskGain, uOmega0;
+  void main(){
+    float r = aR;
+    float phi = aPhi + uOmega0 * pow(r, -1.5) * uTime;
+    vec3 p = vec3(r*cos(phi), aH, r*sin(phi));
+    vec3 v = vec3(-sin(phi), 0.0, cos(phi));
+    vec2 dp = doppler(p, v, sqrt(0.5/max(r, 2.75)));
+    float heat = clamp((6.5 - r)/4.0, 0.0, 1.0);
+    float radial = pow(3.0/r, 1.25) * smoothstep(2.7, 3.3, r);
+    float grav = max(1.0 - 1.0/r, 0.0);
+    float outer = 1.0 - smoothstep(10.0, 12.5, r);
+    float I = aBright * radial * dp.x * grav * outer * uDiskGain * uGain * (uImage > 0.5 ? 0.55 : 1.0);
+    vec3 hv = holeView();
+    vec3 pv = (modelViewMatrix * vec4(p, 1.0)).xyz;
+    float ok; vec3 lv = lens(pv, hv, uImage, ok);
+    float size = aSize + 0.7*clamp(I - 1.0, 0.0, 1.5);
+    emit(lv, temp(dp.y, heat), I, size, ok);
+  }
+`;
+
+// =============================== Shader: the per-pixel dot field (verbatim GLSL) ===============================
+
+const LENS = /* glsl */`
+uniform float uScale, uBcrit, uBend;
+// The reference page's lens, verbatim in its maths: image 0 the primary, 1 the far side's underside arc.
+vec3 lens(vec3 pv, vec3 hv, float image, out float ok){
+  vec3 rel = (pv - hv) / uScale;
+  float d = -rel.z;
+  vec2 t = rel.xy; float b = length(t);
+  float deff = max(d, 0.0) + 0.45*exp(-abs(d));
+  float disc = sqrt(b*b + 8.0*uBend*deff);
+  float bp; ok = 1.0;
+  if (image < 0.5) {
+    bp = 0.5*(b + disc);
+    if (d > 0.0 && bp < uBcrit) ok = 0.0;
+    ok *= 1.0 + 0.45*smoothstep(0.0, 3.0, d);
+  } else {
+    if (d < 0.4) ok = 0.0;
+    bp = 0.5*(disc - b);
+    bp = uBcrit + (bp - uBcrit)*0.35;
+    t = -t;
+  }
+  float x = bp - uBcrit; float k = 10.0;
+  float sp = log(1.0 + exp(k*min(x, 30.0)))/k;
+  ok *= mix(0.22, 1.0, smoothstep(-0.3, 0.45, x));
+  bp = uBcrit + 0.03 + sp;
+  vec2 tp = (b > 1e-4) ? t*(bp/b) : vec2(0.0, bp);
+  float w = d > 0.0 ? 1.0 : exp(d/3.0);
+  float z = mix(rel.z, 0.0, w);
+  return hv + vec3(tp, z)*uScale;
+}`;
+
+const FIELD_VERT = /* glsl */`precision highp float;
+in vec3 position;
+uniform mat4 modelViewMatrix, projectionMatrix;
+uniform float uImage;
+${LENS}
+out vec2 vP;      // the UNBENT disk point (x, z): what the field is evaluated in
+out float vOk;    // the lens's gain (0 captured)
+void main(){
+  vP = position.xz;
+  vec3 hv = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vec3 pv = (modelViewMatrix * vec4(position, 1.0)).xyz;
+  float ok; vec3 lv = lens(pv, hv, uImage, ok);
+  vOk = ok;
+  gl_Position = projectionMatrix * vec4(lv, 1.0);
+}`;
+
+const FIELD_FRAG = /* glsl */`precision highp float;
+precision highp int;
+in vec2 vP;
+in float vOk;
+uniform float uTime, uDpr, uSizeScale, uDiskGain, uLop, uImage, uDensity, uCoverage;
+uniform int uK;
+uniform vec3 uCamPos;
+out vec4 outColor;
+const float R_IN = ${R_IN.toFixed(3)}, R_OUT = ${R_OUT.toFixed(3)}, DR = ${DR.toFixed(3)}, OMEGA0 = ${OMEGA0.toFixed(3)};
+const float TAU = 6.283185307179586;
+
+// PCG hash, as the essay's mote library (integer, parity-safe).
+uint pcg(uint v){ uint s = v*747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
+float hash01(uint seed, uint salt){ return float(pcg(seed ^ (salt*0x9e3779b9u)) >> 8u) / 16777216.0; }
+
+vec2 doppler(vec3 p, vec3 v, float beta){
+  vec3 toCam = normalize(uCamPos - p);
+  float c = dot(v, toCam);
+  float g = sqrt(max(1.0 - beta*beta, 0.0)) / (1.0 - beta*c);
+  return vec2(pow(g, 3.0*uLop), g);
+}
+vec3 temp(float g, float heat){
+  vec3 warm = vec3(1.0, 0.64, 0.36), cool = vec3(0.55, 0.76, 1.0), white = vec3(0.96, 0.97, 1.0);
+  float m = smoothstep(0.72, 1.32, 1.0 + (g - 1.0)*uLop);
+  return mix(mix(warm, cool, m), white, heat*0.42);
+}
+
+void main(){
+  float r = length(vP);
+  bool inside = r >= R_IN && r <= R_OUT && vOk > 0.0;
+  if (uCoverage > 0.5) { outColor = inside ? vec4(1.0) : vec4(0.0); if (!inside) discard; return; }
+  if (!inside) discard;
+  float phi = atan(vP.y, vP.x);
+  // Shared per pixel (the dots are ~1 px, so their own place is the pixel's): the reference's intensity terms.
+  vec3 p = vec3(vP.x, 0.0, vP.y);
+  vec3 v = vec3(-sin(phi), 0.0, cos(phi));
+  vec2 dp = doppler(p, v, sqrt(0.5/max(r, 2.75)));
+  float heat = clamp((6.5 - r)/4.0, 0.0, 1.0);
+  float radial = pow(3.0/r, 1.25) * smoothstep(2.7, 3.3, r);
+  float grav = max(1.0 - 1.0/r, 0.0);
+  float outer = 1.0 - smoothstep(10.0, 12.5, r);
+  float base = radial * dp.x * grav * outer * uDiskGain * (uImage > 0.5 ? 0.55 : 1.0) * vOk;
+  vec3 col = temp(dp.y, heat);
+  // World units per device px at this pixel, from the unbent coordinate's screen derivative: dots keep
+  // their px size whatever the lens does to the mesh.
+  vec2 ddx = dFdx(vP), ddy = dFdy(vP);
+  float upp = max(sqrt(abs(ddx.x*ddy.y - ddx.y*ddy.x)), 1e-6);
+  int nRings = int(floor((R_OUT - R_IN)/DR + 0.5));
+  int i0 = int(floor((r - R_IN)/DR));
+  vec3 acc = vec3(0.0); float accA = 0.0;
+  for (int di = -1; di <= 1; di++) {
+    int i = i0 + di;
+    if (i < 0 || i >= nRings) continue;
+    float ri = R_IN + (float(i) + 0.5)*DR;
+    float omega = OMEGA0 * pow(ri, -1.5);
+    float turns = fract(omega*uTime/TAU);           // the phase reduced to turns (float-safe)
+    float phi0 = phi - turns*TAU;                   // this ring's unwound angle at the pixel
+    int n = max(6, int(floor(TAU*ri/DR + 0.5)));    // angular cells in this ring (~DR wide)
+    float w = TAU/float(n);
+    float u = phi0 / w;                             // cell coordinate, continuous (unwrapped)
+    int j0 = int(floor(u));
+    float pExist = min(1.0, uDensity * pow(3.5/ri, 0.8));
+    for (int dj = -1; dj <= 1; dj++) {
+      int j = j0 + dj;
+      int jj = ((j % n) + n) % n;                   // the cell's identity, wrapped
+      uint seed = pcg(uint(i)*7919u + uint(jj)*104729u + 17u);
+      for (int k = 0; k < uK; k++) {
+        uint sk = seed ^ (uint(k)*0x9e3779b9u);
+        if (hash01(sk, 1u) > pExist) continue;
+        float rc = ri + (hash01(sk, 2u) - 0.5)*DR*0.9;
+        float uc = float(j) + hash01(sk, 3u);       // unwrapped, so the seam needs no care
+        float bright = mix(0.3, 1.0, hash01(sk, 4u));
+        float I = bright * base;
+        float sizePx = max((1.3 + 0.9*hash01(sk, 5u))*uDpr*uSizeScale + 0.7*clamp(I - 1.0, 0.0, 1.5), uDpr);
+        float dphi = (u - uc)*w;
+        float dr = r - rc;
+        float dpx = sqrt(dr*dr + ri*ri*dphi*dphi) / upp;
+        float rad = 0.5*sizePx;
+        float e = 1.0 - smoothstep(rad - 0.75, rad + 0.25, dpx);
+        float a = clamp(I, 0.0, 1.0) * e;
+        acc += col*a; accA += a;
+      }
+    }
+  }
+  outColor = vec4(acc, min(accA, 1.0));
+}`;
+
+// =============================== scene ===============================
+
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(DPR);
+renderer.setClearColor(0x0b0d12, 1);
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 600);
+
+// The one clock and the uniforms both renderers read (same objects, so they cannot drift apart).
+const shared = {
+  uTime: { value: 0 }, uScale: { value: 1 }, uDpr: { value: DPR }, uRefDist: { value: REF_DIST },
+  uBcrit: { value: B_CRIT }, uBend: { value: 0.6 }, uLop: { value: 1 }, uGain: { value: 1 },
+  uCamPos: { value: new THREE.Vector3() }, uInvRot: { value: new THREE.Matrix3() },
+  uOmega0: { value: OMEGA0 },
+};
+
+// --- Dots: the inspector's disk, generated with its seeded random (the disk is its first consumer).
+const dots = new THREE.Group();
+scene.add(dots);
+{
+  let seed = 1234567;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const gauss = () => { const u = Math.max(rnd(), 1e-9), v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v); };
+  const aR = new Float32Array(N_DISK), aPhi = new Float32Array(N_DISK), aH = new Float32Array(N_DISK), aB = new Float32Array(N_DISK), aS = new Float32Array(N_DISK);
+  const N_STREAK = 360;
+  const streaks = [];
+  for (let k = 0; k < N_STREAK; k++) {
+    const r = 2.75 + 9.25 * Math.pow(rnd(), 1.6);
+    streaks.push({ r, a: rnd() * 6.2832, len: (0.25 + 1.3 * rnd()) * (1 + r / 12), b: 0.35 + 0.65 * rnd(), pitch: 0.15 + 0.35 * rnd() });
+  }
+  for (let i = 0; i < N_DISK; i++) {
+    const diffuse = rnd() < 0.34;
+    if (diffuse) {
+      const r = 2.75 + 9.75 * Math.pow(rnd(), 1.5);
+      aR[i] = r; aPhi[i] = rnd() * 6.2832; aB[i] = 0.15 + 0.32 * rnd();
+    } else {
+      const s = streaks[Math.floor(rnd() * N_STREAK)];
+      const off = (rnd() - 0.5) * s.len;
+      const r = Math.max(2.75, s.r + gauss() * 0.10 - off * s.pitch);
+      aR[i] = r; aPhi[i] = s.a + off; aB[i] = s.b * (0.5 + 0.7 * rnd());
+    }
+    aH[i] = gauss() * 0.035 * (aR[i] / 3);
+    aS[i] = 1.3 + 0.9 * rnd();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N_DISK * 3), 3));
+  for (const [name, arr] of [['aR', aR], ['aPhi', aPhi], ['aH', aH], ['aBright', aB], ['aSize', aS]]) geo.setAttribute(name, new THREE.BufferAttribute(arr, 1));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
+  const mat = image => new THREE.ShaderMaterial({
+    vertexShader: DISK_VERT, fragmentShader: POINT_FRAG,
+    uniforms: Object.assign({}, shared, { uImage: { value: image }, uDiskGain: { value: 1 } }),
+    transparent: true, depthTest: false, depthWrite: false,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  });
+  for (const [image, order] of [[1, 1], [0, 2]]) {
+    const p = new THREE.Points(geo, mat(image)); p.frustumCulled = false; p.renderOrder = order; dots.add(p);
+  }
+}
+
+// --- Shader: the coarse annulus (40 rings x 96 segments, denser inside), drawn once per lens image.
+const field = new THREE.Group();
+scene.add(field);
+const fieldU = {
+  uTime: shared.uTime, uScale: shared.uScale, uBcrit: shared.uBcrit, uBend: shared.uBend, uLop: shared.uLop,
+  uDpr: shared.uDpr, uCamPos: shared.uCamPos,
+  uSizeScale: { value: 1 }, uDiskGain: { value: 1 }, uDensity: { value: 1 }, uK: { value: 4 }, uCoverage: { value: 0 },
+};
+{
+  const NR = 40, NS = 96;
+  const pos = new Float32Array((NR + 1) * (NS + 1) * 3);
+  const idx = [];
+  for (let a = 0; a <= NR; a++) {
+    const u = a / NR;
+    const r = R_IN - 0.05 + (R_OUT + 0.05 - R_IN + 0.05) * Math.pow(u, 1.5);
+    for (let s = 0; s <= NS; s++) {
+      const phi = (s / NS) * TAU;
+      const o = (a * (NS + 1) + s) * 3;
+      pos[o] = r * Math.cos(phi); pos[o + 1] = 0; pos[o + 2] = r * Math.sin(phi);
+      if (a < NR && s < NS) {
+        const i0 = a * (NS + 1) + s, i1 = i0 + 1, i2 = i0 + NS + 1, i3 = i2 + 1;
+        idx.push(i0, i2, i1, i1, i2, i3);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  const mat = image => new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3, vertexShader: FIELD_VERT, fragmentShader: FIELD_FRAG,
+    uniforms: Object.assign({}, fieldU, { uImage: { value: image } }),
+    transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  });
+  for (const [image, order] of [[1, 1], [0, 2]]) {
+    const m = new THREE.Mesh(geo, mat(image)); m.frustumCulled = false; m.renderOrder = order; field.add(m);
+  }
+}
+
+// The field's density for a dot count: the prototype's enumerator, bisected to the target (cached).
+function pcg(v) { let s = (Math.imul(v, 747796405) + 2891336453) >>> 0; let w = Math.imul(((s >>> ((s >>> 28) + 4)) ^ s) >>> 0, 277803737) >>> 0; return ((w >>> 22) ^ w) >>> 0; }
+function hash01(seed, salt) { return (pcg((seed ^ Math.imul(salt, 0x9e3779b9)) >>> 0) >>> 8) / 16777216; }
+const N_RINGS = Math.floor((R_OUT - R_IN) / DR + 0.5);
+let CELLS = 0;
+for (let i = 0; i < N_RINGS; i++) CELLS += Math.max(6, Math.floor(TAU * (R_IN + (i + 0.5) * DR) / DR + 0.5));
+function countFor(density, K) {
+  let c = 0;
+  for (let i = 0; i < N_RINGS; i++) {
+    const ri = R_IN + (i + 0.5) * DR;
+    const n = Math.max(6, Math.floor(TAU * ri / DR + 0.5));
+    const pExist = Math.min(1, density * Math.pow(3.5 / ri, 0.8));
+    for (let jj = 0; jj < n; jj++) {
+      const seed = pcg((Math.imul(i, 7919) + Math.imul(jj, 104729) + 17) >>> 0);
+      for (let k = 0; k < K; k++) if (hash01((seed ^ Math.imul(k, 0x9e3779b9)) >>> 0, 1) <= pExist) c++;
+    }
+  }
+  return c;
+}
+const fieldCache = new Map();
+function fieldParams(target) {
+  if (!fieldCache.has(target)) {
+    const K = Math.max(2, Math.ceil(2.2 * target / CELLS));
+    let lo = 0, hi = 4;
+    for (let it = 0; it < 40; it++) { const mid = 0.5 * (lo + hi); if (countFor(mid, K) < target) lo = mid; else hi = mid; }
+    fieldCache.set(target, { K, density: hi, dots: countFor(hi, K) });
+  }
+  return fieldCache.get(target);
+}
+
+// =============================== state ===============================
+
+const DEFAULT_VIEW = { az: 0, el: 16 * Math.PI / 180, dist: REF_DIST, framing: 1 };
+const view = { ...DEFAULT_VIEW };
+const state = { mode: 'dots', count: 26000, paused: false };
+let ambient = 3;              // the shared clock (s); 3 is the ambient of the findings' stills
+
+function applyCamera() {
+  const { az, el, dist } = view;
+  camera.position.set(dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el), dist * Math.cos(el) * Math.cos(az));
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0, 0);
+  // Essay framing: the hole sits in the middle of the band below the text (top 42 %), at NDC y = -0.42.
+  const k = view.framing * 0.42 * dist * Math.tan(camera.fov * Math.PI / 360);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  camera.position.addScaledVector(up, k);
+  camera.updateMatrixWorld(true);
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+// =============================== UI ===============================
+
+const $ = id => document.getElementById(id);
+const pill = $('pill'), sheet = $('sheet');
+const fmt = n => n.toLocaleString('en-US');
+
+function label() {
+  $('modeLabel').textContent = state.mode === 'dots' ? 'Dots' : 'Shader';
+  $('countLabel').textContent = fmt(state.mode === 'dots' ? N_DISK : state.count);
+  for (const b of $('counts').children) b.classList.toggle('on', Number(b.dataset.n) === state.count);
+  $('framing').classList.toggle('on', view.framing > 0.5);
+  $('pause').textContent = state.paused ? 'Play' : 'Pause';
+  $('pause').classList.toggle('on', state.paused);
+}
+let flashTimer = 0;
+function setMode(m) {
+  state.mode = m;
+  dots.visible = m === 'dots';
+  field.visible = m === 'shader';
+  label();
+  pill.classList.add('flash'); clearTimeout(flashTimer); flashTimer = setTimeout(() => pill.classList.remove('flash'), 180);
+}
+const toggleMode = () => setMode(state.mode === 'dots' ? 'shader' : 'dots');
+function setCount(n) {
+  const f = fieldParams(n);
+  fieldU.uK.value = f.K; fieldU.uDensity.value = f.density;
+  state.count = n;
+  label();
+}
+for (const n of COUNTS) {
+  const b = document.createElement('button');
+  b.dataset.n = n; b.textContent = `${n / 1000}k`;
+  b.addEventListener('click', () => { setCount(n); if (state.mode !== 'shader') setMode('shader'); });
+  $('counts').appendChild(b);
+}
+const openSheet = open => { sheet.classList.toggle('open', open); pill.setAttribute('aria-expanded', String(open)); };
+pill.addEventListener('click', () => openSheet(!sheet.classList.contains('open')));
+$('framing').addEventListener('click', () => { view.framing = view.framing > 0.5 ? 0 : 1; label(); });
+$('reset').addEventListener('click', () => { Object.assign(view, DEFAULT_VIEW); label(); });
+$('pause').addEventListener('click', () => { state.paused = !state.paused; label(); });
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); toggleMode(); }
+});
+
+// Gestures. One finger (or a plain mouse drag): a horizontal swipe toggles; nothing else moves.
+// Two fingers: pinch zooms, the pair's drag orbits. Desktop: wheel zooms, shift/alt/ctrl/cmd-drag orbits.
+{
+  const ptrs = new Map();
+  let g = null;                        // the current gesture, from first finger down to last finger up
+  let prevMid = null, prevSpread = 0;
+  const mid = () => { const a = [...ptrs.values()]; return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 }; };
+  const spread = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const orbit = (dx, dy) => { view.az -= dx * 0.006; view.el = Math.min(Math.max(view.el + dy * 0.006, -1.5), 1.5); };
+  const zoom = f => { view.dist = Math.min(Math.max(view.dist * f, 12), 300); };
+
+  stage.addEventListener('pointerdown', e => {
+    stage.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1) {
+      g = { x0: e.clientX, y0: e.clientY, multi: false, orbit: e.pointerType === 'mouse' && (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.button === 2) };
+    } else if (g) {
+      g.multi = true;
+    }
+    if (ptrs.size === 2) { prevMid = mid(); prevSpread = spread(); }
+  });
+  stage.addEventListener('pointermove', e => {
+    const p = ptrs.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (ptrs.size === 2) {
+      const m = mid(), s = spread();
+      orbit(m.x - prevMid.x, m.y - prevMid.y);
+      if (prevSpread > 0 && s > 0) zoom(prevSpread / s);
+      prevMid = m; prevSpread = s;
+    } else if (ptrs.size === 1 && g && g.orbit) {
+      orbit(dx, dy);
+    }
+  });
+  const up = e => {
+    if (!ptrs.has(e.pointerId)) return;
+    if (e.type === 'pointerup' && g && !g.multi && !g.orbit && ptrs.size === 1) {
+      const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+      if (Math.abs(dx) >= 40 && Math.abs(dx) > 1.5 * Math.abs(dy)) toggleMode();
+      else if (Math.hypot(dx, dy) < 8) openSheet(false);
+    }
+    ptrs.delete(e.pointerId);
+    if (ptrs.size === 2) { prevMid = mid(); prevSpread = spread(); }
+    if (ptrs.size === 0) g = null;
+  };
+  stage.addEventListener('pointerup', up);
+  stage.addEventListener('pointercancel', up);
+  stage.addEventListener('contextmenu', e => e.preventDefault());
+  stage.addEventListener('wheel', e => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+}
+
+// =============================== frame ===============================
+
+let last = performance.now(), frameMs = 0, lastLabel = 0, frames = 0;
+function tick(now) {
+  const raw = now - last; last = now;
+  if (frames > 0) frameMs = frameMs ? frameMs + (raw - frameMs) * 0.1 : raw;
+  if (!state.paused) ambient += Math.min(raw / 1000, 0.1);
+
+  applyCamera();
+  shared.uTime.value = ambient;
+  shared.uCamPos.value.copy(camera.position);
+  fieldU.uSizeScale.value = Math.min(Math.max(REF_DIST / camera.position.length(), 0.4), 2.2);
+
+  renderer.render(scene, camera);
+  frames++;
+  if (now - lastLabel > 250 && frameMs) { $('msLabel').textContent = `${frameMs.toFixed(1)} ms on this device`; lastLabel = now; }
+  requestAnimationFrame(tick);
+}
+setCount(26000);
+setMode('dots');
+pill.classList.remove('flash');
+requestAnimationFrame(tick);
+
+// Read-only hooks for the verification script.
+window.__cmp = {
+  mode: () => state.mode,
+  count: () => state.count,
+  fieldDots: () => fieldParams(state.count).dots,
+  time: () => ambient,
+  frames: () => frames,
+  view: () => ({ ...view }),
+  camera: () => [...camera.matrixWorld.elements, ...camera.projectionMatrix.elements],
+  hole: () => { const v = new THREE.Vector3(0, 0, 0).project(camera); return { x: (v.x + 1) / 2 * stage.clientWidth, y: (1 - v.y) / 2 * stage.clientHeight }; },
+  size: () => { const s = new THREE.Vector2(); renderer.getDrawingBufferSize(s); return { w: s.x, h: s.y, dpr: DPR }; },
+};
+</script>
+</body>
+</html>

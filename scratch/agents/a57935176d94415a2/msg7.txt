@@ -1,0 +1,11 @@
+compare, e2e: fit the new sliders, and end the essay on the riding bike
+
+The Steer and Ghost twin sliders pushed the comparison panel 26 px past a
+1280x720 window. The Machine sliders now sit in two columns, as Provenance
+and Faults do, with the play controls on a whole row beneath them.
+
+The app test that scrolled to the very bottom expected the held, landed
+core of the old spec section; it now expects the finished bike, built by
+spec@0.92 and still riding at the end.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

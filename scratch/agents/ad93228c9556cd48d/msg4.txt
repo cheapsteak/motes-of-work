@@ -1,0 +1,9 @@
+e2e: the redraw window starts just past the ring's knot
+
+A scroll lands on a whole pixel. With the essay shorter, a scroll to
+spec@0.31 at 390x844 lands at 0.30996, a hair before the ring is fully
+drawn and the camera at rest, so later samples differed in three ring
+pixels outside the redraw mask. The window now starts at 0.311 and
+still ends at 0.42.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

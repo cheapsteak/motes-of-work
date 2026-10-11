@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const dir = '<scratchpad>/notes/';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+const errs = [];
+p.on('pageerror', (e) => errs.push(String(e)));
+await p.goto('file://' + dir + 'script-notes.html');
+await p.waitForTimeout(800);
+await p.click('#row-act2-p1-l1 .line-btn');
+await p.fill('#note-act2-p1-l1', 'Example note: maybe split this into two lines.');
+await p.waitForTimeout(1200);
+await p.screenshot({ path: dir + 'phone.png' });
+const w = await p.evaluate(() => document.documentElement.scrollWidth);
+console.log('scrollWidth', w, 'errors', errs);
+await b.close();

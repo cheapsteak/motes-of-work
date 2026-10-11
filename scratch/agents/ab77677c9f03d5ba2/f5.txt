@@ -1,0 +1,12 @@
+test: capture the renderer alone; lit-faces probe at a 3k budget
+
+- CANVAS_ONLY_CSS hides the story panels and the vignette in every canvas
+  capture (helpers, looks, reduced motion), so pixel gates measure the
+  renderer.
+- The lit-faces probe renders at n=3000. At 100k the gears core stacks
+  deep enough that screen blending saturates pixels toward the type
+  colour (gears 1.208); at 3k the probe reads per-mote shading (gears
+  1.248, flat from 5k to 2k), near the two-sided plate bound of 1.31 for
+  this lighting. The threshold stays 1.2; the derivation is in the spec.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

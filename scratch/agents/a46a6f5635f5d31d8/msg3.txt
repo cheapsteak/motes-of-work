@@ -1,0 +1,12 @@
+galaxy: the scripted bodies and the generator
+
+The lineage as core bodies, stars and planets, with every id, birth, light and fix of the stacks
+network, the hosts in slot order and the pins (N0 with seven moons, C1 with six and C5 with three,
+all at 0.30). The generator places the core round R0, packs thirty systems on arm 0 round the
+neighbourhood's middle with every pair of systems apart by their outer radii plus one, fills the
+free slots with filler planets by the old birth law (every planet built by growth 1), gives each
+planet its moons, and keeps the old rules for the defect, hops, lights and the sweep. Streams run out
+from the core and the stars, sideways for copies, and in from C7 to R1. The budget thins only the
+shells, the unnamed ones first. Nothing imports it yet.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

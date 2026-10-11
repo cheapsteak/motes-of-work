@@ -1,0 +1,48 @@
+// The single registry of hash01 salts for a mote seed. Every `hash01(seed, salt)` in the TS and the
+// GLSL names its salt here; the GLSL constants are generated from this object (glslSaltConstants)
+// and spliced into mote.glsl, so the two cannot drift. The values are frozen: changing one changes
+// how every mote looks.
+export const SALT = {
+  settle: 1, // buildMoteAttrs: settle threshold
+  type: 2, // buildMoteAttrs: specced / misallocated type
+  extra: 3, // buildMoteAttrs: body mote that exists only when misallocated
+  misVisible: 4, // buildMoteAttrs: core mote hidden when misallocated
+  driftX: 5, // mote(): drift phase per axis
+  driftY: 6,
+  driftZ: 7,
+  spawnZ: 8, // spawnPoint(): height on the shell
+  spawnAzimuth: 9, // spawnPoint(): azimuth
+  spawnRadius: 10, // spawnPoint(): shell radius
+  scenario: 11, // mote(): which provenance scenario the mote follows
+  bezierSide: 12, // mote(): sideways reach of the flight path
+  twinPhase: 13, // instance.glsl: dialogue twin orbit phase
+  shimmer: 14, // instance.glsl: idle shimmer phase
+  hero: 15, // instance.glsl: hero form selection
+  bodyZ: 16, // moteBodyRest(): a reflowed mote's height on its body's sphere (Act II's reflow)
+  bodyAzimuth: 17, // moteBodyRest(): and its azimuth (18 and 19, the first stack's, are retired: never reuse them)
+  nodeSpreadX: 20, // light.ts nodeSpread(): where a galaxy mote sets out, about its stream's foot (or above its piece), per axis
+  nodeSpreadY: 21,
+  nodeSpreadZ: 22,
+  bodyBirth: 23, // bodyAttrs.ts: a galaxy builder's own place in its shell's landing order
+  personLat: 24, // bodyAttrs.ts: a person mote's rest point on its host's sphere, its height
+  personLon: 25, // and its longitude
+  bodyKeep: 26, // mote(): whether a reflowed mote stays lit on a small body (reflowKeep's share)
+  starDotZ: 27, // star.ts starDot(): a star's dot's height on the unit sphere (its direction)
+  starDotAzimuth: 28, // and its azimuth
+  starDotRadius: 29, // and its distance from the centre, in units of R (the core's gaussian or the halo's exponential)
+} as const;
+
+export type SaltName = keyof typeof SALT;
+
+/** `misVisible` → `SALT_MIS_VISIBLE`. */
+export function glslSaltName(name: SaltName): string {
+  return `SALT_${name.replace(/[A-Z]/g, (c) => `_${c}`).toUpperCase()}`;
+}
+
+/** `const uint SALT_X = Nu;` for every salt, in registry order. */
+export function glslSaltConstants(): string {
+  const lines = (Object.entries(SALT) as [SaltName, number][]).map(
+    ([name, value]) => `const uint ${glslSaltName(name)} = ${value}u;`,
+  );
+  return ['// hash01 salts, generated from SALT in src/math/salts.ts.', ...lines].join('\n');
+}

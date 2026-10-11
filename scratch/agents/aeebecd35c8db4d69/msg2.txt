@@ -1,0 +1,14 @@
+network: the generator, the scripted lineage and the schedule
+
+generateNetwork(seed, budget): three layers of stacks (6 rules, 40 plans, 300 code) joined by
+streams, deterministic from a seed with one seeded stream per concern. The scripted lineage is placed
+first (designed places moved apart where they crowd) and the filler is drawn round it in birth order,
+near a parent with room. The defect follows its rule (a cracked parent before CLEAN_AFTER, or R0);
+hops run from R0 along cracked streams; the sweep slots the filler among the scripted fixes; mote
+counts fit the budget with the heroes keeping their share, and glow evens out the density.
+
+Rulings applied: C5 is the second fix and a hero (C12 joins the sweep); nothing lights before the
+defect is found. The schedule holds the twelve, CLEAN_AFTER, the sweep span, the review visits and
+the reviewer section keys the keyframes must agree with.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

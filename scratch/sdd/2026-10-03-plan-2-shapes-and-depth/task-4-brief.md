@@ -1,0 +1,27 @@
+### Task 4: Procedural shape library and 3D gears
+
+**Files:** Create `src/shapes/` — `involute.ts` (involute and cycloidal tooth profiles, ported math with notices), `extrude.ts` (profile → `BufferGeometry` with thickness), `primitives.ts` (axle, bar with rounded ends, ball, plate with depth, spring/helix), `sample.ts` (deterministic `MeshSurfaceSampler` wrapper returning points + normals), tests; `CREDITS.md`. Modify `src/mechanisms/gears/*` to use the library (gears with real thickness 0.25, axles, a 0.15-thick frame plate).
+
+**Interfaces:**
+- `export function involuteGear(opts: { teeth: number; module: number; pressureAngleDeg?: number }): Vec2[]` (closed outline).
+- `export function extrudeProfile(outline: Vec2[], holes: Vec2[][], depth: number): BufferGeometry`
+- `export function samplePart(geom: BufferGeometry, count: number, rng: () => number): { positions: Vec3[]; normals: Vec3[] }`
+- [ ] Failing tests: involute profile has 2× teeth extrema and the expected pitch radius (`module × teeth / 2`); extruded geometry is closed (no boundary edges); sampling is deterministic for a seed and returns unit normals; samples lie on the surface (distance to mesh < 1e-4).
+- [ ] Commit `feat: procedural shape library and 3D gears`.
+
+### Tasks 5–7: Mechanism modules (independent; may run in parallel worktrees)
+
+Each creates `src/mechanisms/<id>/` (index + shapes + kinematics + tests), registers the id, and must pass the contract test, parity, and a looks screenshot at three-quarter view in `shots/mech-<id>-*.png` (specced assembled, wrong twin, exploded, faults at 0.6). Roles must make the **core small and critical** and the **body large and repetitive**. Faults map to visible failures of *that* mechanism.
+
+**Task 5 — `watch`:** Swiss lever escapement (escape wheel, pallet fork, balance wheel with a hairspring helix) as **core**; going train (centre, third, fourth wheels with pinions; cycloidal teeth), mainspring barrel, bridges and plate as **body**; a few jewels as **drift** candidates. Kinematics: balance oscillates (simple harmonic, amplitude ~250° visual); escape wheel advances in discrete ticks synced to the balance; train ratios derived from the escape-wheel step. Wrong twin: the same parts rearranged as a **music box** — barrel becomes the pinned cylinder (spinning steadily), the escape wheel and pallet become a comb-and-governor fan, balance becomes the air-brake fan. Faults: `ratio` → hands/train too fast vs ghost; `slip` → escape wheel skips teeth; `stall` → balance stops then restarts; `bind` → balance amplitude collapses; `misalign` → pallet fork misses teeth; `jitter` → tremor.
+
+**Task 6 — `strandbeest`:** Jansen linkage with the published link lengths (a=38, b=41.5, c=39.3, d=40.1, e=55.8, f=39.4, g=36.7, h=65.7, i=49, j=50, k=61.9, l=7.8, m=15.0; cite Wikipedia "Jansen's linkage", numbers only) solved by circle–circle intersection from the crank angle. Crank + one leg's linkage geometry is **core**; 6–8 phase-offset legs on a shared crankshaft and the spine are **body**; feet are **drift**. Wrong twin: same bars with perturbed lengths so the foot path loses its flat bottom (legs flail and lift the body). Faults: `ratio` → wrong link proportions (foot path deforms vs ghost path); `slip` → crank phase slips between leg pairs; `stall`/`bind` → gait halts / drags; `misalign` → legs splay out of plane. Degenerate intersections clamp (Review Focus 3). Optional: draw the ghost foot path.
+
+**Task 7 — `steam`:** Horizontal mill engine: cylinder, piston + rod, crosshead, connecting rod, crank, flywheel (large, spoked), frame; **core** = the flyball governor (spindle, two balls on arms, sleeve, throttle linkage) driven by belt from the flywheel shaft; **body** = flywheel, cylinder, frame, rods. Kinematics: slider-crank exact; governor arm angle from equilibrium cosθ = g/(ω² L) clamped, with ω from `drive` rate (use a fixed nominal speed modulated by faults). Wrong twin: governor disconnected/reversed — balls hang limp while the flywheel overspeeds (spins visibly faster against the ghost). Faults: `ratio` → overspeed; `bind` → piston sticks mid-stroke; `slip` → belt slips (governor lags flywheel); `stall` → stops at dead centre; `misalign` → wobbling flywheel; `jitter` → vibration.
+
+For every mechanism module:
+- [ ] Contract test passes; parity passes (Task 2 runs parity over all mechanisms).
+- [ ] Kinematics unit tests pin the defining relationship (escape wheel steps per balance period; Jansen foot path flatness over the ground stroke vs twin; slider-crank piston position formula and governor angle monotonic in speed).
+- [ ] Screenshots reviewed by the implementer (described in report).
+- [ ] Commit `feat: <id> mechanism`.
+

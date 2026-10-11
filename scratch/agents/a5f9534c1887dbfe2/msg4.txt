@@ -1,0 +1,12 @@
+timeline: one camera spline for the lap and the network's moves
+
+The centripetal Catmull-Rom that lapShot and splineShot each carried
+moves to cameraSpline.ts; both call it, with their own bearing
+convention, and the moves take their eases from EASINGS. Every pasted
+key regenerates as before.
+
+Also: test 4 counts lit stacks over every node (a null clock is never,
+as the textures carry it); the moves' regeneration test also proves no
+stray camera key sits inside a move; each page-turn move is checked
+against its page's fade and the next page's arrival in the story; the
+planner's header says what a stop before a page-turn move means.

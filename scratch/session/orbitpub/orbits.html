@@ -1,0 +1,506 @@
+<meta charset="UTF-8" />
+<title>Orbits and derps</title>
+    <style>
+      @font-face { font-family: 'Literata'; font-style: normal; font-weight: 400; src: url(./literata-400.woff) format('woff'); }
+      :root { --bg: #0b0d12; --ink: #e8e6ee; --ink-superseded: #bcbbc2; --text-top: 7vh; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); height: 100%; overflow: hidden; }
+      body { font: 400 1.1875rem/1.55 'Literata', Georgia, serif; -webkit-font-smoothing: antialiased;
+        text-shadow: 0 1px 2px rgba(11,13,18,.9), 0 0 14px rgba(11,13,18,.95), 0 0 30px rgba(11,13,18,.8); }
+      #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+      #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 62%, transparent 55%, rgba(0,0,0,.45) 100%); }
+      #scrim { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22svh, transparent 42svh); }
+      #panel { position: fixed; top: var(--text-top); left: 0; right: 0; width: min(36rem, 100%); margin: 0 auto; padding: 0 clamp(1rem, 5vw, 4rem); box-sizing: border-box; }
+      #panel p { margin: 0 0 .85em; }
+      #panel p.dim { color: var(--ink-superseded); }
+      #label { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font: 12px/1.3 system-ui, sans-serif; color: #6f6d7a; text-shadow: none; }
+      #ui { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 12px 10px; background: linear-gradient(to top, rgba(11,13,18,.96), rgba(11,13,18,.7) 70%, transparent); font: 13px/1.4 system-ui, sans-serif; text-shadow: none; color: #cfcdd6; display: none; }
+      #ui .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+      #ui button { font: inherit; background: #1b1f2a; color: #e8e6ee; border: 1px solid #343a4a; border-radius: 6px; padding: 3px 9px; }
+      #ui button.on { background: #2b3550; border-color: #4da3ff; }
+      #ui input[type=range] { flex: 1; min-width: 100px; }
+      #ui .cap { color: #8f8d99; font-size: 12px; margin-top: 4px; }
+      #ui .stat { color: #6f6d7a; font-size: 11px; }
+      #tags { position: fixed; left: 0; right: 0; top: 7vh; display: none; font: 13px/1.3 system-ui, sans-serif; color: #9b99a6; text-shadow: none; }
+      #tags span { position: absolute; width: 50%; text-align: center; }
+      #tags .l { left: 0; } #tags .r { left: 50%; }
+      #ui b.ev { color: #ff8a6b; }
+    </style>
+<canvas id="stage"></canvas>
+    <div id="vignette"></div>
+    <div id="scrim"></div>
+    <div id="panel"></div>
+    <div id="tags"><span class="l">healthy</span><span class="r">carries the defect</span></div>
+    <div id="label"></div>
+    <div id="ui">
+      <div class="row"><button data-mode="close">The bike's planet: healthy vs defect</button><button data-mode="system">One plan's system</button><button data-mode="twelve">The twelve</button><button data-mode="hood">The neighbourhood</button><button data-mode="galaxy">The galaxy</button></div>
+      <div class="row"><button id="zoomplay">Zoom out: play</button><input id="zoom" type="range" min="0" max="1" step="0.001" value="0" /><button id="play">pause</button><span id="clockOut">0.0 s</span></div>
+      <div class="cap" id="cap"></div>
+      <div class="stat" id="stat"></div>
+    </div>
+    <script type="module">
+      import * as THREE from '../../../node_modules/three/build/three.module.js';
+
+      // ---------- params (a query string is optional: the buttons switch modes) ----------
+      const q = new URLSearchParams(location.search);
+      let MODE = q.get('mode') || 'close';            // close | system | hood | galaxy | zoom (still: far)
+      const SICK = q.get('derp') !== '0';
+      const AMBIENT0 = q.has('ambient') ? Number(q.get('ambient')) : null; // a frozen ambient clock (stills, tests)
+      const ZOOM0 = q.has('zoom') ? Number(q.get('zoom')) : null;         // a still of the zoom-out at 0..1
+      const SEED = Number(q.get('seed') || 11);
+      const KIND = q.get('kind');
+      const OVER = q.get('cam');
+      const PHONE = q.get('desktop') !== '1';
+
+      // ---------- rng / hash ----------
+      function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      const rng = mulberry32(SEED * 7919 + 13);
+      const rand = (a, b) => a + (b - a) * rng();
+      function hash01(seed, k) { let h = (Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(k + 1, 0xc2b2ae35)) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2f) >>> 0; h ^= h >>> 15; return (h >>> 8) / 16777216; }
+      const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+      // ---------- colours ----------
+      const AGENT = new THREE.Color('#4da3ff');
+      const HUMAN = new THREE.Color('#ffb347');
+      const EMBER = new THREE.Color('#ff6b57');
+      const BG = new THREE.Color('#0B0D12');
+
+      // ---------- the vocabulary: star = a rule, planet = a plan, moon = a piece of code ----------
+      // R: the shell's radius; shell: motes; dots: motes on each orbit the layer's children ride (drawn by the parent)
+      const LAYERS = {
+        core: { R: 1.4, shell: 900, dots: 0 },
+        rule: { R: 0.9, shell: 700, dots: 90 },
+        plan: { R: 0.3, shell: 300, dots: 40 },
+        code: { R: 0.1, shell: 36, dots: 0 },
+      };
+      // orbits (world) and AMBIENT periods (seconds): planets round their star, moons round their planet
+      const ORBIT = {
+        plan: { radii: [2.4, 4.0, 5.6, 7.2, 8.8], periods: [60, 90, 120, 150, 180] },
+        code: { tracks: [0.36, 0.52, 0.68], per: 2, periods: [6, 9, 12] },
+      };
+      const SYSTEM_R = 8.8 + 0.68 + 0.1; // a star system's outer moon: 9.6
+      const GALAXY = { R: 220, stars: PHONE ? 2400 : 4000, dust: PHONE ? 4000 : 8000, period: 1200, arms: 2, pitch: 0.28 };
+      const HOOD = { r: 118, bearing: 0.9, spread: 34 }; // the neighbourhood: six star systems on one arm
+
+      // ---------- the derp, on the ambient clock (seconds) ----------
+      const DERP = { period: 2.2, dur: 1.0, stall: 0.7, reverse: 0.5, skip: 0.55, lift: 0.2, wobble: 0.06, ring: 2,
+        burst: { slots: 8, hold: 0.6, snap: 0.45, jump: 0.9, lift: 0.3, jitter: 0.03, tremble: 0.05, ghost: 0.6, step: 0.1 } };
+      const KINDS = ['stall', 'reverse', 'skip', 'wobble', 'burst', 'scatter'];
+      function derpEvent(seed, t, phase) { const T = DERP.period, D = DERP.dur; const k = Math.floor(t / T + phase); const t0 = (k - phase) * T + hash01(seed, k * 2) * (T - D); const s = (t - t0) / D; const u = hash01(seed, k * 2 + 1); let kind = u < 0.3 ? 4 : u < 0.55 ? 5 : u < 0.75 ? 2 : u < 0.85 ? 0 : u < 0.925 ? 1 : 3; if (KIND) kind = KINDS.indexOf(KIND); return { s, kind, active: s >= 0 && s <= 1, k }; }
+      function snapProfile(s) { if (s < 0.6) return smoothstep(0, 0.6, s); if (s < 0.72) return 1 - (s - 0.6) / 0.12; const r = (s - 0.72) / 0.28; return -0.25 * Math.sin(Math.PI * DERP.ring * r) * (1 - r); }
+      function derp(seed, t, omega, phase, v) {
+        const out = { dAngle: 0, dRadius: 0, dUp: 0, wobble: [0, 0, 0], ghost: null, step: 0, scatter: null };
+        if (v <= 0) return out; const e = derpEvent(seed, t, phase); if (!e.active) return out; const s = e.s;
+        if (e.kind === 5) { out.scatter = { s, k: e.k }; return out; }
+        if (e.kind === 4) {
+          const B = DERP.burst; const m = Math.floor(s * B.slots); const f = (s * B.slots) % 1; const on = f < B.hold;
+          const h = (j) => hash01(seed ^ 0xb0b, e.k * 64 + m * 8 + j);
+          const jq = Math.floor(s * 30); // the jitter is cut, not eased: a new hashed offset every 1/30 s, held between
+          out.dAngle = (on ? (h(0) - 0.5) * B.snap : 0) + B.jitter * (2 * hash01(seed ^ 0x3a3, e.k * 100 + jq) - 1);
+          out.dRadius = (on && h(1) < 0.7 ? (h(2) - 0.5) * B.jump : 0) + B.jitter * (2 * hash01(seed ^ 0x3a4, e.k * 100 + jq) - 1);
+          out.step = h(7) < 0.45 ? B.step : 0; // in some slots the body's own clock is quantised: held, then a jump along the orbit
+          out.dUp = on ? (h(3) - 0.5) * B.lift : 0;
+          if (s > 0.3 && s < 0.7) { const env = Math.sin(((s - 0.3) / 0.4) * Math.PI); const q = (x) => 2 * hash01(seed ^ 0x7e7, Math.floor(x)) - 1; out.wobble = [B.tremble * env * q(s * 40), 0.5 * B.tremble * env * q(s * 40 + 17), B.tremble * env * q(s * 40 + 33)]; }
+          if (on && h(4) < 0.5) out.ghost = (h(5) - 0.5) * B.ghost; // a ghost double, this far along the orbit from the body
+        } else if (e.kind === 0) { const held = Math.min(s, DERP.stall); out.dAngle = -omega * DERP.dur * (held - DERP.stall * smoothstep(DERP.stall, 1, s)); }
+        else if (e.kind === 1) out.dAngle = -DERP.reverse * Math.sin(Math.PI * s);
+        else if (e.kind === 2) { const p = snapProfile(s); out.dRadius = DERP.skip * p; out.dUp = DERP.lift * p; }
+        else { const env = Math.sin(Math.PI * s); const n = (x) => 2 * (hash01(seed ^ 0x5151, Math.floor(x)) * (1 - (x % 1)) + hash01(seed ^ 0x5151, Math.floor(x) + 1) * (x % 1)) - 1; out.wobble = [DERP.wobble * env * n(s * 9), 0.5 * DERP.wobble * env * n(s * 9 + 31), DERP.wobble * env * n(s * 9 + 63)]; }
+        out.dAngle *= v; out.dRadius *= v; out.dUp *= v; out.wobble = out.wobble.map((w) => w * v); return out;
+      }
+      // (KINDS is declared above derpEvent)
+      // the shiver of a body in place (a star's derp, and the burst's tremble on a planet or moon)
+      function bodyTremble(n, t) { if (n.layer === 'rule') return [0, 0, 0]; const d = derp(n.seed, t, (2 * Math.PI) / n.period, n.phase, n.v); return d.wobble.map((w) => w * n.R * 4); }
+      // the scatter (hard cuts): a sweep crosses the body in 80 ms, each mote leaves at its own cut, holds 120-180 ms with a 1/30 s jitter,
+      // and returns in three steps (1 -> 0.55 -> 0.25 -> 0); an aftershock at 550 ms with probability 0.5 at 0.45 amplitude
+      function scatterShell(rec, t) {
+        const n = rec.node; const d = derp(n.seed, t, (2 * Math.PI) / (n.period || 60), n.phase, n.v); const arr = rec.shell.geometry.attributes.position.array; const sc = rec.scat;
+        if (!d.scatter) { if (rec.scatOn) { arr.set(sc.base); rec.shell.geometry.attributes.position.needsUpdate = true; rec.scatOn = false; rec.mesh.material.uniforms.uFill.value = 0.035; } return; }
+        const { s, k } = d.scatter; const sec = s * DERP.dur;
+        const hs = (j) => hash01(n.seed ^ 0x5ee9, k * 16 + j); const sw = [hs(0) - 0.5, hs(1) - 0.5, hs(2) - 0.5]; const Lw = Math.hypot(...sw) || 1; sw[0] /= Lw; sw[1] /= Lw; sw[2] /= Lw;
+        const after = hs(3) < 0.5; const jq = Math.floor(sec * 30);
+        let anyOut = false;
+        for (let i = 0; i < sc.shellN; i++) {
+          const bx = sc.base[i * 3], by = sc.base[i * 3 + 1], bz = sc.base[i * 3 + 2];
+          const su = (bx * sw[0] + by * sw[1] + bz * sw[2]) / n.R; const tDep = 0.04 * (su + 1);
+          let kk = 0; const a = sec - tDep;
+          if (a >= 0) { if (a < sc.hold[i]) kk = 1; else { const b = a - sc.hold[i]; kk = b < 0.05 ? 0.55 : b < 0.1 ? 0.25 : 0; } }
+          if (after) { const a2 = sec - 0.55 - tDep; if (a2 >= 0 && a2 < sc.hold[i]) kk = Math.max(kk, 0.45); }
+          const jx = kk > 0 ? 0.03 * n.R * (2 * hash01(n.seed ^ 0x717, i * 97 + jq) - 1) : 0;
+          arr[i * 3] = bx + sc.dir[i * 3] * sc.amp[i] * kk + jx; arr[i * 3 + 1] = by + sc.dir[i * 3 + 1] * sc.amp[i] * kk + jx; arr[i * 3 + 2] = bz + sc.dir[i * 3 + 2] * sc.amp[i] * kk - jx;
+          if (kk > 0) anyOut = true;
+        }
+        rec.shell.geometry.attributes.position.needsUpdate = true; rec.scatOn = true; rec.mesh.material.uniforms.uFill.value = anyOut ? 0.018 : 0.035;
+      }
+      function activeEvent(n, t) { if (!n.cracked) return null; const e = derpEvent(n.seed, t, n.phase); return e.active ? (KIND || KINDS[e.kind]) : null; }
+
+      // ---------- nodes: every body orbits its parent (a star the galaxy's core, a planet its star, a moon its planet) ----------
+      let nodes = [];
+      // the orbit's frame: a point at polar (rad, a) in the orbit plane, the plane tilted by tr.tilt about the axis at azimuth tr.az
+      function orbitXYZ(tr, rad, a, up) { const x = rad * Math.cos(a), z = rad * Math.sin(a); const ca = Math.cos(tr.az), sa = Math.sin(tr.az); const ct = Math.cos(tr.tilt), st = Math.sin(tr.tilt); const along = x * ca + z * sa; const px = x - along * ca, pz = z - along * sa; return [along * ca + px * ct, (sa * px - ca * pz) * st + up, along * sa + pz * ct]; }
+      // Kepler: mean anomaly M -> eccentric anomaly E (three Newton steps) -> true anomaly nu and the radius. Deterministic in M.
+      function kepler(M, e) { let E = M + e * Math.sin(M); for (let i = 0; i < 3; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); const nu = 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2)); return { nu, r: 1 - e * Math.cos(E) }; }
+      // a body's place on its orbit at ambient t: semi-major axis a (so that a(1+e) is the designed outer radius), eccentricity e,
+      // periapsis turning slowly (omega0 + 2 pi t / precession), then the derp on the angle and the radius
+      function ellipsePos(n, t, dAngle, dRadius, up, tM = t) { const M = n.phase + (2 * Math.PI * tM) / n.period; const k = kepler(M, n.e); const w = n.omega0 + (2 * Math.PI * t) / n.precession; return orbitXYZ(n.track, n.a * k.r * (1 + dRadius), k.nu + w + dAngle, up); }
+      // a node's place at ambient t, in the neighbourhood's co-rotating frame (the galaxy's turn is applied to the whole group)
+      function nodePos(n, t) {
+        if (n._t === t) return n._pos;
+        const base = n.parent == null ? n.at : nodePos(nodes[n.parent], t);
+        let p;
+        if (n.parent == null) p = base.slice();
+        else {
+          const omega = (2 * Math.PI) / n.period; let dA = 0, dR = 0, up = 0, tM = t, ghost = null;
+          if (n.cracked && n.layer !== 'rule') { const d = derp(n.seed, t, omega, n.phase, n.v); dA = d.dAngle; dR = d.dRadius; up = d.dUp * n.orbitR; ghost = d.ghost; if (d.step) tM = Math.floor(t / d.step) * d.step; }
+          const o = ellipsePos(n, t, dA, dR, up, tM); p = [base[0] + o[0], base[1] + o[1], base[2] + o[2]];
+          n._ghost = null;
+          if (ghost !== null) { const og = ellipsePos(n, t, dA + ghost, dR, up, tM); n._ghost = [base[0] + og[0], base[1] + og[1], base[2] + og[2]]; }
+        }
+        if (n.cracked && n.layer === 'rule') { const d = derp(n.seed, t, 1, n.phase, n.v); p = [p[0] + d.wobble[0] * n.R * 4, p[1] + d.wobble[1] * n.R * 4, p[2] + d.wobble[2] * n.R * 4]; }
+        n._t = t; n._pos = p; return p;
+      }
+      function addNode(layer, parent, orbitR, phase, period, extra = {}) {
+        const e = layer === 'plan' ? 0.05 + 0.17 * rng() : layer === 'code' ? 0.05 + 0.07 * rng() : 0;
+        const n = { layer, parent, orbitR, phase, period, idx: nodes.length, R: LAYERS[layer].R, seed: SEED * 131 + nodes.length * 7, v: 1, cracked: false, lit: false, fixed: false,
+          track: { tilt: (rng() * 2 - 1) * (layer === 'plan' ? 0.25 : 0.2), az: rng() * Math.PI * 2 }, e, a: orbitR / (1 + e), omega0: rng() * Math.PI * 2, precession: layer === 'plan' ? 400 + 500 * rng() : 90 + 110 * rng(), ...extra };
+        n.phase2 = rng(); n.phase = phase; nodes.push(n); return n;
+      }
+      // one solar system: a star, five planets on their orbits, six moons on three tracks round each planet
+      const gauss = () => { const u = Math.max(1e-6, rng()), v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+      const SIZES = {
+        planet: () => clamp(0.22 * Math.exp(0.5 * gauss()), 0.14, 0.5),               // log-normal: many small, a few large
+        moon: (Rp) => clamp(0.12 * Rp * Math.exp(0.45 * gauss()), 0.04, 0.35 * Rp),    // never more than 0.35 of its planet
+        moons: () => (rng() < 0.45 ? 0 : Math.min(6, 1 + Math.floor(-Math.log(Math.max(1e-6, rng())) / 0.7))), // most bare, a few with several
+        planets: () => 2 + Math.floor(8 * rng() * rng()),                                // 2-9, most 2-5
+        tracks: [1.3, 1.9, 2.5],                                                         // moon tracks, in planet radii
+      };
+      // a planet's moons: on tracks relative to the planet's radius, two per track at most, sizes seeded
+      function addMoons(planet, count, opts = {}) {
+        for (let k = 0; k < count; k++) { const ti = k % SIZES.tracks.length; const m = addNode('code', planet.idx, SIZES.tracks[ti] * planet.R, rng() * Math.PI * 2 + (k >= 3 ? Math.PI : 0), ORBIT.code.periods[ti], { R: SIZES.moon(planet.R) }); if (opts.sick && k === count - 1) { m.cracked = true; m.seed = SEED * 131 + 7; m.phase = 0.37; } }
+      }
+      function addSystem(at, opts = {}) {
+        const star = addNode('rule', null, 0, 0, 0, { at });
+        star.lineageIdx = opts.lineage ?? 0;
+        const np = opts.pinPlanets ?? SIZES.planets();
+        const rOut = 5.5 + 4.1 * (np - 2) / 7; star.rOut = rOut; // a sparse system is compact; a crowded one reaches the 9.6 bound
+        for (let i = 0; i < np; i++) {
+          const f = np === 1 ? 0 : i / (np - 1); const gap = np === 1 ? 0 : (rOut - 2.2) / (np - 1);
+          const r = 2.2 + f * (rOut - 2.2) + (i === 0 || i === np - 1 ? 0 : (rng() - 0.5) * 0.3 * gap);
+          const planet = addNode('plan', star.idx, r, rng() * Math.PI * 2, 60 + 30 * i, { R: SIZES.planet() });
+          const count = opts.pinMoons && i < opts.pinMoons.length ? opts.pinMoons[i] : SIZES.moons();
+          addMoons(planet, count);
+        }
+        return star;
+      }
+      function layoutHood() {
+        nodes = [];
+        // the core: six rule bodies at the galaxy's centre (the hood frame is offset by HOOD_AT, so the core sits at minus that); the source at the middle
+        const coreSpots = [[0, 0, 0], [9, 0, 4], [-7, 0, 8], [3, 0, -10], [-10, 0, -4], [8, 0, -7]];
+        const core = coreSpots.map((c) => addNode('core', null, 0, 0, 0, { at: [c[0] - HOOD_AT[0], 0, c[2] - HOOD_AT[2]] }));
+        // the plan-stars: a dozen on the arm stretch nearest the core; P1, P2, P3 (the incorrect rule's plans) first, then P_a (the bike's plan)
+        const spots = [[0, 0, 0], [-24, 0, 10], [22, 0, -12], [-8, 0, -26], [28, 0, 16], [-30, 0, -14], [12, 0, 30], [-36, 0, 22], [38, 0, -4], [6, 0, -40], [-16, 0, 40], [34, 0, 34]];
+        spots.forEach((sp, i) => {
+          const pins = i === 0 ? { pinPlanets: 4, pinMoons: [1, 0, 2, 0], lineage: 0 } : i === 1 ? { pinPlanets: 3, pinMoons: [0, 1, 0], lineage: 0 } : i === 2 ? { pinPlanets: 3, pinMoons: [2, 0, 1], lineage: 0 } : i === 3 ? { pinPlanets: 3, pinMoons: [7, 0, 1], lineage: 1 } : { lineage: 1 + Math.floor(rng() * 5) };
+          addSystem(sp, pins);
+        });
+        for (const st of nodes.filter((x) => x.layer === 'rule')) st.lineage = core[st.lineageIdx ?? 0].idx;
+        return nodes;
+      }
+      function markTwelve() {
+        // the source: the core's middle body; the twelve: its three plan-stars (P1, P2, P3) and nine of their planets; P1's first planet is the fixed one
+        const src = nodes.find((x) => x.layer === 'core'); src.cracked = true; src.source = true;
+        const stars = nodes.filter((x) => x.layer === 'rule').slice(0, 3);
+        const planets = stars.flatMap((st) => nodes.filter((x) => x.layer === 'plan' && x.parent === st.idx));
+        planets[0].fixed = true; planets[0].cracked = true; planets[0].v = 0;
+        for (const x of [...stars, ...planets.slice(1, 10)]) { x.lit = true; x.cracked = true; }
+        for (const m of nodes.filter((x) => x.layer === 'code')) { const pl = nodes[m.parent]; if (pl.cracked) { m.cracked = true; m.lit = pl.lit; m.fixed = pl.fixed; m.v = pl.v; } }
+      }
+
+      // ---------- scene ----------
+      const canvas = document.getElementById('stage');
+      const W = innerWidth, H = innerHeight;
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(devicePixelRatio); renderer.setSize(W, H, false); renderer.setClearColor(BG, 1); renderer.autoClear = false;
+      const scene = new THREE.Scene();
+      const galaxyGroup = new THREE.Group(); scene.add(galaxyGroup); // turns rigidly: the galaxy's turn
+      const hoodGroup = new THREE.Group(); galaxyGroup.add(hoodGroup);  // the neighbourhood rides the arm
+      const bgGroup = new THREE.Group(); galaxyGroup.add(bgGroup);      // the background stars, dust and core
+      const HOOD_AT = [HOOD.r * Math.cos(HOOD.bearing), 0, HOOD.r * Math.sin(HOOD.bearing)];
+      hoodGroup.position.set(...HOOD_AT);
+
+      const rimMat = (col, fill, rim, gain = 1) => new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: col.clone() }, uFill: { value: fill }, uRim: { value: rim }, uGain: { value: gain } },
+        vertexShader: `varying vec3 vN; varying vec3 vV; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `uniform vec3 uColor; uniform float uFill, uRim, uGain; varying vec3 vN; varying vec3 vV; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); float a = uFill + uRim * pow(f, 2.6); gl_FragColor = vec4(uColor * a * uGain, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      // points with a pixel floor: a mote is never smaller than minPx on screen (crisp from any distance)
+      // uHalo 0: a hard dot. uHalo 1: a star: a bright core (the inner 35 % of the sprite) with a tight halo falling to zero at
+      // the sprite edge; the sprite is clamped between uMinPx and uMaxPx so a halo can never grow past its neighbours.
+      const pointMat = (size, opacity, minPx, halo = 0, maxPx = 64) => new THREE.ShaderMaterial({
+        uniforms: { uSize: { value: size }, uOpacity: { value: opacity }, uMinPx: { value: minPx }, uMaxPx: { value: maxPx }, uScale: { value: 1 }, uGain: { value: 1 }, uHalo: { value: halo }, uDpr: { value: devicePixelRatio } },
+        vertexShader: `attribute vec3 color; varying vec3 vC; uniform float uSize, uMinPx, uMaxPx, uScale, uDpr; void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv; float px = uSize * uScale / -mv.z; gl_PointSize = clamp(px, uMinPx, uMaxPx) * uDpr; }`,
+        fragmentShader: `varying vec3 vC; uniform float uOpacity, uGain, uHalo; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d) * 2.0; if (r > 1.0) discard; float core = 1.0 - smoothstep(0.0, 0.35, r); float halo = (1.0 - r) * (1.0 - r) * 0.45; float a = uHalo > 0.5 ? core + halo : 1.0; gl_FragColor = vec4(vC * uOpacity * uGain * a, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      function points(pos, col, size, opacity, minPx = 1.0, halo = 0, maxPx = 64) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); return new THREE.Points(g, pointMat(size, opacity, minPx, halo, maxPx)); }
+      const sphereGeo = new THREE.IcosahedronGeometry(1, 2); const moonGeo = new THREE.IcosahedronGeometry(1, 1);
+      let instances = 0;
+
+      // ---------- the galaxy: a two-arm spiral of background stars with a bright core, and dust between ----------
+      function buildGalaxy() {
+        const sp = [], sc = [], dp = [], dc = [], bp = [], bc = [];
+        const r0 = mulberry32(SEED * 77 + 1);
+        const spiralAngle = (r) => Math.log(Math.max(r, 2) / 2) / GALAXY.pitch;
+        const nearHood = (x, z) => Math.hypot(x - HOOD_AT[0], z - HOOD_AT[2]) < 40;
+        let n = 0;
+        while (n < GALAXY.stars) {
+          const r = GALAXY.R * Math.pow(r0(), 0.75); const arm = Math.floor(r0() * GALAXY.arms);
+          const inCore = r0() < 0.22;
+          const a = inCore ? r0() * 6.2832 : (arm * 6.2832) / GALAXY.arms + spiralAngle(r) + (r0() + r0() - 1) * 0.42 * (1 - 0.5 * r / GALAXY.R);
+          const rr = inCore ? r * 0.35 : r;
+          const x = rr * Math.cos(a), z = rr * Math.sin(a);
+          if (nearHood(x, z) && r0() < 0.7) continue; // the neighbourhood keeps its own stars
+          const b = 0.35 + 0.65 * r0() * r0(); const warm = r0() < 0.12; (b > 0.75 ? bp : sp).push(x, (r0() - 0.5) * 1.2, z); (b > 0.75 ? bc : sc).push(AGENT.r * b * (warm ? 1.2 : 1), AGENT.g * b, AGENT.b * b * (warm ? 0.8 : 1)); n++;
+        }
+        for (let i = 0; i < GALAXY.dust; i++) { const r = GALAXY.R * Math.pow(r0(), 0.6); const arm = Math.floor(r0() * GALAXY.arms); const a = (arm * 6.2832) / GALAXY.arms + spiralAngle(r) + (r0() + r0() - 1) * 0.9; dp.push(r * Math.cos(a), (r0() - 0.5) * 2, r * Math.sin(a)); const b = 0.08 + 0.1 * r0(); dc.push(AGENT.r * b, AGENT.g * b, AGENT.b * b); }
+        // stars: a star sprite 3.5 px (bright ones 6 px), the halo inside the sprite, capped so no two neighbours' halos meet at the wide shot (spacing about 7 px)
+        const stars = points(sp, sc, 3.5, 1, 3.5, 1, 3.5); const bright = points(bp, bc, 6, 1, 6, 1, 6); const dust = points(dp, dc, 0.8, 1, 1.0);
+        // the core haze: one soft sprite, faint, 56 px across: the only soft disc in the picture
+        const core = points([0, 0, 0], [AGENT.r * 0.35, AGENT.g * 0.35, AGENT.b * 0.4], 0, 1, 56, 1, 56);
+        bgGroup.add(dust); bgGroup.add(core); bgGroup.add(stars); bgGroup.add(bright); instances += sp.length / 3 + bp.length / 3 + dp.length / 3 + 1;
+      }
+
+      // ---------- the neighbourhood's bodies, with their level of detail ----------
+      // rec: { node, group, mesh, shell, orbits (points of the children's orbits), lodMats }
+      const recs = [];
+      function addBody(n, gain = 1) {
+        const L = LAYERS[n.layer]; const g = new THREE.Group(); hoodGroup.add(g);
+        const col = n.lit || n.source ? EMBER : AGENT; const lit = n.lit || n.source;
+        const m = new THREE.Mesh(n.layer === 'code' ? moonGeo : sphereGeo, rimMat(col, n.layer === 'code' ? 0.28 : 0.035, n.layer === 'code' ? 1.1 : 0.55, gain * (lit ? 1.35 : 1))); m.scale.setScalar(n.R); g.add(m);
+        const sp = [], sc = []; const r = mulberry32(n.seed ^ 0xabcdef);
+        const shellN = n.hero ? 6000 : Math.max(12, Math.round(L.shell * (n.R / L.R) ** 2));
+        for (let i = 0; i < shellN; i++) { const zz = 2 * r() - 1, ph = r() * Math.PI * 2, rr = Math.sqrt(1 - zz * zz); sp.push(rr * Math.cos(ph) * n.R, zz * n.R, rr * Math.sin(ph) * n.R); const k = (lit ? 0.9 : 0.7) * gain * (n.layer === 'code' && !n.fixed ? 1 : 1); const c = n.fixed ? HUMAN : col; sc.push(c.r * k, c.g * k, c.b * k); }
+        const shell = points(sp, sc, n.hero ? 0.012 : n.layer === 'rule' || n.layer === 'core' ? 0.03 : n.layer === 'plan' ? 0.02 : 0.012, 0.85, n.layer === 'rule' || n.layer === 'core' ? 1.2 : 1.0); g.add(shell); instances += shellN;
+        let scat = null;
+        if (n.cracked && n.layer === 'plan') { // the scatter's per-mote hashes: a direction mostly outward, an amplitude, a hold
+          const base = new Float32Array(sp); const dir = new Float32Array(sp.length); const amp = new Float32Array(shellN); const hold = new Float32Array(shellN);
+          for (let i = 0; i < shellN; i++) { const h = (j) => hash01(n.seed ^ 0x5ca7, i * 8 + j); const inward = h(6) < 0.22 ? -0.6 : 1; const ux = base[i * 3] / n.R, uy = base[i * 3 + 1] / n.R, uz = base[i * 3 + 2] / n.R; const w = 0.35 + 0.65 * h(0); let dx = ux * inward * w + 0.9 * (h(1) - 0.5), dy = uy * inward * w + 0.9 * (h(2) - 0.5), dz = uz * inward * w + 0.9 * (h(3) - 0.5); const L = Math.hypot(dx, dy, dz) || 1; dir[i * 3] = dx / L; dir[i * 3 + 1] = dy / L; dir[i * 3 + 2] = dz / L; amp[i] = n.R * (0.12 + 0.28 * h(5) * h(5)); hold[i] = 0.12 + 0.06 * h(4); }
+          scat = { base, dir, amp, hold, shellN };
+        }
+        // the orbits of its children, drawn by the parent as dotted rings
+        let orbits = null;
+        const kids = nodes.filter((k) => k.parent === n.idx);
+        if (kids.length && L.dots) {
+          const op = [], oc = [];
+          const spans = [];
+          for (const k of kids) { const nd = Math.round(L.dots * (n.layer === 'rule' ? k.orbitR / 5.6 : 1)); spans.push([k, nd]); for (let i = 0; i < nd; i++) { op.push(0, 0, 0); const kk = (k.lit ? 0.8 : 0.55) * gain; const c = k.lit ? EMBER : AGENT; oc.push(c.r * kk, c.g * kk, c.b * kk); } }
+          orbits = points(op, oc, 0.02, 0.9, 1.4); orbits.userData.spans = spans; g.add(orbits); instances += op.length / 3;
+        }
+        let ghost = null;
+        if (n.cracked && n.layer !== 'rule') { ghost = new THREE.Mesh(n.layer === 'code' ? moonGeo : sphereGeo, rimMat(col, n.layer === 'code' ? 0.28 : 0.035, n.layer === 'code' ? 1.1 : 0.55, 0.45)); ghost.scale.setScalar(n.R); ghost.visible = false; hoodGroup.add(ghost); }
+        let glow = null;
+        if (n.layer === 'rule' || n.layer === 'core') { glow = points([0, 0, 0], [col.r * 0.9, col.g * 0.9, col.b * 0.9], n.R * 5, 1, n.layer === 'core' ? 7 : 5, 1, n.layer === 'core' ? 24 : 18); g.add(glow); instances += 1; }
+        const rec = { node: n, group: g, mesh: m, shell, orbits, glow, ghost, scat }; recs.push(rec); return rec;
+      }
+      // level of detail from a star system's projected outer radius (CSS px): what is drawn, and how bright
+      const LOD = { planets: [10, 20], shells: [25, 50], moons: [60, 120], tracks: [60, 120] };
+      function lodGains(sysPx) {
+        return { star: 1, planetPoint: smoothstep(LOD.planets[0], LOD.planets[1], sysPx), planetShell: smoothstep(LOD.shells[0], LOD.shells[1], sysPx), moon: smoothstep(LOD.moons[0], LOD.moons[1], sysPx), track: smoothstep(LOD.tracks[0], LOD.tracks[1], sysPx) };
+      }
+      function applyLod(rec, g, focal) {
+        const n = rec.node;
+        const isStar = n.layer === 'rule' || n.layer === 'core'; const k = isStar ? 1 : n.layer === 'plan' ? Math.max(g.planetPoint * 0.5, g.planetShell) : g.moon;
+        const vis = k > 0.01;
+        rec.group.visible = vis; if (!vis) return;
+        rec.mesh.material.uniforms.uGain.value = (n.layer === 'plan' ? Math.max(g.planetPoint, g.planetShell) : n.layer === 'code' ? g.moon : 1) * rec.baseGain;
+        if (n.layer === 'core') { rec.shell.material.uniforms.uGain.value = Math.max(0.35, g.planetPoint) * rec.baseGain; rec.shell.material.uniforms.uScale.value = focal; rec.shell.visible = true; rec.mesh.visible = true; if (rec.glow) { rec.glow.material.uniforms.uScale.value = focal; rec.glow.material.uniforms.uGain.value = rec.baseGain; } return; }
+        rec.shell.material.uniforms.uGain.value = (n.layer === 'rule' ? g.planetPoint : n.layer === 'plan' ? g.planetShell : g.moon) * rec.baseGain;
+        rec.shell.material.uniforms.uScale.value = focal; rec.shell.visible = rec.shell.material.uniforms.uGain.value > 0.02;
+        if (rec.orbits) { rec.orbits.material.uniforms.uGain.value = (n.layer === 'rule' ? g.track : g.moon * g.track) * rec.baseGain; rec.orbits.material.uniforms.uScale.value = focal; rec.orbits.visible = rec.orbits.material.uniforms.uGain.value > 0.02; }
+        rec.mesh.visible = n.layer === 'rule' || rec.mesh.material.uniforms.uGain.value > 0.02;
+        if (rec.glow) { rec.glow.material.uniforms.uScale.value = focal; rec.glow.material.uniforms.uGain.value = rec.baseGain; }
+      }
+      // streams: parent to child, rebuilt each frame from the bodies' places; only within the lamp and only at a detail level that shows the child
+      let streamObj = null;
+      function buildStreams(t, lamp, gains) {
+        const pos = [], col = [];
+        for (const n of nodes) {
+          if (!lamp(n)) continue; const pi = n.parent ?? (n.layer === 'rule' ? n.lineage : null); if (pi == null) continue; const p = nodes[pi];
+          const gk = n.layer === 'rule' ? (MODE === 'hood' || (MODE === 'zoom' && zoom > 0.82) ? 0.6 : 0) : n.layer === 'plan' ? gains(p).track : gains(p).moon; if (gk < 0.05) continue; // streams fade with the tracks: a far system is a star with planet points, nothing else
+          const pa = new THREE.Vector3(...nodePos(p, t)), pb = new THREE.Vector3(...nodePos(n, t));
+          const d = pb.clone().sub(pa); const len = d.length(); const dir = d.clone().normalize();
+          const s0 = pa.clone().add(dir.clone().multiplyScalar(p.R * 1.4)); const s1 = pb.clone().sub(dir.clone().multiplyScalar(n.R * 1.2));
+          const mid = s0.clone().add(s1).multiplyScalar(0.5); const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(len * 0.12 * (hash01(n.idx, 3) < 0.5 ? 1 : -1));
+          const c = mid.add(side); const k = Math.max(6, Math.round(len * 2.2)); const lit = (p.lit || p.source) && (n.lit || n.fixed); const cc = lit ? EMBER : AGENT;
+          for (let i = 0; i <= k; i++) { const u = (i + hash01(n.idx, 100 + i) * 0.6) / k; const om = 1 - u; const qv = s0.clone().multiplyScalar(om * om).add(c.clone().multiplyScalar(2 * om * u)).add(s1.clone().multiplyScalar(u * u)); pos.push(qv.x, qv.y, qv.z); const gg = (lit ? 0.9 : 0.5) * gk; col.push(cc.r * gg, cc.g * gg, cc.b * gg); }
+        }
+        if (streamObj) { hoodGroup.remove(streamObj); streamObj.geometry.dispose(); }
+        streamObj = points(pos, col, 0.05, 0.9, 1.3); hoodGroup.add(streamObj);
+        return pos.length / 3;
+      }
+      function pose(t) {
+        for (const rec of recs) {
+          const p = nodePos(rec.node, t); rec.group.position.set(p[0], p[1], p[2]);
+          const w = rec.node.cracked ? bodyTremble(rec.node, t) : null; if (w) { rec.mesh.position.set(...w); rec.shell.position.set(...w); }
+          if (rec.scat) scatterShell(rec, t);
+          if (rec.ghost) { const gp = rec.node._ghost; rec.ghost.visible = !!gp && rec.group.visible && rec.mesh.visible; if (gp) rec.ghost.position.set(gp[0], gp[1], gp[2]); }
+          if (rec.orbits && rec.orbits.visible) { // the dotted ellipse where the orbit is now (it precesses)
+            const arr = rec.orbits.geometry.attributes.position.array; let j = 0;
+            for (const [k, nd] of rec.orbits.userData.spans) { const w = k.omega0 + (2 * Math.PI * t) / k.precession; for (let i = 0; i < nd; i++) { const nu = (i / nd) * Math.PI * 2; const r = k.a * (1 - k.e * k.e) / (1 + k.e * Math.cos(nu)); const q = orbitXYZ(k.track, r, nu + w, 0); arr[j++] = q[0]; arr[j++] = q[1]; arr[j++] = q[2]; } }
+            rec.orbits.geometry.attributes.position.needsUpdate = true;
+          }
+        }
+      }
+
+      // ---------- camera (bearing deg about y from +z, elev deg, dist, fov, target; the portrait rig) ----------
+      const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 2000);
+      let focalPx = 1;
+      function aim(c, vw = W, vh = H, frameY) {
+        const tg = new THREE.Vector3(...c.t); const br = (c.b * Math.PI) / 180, er = (c.e * Math.PI) / 180;
+        camera.aspect = vw / vh;
+        let d = c.d; let fov = c.fov;
+        const aspect = vw / vh; const k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+        if (k > 1) { d *= k; fov = Math.min(100, fov * k); }
+        camera.position.set(tg.x + d * Math.cos(er) * Math.sin(br), tg.y + d * Math.sin(er), tg.z + d * Math.cos(er) * Math.cos(br));
+        camera.fov = fov; camera.up.set(0, 1, 0); camera.lookAt(tg); camera.updateProjectionMatrix();
+        const y = frameY ?? c.frameY ?? (aspect < 1 ? 0.62 : 0.66);
+        camera.setViewOffset(vw, vh, 0, -(y - 0.5) * vh, vw, vh);
+        focalPx = (vh / 2) / Math.tan((fov * Math.PI) / 360); // CSS px per unit at unit distance
+        return d;
+      }
+      function parse(s) { const v = s.split(',').map(Number); return { b: v[0], e: v[1], d: v[2], fov: v[3], t: [v[4], v[5], v[6]] }; }
+      const worldOf = (n, t) => { const p = nodePos(n, t); const v = new THREE.Vector3(p[0], p[1], p[2]); hoodGroup.localToWorld(v); return [v.x, v.y, v.z]; };
+
+      // ---------- text ----------
+      const LINES = {
+        close: [['Come closer. Out here, one piece of code has a defect.', 1], ['Up close, if you watch, you can see it. So you fix it.', 0]],
+        far: [['From far away, everything looks right.', 0]],
+        system: [['Each piece of work is built from what its agent reads.', 0]],
+        twelve: [['Now step back.', 1], ['The agents kept building. Whatever is built on a defect carries it too.', 1], ['Twelve new defects. You fixed one.', 0]],
+        hood: [['Rules shape plans, and plans shape code.', 1], ['All of it is one system.', 0]],
+        galaxy: [['From far away, everything looks right.', 0]],
+        zoom: [['Now let\u2019s zoom out.', 1], ['You want a hundred things built, and the agents build all day.', 0]],
+      };
+      const CAPS = {
+        close: 'Left: the bike as a piece of work, healthy: a planet (its frame) with seven moons (wheels, fork and bars, drivetrain, saddle, basket, fittings), running smooth. Right: the same piece carrying the defect: the planet breathes, comes apart in hard cuts and re-forms, and its moons stutter and burst. The small pair above the controls is the same two from far away.',
+        system: 'One plan and what was built from it: a star (the plan) with its planets (the pieces of code), each with its moons (the parts). The stream from the core is the rule the plan was written from.',
+        twelve: 'Three plans written from the incorrect rule and the pieces built from them: three stars and nine planets lit, the fixed piece amber. The core, where the rules are, is lit at its middle.',
+        hood: 'The neighbourhood: the plans the essay follows, stars on the arm nearest the core; the core itself is the rules, six large bodies, every stream leaving it outward. A star here is a point with a few planet points.',
+        galaxy: 'The galaxy: a bright core (the rules) and thousands of stars (plans) in two arms, dust between; the neighbourhood a knot of a dozen stars near the core. It turns once in twenty minutes.',
+        zoom: 'The zoom-out, one piece to the whole: the bike as a planet with its moons, its plan as a star, the neighbourhood, the galaxy with its core. Drag the slider or press play; the detail levels hand over at 10 to 20, 25 to 50 and 60 to 120 px of system radius.',
+      };
+      const panel = document.getElementById('panel'), label = document.getElementById('label'), ui = document.getElementById('ui'), tags = document.getElementById('tags'), cap = document.getElementById('cap'), stat = document.getElementById('stat');
+      const STILL = MODE === 'far' || AMBIENT0 !== null;
+
+      // ---------- build ----------
+      let ambient = AMBIENT0 ?? 0; let zoom = ZOOM0 ?? 0; let zoomPlaying = false;
+      let closeWell = null, closeSick = null;
+      function clearHood() { for (const r of recs) hoodGroup.remove(r.group); recs.length = 0; if (streamObj) { hoodGroup.remove(streamObj); streamObj = null; } nodes = []; instances = 0; }
+      function build(mode) {
+        clearHood(); MODE = mode;
+        panel.innerHTML = mode === 'close' && !STILL ? '' : (LINES[mode] || []).map(([s, dim]) => `<p class="${dim ? 'dim' : ''}">${s}</p>`).join('');
+        cap.textContent = CAPS[mode] || '';
+        for (const b of ui.querySelectorAll('button[data-mode]')) b.classList.toggle('on', b.dataset.mode === mode);
+        tags.style.display = mode === 'close' && !STILL ? 'block' : 'none';
+        bgGroup.visible = !(mode === 'close' || mode === 'far');
+        if (mode === 'close' || mode === 'far') {
+          // two planets with their moons, side by side: the one on the right carries the defect on one moon
+          const mk = (at, sick) => { const p = addNode('plan', null, 0, 0, 0, { at, hero: mode === 'close', R: 0.3 }); addMoons(p, 7, { sick }); if (sick) { p.cracked = true; p.seed = SEED * 131 + 7; p.phase = 0.37; for (const m of nodes) if (m.parent === p.idx) m.cracked = true; } return p; };
+          if (STILL) { mk([0, 0, 0], SICK); for (const [i, at] of [[-2.2, 0, -1.5], [2.0, 0, -2.4], [-2.8, 0, 2.0]].entries()) { const p = addNode('plan', null, 0, 0, 0, { at, R: SIZES.planet() }); p.dim = true; addMoons(p, [0, 2, 1][i]); } }
+          else { closeWell = mk([-50, 0, 0], false); closeSick = mk([50, 0, 0], true); }
+          for (const n of nodes) { const r = addBody(n, n.dim || (n.parent != null && nodes[n.parent].dim) ? 0.3 : 1); r.baseGain = 1; }
+          hoodGroup.position.set(0, 0, 0);
+        } else {
+          hoodGroup.position.set(...HOOD_AT);
+          layoutHood(); if (mode !== 'zoom') markTwelve();
+          
+          for (const n of nodes) { const r = addBody(n, 1); r.baseGain = 1; }
+          if (!galaxyBuilt) { buildGalaxy(); galaxyBuilt = true; }
+        }
+      }
+      let galaxyBuilt = false;
+      const CAMS = {
+        close: { b: -35, e: 32, d: 3.0, fov: 36, t: [0, 0, 0], frameY: 0.72 },
+        far: { b: -35, e: 32, d: 66, fov: 40, t: [0, 0, 0], frameY: 0.62 },
+        system: { b: -10, e: 70, d: 19, fov: 40, t: [0, 0, 0] },
+        twelve: { b: -10, e: 74, d: 84, fov: 40, t: [0, 0, 0] },
+        hood: { b: 0, e: 84, d: 150, fov: 40, t: [0, 0, 0] },
+        galaxy: { b: 0, e: 86, d: 640, fov: 40, t: [0, 0, 0] },
+      };
+      // the zoom-out: distance from 1.2 (a moon fills the frame) to 640 (the galaxy), log-linear; the target walks moon → planet → star → galaxy centre
+      function zoomCam(z, t) {
+        const d = Math.exp(Math.log(1.6) + z * (Math.log(640) - Math.log(1.6)));
+        const stars = nodes.filter((x) => x.layer === 'rule'); const star = stars[3]; const planet = nodes.find((x) => x.layer === 'plan' && x.parent === star.idx); // the bike's planet: P_a's first
+        const wp = worldOf(planet, t), ws = worldOf(star, t); const wh = (() => { const v = new THREE.Vector3(0, 0, 0); hoodGroup.localToWorld(v); return [v.x, v.y, v.z]; })();
+        const mix = (a, b, f) => a.map((v, i) => v + (b[i] - v) * f);
+        let tg = mix(wp, ws, smoothstep(0.12, 0.38, z)); tg = mix(tg, wh, smoothstep(0.45, 0.65, z)); tg = mix(tg, [0, 0, 0], smoothstep(0.72, 1, z));
+        return { b: 0, e: 86, d, fov: 40, t: tg, frameY: 0.62 };
+      }
+      let lastInfo = '';
+      function render(t) {
+        galaxyGroup.rotation.y = bgGroup.visible ? (2 * Math.PI * t) / GALAXY.period : 0;
+        pose(t);
+        const uiH = STILL ? 0 : Math.ceil(ui.getBoundingClientRect().height) + 6;
+        renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H); renderer.clear();
+        if (MODE === 'close' && !STILL) {
+          const stripH = Math.round(H * 0.17), top = Math.round(H * 0.12), mainH = H - top - stripH - uiH; const halfW = Math.floor(W / 2);
+          renderer.setScissorTest(true);
+          for (const [i, x] of [[-50, 0], [50, halfW]]) {
+            renderer.setViewport(x, uiH + stripH, halfW, mainH); renderer.setScissor(x, uiH + stripH, halfW, mainH);
+            aim({ b: -35, e: 32, d: 3.0, fov: 36, t: [i, 0, 0] }, halfW, mainH, 0.5); const g = lodGains(1e4); for (const r of recs) applyLod(r, g, focalPx); pose(t); buildStreams(t, () => true, () => g); renderer.render(scene, camera);
+            renderer.setViewport(x, uiH, halfW, stripH - 16); renderer.setScissor(x, uiH, halfW, stripH - 16);
+            aim({ b: -35, e: 32, d: 66, fov: 40, t: [i, 0, 0] }, halfW, stripH - 16, 0.5); const g2 = lodGains(1e4); for (const r of recs) applyLod(r, g2, focalPx); renderer.render(scene, camera);
+          }
+          renderer.setScissorTest(false);
+          const e = activeEvent(nodes.find((n) => n.cracked), t); cap.innerHTML = CAPS.close + (e ? ` Now: <b class="ev">${e}</b>.` : ' Now: between events.');
+        } else {
+          let c;
+          if (MODE === 'zoom') c = zoomCam(zoom, t);
+          else { c = OVER ? parse(OVER) : { ...CAMS[MODE] }; if (!(MODE === 'close' || MODE === 'far')) { const stars = nodes.filter((x) => x.layer === 'rule'); const cen = (ids) => { const ws = ids.map((st) => worldOf(st, t)); return ws[0].map((_, i) => ws.reduce((a, w) => a + w[i], 0) / ws.length); }; const hc = cen(stars); c.t = MODE === 'galaxy' ? [0, 0, 0] : MODE === 'system' ? worldOf(stars[3], t) : MODE === 'twelve' ? cen(stars.slice(0, 3)) : hc.map((v) => v * 0.55); if (MODE === 'system') c.d = 2.7 * (stars[3].rOut || 9.6); } }
+          const d = aim(c, W, H, STILL ? undefined : MODE === 'zoom' ? 0.62 : 0.5);
+          // the level of detail per star system, from its projected outer radius
+          const stars = nodes.filter((n) => n.layer === 'rule');
+          const sysPx = new Map();
+          for (const s of stars) { const w = worldOf(s, t); const dist = camera.position.distanceTo(new THREE.Vector3(...w)); sysPx.set(s.idx, (SYSTEM_R * focalPx) / dist); }
+          const rootOf = (n) => (n.parent == null ? n : rootOf(nodes[n.parent]));
+          const gainsOf = (n) => lodGains(MODE === 'close' || MODE === 'far' ? 1e4 : sysPx.get(rootOf(n).idx));
+          // the lamp: the system shot lights the source's system only; the neighbourhood and galaxy shots light everything
+          const starsAll = nodes.filter((x) => x.layer === 'rule');
+          const lamp = (n) => MODE === 'system' ? rootOf(n).idx === starsAll[3].idx : MODE === 'twelve' ? (n.layer === 'core' || starsAll.slice(0, 3).some((st) => st.idx === rootOf(n).idx)) : true;
+          for (const r of recs) { const on = lamp(r.node); r.group.visible = on; if (on) applyLod(r, gainsOf(r.node), focalPx); }
+          pose(t);
+          const streamN = buildStreams(t, lamp, gainsOf);
+          renderer.render(scene, camera);
+          const lod2 = [...sysPx.values()].filter((v) => v >= LOD.moons[0]).length, lod1 = [...sysPx.values()].filter((v) => v >= LOD.planets[0] && v < LOD.moons[0]).length;
+          lastInfo = `distance ${d.toFixed(1)}; system radius on screen ${Math.max(...sysPx.values()).toFixed(0)} px; systems at full detail ${lod2}, star+planets ${lod1}, star only ${stars.length - lod1 - lod2}; instances ${instances + streamN} (+${GALAXY.stars + GALAXY.dust} background)`;
+          label.textContent = STILL ? `${MODE} \u00b7 ${MODE === 'far' ? (SICK ? 'carries the defect' : 'healthy') + ' \u00b7 ' : ''}ambient ${ambient.toFixed(2)} s${ZOOM0 !== null ? ' \u00b7 zoom ' + zoom.toFixed(2) : ''}` : '';
+          if (!STILL) stat.textContent = lastInfo;
+        }
+      }
+
+      build(MODE === 'zoom' && !STILL && ZOOM0 === null ? 'zoom' : MODE);
+      if (STILL) {
+        render(ambient); const sick = nodes.find((n) => n.cracked && n.layer === 'code'); if (sick) { window.__event = activeEvent(sick, ambient); window.__s = derpEvent(sick.seed, ambient, sick.phase).s; }
+        window.__count = { nodes: nodes.length, lit: nodes.filter((n) => n.lit).length, instances }; window.__info = lastInfo; window.__done = true;
+      } else {
+        ui.style.display = 'block'; document.getElementById('vignette').style.display = 'none';
+        let playing = true, last = performance.now();
+        const out = document.getElementById('clockOut'), zoomEl = document.getElementById('zoom'), zp = document.getElementById('zoomplay');
+        document.getElementById('play').onclick = (e) => { playing = !playing; e.target.textContent = playing ? 'pause' : 'play'; };
+        for (const b of ui.querySelectorAll('button[data-mode]')) b.onclick = () => { zoomPlaying = false; zp.textContent = 'Zoom out: play'; build(b.dataset.mode); };
+        zoomEl.oninput = () => { zoom = Number(zoomEl.value); zoomPlaying = false; zp.textContent = 'Zoom out: play'; if (MODE !== 'zoom') build('zoom'); };
+        zp.onclick = () => { if (MODE !== 'zoom') build('zoom'); zoomPlaying = !zoomPlaying; if (zoomPlaying && zoom >= 0.999) zoom = 0; zp.textContent = zoomPlaying ? 'Zoom out: pause' : 'Zoom out: play'; };
+        let frames = 0, fpsT = performance.now(), fps = 0;
+        function frame(now) {
+          const dt = (now - last) / 1000; if (playing) ambient += dt; last = now;
+          if (zoomPlaying) { zoom = Math.min(1, zoom + dt / 24); zoomEl.value = zoom.toFixed(3); if (zoom >= 1) { zoomPlaying = false; zp.textContent = 'Zoom out: play'; } }
+          frames++; if (now - fpsT > 1000) { fps = frames * 1000 / (now - fpsT); frames = 0; fpsT = now; }
+          out.textContent = `${ambient.toFixed(1)} s, ${fps.toFixed(0)} fps`;
+          render(ambient);
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+        window.__done = true;
+      }
+    </script>

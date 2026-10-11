@@ -1,0 +1,13 @@
+story: frame the bike through the cold open, reveal, rewind and spec
+
+The cold open sweeps low and three-quarter from the drive side, the camera
+just above the bottom bracket so the saddle and handlebars stand against the
+sky. The reveal swings to about 15 degrees off side-on, a little above, with a
+narrower field so the swapped saddle and handlebars read without distortion.
+The rewind pulls back as before; the spec closes on all three contact points
+from slightly ahead of side-on. Every machine sits right of the text panel.
+
+The keyframes test no longer holds the camera still through the reveal; it
+fences the cold open's low three-quarter sweep and the reveal's bearing.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

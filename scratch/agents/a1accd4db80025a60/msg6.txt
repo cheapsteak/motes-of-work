@@ -1,0 +1,9 @@
+docs: the ghost alpha lives in LIGHTING alone, its measurements with it
+
+ghost.vert.glsl restated LIGHTING.ghostAlpha's value (0.4) beside the
+measurement rationale, which would go stale on the first retune now that
+the dev slider changes it live. The shader now names the constant only and
+keeps the stride's reasoning; the alpha's measurements move to its entry
+in lighting.ts.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

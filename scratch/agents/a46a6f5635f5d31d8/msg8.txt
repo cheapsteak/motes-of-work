@@ -1,0 +1,8 @@
+plan: the background sprite caps, the background and stream interfaces, and the budget as built
+
+The global constraint and Task 5's caps take the background stars' 2 and 3 px; the Task 1
+interface lines take generateBackground's neighbourhood spots, the removed exclusion fields, the
+warm-star encoding, bowBearing and the galaxy's instance sum; Task 5 counts 40 dots per moon track
+in use and reads the budget from the galaxy's instances, and glowPx is the one from the model.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

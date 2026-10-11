@@ -1,0 +1,11 @@
+e2e: pin the page engine, its place at the top and the no-JS document
+
+New pages.spec (both sizes): looks equal by jump, forward and backward
+scroll; one page at a time with lines up in reading order; the panel anchored
+at the top for its whole section inside the 42% text band. text.spec extends
+the no-transition check to pages and lines and adds the no-JS document;
+app.spec checks pages by opacity and that they still turn after a context
+loss. The old centre-line, low-panel and below-the-machine clearance checks
+pinned the retired layout and are dropped; shots are taken per beat.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

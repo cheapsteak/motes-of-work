@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spike 3: float texture read</title>
+    <link rel="stylesheet" href="./spikes.css" />
+  </head>
+  <body>
+    <main class="page">
+      <p><a href="./index.html">All spikes</a></p>
+      <h1>Spike 3: float texture in the vertex shader</h1>
+      <p class="muted">
+        The vertex shader reads a 4×4 RGBA32F texture with texelFetch and places 16 quads from it. PASS means every quad
+        came out where and as bright as the texels say.
+      </p>
+      <p><strong id="verdict" aria-live="polite">Running</strong></p>
+      <p id="detail" class="muted"></p>
+      <div id="results"></div>
+    </main>
+    <script type="module" src="./floattex.ts"></script>
+  </body>
+</html>

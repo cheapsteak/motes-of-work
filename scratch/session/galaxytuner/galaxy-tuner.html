@@ -1,0 +1,2420 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galaxy tuner</title>
+<style>
+  /* Layout: one full-bleed stage (the galaxy, at phone size or desktop size, scaled to fit) with a
+     collapsible bottom sheet of controls. Single dark look by design: the essay's ground. */
+  :root {
+    --bg: #0b0d12;
+    --sheet: #12161f;
+    --sheet-edge: #232a38;
+    --fg: #e4e8f0;
+    --muted: #8b94a8;
+    --accent: #4da3ff;
+    --warm: #ffe2b0;
+    --track: #2a3243;
+    --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); overflow: hidden; }
+  #stage { position: fixed; inset: 0; overflow: hidden; background: var(--bg); touch-action: none; }
+  #frame { position: absolute; left: 50%; top: 50%; transform-origin: 0 0; }
+  #frame.boxed { outline: 1px solid #262c3a; }
+  #frame canvas { display: block; }
+  #band { position: absolute; left: 0; top: 0; width: 100%; height: 42%; background: rgba(11, 13, 18, 0.55); border-bottom: 1px dashed rgba(139, 148, 168, 0.5); box-sizing: border-box; padding: 15% 8% 0; pointer-events: none; }
+  #frame.wide #band { padding-top: 8%; }
+  #band p { margin: 0; font: 400 clamp(18px, 6vw, 24px)/1.3 Georgia, 'Times New Roman', serif; color: var(--fg); }
+  #frame.wide #band p { font-size: 22px; }
+  #band small { position: absolute; right: 8px; bottom: 4px; color: var(--muted); font: 11px var(--font); }
+  #readout { position: absolute; left: 8px; top: 6px; max-width: 95%; color: var(--muted); font: 10px/1.3 var(--mono); pointer-events: none; }
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--sheet); border-top: 1px solid var(--sheet-edge); border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45); max-height: 56vh; display: flex; flex-direction: column; }
+  #sheet.collapsed #body { display: none; }
+  #head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap; }
+  #head h1 { font-size: 15px; font-weight: 600; margin: 0 auto 0 0; letter-spacing: 0.01em; }
+  #body { overflow-y: auto; padding: 0 12px 12px; min-height: 0; }
+  button { font: inherit; color: var(--fg); background: #1b2130; border: 1px solid var(--sheet-edge); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.on { background: #1f3350; border-color: var(--accent); }
+  button.chev { padding: 4px 10px; font-size: 16px; line-height: 1; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  details { border-top: 1px solid var(--sheet-edge); }
+  summary { cursor: pointer; padding: 8px 0; font-weight: 600; color: var(--fg); list-style: none; display: flex; align-items: center; gap: 8px; }
+  summary::before { content: '▸'; color: var(--muted); font-size: 12px; }
+  details[open] summary::before { content: '▾'; }
+  summary small { color: var(--muted); font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; padding-bottom: 8px; }
+  .ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; min-width: 0; }
+  .ctl label { color: var(--fg); font-size: 13px; }
+  .ctl output { color: var(--muted); font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+  .ctl input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); height: 22px; }
+  .ctl select, .ctl input[type=color] { grid-column: 1 / -1; background: #1b2130; color: var(--fg); border: 1px solid var(--sheet-edge); border-radius: 6px; padding: 4px 6px; font: inherit; }
+  .ctl input[type=color] { height: 30px; padding: 2px; }
+  .ctl.changed label::after { content: ' •'; color: var(--warm); }
+  .note { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+  #json { width: 100%; box-sizing: border-box; height: 120px; background: #0e1119; color: var(--fg); border: 1px solid var(--sheet-edge); border-radius: 8px; font: 11px/1.4 var(--mono); padding: 8px; margin-top: 6px; }
+  #toast { color: var(--warm); font-size: 12px; }
+  #sheet.peek { visibility: hidden; pointer-events: none; }
+  /* Hold to see lives in the open sheet; while held the sheet hides but the button stays so it can be released. */
+  #peek { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #peek.on { background: #1f3350; border-color: var(--accent); }
+  #sheet.peek #peek { visibility: visible; }
+  /* Compare mode (the default): the sheet is gone, the readout hidden, a small pill is the only UI. */
+  #sheet.closed { display: none; }
+  body:not(.open) #readout { display: none; }
+  #pill { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 14px 7px; border-radius: 999px; background: rgba(18, 22, 31, 0.55); border: 1px solid rgba(139, 148, 168, 0.18); color: var(--fg); font: 12px/1.2 var(--font); opacity: 0.45; transition: opacity 0.6s ease, background 0.6s ease; -webkit-tap-highlight-color: transparent; }
+  #pill.flash { opacity: 1; background: rgba(27, 33, 48, 0.85); transition: none; }
+  #pill:hover, #pill:focus-visible { opacity: 0.9; }
+  #pill-dots { display: flex; gap: 5px; }
+  #pill-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(228, 232, 240, 0.3); }
+  #pill-dots i.on { background: var(--fg); }
+  #pill-dots2 { display: flex; gap: 4px; margin-top: -1px; }
+  #pill-dots2 i { width: 3px; height: 3px; border-radius: 50%; background: rgba(228, 232, 240, 0.3); }
+  #pill-dots2 i.on { background: var(--fg); }
+  body.open #pill { display: none; }
+  #hood-row { align-items: center; }
+  #hood-row .lbl { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  button.chip { border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  button.chip.on { background: #1f3350; border-color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { #pill { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { #sheet { transition: none; } }
+</style>
+
+<div id="stage">
+  <div id="frame">
+    <div id="band" hidden><p>From far away, everything looks right.</p><small>text band · top 42 %</small></div>
+    <div id="readout"></div>
+  </div>
+</div>
+
+<button id="pill" type="button" aria-label="Show the controls"><span id="pill-name"></span><span id="pill-dots" aria-hidden="true"></span><span id="pill-dots2" aria-hidden="true"></span></button>
+
+<div id="sheet" class="closed">
+  <div id="head">
+    <h1>Galaxy tuner</h1>
+    <button id="preset-today" type="button">Today</button>
+    <button id="preset-rec" type="button">Recommended</button>
+    <button id="preset-rec-soft" type="button" title="Recommended with soft arm edges: an unbounded cross-arm profile, no clearance (halos may overlap), the lane as a smooth dip">Recommended (soft)</button>
+    <button id="preset-wisps" type="button" title="Arms that emerge from a flow-aligned noise field: wisps, no outline">Wisps</button>
+    <button id="preset-wisps-reviewed" type="button" title="Wisps, reviewed: gradient noise on ridges, two scales (segments and feathers), a forking bias that rises outward, beads of knots, a lane filament, a visible old disc">Wisps (reviewed)</button>
+    <button id="preset-wave" type="button" title="Shape mode A: arms where elliptical orbits crowd">Density wave</button>
+    <button id="preset-field" type="button" title="Shape mode B: stars drawn from a smooth density field">Smooth field</button>
+    <button id="preset-m74" type="button" title="Shape mode C: the research recipe, an Sc like M74, as specified">M74 recipe</button>
+    <button id="preset-readable" type="button" title="The M74 recipe tuned so the two arms read at a glance on a phone">Readable</button>
+    <button id="preset-readable-colour" type="button" title="Readable with the star colour model">Readable + colour</button>
+    <button id="preset-wave-colour" type="button" title="The density wave with the star colour model">Density wave + colour</button>
+    <button id="copy" type="button">Copy values</button>
+    <button id="peek" type="button" aria-label="Hold to hide the controls">Hold to see</button>
+    <button id="close" class="chev" type="button" aria-label="Close the controls">✕</button>
+  </div>
+  <div id="body">
+    <div class="row">
+      <button id="cam-reset" type="button" title="Back to the essay framing, unturned, and forget the saved camera">Reset camera</button>
+      <button id="cam-essay" type="button" title="The essay's galaxy wide: distance 640, fov 40, elevation 86, aimed at the core, reframed for the frame's size">Essay framing</button>
+      <button id="cam-over" type="button">Overhead</button>
+      <button id="cam-tilt" type="button">Tilted 70°</button>
+      <button id="band-toggle" type="button">Text band</button>
+      <button id="spin" type="button">Rotate</button>
+      <select id="frame-size" aria-label="Frame size">
+        <option value="fit">Fit window</option>
+        <option value="phone">Phone 390 × 844</option>
+        <option value="desktop">Desktop 1440 × 900</option>
+      </select>
+    </div>
+    <div class="row" id="hood-row"><span class="lbl">Neighbourhood</span><button class="chip" type="button" data-hood="today" title="The 30 spots as uniform agent-blue sprites, bit for bit">As today</button><button class="chip" type="button" data-hood="blend" title="The positions stay; each spot's far look (brightness, size, colour) is drawn from the background population around it, seeded per spot; the real sprite fades in on approach">Blend</button><button class="chip" type="button" data-hood="dissolve" title="At the galaxy wide the 30 are not drawn as themselves: the nearest background star is pulled onto each spot; the real sprite fades in on approach">Dissolve</button><button class="chip" type="button" data-hood="dissolve-late" title="Dissolve with a later handover band (its own sliders), so the far form holds until the camera is nearer">Dissolve (late)</button><button class="chip" type="button" data-hood="jitter" title="For comparison: the spots moved off their even spacing by a seeded jitter snapped to the densest background, keeping a minimum gap (reported in the readout)">Jitter</button></div>
+    <p class="note">Swipe sideways (or ← →, a trackpad swipe, a click-drag) to change preset, up or down (or ↑ ↓) to change the neighbourhood option; the camera stays put. Pinch or wheel to zoom; two-finger drag, right-drag or modifier-drag to orbit. A dot marks a value that differs from today's. Values in brackets are today's.</p>
+    <div id="sections"></div>
+    <span id="toast"></span>
+    <textarea id="json" hidden readonly aria-label="Parameters as JSON"></textarea>
+  </div>
+</div>
+
+<script type="module">
+// Galaxy background generator: a port of src/galaxy/background.ts (today's look, bit for bit with the
+// default parameters) extended with the recommended populations (perpendicular arm profile, inter-arm
+// disc, exponential bulge, knots, dust lanes, colour gradient). Pure and deterministic.
+
+// ---- seeded streams (src/math/hash.ts, src/galaxy/seeds.ts) ----
+function pcg(v) {
+  const state = (Math.imul(v, 747796405) + 2891336453) >>> 0;
+  const word = Math.imul((state >>> ((state >>> 28) + 4)) ^ state, 277803737);
+  return ((word >>> 22) ^ word) >>> 0;
+}
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seededStream(seed, salt, key) {
+  const mix = pcg((Math.imul(salt, 0x9e3779b9) ^ Math.imul(key + 1, 0x85ebca6b)) >>> 0);
+  const rng = mulberry32(pcg((seed ^ mix) >>> 0));
+  rng();
+  return rng;
+}
+const SALT = { bgStars: 8, bgDust: 9, bgRingTurn: 10, bgRingSlots: 11, bgKnots: 12, bgPop: 13, bgArmMod: 22, bgSpurs: 15, bgTemp: 16, bgWisps: 17, bgWispGrad: 18, bgBeads: 19, bgHoodLook: 20, bgHoodJitter: 21 };
+const streamFor = (seed, concern, key) => seededStream(seed, SALT[concern], key);
+
+// ---- the essay's constants ----
+// landscapeDistance: the wide on a landscape screen (the desktop tier's probe), stood off so the wider
+// neighbourhood (1.5 x spacing) keeps under the text band; a portrait screen keeps 640.
+const GALAXY_WIDE = { distance: 640, landscapeDistance: 953, fov: 40, elevation: 86 };
+const TIER_SCREEN = { phone: [390, 844], desktop: [1440, 900] };
+const HALO_MARGIN = 1.05;
+const CORE_RING = 72;
+const CORE_JITTER = 0.25;
+const PLACE_ATTEMPTS = 64;
+const STAR_R = 0.9, GLOW_SCALE = 5, GLOW_MIN_PX = 5, GLOW_CAP_STAR = 18;
+// The neighbourhood's 30 star spots (x, z), as generateGalaxy(seed 1) places them (the same on both tiers).
+const HOOD = [[36.60935229815551, 55.28699773763559], [-3.064983303006141, 97.11884645179722], [-24.990025384909995, 81.95654992999428], [60.288409581708244, 33.4309767319346], [35.3210495971816, 30.28844072500911], [103.0327984931982, 18.0248212178328], [98.8646523258612, 67.44789957337133], [-19.5209699380317, 52.305502095801565], [20.952504373583334, 83.21883327832168], [57.34926083050949, -28.502208062543563], [67.46707959517133, 66.48817195445919], [87.23743634965058, 102.0355246266771], [-6.073098316343183, 126.25640973596569], [100.63741312535996, -19.727398707314485], [3.487486748531065, 42.985073835873195], [-2.3987743251210105, 70.40602408168174], [40.78987092169486, 5.429809842542184], [75.51605236188338, 1.7019270426147586], [53.99874093697776, 97.76772659891508], [112.22196816165535, 41.68653532101668], [48.78983701169009, 124.46068779638647], [-28.381013045141856, 28.776705769474084], [25.620209490705605, -34.41354177628917], [87.81475314975592, 42.13670975351566], [23.153999527203595, 115.35336764758912], [-44.361732604201215, 57.55939241572435], [-28.411178979802266, 107.8003212843932], [28.7306202411107, 147.2105805244047], [131.16769501256698, 58.02088727709871], [132.77024894223192, 7.513180951214093]];
+
+function galaxyWideView(width, height) {
+  const aspect = width / height;
+  const k = Math.sqrt(aspect < 1 ? Math.min(2.4, Math.max(1, 0.89 / aspect)) : 1);
+  const el = (GALAXY_WIDE.elevation * Math.PI) / 180;
+  const d = (aspect < 1 ? GALAXY_WIDE.distance : GALAXY_WIDE.landscapeDistance) * k;
+  const focal = height / (2 * Math.tan((GALAXY_WIDE.fov * Math.PI) / 360) * k);
+  return { pos: [0, d * Math.sin(el), d * Math.cos(el)], focal, pxPerUnit: focal / d, k };
+}
+function glowPx(R, d, focalPx, cap) {
+  return Math.min(cap, Math.max(GLOW_MIN_PX, (GLOW_SCALE * R * focalPx) / d));
+}
+function hoodGlowPx(tier, spot) {
+  const { pos, focal } = galaxyWideView(...TIER_SCREEN[tier]);
+  return glowPx(STAR_R, Math.hypot(spot[0] - pos[0], 0 - pos[1], spot[1] - pos[2]), focal, GLOW_CAP_STAR);
+}
+
+function wrap(a) {
+  const w = a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
+  return w <= -Math.PI ? w + 2 * Math.PI : w;
+}
+/** Arm `arm` of `arms` at radius r: arm·2π/arms + ln(r/2)/pitch + phase (today: arms 2, so arm·π). */
+function armAngleAt(r, pitch, phase, arm, arms) {
+  return wrap((arm * 2 * Math.PI) / arms + Math.log(r / 2) / pitch + phase);
+}
+function armPhaseFor(r, bearing, pitch) {
+  return wrap(bearing - Math.log(r / 2) / pitch);
+}
+
+/** Today's parameters: src/galaxy/background.ts BG plus the renderer's sprite sizes. */
+const TODAY = {
+  tier: 'phone',
+  seed: 1,
+  stars: 2400,
+  dust: 4000,
+  radius: 220,
+  arms: 2,
+  pitch: 0.28,
+  armMode: 'bearing', // bearing (today) | perp
+  scatter: 0.42,
+  scatterRim: 0.5, // today: scatter·(1 − 0.5 r/R)
+  armSoft: 0, // 0 uniform (today), 1 gaussian
+  sigmaCore: 4, // perp mode: σ across the arm at the centre (units)
+  sigmaRim: 22, // perp mode: σ at the rim
+  armEnd: 1, // arms fade into the disc past this share of the radius
+  discShare: 0, // share of the non-core stars spread between the arms
+  radialLaw: 'power', // power (today: r = R u^exp) | exp (exponential disc of scale discScale·R)
+  starExp: 0.75,
+  discScale: 0.3,
+  coreShare: 0.22,
+  bulgeMode: 'rings', // rings (today) | exp (exponential sphere)
+  coreAt: 0.35,
+  bulgeScale: 0.09,
+  bulgeFlat: 0.55,
+  coreExclusion: 16,
+  brightShare: 0.15,
+  brightFloor: 0.35,
+  brightPow: 2,
+  warmShare: 0.12,
+  warmGradient: 0, // 0: warmShare everywhere (today); 1: warmCore at the centre to warmRim at the rim
+  warmCore: 0.9,
+  warmRim: 0.04,
+  clumpShare: 0,
+  clumpCount: 36,
+  clumpRadius: 4.5,
+  clumpOut: 0.6, // knots sit this many σ outward of the arm's centre line
+  clumpBright: 0.5,
+  laneDepth: 0,
+  laneOffset: -0.55, // in σ; negative is the inner (concave) edge
+  laneWidth: 0.4, // in σ
+  starY: 0.6,
+  dustY: 1.1,
+  dustMode: 'arms', // arms (today) | disc | lanes
+  dustScatter: 0.9,
+  dustExp: 0.6,
+  dustFloor: 0.08,
+  dustRange: 0.1,
+  // sprites (src/scene/galaxy/galaxySystem.ts, star.frag.glsl, lod.ts)
+  haloStar: 2,
+  haloBright: 3,
+  maxStar: 4,
+  maxBright: 6,
+  worldStar: 0.7,
+  worldBright: 1,
+  dustPx: 1,
+  hazePx: 56,
+  hazeGain: 0.35,
+  hazeWarm: 0,
+  agent: '#4DA3FF',
+  warm: '#FFF2E0',
+  warmMix: 0.55,
+  gain: 1,
+  hood: 1,
+};
+
+/** The recommendation: the same budget, the populations of a real spiral. */
+const RECOMMENDED = {
+  ...TODAY,
+  pitch: 0.34,
+  armMode: 'perp',
+  armSoft: 1,
+  sigmaCore: 3,
+  sigmaRim: 9,
+  armEnd: 0.9,
+  discShare: 0.1,
+  radialLaw: 'exp',
+  discScale: 0.4,
+  coreShare: 0.25,
+  bulgeMode: 'exp',
+  bulgeScale: 0.08,
+  bulgeFlat: 0.55,
+  brightFloor: 0.3,
+  brightPow: 2.2,
+  warmGradient: 1,
+  warmCore: 0.9,
+  warmRim: 0.04,
+  clumpShare: 0.18,
+  clumpCount: 30,
+  clumpRadius: 5,
+  clumpOut: 0.6,
+  clumpBright: 0.5,
+  laneDepth: 0.6,
+  laneOffset: -0.6,
+  laneWidth: 0.4,
+  starY: 1.5,
+  dustMode: 'disc',
+  dustFloor: 0.1,
+  dustRange: 0.16,
+  hazePx: 64,
+  hazeWarm: 1,
+  warm: '#FFD9A0',
+  warmMix: 0.85,
+};
+
+/**
+ * The shape modes' own parameters. TODAY and RECOMMENDED do not name them: the page fills them in from here,
+ * and at these defaults (shape 'arms', place 'roomiest') nothing they hold is read, so both presets generate
+ * bit for bit what they did before the modes were added.
+ */
+const SHAPE_DEFAULTS = {
+  shape: 'arms', // arms (today's and the recommended generators) | wave (arms from orbits) | field (smooth density field)
+  place: 'roomiest', // roomiest (today: first clear of 64, else the roomiest) | reject (first clear of 64, else a fresh draw) | none
+  youngShare: 0.3, // share of the non-core stars that are young (blue, bright, in the arms); knots (clumpShare) are young too
+  youngContrast: 12, // young arm contrast A: density peak / trough = 1 + A
+  youngSharp: 8, // young arm profile sharpness s: f(Δ) = ((1 + cos Δ) / 2)^s
+  youngBright: 0.5, // young brightness boost
+  oldDim: 0, // old disc and bulge stars dimmed by this share (the arms carry the light, as young stars do)
+  oldContrast: 1, // old (warm, smooth) arm contrast A (field mode; extra bunching on top of the orbits' in wave mode)
+  oldSharp: 2, // old arm profile sharpness
+  oldWarm: 0.6, // warm share of the old disc stars at the rim (warmCore at the centre)
+  discFade: 0.7, // the disc fades smoothly to nothing from this share of the radius to the rim
+  armStart: 0.16, // the arms fade in from half this share of the radius to it
+  waveEIn: 0.02, // wave mode: orbit ellipticity (1 − b/a) at the centre
+  waveEOut: 0.12, // wave mode: orbit ellipticity at the rim (orbits cross, and edges turn hard, past ~0.24 at pitch 0.28)
+  dustContrast: 1, // dust motes follow the old stars' field, at this contrast
+  dustSharp: 1.5, // and this sharpness
+  dustLane: 0, // 0: the dust crest is the arm crest; 1: it sits in the dust lane (the lane is where the dust is)
+  armScale: 1, // the young stars' (and knots') disc scale length, × discScale (arm light is ~1.3× the disc's)
+  modDepth: 0, // along-arm amplitude modulation: seeded value noise in ln r (stream bgArmMod, salt 14), 1 ± depth; 0 off
+  modPeriod: 0.35, // its period in ln r (0.35 ≈ a 5 kpc arm segment)
+  armStartIn: 0, // the arms fade in from this share of R (0: half of armStart)
+  armEndOut: 1, // and, when armEnd < 1, fade out from armEnd to this share of R
+  discFadeEnd: 1, // the disc taper ends (density 0) at this share of R; > 1 lets the soft rim run past R (recipe)
+  // ---- recipe mode only (armresearch/findings.md §7: an Sc like M74) ----
+  spurShare: 0.04, // share of the stars in spurs (feathers off the arms' outer edge)
+  spurCount: 20,
+  spurAngle: 50, // degrees from the arm tangent, turned outward (trailing)
+  spurLength: 0.16, // × r
+  spurWidth: 0.012, // × r
+  widthOld: 0.3, // old arm FWHM × r (perpendicular)
+  widthYoung: 0.13, // young arm FWHM × r
+  sersicN: 0.6, // cross-arm profile exp(−ln2·(|d|/w)^(1/n)): 0.5 gaussian, 1 exponential
+  youngOffset: 0.12, // young crest this many old half-widths downstream (outside) of the old crest
+  knotSigma: 0.045, // knot member spread × r (recipe: replaces clumpRadius; clumpOut is in old half-widths)
+  dustLaneGain: 2.5, // dust motes' weight × (1 + gain·lane gaussian): the dust peaks in the lane
+  dustArmShare: 0.7, // share of the dust drawn with the arm weight (the rest is a smooth disc)
+  zOld: 0.12, // vertical σ × disc scale length, old stars
+  zYoung: 0.04, // young, knots and spurs
+  zDust: 0.06, // dust
+  // ---- star colour (opt-in; 0 keeps today's two tints) ----
+  starColour: 0, // colour variety: scales each star's blackbody deviation from white (0 off, 1 the blackbody's own, 2 double)
+  youngTempSpread: 1, // spread of the young population's temperatures about its median (in log T), × the class mixture's own
+  oldTempSpread: 1, // the same for the old disc and the bulge
+  colourLum: 1.8, // coloured stars' luminance, × the agents' blue (#4DA3FF reads brighter than a grey of equal luminance)
+  // ---- the arms generator's cross-arm profile and lane (perp mode; the defaults are RECOMMENDED's, bit for bit) ----
+  armCross: 'gauss3', // gauss3 (a sum of three uniforms: exactly 0 past ±3σ) | normal (an unbounded gaussian, same σ) | sersic (unbounded, n = sersicN, the gaussian's half width)
+  // ---- wisps mode only: arms that emerge from a flow-aligned noise field (no centre line, no profile) ----
+  wispBias: 1.2, // the large-scale spiral bias's contrast A (peak / trough = 1 + A): gentle, just enough for two arms to read
+  wispSharp: 2, // its sharpness s, ((1 + cos Δ)/2)^s
+  wispAlong: 0.5, // a wisp's length along the flow, × r
+  wispAcross: 0.05, // its width across the flow, × r
+  wispAniso: 1, // anisotropy strength: length/width = (along/across)^this at the same mean size (0 round blobs, 1 as set, >1 thinner)
+  wispOctaves: 4, // noise octaves (each one half the size and half the weight)
+  wispRidge: 0.4, // blend toward ridged noise (1 − |2n − 1|): thin filaments rather than soft streaks
+  wispPower: 4, // contrast power p of the threshold-free curve N^p / (N^p + (1 − N)^p): high-density wisps and near-empty gaps
+  wispShear: 8, // degrees: the wisps run this far off the arm, turning outward like spurs and feathers
+  wispYoung: 2, // the young stars' field is the wisp field to this power (a sharper version of the same field)
+  wispOld: 0.25, // the old disc's share of the wisp texture (0: a smooth disc with the bias only)
+  wispKnotGap: 0.1, // knots (complexes) keep at least this far apart, × R (findings: every 0.1–0.3 R along an arm)
+  laneShape: 'band', // band (a hard band: inside it, laneDepth of the stars are removed) | dip (a smooth gaussian dip, 1 − laneDepth·e^(−x²/2), σ = laneWidth / 2)
+  // ---- wisps mode, reviewed (§11): every default below is the original Wisps' behaviour, bit for bit ----
+  wispNoise: 'value', // value (a draw per lattice point, blobs at the lattice scale) | gradient (Perlin: a seeded gradient per point, stream bgWispGrad, salt 18; ridges, no blobs)
+  wispRidgeFeed: 0, // ridged multifractal: each finer octave's weight × (1 − feed + feed · the coarser octave's value), so detail lives on the ridges (0: plain fbm)
+  wispWarp: 0, // domain warp: the flow coordinate u is bent by this much (in u; 1 u = r·sin i across the flow) by a long, smooth noise, so wisps meander instead of following the lattice
+  wispWarpAlong: 1.5, // the warp noise's scale along the flow, × r
+  wispBiasRise: 0, // the spiral bias's contrast A is (1 − rise) of itself at the centre, rising to A by wispBiasRiseTo·R (S4G: arm contrast rises outward; the inner disc is smooth)
+  wispBiasRiseTo: 0.6, // share of R
+  wispBranch: 0, // a second spiral bias of amplitude branch·A (each arm forks), coinciding with the arm at wispBranchFrom·R and opening at wispBranchPitch
+  wispBranchPitch: 0.4, // the branch's pitch (more open than the arm's, so it runs outside it)
+  wispBranchFrom: 0.55, // share of R where the branch leaves the arm
+  wispFeather: 0, // feathers: a second wisp field (channel 3) of this weight, added to the wisps on the arm's outer flank, sheared steeply like spurs (La Vigne 2006: ~50°, trailing)
+  wispFeatherShear: 45, // degrees from the arm, outward
+  wispFeatherAlong: 0.15, // a feather's length, × r
+  wispFeatherAcross: 0.015, // its width, × r
+  wispFeatherAt: 0.8, // the feathers' window centre across the arm, in bias phase σ (+ the outer, convex side)
+  wispFeatherWidth: 0.8, // the window's σ, in bias phase σ
+  wispFeatherOctaves: 2, // the feathers' noise octaves (fewer than the wisps': a feather is a simple streak)
+  wispLaneAlong: 0, // the dust lane's own noise channel: a filament this long along the flow, × r (0: the lane shares the wisps' noise geometry)
+  wispLaneAcross: 0.02, // and this wide, × r
+  wispKnotMode: 'densest', // densest (knots on the densest wisps, kept wispKnotGap·R apart) | beads (a seeded walk along each arm: evenly spaced complexes, each put on the densest young wisp near the crest; stream bgBeads, salt 19)
+  wispKnotJitter: 0.3, // beads: each gap is the mean gap × U(1 − jitter, 1 + jitter)
+  dustWispShare: 0, // share of the arm dust (dustArmShare) that traces the wisps themselves rather than the lane: faint grain along the young filaments
+  // ---- the neighbourhood control (shape-notes §12): page-level keys the generator never reads; the 30 HOOD spots stay fixed ----
+  hoodLod0: 6, // the far form is whole below this glow size (CSS px, glowPx of a neighbourhood star)
+  hoodLod1: 12, // and the real form whole above this; a smooth cross-fade between
+  hoodLateLod0: 11, // Dissolve (late): the far form is whole below this glow size (CSS px)
+  hoodLateLod1: 16, // and the real form whole above it
+  hoodJitter: 8, // Jitter mode: the seeded offset's σ (units), 16 candidates per spot (stream bgHoodJitter, salt 21)
+  hoodGap: 14, // Jitter mode: no two spots nearer than this (units; the generated 30 are never nearer than 14.07)
+  hoodSnap: 1, // Jitter mode: 0 takes the first candidate (pure jitter), 1 the candidate on the densest background (snaps to a wisp)
+};
+
+/**
+ * RECOMMENDED with soft arm edges (the author: "a harsh cliff on the outer edges of the elbow"). Every value is
+ * RECOMMENDED's except: the cross-arm offset is an unbounded gaussian (gauss3 is exactly 0 past ±3σ); no clearance,
+ * so the density keeps its shape instead of being pushed out to a plateau (the neighbourhood's halos still kept), with σ at
+ * the rim 9 → 12 so the arm stays as wide as RECOMMENDED's;
+ * the dust lane is a smooth dip, not a band.
+ */
+const RECOMMENDED_SOFT = {
+  ...RECOMMENDED,
+  place: 'none',
+  armCross: 'normal',
+  laneShape: 'dip',
+  sigmaRim: 12, // 9 → 12: without the roomiest placement pushing stars to the flanks, the outer bend reads thinner than RECOMMENDED's
+};
+
+/**
+ * Wisps (the author: "the arm shouldn't be thought of as a shape"): no centre line and no profile. Stars are drawn by
+ * rejection from the disc law × a gentle spiral bias (through the neighbourhood, pitch 0.28) × flow-aligned noise: long
+ * thin wisps nearly parallel to the arms, a few degrees off them, under a threshold-free contrast curve. Young stars take
+ * a sharper power of the same field; knots bead the densest wisps; dust darkens soft streaks on the inner edges.
+ */
+const WISPS = {
+  ...RECOMMENDED,
+  ...SHAPE_DEFAULTS,
+  shape: 'wisps',
+  place: 'none',
+  pitch: 0.28,
+  wispBias: 2,
+  wispSharp: 2.5,
+  wispAlong: 0.45,
+  wispAcross: 0.055,
+  wispOctaves: 3,
+  wispRidge: 0.25,
+  wispPower: 8,
+  wispShear: 10,
+  wispYoung: 3,
+  coreShare: 0.15,
+  bulgeMode: 'exp',
+  bulgeScale: 0.06,
+  discScale: 0.32,
+  armScale: 1.3,
+  discFade: 0.8,
+  armStart: 0.16,
+  armEnd: 1,
+  youngShare: 0.45,
+  clumpShare: 0.1,
+  clumpCount: 30,
+  knotSigma: 0.025,
+  clumpBright: 0.5,
+  youngBright: 0.8,
+  oldDim: 0.5,
+  oldContrast: 0.8,
+  oldSharp: 2,
+  warmCore: 0.97,
+  laneDepth: 0.7,
+  laneOffset: -1,
+  laneWidth: 0.6,
+  dustContrast: 1.5,
+  dustLaneGain: 2.5,
+  dustArmShare: 0.7,
+};
+
+/**
+ * Wisps (reviewed) (shape-notes §11): the Wisps field with gradient noise on ridges, a meander, two scales (long arm
+ * segments from the along-arm modulation, feathers leaving the outer flank at 45°), a bias that rises outward and forks
+ * past 0.55 R, beads of knots walked along the arms, a coherent lane filament, a brighter old disc, and arms that fade
+ * into a flocculent outer disc.
+ */
+const WISPS_REVIEWED = {
+  ...WISPS,
+  // the noise: gradient (Perlin) on a lightly ridged, feed-weighted fbm, bent by a slow meander
+  wispNoise: 'gradient',
+  wispOctaves: 4,
+  wispRidge: 0.2,
+  wispRidgeFeed: 0.5,
+  wispAlong: 0.45,
+  wispAcross: 0.05,
+  wispPower: 8,
+  wispShear: 8,
+  wispWarp: 0.08,
+  wispWarpAlong: 2.5,
+  wispYoung: 3,
+  wispOld: 0.3,
+  // the spiral bias: gentle, rising outward, with long segments and a fork past 0.55 R; the arms dissolve past 0.85 R
+  wispBias: 2.5,
+  wispSharp: 2.5,
+  wispBiasRise: 0.7,
+  wispBiasRiseTo: 0.5,
+  modDepth: 0.5,
+  modPeriod: 0.4,
+  wispBranch: 0.5,
+  wispBranchPitch: 0.42,
+  wispBranchFrom: 0.55,
+  armStart: 0.2,
+  armEnd: 0.85,
+  armEndOut: 1.1,
+  discFade: 0.85,
+  oldContrast: 1.2,
+  // feathers off the outer flank, trailing at 45°
+  wispFeather: 0.4,
+  wispFeatherShear: 45,
+  wispFeatherAlong: 0.22,
+  wispFeatherAcross: 0.06,
+  wispFeatherAt: 0.9,
+  wispFeatherWidth: 0.6,
+  wispFeatherOctaves: 1,
+  // the dust lane: one coherent filament just inside the crest; the dust peaks there and traces the wisps
+  wispLaneAlong: 0.8,
+  wispLaneAcross: 0.04,
+  laneDepth: 0.6,
+  laneOffset: -0.5,
+  laneWidth: 0.2,
+  dustLaneGain: 5,
+  dustArmShare: 0.8,
+  dustWispShare: 0.5,
+  dustContrast: 1.5,
+  dustFloor: 0.12,
+  dustRange: 0.2,
+  // beads of complexes along the arms, on the young wisps, downstream of the crest
+  wispKnotMode: 'beads',
+  wispKnotJitter: 0.3,
+  clumpOut: 0.4,
+  clumpCount: 24,
+  clumpShare: 0.12,
+  knotSigma: 0.03,
+  clumpBright: 0.7,
+  // populations: a smaller bulge, an undimmed old disc (half of it between the arms), young stars less boosted
+  coreShare: 0.1,
+  youngShare: 0.4,
+  youngBright: 0.4,
+  oldDim: 0,
+  oldWarm: 0.5,
+};
+
+/**
+ * Shape mode A, density wave: arms where elliptical orbits crowd (old stars and dust, uniform orbital phase), young
+ * stars bunched toward the crowding phase t*. Disc and arm scale lengths, the bulge, the lane and the along-arm
+ * modulation follow armresearch/findings.md (h 0.32 R, arm light 1.3 h, lane dip 0.5, modulation 0.45/0.35).
+ */
+const DENSITY_WAVE = {
+  ...RECOMMENDED,
+  ...SHAPE_DEFAULTS,
+  shape: 'wave',
+  place: 'none',
+  pitch: 0.28,
+  armEnd: 1,
+  coreShare: 0.15,
+  bulgeScale: 0.06,
+  discScale: 0.32,
+  armScale: 1.3,
+  discFade: 0.8,
+  waveEIn: 0.03,
+  waveEOut: 0.15,
+  oldContrast: 0,
+  oldDim: 0.25,
+  warmCore: 0.97,
+  youngShare: 0.5,
+  youngContrast: 25,
+  youngSharp: 6,
+  youngBright: 0.8,
+  clumpShare: 0.12,
+  clumpCount: 30,
+  clumpRadius: 5,
+  clumpOut: 0.5,
+  laneDepth: 0.5,
+  laneOffset: -1.6,
+  laneWidth: 1,
+  modDepth: 0.45,
+  modPeriod: 0.35,
+  dustContrast: 3,
+  dustSharp: 4,
+  dustLane: 1,
+};
+
+/** Shape mode B, smooth density field: disc(r) × (1 + A·f(m(θ − θ_arm))), old (A 2, broad) and young (A 25). */
+const SMOOTH_FIELD = {
+  ...DENSITY_WAVE,
+  shape: 'field',
+  oldContrast: 2,
+  oldSharp: 2,
+};
+
+/**
+ * Shape mode C, the research recipe (armresearch/findings.md §7): an Sc like M74 at 2,400 stars, every number as the
+ * prototype runs it. Sérsic n 0.6 cross-arm profile with width ∝ r, old/young/knots/spurs, along-arm modulation, a
+ * gaussian lane on the concave edge (the dust peaks there), no clearance grid (the neighbourhood's halos still kept).
+ */
+const RECIPE_M74 = {
+  ...RECOMMENDED,
+  ...SHAPE_DEFAULTS,
+  shape: 'recipe',
+  place: 'none',
+  pitch: 0.28,
+  arms: 2,
+  coreShare: 0.08,
+  bulgeMode: 'exp',
+  bulgeScale: 0.06,
+  bulgeFlat: 0.6,
+  coreExclusion: 16,
+  discScale: 0.32,
+  armScale: 0.42 / 0.32,
+  discFade: 0.9,
+  discFadeEnd: 1.2,
+  armStartIn: 0.07,
+  armStart: 0.18,
+  armEnd: 0.85,
+  armEndOut: 1.05,
+  youngShare: 0.26,
+  clumpShare: 0.12,
+  spurShare: 0.04,
+  oldContrast: 1.8,
+  youngContrast: 9,
+  widthOld: 0.3,
+  widthYoung: 0.13,
+  sersicN: 0.6,
+  youngOffset: 0.12,
+  modDepth: 0.45,
+  modPeriod: 0.35,
+  laneDepth: 0.6,
+  laneOffset: -0.45,
+  laneWidth: 0.14,
+  dustLaneGain: 2.5,
+  clumpCount: 26,
+  knotSigma: 0.045,
+  clumpOut: 0.15,
+  clumpBright: 0.45,
+  spurCount: 20,
+  spurAngle: 50,
+  spurLength: 0.16,
+  spurWidth: 0.012,
+  zOld: 0.12,
+  zYoung: 0.04,
+  zDust: 0.06,
+  warmCore: 0.75,
+  oldWarm: 0.2,
+  oldDim: 0.25,
+  youngBright: 0,
+  brightFloor: 0.3,
+  brightPow: 2.5,
+  brightShare: 0.15,
+  dustArmShare: 0.7,
+  dustContrast: 1.2,
+  dustFloor: 0.08,
+  dustRange: 0.14,
+};
+
+/** The recipe tuned to read at a glance on a phone (provisional; tuned below). */
+const RECIPE_READABLE = {
+  ...RECIPE_M74,
+  youngShare: 0.36,
+  youngContrast: 30,
+  widthYoung: 0.1,
+  youngBright: 0.4,
+  oldDim: 0.45,
+};
+
+/** RECIPE_READABLE with the star colour model: blackbody tints by population, restrained (see STAR_COLOUR_VARIETY). */
+const STAR_COLOUR_VARIETY = 0.8;
+const RECIPE_READABLE_COLOUR = { ...RECIPE_READABLE, starColour: STAR_COLOUR_VARIETY };
+/** The density wave with the same colour model. */
+const DENSITY_WAVE_COLOUR = { ...DENSITY_WAVE, starColour: STAR_COLOUR_VARIETY };
+
+// ---- star colour: temperature per population → blackbody sRGB → the essay's palette guards ----
+/**
+ * Effective-temperature mixtures (spectral class shares, Teff ranges after Pecaut & Mamajek 2013's dwarf scale) of the
+ * stars a mote stands for. Young arm stars and knots: mostly B/A, with a red-supergiant sprinkle (blue/red supergiant
+ * ratio ≈ 3 at solar metallicity, Eggenberger, Meynet & Maeder 2002, diluted by the equally bright main-sequence B/A
+ * stars). Old disc: G/K giants and dwarfs with an F/A/B sprinkle (blue stragglers, young field stars); the bulge redder.
+ */
+const TEMP_CLASSES = { B: [10000, 30000], A: [7300, 10000], F: [6000, 7300], G: [5300, 6000], K: [3900, 5300], M: [3000, 3900] };
+const TEMP_MIX = {
+  young: { B: 0.48, A: 0.26, F: 0.08, G: 0.05, K: 0.09, M: 0.04 },
+  old: { B: 0.02, A: 0.04, F: 0.1, G: 0.3, K: 0.46, M: 0.08 },
+  bulge: { B: 0.005, A: 0.015, F: 0.06, G: 0.25, K: 0.58, M: 0.09 },
+};
+const TEMP_MEDIAN = { young: 11000, old: 5200, bulge: 4800 };
+/** A temperature for a population from its own stream (class, then log-uniform within the class), spread about the median. */
+function drawTemperature(rng, popName, spread) {
+  const mix = TEMP_MIX[popName];
+  let u = rng(), cls = 'K';
+  for (const [k, w] of Object.entries(mix)) { if (u < w) { cls = k; break; } u -= w; }
+  const [lo, hi] = TEMP_CLASSES[cls];
+  const logT = Math.log(lo) + (Math.log(hi) - Math.log(lo)) * rng();
+  const med = Math.log(TEMP_MEDIAN[popName]);
+  return Math.exp(med + spread * (logT - med));
+}
+/** Blackbody colour in sRGB 0..1: Tanner Helland's fit to Mitchell Charity's CIE blackbody table (white near 6,600 K). */
+function blackbodySRGB(T) {
+  const t = Math.min(40000, Math.max(1000, T)) / 100;
+  const c = (v) => Math.min(255, Math.max(0, v)) / 255;
+  const r = t <= 66 ? 255 : 329.698727446 * (t - 60) ** -0.1332047592;
+  const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * (t - 60) ** -0.0755148492;
+  const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+  return [c(r), c(g), c(b)];
+}
+/** The warm cap (the stars' existing amber end, #FFD9A0): no star is redder or more saturated. */
+const WARM_CAP = [1, 217 / 255, 160 / 255];
+/** The cool cap: a pale blue-white, saturation at most this (the agents' #4DA3FF is 0.70; the frozen planet's cyan 0.88). */
+const COOL_SAT_CAP = 0.3;
+/**
+ * The palette guards. Scale the deviation from white by `variety`, then: a warm colour is put on the white → #FFD9A0 ray
+ * (its hue becomes the cap's amber, never the blackbody's orange or red; its saturation at most the cap's); a cool colour
+ * keeps its blackbody hue but its saturation is capped at COOL_SAT_CAP. No other hue can occur (no H-alpha pink).
+ */
+function guardTint([r, g, b], variety) {
+  const v = [1 + variety * (r - 1), 1 + variety * (g - 1), 1 + variety * (b - 1)].map((x) => Math.min(1, Math.max(0, x)));
+  if (v[0] >= v[2]) {
+    const s = v[0] > 0 ? 1 - v[2] / v[0] : 0; // HSV saturation with R the largest channel
+    const t = Math.min(1, s / (1 - WARM_CAP[2]));
+    return WARM_CAP.map((c) => 1 + t * (c - 1));
+  }
+  const s = 1 - v[0] / v[2];
+  const k = s > COOL_SAT_CAP ? COOL_SAT_CAP / s : 1;
+  return v.map((c) => 1 + k * (c - 1));
+}
+
+/** Wave mode: the sign that makes the orbital phase from the crest read like the field's Δ (negative inner). */
+const WAVE_SIGN = -1;
+const gauss3 = (rng) => (rng() + rng() + rng() - 1.5) * 2;
+
+/**
+ * Generate the background for parameters `P`. Returns float32 arrays of xyz + brightness (negative
+ * when warm) for the dim stars, the bright stars and the dust; and the knots for inspection.
+ */
+function generateBackground(P) {
+  const seed = P.seed | 0;
+  const tier = P.tier;
+  const R = P.radius;
+  const nStars = Math.max(0, Math.round(P.stars));
+  const nDust = Math.max(0, Math.round(P.dust));
+  const nCore = Math.round(P.coreShare * nStars);
+  const ppu = galaxyWideView(...TIER_SCREEN[tier]).pxPerUnit;
+  const gap = (pxA, pxB) => (Math.max(pxA, pxB) / ppu) * HALO_MARGIN;
+  const hood = P.hood ? HOOD : [];
+  const armPhase = armPhaseFor(65, 0.9, P.pitch);
+  const extended = P.discShare > 0 || P.clumpShare > 0 || P.armEnd < 1;
+  const perp = P.armMode === 'perp';
+  const shape = P.shape ?? 'arms';
+  const fieldy = shape === 'wave' || shape === 'field';
+  const recipe = shape === 'recipe';
+  const wisps = shape === 'wisps';
+  const placeMode = P.place ?? 'roomiest';
+
+  // Populations (recommended modes only; today never draws from this stream): 0 arm, 1 disc, 2 knot.
+  const pop = new Uint8Array(nStars);
+  if (fieldy) {
+    // Shape modes: 2 knot, 3 young, 4 old (the core stays the bulge).
+    for (let i = nCore; i < nStars; i++) {
+      const u = streamFor(seed, 'bgPop', i)();
+      pop[i] = u < P.clumpShare ? 2 : u < P.clumpShare + P.youngShare ? 3 : 4;
+    }
+  } else if (recipe) {
+    // Recipe: populations by index range (exact counts): bulge (the core), old 4, young 3, knot 2, spur 5.
+    const nYoung = Math.round(P.youngShare * nStars), nKnot = Math.round(P.clumpShare * nStars), nSpur = Math.round(P.spurShare * nStars);
+    const nOld = Math.max(0, nStars - nCore - nYoung - nKnot - nSpur);
+    for (let i = nCore; i < nStars; i++) pop[i] = i < nCore + nOld ? 4 : i < nCore + nOld + nYoung ? 3 : i < nCore + nOld + nYoung + nKnot ? 2 : 5;
+  } else if (wisps) {
+    // Wisps: populations by index range (exact counts): bulge (the core), old 4, young 3, knot 2.
+    const nYoung = Math.round(P.youngShare * nStars), nKnot = Math.round(P.clumpShare * nStars);
+    const nOld = Math.max(0, nStars - nCore - nYoung - nKnot);
+    for (let i = nCore; i < nStars; i++) pop[i] = i < nCore + nOld ? 4 : i < nCore + nOld + nYoung ? 3 : 2;
+  } else if (extended) {
+    for (let i = nCore; i < nStars; i++) {
+      const u = streamFor(seed, 'bgPop', i)();
+      pop[i] = u < P.clumpShare ? 2 : u < P.clumpShare + P.discShare ? 1 : 0;
+    }
+  }
+
+  // Brightness first: the brightest `brightShare` are the bright set, with the larger sprite.
+  const rngs = Array.from({ length: nStars }, (_, i) => streamFor(seed, 'bgStars', i));
+  const level = rngs.map((rng, i) => {
+    const u = rng();
+    let brightness = P.brightFloor + (1 - P.brightFloor) * u ** P.brightPow;
+    if (recipe) {
+      // Recipe brightness by population (findings §7); youngBright brightens young and knots further (0 in the recipe).
+      if (i < nCore) brightness *= 0.9;
+      else if (pop[i] === 4) brightness *= 1 - P.oldDim;
+      else if (pop[i] === 3) brightness = Math.min(1, (0.45 + 0.55 * u * u) * (1 + P.youngBright));
+      else if (pop[i] === 2) brightness = Math.min(1, (0.45 + 0.55 * u * u) * (1 + P.clumpBright) * (1 + P.youngBright));
+      else brightness = 0.4 + 0.5 * u * u;
+    } else {
+      if (pop[i] === 2) brightness = Math.min(1, brightness * (1 + P.clumpBright));
+      if (pop[i] === 3) brightness = Math.min(1, brightness * (1 + P.youngBright));
+      if ((fieldy || wisps) && pop[i] !== 2 && pop[i] !== 3) brightness *= 1 - P.oldDim;
+    }
+    const warmU = rng();
+    return { brightness, warmU, warm: warmU < P.warmShare };
+  });
+  const nBright = Math.round(P.brightShare * nStars);
+  const rank = level.map((_, i) => i).sort((a, b) => level[b].brightness - level[a].brightness || a - b);
+  const isBright = new Uint8Array(nStars);
+  for (let k = 0; k < nBright; k++) isBright[rank[k]] = 1;
+
+  // Halo clearance grid (today's placement rule, kept for every mode).
+  const glows = hood.map((s) => hoodGlowPx(tier, s));
+  const cell = gap(P.haloBright, Math.max(P.haloBright, ...glows));
+  const grid = new Map();
+  const cellKey = (x, z) => (Math.floor(x / cell) + 4096) * 8192 + (Math.floor(z / cell) + 4096);
+  const settle = (p, px, i = -1) => {
+    const key = cellKey(p[0], p[2]);
+    const list = grid.get(key);
+    if (list) list.push([p[0], p[2], px, i]);
+    else grid.set(key, [[p[0], p[2], px, i]]);
+  };
+  const room = (p, px) => {
+    const ci = Math.floor(p[0] / cell);
+    const ck = Math.floor(p[2] / cell);
+    let least = Infinity;
+    for (let di = -1; di <= 1; di++) {
+      for (let dk = -1; dk <= 1; dk++) {
+        for (const [x, z, opx] of grid.get((ci + di + 4096) * 8192 + (ck + dk + 4096)) ?? []) {
+          least = Math.min(least, Math.hypot(p[0] - x, p[2] - z) / gap(px, opx));
+        }
+      }
+    }
+    return least;
+  };
+  /**
+   * The halo-touch measure, after placement: the share of stars (bright ones, and all) whose nearest neighbour,
+   * a background star or a neighbourhood star, is nearer than their halos' clearance (room < 1, the rule above).
+   */
+  const haloTouch = (stars, isBright) => {
+    let bright = 0, all = 0;
+    stars.forEach((p, i) => {
+      const px = isBright[i] ? P.haloBright : P.haloStar;
+      const ci = Math.floor(p[0] / cell), ck = Math.floor(p[2] / cell);
+      let touches = hood.some((s, k) => Math.hypot(p[0] - s[0], p[2] - s[1]) < gap(px, glows[k]));
+      for (let di = -1; di <= 1 && !touches; di++)
+        for (let dk = -1; dk <= 1 && !touches; dk++)
+          for (const [x, z, opx, j] of grid.get((ci + di + 4096) * 8192 + (ck + dk + 4096)) ?? [])
+            if (j !== i && Math.hypot(p[0] - x, p[2] - z) < gap(px, opx)) { touches = true; break; }
+      if (touches) { all++; if (isBright[i]) bright++; }
+    });
+    const nB = isBright.reduce((s, v) => s + v, 0);
+    return { bright: nB ? bright / nB : 0, all: stars.length ? all / stars.length : 0 };
+  };
+  const nearHood = (p, px) => hood.some((s, k) => Math.hypot(p[0] - s[0], p[2] - s[1]) < gap(px, glows[k]));
+
+  // Today's core rings.
+  const coreU0 = (P.coreExclusion / (P.coreAt * R)) ** (1 / P.starExp) * (1 + 1e-9);
+  const rings = Math.ceil(nCore / CORE_RING);
+  const ringTurn = Array.from({ length: rings }, (_, q) => 2 * Math.PI * streamFor(seed, 'bgRingTurn', q)());
+  const slot = new Int32Array(nCore);
+  for (let q = 0; q < rings; q++) {
+    const lo = q * CORE_RING;
+    const n = Math.min(CORE_RING, nCore - lo);
+    const order = Array.from({ length: n }, (_, j) => j);
+    const prng = streamFor(seed, 'bgRingSlots', q);
+    for (let j = n - 1; j > 0; j--) {
+      const k = Math.floor(prng() * (j + 1));
+      [order[j], order[k]] = [order[k], order[j]];
+    }
+    order.forEach((o, j) => (slot[lo + j] = o));
+  }
+
+  const at = (r, th, yMax, rng) => [Math.fround(r * Math.cos(th)), Math.fround(yMax * (rng() + rng() - 1)), Math.fround(r * Math.sin(th))];
+  const scatterAt = (scatter, r) => scatter * (1 - ((1 - P.scatterRim) * r) / R);
+  const sigmaAt = (r) => P.sigmaCore + ((P.sigmaRim - P.sigmaCore) * r) / R;
+  /** A radius by the stars' radial law (today's power law, or an exponential disc of scale discScale·R, clamped to R). */
+  const drawR = (rng) => {
+    if (P.radialLaw !== 'exp') return R * rng() ** P.starExp;
+    for (let t = 0; t < 32; t++) {
+      const r = -P.discScale * R * Math.log(Math.max(1e-12, rng() * rng()));
+      if (r <= R) return r;
+    }
+    return R * rng();
+  };
+  /** The point on arm `arm` at radius r, moved `d` units along the arm's outward normal (perp mode). */
+  const onArm = (r, arm, d) => {
+    const th = armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, arm, P.arms);
+    const c = Math.cos(th), s = Math.sin(th);
+    // tangent of the log spiral r(θ): d/dr [r cos θ, r sin θ] with dθ/dr = 1/(pitch r)
+    let tx = c - s / P.pitch, tz = s + c / P.pitch;
+    const tl = Math.hypot(tx, tz);
+    tx /= tl; tz /= tl;
+    let nx = -tz, nz = tx;
+    if (nx * c + nz * s < 0) { nx = -nx; nz = -nz; } // outward
+    return [r * c + nx * d, r * s + nz * d];
+  };
+  /** Whether a cross-arm offset `d` (in σ) falls in the dust lane and is swallowed by it. */
+  const inLane = (dSigma, rng) => P.laneDepth > 0 && Math.abs(dSigma - P.laneOffset) < P.laneWidth / 2 && rng() < P.laneDepth;
+  /** laneShape 'dip': the lane as a smooth multiplicative dip (the shape modes' gaussian), not a band. */
+  const inLaneDip = (dSigma, rng) => P.laneDepth > 0 && rng() < P.laneDepth * Math.exp(-0.5 * ((dSigma - P.laneOffset) / Math.max(1e-3, 0.5 * P.laneWidth)) ** 2);
+  const swallowed = P.laneShape === 'dip' ? inLaneDip : inLane;
+
+  // ---- shape modes: a continuous density, sampled by rejection, with no hard bound anywhere ----
+  /** An unbounded standard normal (Box–Muller). */
+  const gaussN = (rng) => Math.sqrt(-2 * Math.log(Math.max(1e-12, rng()))) * Math.cos(2 * Math.PI * rng());
+  /** A Gamma(a, 1) draw (Marsaglia & Tsang; a < 1 boosted by U^(1/a)), from the star's own stream. */
+  const gammaDraw = (rng, a) => {
+    const b = a < 1 ? a + 1 : a, dd = b - 1 / 3, cc = 1 / Math.sqrt(9 * dd);
+    let g = dd;
+    for (let k = 0; k < 64; k++) {
+      const x = gaussN(rng), v = (1 + cc * x) ** 3;
+      if (v <= 0) continue;
+      if (Math.log(Math.max(1e-300, rng())) < 0.5 * x * x + dd - dd * v + dd * Math.log(v)) { g = dd * v; break; }
+    }
+    return a < 1 ? g * Math.max(1e-300, rng()) ** (1 / a) : g;
+  };
+  /**
+   * armCross 'sersic': a signed offset (in σ) with density exp(−ln2·(|x|/w)^(1/n)), w the gaussian's half width at half
+   * maximum (√(2 ln 2) σ), so the crest is as wide as the gaussian's and only the flanks differ: |x|/w = (G/ln2)^n, G ~ Gamma(n).
+   */
+  const sersicUnit = (rng) => {
+    const n = Math.max(0.2, P.sersicN);
+    const x = Math.sqrt(2 * Math.LN2) * (gammaDraw(rng, n) / Math.LN2) ** n;
+    return rng() < 0.5 ? -x : x;
+  };
+  /** The perp mode's cross-arm draw (in σ). */
+  const crossDraw = P.armCross === 'normal' ? gaussN : P.armCross === 'sersic' ? sersicUnit : gauss3;
+  const smooth = (e0, e1, x) => {
+    const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  /** The arm profile across the arm, in phase Δ (0 on the crest, ±π midway between arms): smooth and periodic. */
+  const armProfile = (delta, sharp) => ((1 + Math.cos(delta)) / 2) ** sharp;
+  /** The arms fade in past the bulge and, when armEnd < 1, out toward the rim. */
+  const armRamp = (r) =>
+    smooth((P.armStartIn || 0.5 * P.armStart) * R, P.armStart * R, r) * (P.armEnd < 1 ? 1 - smooth(P.armEnd * R, P.armEndOut * R, r) : 1);
+  /** The young profile's σ in phase (((1 + cos Δ)/2)^s ≈ e^(−sΔ²/4)): the unit of the lane's and the knots' offsets. */
+  const phaseSigma = Math.sqrt(2 / Math.max(0.25, P.youngSharp));
+  /** The dust lane: a smooth multiplicative dip on the arm's inner edge (laneOffset < 0), not a cut. */
+  const laneDip = (delta) =>
+    P.laneDepth > 0 ? 1 - P.laneDepth * Math.exp(-0.5 * (wrap(delta - P.laneOffset * phaseSigma) / Math.max(1e-3, 0.5 * P.laneWidth * phaseSigma)) ** 2) : 1;
+  /** A disc radius: an exponential disc (scale discScale·R) that fades smoothly to nothing at the rim. */
+  const discR = (rng, scale = P.discScale) => {
+    for (let t = 0; t < 64; t++) {
+      const r = -scale * R * Math.log(Math.max(1e-12, rng() * rng()));
+      if (r <= P.discFadeEnd * R && rng() < 1 - smooth(P.discFade * R, P.discFadeEnd * R, r)) return r;
+    }
+    return R * rng();
+  };
+  // Field mode: ρ(r, θ) = disc(r) · (1 + A·ramp(r)·f(Δ)), Δ = −m(θ − θ_arm(r)) wrapped (Δ < 0 is the inner edge).
+  const fieldDelta = (r, th) => -wrap(P.arms * (th - armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, 0, P.arms)));
+  // Wave mode: every star on an ellipse of semi-major a, axis ratio q(a) = 1 − e(a), its major axis turned by
+  // φ(a) = ln(a/2)/pitch + ψ; at phase t it sits at Rot(φ)·(a cos t, q a sin t). Where neighbouring orbits crowd,
+  // the arms are: the area element is a·[q cos²t + (q + a q′) sin²t] + (1 − q²)(a/pitch) sin t cos t, least at t*.
+  const waveE = (a) => P.waveEIn + (P.waveEOut - P.waveEIn) * Math.min(1, a / R);
+  const waveCrest = (a) => {
+    const q = 1 - waveE(a);
+    const dq = a < R ? -(P.waveEOut - P.waveEIn) / R : 0;
+    return 0.5 * Math.atan2(-(1 - q * q) / P.pitch, -(q - (q + a * dq)));
+  };
+  const wavePos = (a, t, psi) => {
+    const q = 1 - waveE(a);
+    const ex = a * Math.cos(t), ez = q * a * Math.sin(t);
+    const ph = Math.log(Math.max(a, 1e-9) / 2) / P.pitch + psi;
+    const c = Math.cos(ph), s = Math.sin(ph);
+    return [ex * c - ez * s, ex * s + ez * c];
+  };
+  // ψ puts the crest through the neighbourhood's middle (radius 65, bearing 0.9), as armPhase does for the arms.
+  let wavePsi = 0;
+  if (shape === 'wave') {
+    let a = 65;
+    for (let k = 0; k < 30; k++) a *= 65 / Math.hypot(...wavePos(a, waveCrest(a), 0));
+    const c0 = wavePos(a, waveCrest(a), 0);
+    wavePsi = wrap(0.9 - Math.atan2(c0[1], c0[0]));
+  }
+  /** Phase from the crest of orbit a at t, signed like the field's (Δ < 0 the inner edge): two crests per orbit. */
+  const waveDelta = (a, t) => WAVE_SIGN * wrap(2 * (t - waveCrest(a)));
+  /**
+   * Along-arm amplitude modulation (findings §7): seeded value noise in u = ln r / modPeriod, one 64-entry table per
+   * arm (stream bgArmMod, key = arm), smoothstep-interpolated; 1 ± modDepth. Real arms have segments and dips.
+   */
+  const mArms = shape === 'wave' ? 2 : P.arms;
+  const modTable = P.modDepth > 0 ? Array.from({ length: mArms }, (_, arm) => { const rng = streamFor(seed, 'bgArmMod', arm); return Array.from({ length: 64 }, () => rng()); }) : [];
+  const armDipAt = (r, arm) => {
+    if (!(P.modDepth > 0)) return 1;
+    const u = Math.log(Math.max(r, 1)) / P.modPeriod + 8;
+    const k = Math.floor(u), t = u - k, tab = modTable[arm];
+    const v = tab[((k % 64) + 64) % 64] + (tab[(((k + 1) % 64) + 64) % 64] - tab[((k % 64) + 64) % 64]) * (t * t * (3 - 2 * t));
+    return 1 - P.modDepth + P.modDepth * 2 * v;
+  };
+  /** Which arm a point belongs to: the nearest crest. */
+  const fieldArm = (r, th) => (((Math.round((wrap(th - armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, 0, P.arms)) * P.arms) / (2 * Math.PI)) % P.arms) + P.arms) % P.arms);
+  const waveArm = (a, t) => (Math.abs(wrap(t - waveCrest(a))) < Math.PI / 2 ? 0 : 1);
+  /**
+   * A point (x, z) of a population — 'old', 'young' or 'dust' — with contrast A and sharpness `sharp`. Young ones
+   * keep off the bulge and take the longer arm scale length; dust peaks `dustLane` of the way into the lane.
+   */
+  const shapePoint = (rng, A, sharp, kind) => {
+    const young = kind === 'young';
+    const shift = kind === 'dust' ? P.dustLane * P.laneOffset * phaseSigma : 0;
+    for (let k = 0; k < 400; k++) {
+      const r = discR(rng, young ? P.discScale * P.armScale : P.discScale);
+      const t = 2 * Math.PI * rng() - Math.PI;
+      const delta = shape === 'wave' ? waveDelta(r, t) : fieldDelta(r, t);
+      const ramp = armRamp(r) * armDipAt(r, shape === 'wave' ? waveArm(r, t) : fieldArm(r, t));
+      let w = (1 + A * ramp * armProfile(wrap(delta - shift), sharp)) / (1 + A);
+      if (young) w *= armRamp(r);
+      if (kind !== 'dust') w *= laneDip(delta);
+      if (rng() < w) return shape === 'wave' ? wavePos(r, t, wavePsi) : [r * Math.cos(t), r * Math.sin(t)];
+    }
+    return null;
+  };
+
+  // ---- recipe mode (armresearch/findings.md §7, ported from proto.html) ----
+  const sinI = Math.sin(Math.atan(P.pitch)), cosI = Math.cos(Math.atan(P.pitch));
+  /** Signed perpendicular distance from the nearest arm's old crest (negative: the inner, concave side). */
+  const rcPerp = (r, th) => -(wrap(P.arms * (th - armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, 0, P.arms))) / P.arms) * r * sinI;
+  const rcWOld = (r) => 0.5 * P.widthOld * r * cosI; // half width at half max
+  const rcWYoung = (r) => 0.5 * P.widthYoung * r * cosI;
+  const sersic = (d, w) => Math.exp(-Math.LN2 * Math.pow(Math.abs(d) / Math.max(w, 1e-9), 1 / P.sersicN));
+  const rcLaneG = (d, w) => Math.exp(-0.5 * ((d - P.laneOffset * w) / Math.max(1e-9, P.laneWidth * w)) ** 2);
+  const rcTaper = (r) => (1 - smooth(P.discFade * R, P.discFadeEnd * R, r)) * smooth(0.75 * P.coreExclusion, 1.25 * P.coreExclusion, r);
+  const rcR = (rng, scale) => -scale * R * Math.log(Math.max(1e-12, rng() * rng())); // 2-D exponential disc, unclamped
+  const rcArmR = (rng) => {
+    let r = P.armStart * R;
+    for (let t = 0; t < 1000; t++) {
+      r = rcR(rng, P.discScale * P.armScale);
+      if (r >= P.armStart * R && r <= Math.min(P.armEnd, 1) * R) break;
+    }
+    return r;
+  };
+  // ---- wisps mode: a density field with no centre line; the arms are where the flow-aligned wisps crowd ----
+  // Log-polar flow coordinates: u = ln r / pitch − θ is constant along a log spiral of the arms' pitch, v = ln r runs
+  // along it. A step of 1 in u is r·sin i across the flow and 1 in v is r / sin i along it, so features grow with r.
+  // The noise is seeded value noise on a lattice (stream bgWisps, salt 17, one draw per lattice point), periodic in u.
+  const wLat = new Map();
+  const wSize = Math.sqrt(Math.max(1e-4, P.wispAlong) * Math.max(1e-4, P.wispAcross));
+  const wRatio = (Math.max(1e-4, P.wispAlong) / Math.max(1e-4, P.wispAcross)) ** P.wispAniso;
+  const wCellsU = Math.max(1, Math.min(511, Math.round((2 * Math.PI * sinI) / (wSize / Math.sqrt(wRatio)))));
+  const wCellV = Math.max(0.01, wSize * Math.sqrt(wRatio) * sinI);
+  const wShear = Math.tan(((P.wispShear ?? 0) * Math.PI) / 180) / (sinI * sinI);
+  const wOct = Math.max(1, Math.min(6, Math.round(P.wispOctaves ?? 1)));
+  /**
+   * A noise channel's lattice geometry for features `along`·r long and `across`·r wide, lying `shearDeg` off the arm:
+   * cells in u around 2π (periodic), the cell height in v, and the shear in u per unit v. (The main channel above keeps
+   * its own, older formula, which ignores cos(shear) at 10°.)
+   */
+  const chanGeom = (along, across, shearDeg) => {
+    const cs = Math.max(0.2, Math.cos((shearDeg * Math.PI) / 180));
+    return {
+      nu: Math.max(1, Math.min(511, Math.round((2 * Math.PI * sinI * cs) / Math.max(1e-4, across)))),
+      cv: Math.max(0.01, Math.max(1e-4, along) * sinI * cs),
+      sh: Math.tan((shearDeg * Math.PI) / 180) / (sinI * sinI),
+    };
+  };
+  const latVal = (ch, o, iu, iv) => {
+    const key = (((ch * 16 + o) * 4096 + iu) * 8192 + (iv & 8191)) >>> 0;
+    let v = wLat.get(key);
+    if (v === undefined) {
+      v = streamFor(seed, 'bgWisps', key)();
+      wLat.set(key, v);
+    }
+    return v;
+  };
+  // Gradient noise: a seeded unit gradient per lattice point (stream bgWispGrad, salt 18), cached as its angle.
+  const wGrad = new Map();
+  const gradVal = (ch, o, iu, iv) => {
+    const key = (((ch * 16 + o) * 4096 + iu) * 8192 + (iv & 8191)) >>> 0;
+    let a = wGrad.get(key);
+    if (a === undefined) {
+      a = 2 * Math.PI * streamFor(seed, 'bgWispGrad', key)();
+      wGrad.set(key, a);
+    }
+    return a;
+  };
+  const fade = (t) => t * t * t * (t * (6 * t - 15) + 10);
+  const wGradient = P.wispNoise === 'gradient';
+  const wFeed = Math.max(0, Math.min(1, P.wispRidgeFeed ?? 0));
+  /**
+   * Flow-aligned fbm in [0, 1] on channel ch at flow coordinates (U, v), lattice `nu` cells around in u and `cv` in v
+   * per octave 0. Value noise (one draw per point) or gradient noise (Perlin, squashed smoothly to [0, 1]); each octave
+   * half the size and half the weight, further × (1 − feed + feed · the coarser octave's value) (ridged multifractal).
+   */
+  const fbm = (ch, U, v, nu0, cv, oct) => {
+    const uu = (((U / (2 * Math.PI)) % 1) + 1) % 1;
+    let sum = 0, norm = 0, amp = 1, prev = 1;
+    for (let o = 0; o < oct; o++) {
+      const nu = nu0 << o;
+      const x = uu * nu, y = (v / cv) * (1 << o);
+      const ix = Math.floor(x), iy = Math.floor(y), fx = fade(x - ix), fy = fade(y - iy);
+      const x0 = ix % nu, x1 = (ix + 1) % nu;
+      let n;
+      if (wGradient) {
+        const dx = x - ix, dy = y - iy;
+        const g = (iu, iv, px, py) => { const a = gradVal(ch, o, iu, iv); return Math.cos(a) * px + Math.sin(a) * py; };
+        const a = g(x0, iy, dx, dy), b = g(x1, iy, dx - 1, dy), c = g(x0, iy + 1, dx, dy - 1), d = g(x1, iy + 1, dx - 1, dy - 1);
+        const p = a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; // in about ±0.7
+        n = 0.5 + 0.5 * Math.tanh(2.2 * p); // smooth squash to [0, 1], no clip
+      } else {
+        const a = latVal(ch, o, x0, iy), b = latVal(ch, o, x1, iy), c = latVal(ch, o, x0, iy + 1), d = latVal(ch, o, x1, iy + 1);
+        n = a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+      }
+      n = (1 - P.wispRidge) * n + P.wispRidge * (1 - Math.abs(2 * n - 1));
+      const w = amp * (1 - wFeed + wFeed * prev);
+      sum += w * n;
+      norm += w;
+      prev = n;
+      amp *= 0.5;
+    }
+    return sum / norm;
+  };
+  // Domain warp (channel 2): one smooth octave of long value noise bends u, so the wisps meander off the lattice.
+  const wWarp = P.wispWarp ?? 0;
+  const warpGeom = chanGeom(P.wispWarpAlong ?? 1.5, 6 * Math.max(1e-4, P.wispAcross), 0);
+  const warpAt = (v, th) => (wWarp ? wWarp * (2 * fbm(2, v / P.pitch - th, v, warpGeom.nu, warpGeom.cv, 1) - 1) : 0);
+  /** The stars' wisps (channel 0) in [0, 1] at (r, θ). */
+  const wispNoise0 = (r, th) => {
+    const v = Math.log(Math.max(r, 1));
+    return fbm(0, v / P.pitch - th - wShear * v + warpAt(v, th), v, wCellsU, wCellV, wOct);
+  };
+  /** The dust lane's filament (channel 1): its own long, thin, unsheared lattice when wispLaneAlong > 0, else the wisps' geometry. */
+  const laneGeom = P.wispLaneAlong > 0 ? chanGeom(P.wispLaneAlong, P.wispLaneAcross, 0) : null;
+  const wispNoise1 = (r, th) => {
+    const v = Math.log(Math.max(r, 1));
+    return laneGeom
+      ? fbm(1, v / P.pitch - th + warpAt(v, th), v, laneGeom.nu, laneGeom.cv, wOct)
+      : fbm(1, v / P.pitch - th - wShear * v + warpAt(v, th), v, wCellsU, wCellV, wOct);
+  };
+  /** The threshold-free contrast curve: smooth, 0.5 at 0.5, steeper with p; dense wisps and near-empty gaps, no edge. */
+  const wispCurve = (n) => {
+    const a = n ** P.wispPower, b = (1 - n) ** P.wispPower;
+    return a / Math.max(1e-12, a + b);
+  };
+  /** The spiral bias σ in phase (((1 + cos Δ)/2)^s ≈ e^(−sΔ²/4)): the unit of the lane's, the knots' and the feathers' offsets. */
+  const wispPhaseSigma = Math.sqrt(2 / Math.max(0.25, P.wispSharp ?? 2));
+  // Feathers (channel 3): short, thin wisps sheared steeply off the arm, windowed onto its outer flank.
+  const wFeather = P.wispFeather ?? 0;
+  const featherGeom = chanGeom(P.wispFeatherAlong ?? 0.15, P.wispFeatherAcross ?? 0.015, P.wispFeatherShear ?? 45);
+  const featherAt = (r, th) => {
+    if (!wFeather) return 0;
+    const v = Math.log(Math.max(r, 1));
+    const win = Math.exp(-0.5 * (wrap(fieldDelta(r, th) - P.wispFeatherAt * wispPhaseSigma) / Math.max(1e-3, P.wispFeatherWidth * wispPhaseSigma)) ** 2);
+    return win * wispCurve(fbm(3, v / P.pitch - th - featherGeom.sh * v + warpAt(v, th), v, featherGeom.nu, featherGeom.cv, Math.max(1, Math.min(6, Math.round(P.wispFeatherOctaves ?? 2)))));
+  };
+  /** The wisp field: the wisps' contrast curve, plus the feathers at their weight (0: the wisps alone). */
+  const wispField = (r, th) => (wFeather ? (wispCurve(wispNoise0(r, th)) + wFeather * featherAt(r, th)) / (1 + wFeather) : wispCurve(wispNoise0(r, th)));
+  // The spiral bias, with (when set) the contrast rising outward, the along-arm modulation (bgArmMod) and the branch.
+  const wRise = P.wispBiasRise ?? 0, wBranch = P.wispBranch ?? 0;
+  const biasPlain = !(wRise > 0 || wBranch > 0 || P.modDepth > 0);
+  const branchR0 = (P.wispBranchFrom ?? 0.55) * R;
+  const branchDelta = (r, th) => {
+    // The branch's crest: the arm's angle at branchR0, then a log spiral of the branch's pitch.
+    const thB = armAngleAt(branchR0, P.pitch, armPhase, 0, P.arms) + Math.log(Math.max(r, 1e-9) / branchR0) / Math.max(0.05, P.wispBranchPitch);
+    return -wrap(P.arms * (th - thB));
+  };
+  const branchWin = (r) => smooth(branchR0, R, r) * (P.armEnd < 1 ? 1 - smooth(P.armEnd * R, P.armEndOut * R, r) : 1);
+  const wispBiasAt = (r, th, A, s) => {
+    if (biasPlain) return (1 + A * armRamp(r) * armProfile(fieldDelta(r, th), s)) / (1 + A);
+    const Ar = A * (1 - wRise * (1 - smooth(0, (P.wispBiasRiseTo ?? 0.6) * R, r)));
+    const main = Ar * armRamp(r) * armDipAt(r, fieldArm(r, th)) * armProfile(fieldDelta(r, th), s);
+    const branch = wBranch > 0 ? wBranch * A * branchWin(r) * armProfile(branchDelta(r, th), s) : 0;
+    return (1 + main + branch) / (1 + A * (1 + wBranch));
+  };
+  /** The dark streaks: the dust channel's wisps, weighted toward the arms' inner (concave) edge. */
+  const wispStreak = (r, th) => {
+    if (!(P.laneDepth > 0)) return 0;
+    const g = Math.exp(-0.5 * (wrap(fieldDelta(r, th) - P.laneOffset * wispPhaseSigma) / Math.max(1e-3, P.laneWidth * wispPhaseSigma)) ** 2);
+    return g * armRamp(r) * wispCurve(wispNoise1(r, th));
+  };
+  const wispYoungW = (r, th) => (wispBiasAt(r, th, P.wispBias, P.wispSharp) * wispField(r, th)) ** P.wispYoung * armRamp(r);
+  const wispOldW = (r, th) => wispBiasAt(r, th, P.oldContrast, P.oldSharp) * (1 - P.wispOld + P.wispOld * wispField(r, th));
+  // A probe for the offline field plots (no preset sets it): the wisps fields, before any star is drawn.
+  if (wisps && typeof P.__probe === 'function') P.__probe({ wispYoungW, wispOldW, wispStreak, featherAt, wispBiasAt, wispField, wispNoise0, wispNoise1, armRamp, fieldDelta });
+
+  const spurs = [];
+  if (recipe) {
+    for (let k = 0; k < Math.round(P.spurCount); k++) {
+      const rng = streamFor(seed, 'bgSpurs', k);
+      const r = rcArmR(rng);
+      const arm = k % P.arms;
+      const w = rcWOld(r);
+      const th0 = armAngleAt(r, P.pitch, armPhase, arm, P.arms) - ((P.youngOffset + 0.6) * w) / (r * sinI); // the young arm's outer flank
+      const c = Math.cos(th0), s = Math.sin(th0);
+      let tx = c - s / P.pitch, tz = s + c / P.pitch;
+      const tl = Math.hypot(tx, tz);
+      tx /= tl; tz /= tl;
+      let nx = -tz, nz = tx;
+      if (nx * c + nz * s < 0) { nx = -nx; nz = -nz; }
+      const a = (P.spurAngle * Math.PI) / 180;
+      spurs.push({ x: r * c, z: r * s, dx: tx * Math.cos(a) + nx * Math.sin(a), dz: tz * Math.cos(a) + nz * Math.sin(a), len: P.spurLength * r * (0.6 + 0.8 * rng()), width: P.spurWidth * r });
+    }
+  }
+
+  // Knots: their centres along the arms (recommended mode only).
+  const knots = [];
+  if (P.clumpShare > 0 && recipe) {
+    // Recipe: on the young crest, clumpOut old half-widths further out; members spread knotSigma·r.
+    for (let k = 0; k < Math.max(1, Math.round(P.clumpCount)); k++) {
+      const rng = streamFor(seed, 'bgKnots', k);
+      const r = rcArmR(rng);
+      const arm = k % P.arms;
+      const w = rcWOld(r);
+      const d = (P.youngOffset + P.clumpOut) * w + 0.25 * w * gaussN(rng);
+      const th = armAngleAt(r, P.pitch, armPhase, arm, P.arms) - d / (r * sinI);
+      knots.push([r * Math.cos(th), r * Math.sin(th), P.knotSigma * r * (0.7 + 0.6 * rng())]);
+    }
+  } else if (P.clumpShare > 0 && wisps && P.wispKnotMode === 'beads') {
+    // Wisps, beads: a seeded walk along each arm (stream bgBeads, salt 19) with gaps of the mean × U(1 ± jitter), the
+    // mean set so the arm's knots fill it from armStart to armEnd (Elmegreen: complexes every 0.1–0.3 R, evenly spaced).
+    // Each bead sits on the densest young wisp near the crest, clumpOut bias-σ downstream (the best of 24 draws from
+    // its own bgKnots stream), so the beads follow the wisps, not a hidden line.
+    const nK = Math.max(1, Math.round(P.clumpCount)), perArm = Math.ceil(nK / P.arms);
+    const r0 = Math.max(P.coreExclusion * 1.5, P.armStart * R), r1 = Math.min(1, P.armEnd) * R;
+    const gapMean = Math.max(1e-6, r1 - r0) / sinI / (perArm + 0.5);
+    const jit = Math.max(0, Math.min(1, P.wispKnotJitter ?? 0));
+    const walked = new Array(P.arms).fill(0);
+    for (let k = 0; k < nK; k++) {
+      const arm = k % P.arms;
+      walked[arm] += gapMean * (1 - jit + 2 * jit * streamFor(seed, 'bgBeads', k)());
+      const r = r0 + walked[arm] * sinI;
+      if (r > r1) continue;
+      const rng = streamFor(seed, 'bgKnots', k);
+      let best = null, bw = -1;
+      for (let t = 0; t < 24; t++) {
+        const dPhase = (P.clumpOut + 0.5 * gaussN(rng)) * wispPhaseSigma;
+        const rr = r * Math.exp(0.15 * gapMean * sinI / r * gaussN(rng));
+        const th = armAngleAt(rr, P.pitch, armPhase, arm, P.arms) - dPhase / P.arms;
+        const w = wispYoungW(rr, th);
+        if (w > bw) { bw = w; best = [rr * Math.cos(th), rr * Math.sin(th), rr]; }
+      }
+      knots.push([best[0], best[1], P.knotSigma * best[2] * (0.7 + 0.6 * rng())]);
+    }
+  } else if (P.clumpShare > 0 && wisps) {
+    // Wisps: complexes on the densest wisps (accepted with the young weight squared), at least wispKnotGap·R apart.
+    for (let k = 0; k < Math.max(1, Math.round(P.clumpCount)); k++) {
+      const rng = streamFor(seed, 'bgKnots', k);
+      let best = null;
+      for (let t = 0; t < 4000; t++) {
+        const r = discR(rng, P.discScale * P.armScale), th = 2 * Math.PI * rng() - Math.PI;
+        if (r < Math.max(P.coreExclusion * 1.5, P.armStart * R) || r > Math.min(1, P.armEnd) * R) continue;
+        const x = r * Math.cos(th), z = r * Math.sin(th);
+        const gap = P.wispKnotGap * R * (t < 2000 ? 1 : 0.5);
+        if (knots.some((K) => Math.hypot(K[0] - x, K[1] - z) < gap)) continue;
+        best = [x, z, r];
+        if (rng() < wispYoungW(r, th) ** 2) break;
+      }
+      if (best) knots.push([best[0], best[1], P.knotSigma * best[2] * (0.7 + 0.6 * rng())]);
+    }
+  } else if (P.clumpShare > 0 && fieldy) {
+    // Shape modes: on the young crest, clumpOut σ (of the young profile) downstream, at radii from the disc law.
+    const nK = Math.max(1, Math.round(P.clumpCount));
+    const m = shape === 'wave' ? 2 : P.arms;
+    for (let k = 0; k < nK; k++) {
+      const rng = streamFor(seed, 'bgKnots', k);
+      let a = R;
+      for (let t = 0; t < 200; t++) {
+        a = discR(rng, P.discScale * P.armScale);
+        if (a >= Math.max(P.coreExclusion * 1.5, P.armStart * R) && a <= Math.min(1, P.armEnd) * R) break;
+      }
+      const arm = k % m;
+      const delta = P.clumpOut * phaseSigma + 0.35 * phaseSigma * gaussN(rng);
+      const [x, z] =
+        shape === 'wave'
+          ? wavePos(a, waveCrest(a) + arm * Math.PI + delta / (2 * WAVE_SIGN), wavePsi)
+          : (() => { const th = armAngleAt(a, P.pitch, armPhase, arm, P.arms) - delta / P.arms; return [a * Math.cos(th), a * Math.sin(th)]; })();
+      knots.push([x, z, P.clumpRadius * (0.6 + 0.8 * rng())]);
+    }
+  } else if (P.clumpShare > 0) {
+    const nK = Math.max(1, Math.round(P.clumpCount));
+    for (let k = 0; k < nK; k++) {
+      const rng = streamFor(seed, 'bgKnots', k);
+      let r;
+      do r = drawR(rng); while (r < Math.max(P.coreExclusion * 1.5, 0.12 * R) || r > P.armEnd * R);
+      const arm = k % P.arms;
+      const sg = sigmaAt(r);
+      const d = perp ? P.clumpOut * sg + 0.35 * sg * gauss3(rng) : 0;
+      const [x, z] = perp ? onArm(r, arm, d) : (() => { const th = armAngleAt(r, P.pitch, armPhase, arm, P.arms); return [r * Math.cos(th), r * Math.sin(th)]; })();
+      knots.push([x, z, P.clumpRadius * (0.6 + 0.8 * rng())]);
+    }
+  }
+
+  /** One draw of star i's position (null: drawn again without counting an attempt). `draws` widens the core ring. */
+  const candidate = (i, rng, core, draws) => {
+    let c;
+    if (recipe) {
+      const hDisc = P.discScale * R;
+      if (core) {
+        // An exponential sphere (scale bulgeScale·R), flattened; a soft core hole (and the hard exclusion below).
+        const h = P.bulgeScale * R;
+        const r = -h * Math.log(Math.max(1e-12, rng() * rng() * rng()));
+        const th = 2 * Math.PI * rng(), cy = 2 * rng() - 1, sy = Math.sqrt(1 - cy * cy);
+        c = [Math.fround(r * sy * Math.cos(th)), Math.fround(r * cy * P.bulgeFlat), Math.fround(r * sy * Math.sin(th))];
+        if (rng() > smooth(0.75 * P.coreExclusion, 1.25 * P.coreExclusion, Math.hypot(c[0], c[1], c[2]))) return null;
+      } else if (pop[i] === 4 || pop[i] === 3) {
+        const young = pop[i] === 3;
+        const r = rcR(rng, young ? P.discScale * P.armScale : P.discScale);
+        const th = 2 * Math.PI * rng();
+        const w = rcWOld(r);
+        const d = rcPerp(r, th);
+        const A0 = young ? P.youngContrast : P.oldContrast;
+        const A = A0 * armRamp(r) * armDipAt(r, fieldArm(r, th));
+        const prof = young ? sersic(d - P.youngOffset * w, rcWYoung(r)) : sersic(d, w);
+        let wgt = ((1 + A * prof) / (1 + A0)) * rcTaper(r) * (1 - P.laneDepth * rcLaneG(d, w));
+        if (young) wgt *= armRamp(r); // young stars live where the arms are
+        if (rng() > wgt) return null;
+        c = [Math.fround(r * Math.cos(th)), Math.fround((young ? P.zYoung : P.zOld) * hDisc * gaussN(rng)), Math.fround(r * Math.sin(th))];
+      } else if (pop[i] === 2) {
+        const K = knots[Math.floor(rng() * knots.length) % knots.length];
+        c = [Math.fround(K[0] + K[2] * gaussN(rng)), Math.fround(P.zYoung * hDisc * gaussN(rng)), Math.fround(K[1] + K[2] * gaussN(rng))];
+      } else {
+        const S = spurs[Math.floor(rng() * spurs.length) % spurs.length];
+        const t = -S.len * Math.log(Math.max(1e-12, rng())) * 0.5; // exponential along the spur: dense at the root
+        c = [Math.fround(S.x + S.dx * t + S.width * gaussN(rng)), Math.fround(P.zYoung * hDisc * gaussN(rng)), Math.fround(S.z + S.dz * t + S.width * gaussN(rng))];
+      }
+    } else if (core && P.bulgeMode !== 'exp') {
+      const ring = Math.floor(i / CORE_RING);
+      const inRing = Math.min(CORE_RING, nCore - ring * CORE_RING);
+      const u = coreU0 + ((1 - coreU0) * (ring * CORE_RING + inRing * rng())) / nCore;
+      const r = P.coreAt * R * u ** P.starExp;
+      const anywhere = draws > 10 * PLACE_ATTEMPTS;
+      const th = ringTurn[ring] + (2 * Math.PI * (anywhere ? inRing * rng() : slot[i] + 0.5 + CORE_JITTER * (2 * rng() - 1))) / inRing;
+      c = at(r, th, P.starY, rng);
+    } else if (core) {
+      // An exponential sphere of scale bulgeScale·R (radial law r² e^(−r/h)), flattened in y.
+      const h = P.bulgeScale * R;
+      const r = -h * Math.log(Math.max(1e-12, rng() * rng() * rng()));
+      const th = 2 * Math.PI * rng();
+      const cy = 2 * rng() - 1;
+      const sy = Math.sqrt(1 - cy * cy);
+      c = [Math.fround(r * sy * Math.cos(th)), Math.fround(r * cy * P.bulgeFlat), Math.fround(r * sy * Math.sin(th))];
+      if (r > 0.5 * R) return null;
+    } else if (wisps && pop[i] === 2) {
+      const K = knots[Math.floor(rng() * knots.length) % knots.length];
+      c = [Math.fround(K[0] + K[2] * gaussN(rng)), Math.fround(0.3 * P.starY * gaussN(rng)), Math.fround(K[1] + K[2] * gaussN(rng))];
+    } else if (wisps) {
+      // Old (smooth, low contrast) and young (the wisp field, sharpened): rejection from the disc law, never a cut.
+      const young = pop[i] === 3;
+      let xz = null;
+      for (let t = 0; t < 2000 && !xz; t++) {
+        const r = discR(rng, young ? P.discScale * P.armScale : P.discScale), th = 2 * Math.PI * rng() - Math.PI;
+        const w = (young ? wispYoungW(r, th) : wispOldW(r, th)) * (1 - P.laneDepth * wispStreak(r, th));
+        if (rng() < w) xz = [r * Math.cos(th), r * Math.sin(th)];
+      }
+      if (!xz) return null;
+      const yMax = young ? 0.5 * P.starY : P.starY;
+      c = [Math.fround(xz[0]), Math.fround(yMax * (rng() + rng() - 1)), Math.fround(xz[1])];
+    } else if (fieldy && pop[i] === 2) {
+      const K = knots[Math.floor(rng() * knots.length) % knots.length];
+      c = [Math.fround(K[0] + 0.5 * K[2] * gaussN(rng)), Math.fround(0.3 * P.starY * gaussN(rng)), Math.fround(K[1] + 0.5 * K[2] * gaussN(rng))];
+    } else if (fieldy) {
+      const young = pop[i] === 3;
+      const xz = shapePoint(rng, young ? P.youngContrast : P.oldContrast, young ? P.youngSharp : P.oldSharp, young ? 'young' : 'old');
+      if (!xz) return null;
+      const yMax = young ? 0.5 * P.starY : P.starY;
+      c = [Math.fround(xz[0]), Math.fround(yMax * (rng() + rng() - 1)), Math.fround(xz[1])];
+    } else if (pop[i] === 2) {
+      const K = knots[Math.floor(rng() * knots.length) % knots.length];
+      c = [Math.fround(K[0] + K[2] * gauss3(rng) * 0.5), Math.fround(0.3 * P.starY * gauss3(rng)), Math.fround(K[1] + K[2] * gauss3(rng) * 0.5)];
+    } else {
+      let r = drawR(rng);
+      let disc = pop[i] === 1;
+      if (!disc && P.armEnd < 1 && r > P.armEnd * R && rng() < (r / R - P.armEnd) / (1 - P.armEnd)) disc = true;
+      if (disc) {
+        const th = 2 * Math.PI * rng();
+        c = at(r, th, P.starY, rng);
+      } else if (!perp) {
+        const arm = rng() < 0.5 ? 0 : 1;
+        const unit = P.armSoft > 0 ? (1 - P.armSoft) * (2 * rng() - 1) + P.armSoft * gauss3(rng) * 0.577 : 2 * rng() - 1;
+        const th = armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, P.arms === 2 ? arm : Math.floor(rng() * P.arms), P.arms) + scatterAt(P.scatter, r) * unit;
+        c = at(r, th, P.starY, rng);
+      } else {
+        const arm = Math.floor(rng() * P.arms) % P.arms;
+        const sg = sigmaAt(r);
+        const unit = (1 - P.armSoft) * (2 * rng() - 1) * 1.732 + P.armSoft * crossDraw(rng);
+        if (swallowed(unit, rng)) return null;
+        const [x, z] = onArm(r, arm, unit * sg);
+        c = [Math.fround(x), Math.fround(P.starY * (rng() + rng() - 1)), Math.fround(z)];
+      }
+    }
+    return c;
+  };
+  const stars = [];
+  let redrawn = 0, uncleared = 0, totalAttempts = 0;
+  for (let i = 0; i < nStars; i++) {
+    const rng = rngs[i];
+    const core = i < nCore;
+    const px = isBright[i] ? P.haloBright : P.haloStar;
+    let p = null;
+    let best = -1;
+    let draws = 0;
+    const attempts0 = totalAttempts;
+    for (let attempt = 0; attempt < PLACE_ATTEMPTS && best < 1; draws++) {
+      if (draws > 100 * PLACE_ATTEMPTS) throw new Error(`no room for background star ${i}`);
+      const c = candidate(i, rng, core, draws);
+      if (c === null || Math.hypot(c[0], c[1], c[2]) < P.coreExclusion || nearHood(c, px)) continue;
+      attempt++;
+      totalAttempts++;
+      if (placeMode === 'none') {
+        // No clearance: the density's first draw (a neighbourhood star's halo is still never touched).
+        [p, best] = [c, Infinity];
+        break;
+      }
+      const q = room(c, px);
+      if (placeMode === 'reject') {
+        // Reject only: the first clear draw; there is no "roomiest", so nothing is pushed out to the flanks.
+        if (q >= 1) [p, best] = [c, q];
+      } else if (q > best) [p, best] = [c, q];
+    }
+    if (totalAttempts - attempts0 > 1) redrawn++;
+    if (best < 1) uncleared++;
+    if (p === null) {
+      // Reject only, and no clear draw in PLACE_ATTEMPTS: a fresh draw from the density, room or not.
+      for (; ; draws++) {
+        if (draws > 100 * PLACE_ATTEMPTS) throw new Error(`no room for background star ${i}`);
+        const c = candidate(i, rng, core, draws);
+        if (c === null || Math.hypot(c[0], c[1], c[2]) < P.coreExclusion || nearHood(c, px)) continue;
+        p = c;
+        break;
+      }
+    }
+    settle(p, px, i);
+    stars.push(p);
+  }
+  const placement = { meanAttempts: totalAttempts / Math.max(1, nStars), redrawn: redrawn / Math.max(1, nStars), uncleared: uncleared / Math.max(1, nStars) };
+  const touch = haloTouch(stars, isBright);
+  const dimArr = new Float32Array(4 * (nStars - nBright));
+  const brightArr = new Float32Array(4 * nBright);
+  // Star colour (opt-in): each star's temperature from its own stream (bgTemp, salt 16), by population.
+  const colour = P.starColour > 0;
+  const dimTint = colour ? new Float32Array(3 * (nStars - nBright)) : null;
+  const brightTint = colour ? new Float32Array(3 * nBright) : null;
+  const temps = colour ? new Float32Array(nStars) : null;
+  let d = 0, b = 0;
+  stars.forEach(([x, y, z], i) => {
+    let warm = level[i].warm;
+    if (recipe) {
+      const t = Math.min(1, Math.hypot(x, z) / R);
+      warm = i < nCore ? level[i].warmU < 0.95 : pop[i] === 4 && level[i].warmU < P.warmCore + (P.oldWarm - P.warmCore) * Math.sqrt(t);
+    } else if (fieldy || wisps) {
+      // Two populations: the young (and the knots) are blue; the old disc and the bulge warm, warmest at the centre.
+      const t = Math.min(1, Math.hypot(x, z) / R);
+      warm = pop[i] !== 2 && pop[i] !== 3 && level[i].warmU < P.warmCore + (P.oldWarm - P.warmCore) * Math.sqrt(t);
+    } else if (P.warmGradient > 0) {
+      const t = Math.min(1, Math.hypot(x, z) / R);
+      const share = P.warmCore + (P.warmRim - P.warmCore) * Math.sqrt(t);
+      warm = level[i].warmU < P.warmShare + P.warmGradient * (share - P.warmShare);
+    }
+    const v = warm ? -level[i].brightness : level[i].brightness;
+    if (colour) {
+      const young = fieldy || recipe || wisps ? pop[i] === 2 || pop[i] === 3 || pop[i] === 5 : i >= nCore && (pop[i] === 2 || !warm);
+      const popName = young ? 'young' : i < nCore ? 'bulge' : 'old';
+      const T = drawTemperature(streamFor(seed, 'bgTemp', i), popName, young ? P.youngTempSpread : P.oldTempSpread);
+      temps[i] = T;
+      (isBright[i] ? brightTint : dimTint).set(guardTint(blackbodySRGB(T), P.starColour), 3 * (isBright[i] ? b : d));
+    }
+    if (isBright[i]) brightArr.set([x, y, z, v], 4 * b++);
+    else dimArr.set([x, y, z, v], 4 * d++);
+  });
+
+  // Dust: today on the arms (bearing scatter, wider toward the core); or over the disc; or in the lanes.
+  const dust = new Float32Array(4 * nDust);
+  for (let i = 0; i < nDust; i++) {
+    const rng = streamFor(seed, 'bgDust', i);
+    const brightness = P.dustFloor + P.dustRange * rng();
+    let p;
+    let guard = 0;
+    if (wisps) {
+      // Wisps dust: dustArmShare follows the old field and peaks in the dark streaks (gain dustLaneGain); the rest a smooth disc.
+      const onArm = rng() < P.dustArmShare;
+      // Reviewed: dustWispShare of the arm dust traces the wisps themselves (faint grain along the young filaments).
+      const onWisp = onArm && P.dustWispShare > 0 && rng() < P.dustWispShare;
+      for (let t = 0; t < 4000 && !p; t++) {
+        const r = discR(rng), th = 2 * Math.PI * rng() - Math.PI;
+        const w = onWisp
+          ? wispBiasAt(r, th, P.dustContrast, P.oldSharp) * wispField(r, th)
+          : onArm ? (wispBiasAt(r, th, P.dustContrast, P.oldSharp) * (1 + P.dustLaneGain * wispStreak(r, th))) / (1 + P.dustLaneGain) : 1;
+        if (rng() > w) continue;
+        const c = [Math.fround(r * Math.cos(th)), Math.fround(P.dustY * (rng() + rng() - 1)), Math.fround(r * Math.sin(th))];
+        if (Math.hypot(c[0], c[1], c[2]) >= P.coreExclusion) p = c;
+      }
+      p ??= [R, 0, 0];
+      dust.set([p[0], p[1], p[2], brightness], 4 * i);
+      continue;
+    }
+    if (recipe) {
+      // Recipe dust: dustArmShare drawn with the old-arm weight at dustContrast, peaking in the lane; the rest a smooth disc.
+      const onArm = rng() < P.dustArmShare;
+      for (let t = 0; t < 4000 && !p; t++) {
+        const r = rcR(rng, P.discScale);
+        const th = 2 * Math.PI * rng();
+        let wgt = rcTaper(r);
+        if (onArm) {
+          const d = rcPerp(r, th), w = rcWOld(r);
+          const A = P.dustContrast * armRamp(r) * armDipAt(r, fieldArm(r, th));
+          wgt *= (((1 + A * sersic(d, w)) / (1 + P.dustContrast)) * (1 + P.dustLaneGain * rcLaneG(d, w))) / (1 + P.dustLaneGain);
+        }
+        if (rng() > wgt) continue;
+        const c = [Math.fround(r * Math.cos(th)), Math.fround(P.zDust * P.discScale * R * gaussN(rng)), Math.fround(r * Math.sin(th))];
+        if (Math.hypot(c[0], c[1], c[2]) >= P.coreExclusion) p = c;
+      }
+      p ??= [R, 0, 0];
+      dust.set([p[0], p[1], p[2], brightness], 4 * i);
+      continue;
+    }
+    do {
+      if (++guard > 200) { p = [R, 0, 0]; break; }
+      if (fieldy) {
+        // Shape modes: the dust follows the old stars' field, softer (its own contrast and sharpness), no lane.
+        const xz = shapePoint(rng, P.dustContrast, P.dustSharp, 'dust') ?? [R, 0];
+        p = [Math.fround(xz[0]), Math.fround(P.dustY * (rng() + rng() - 1)), Math.fround(xz[1])];
+      } else if (P.dustMode === 'arms') {
+        const r = R * rng() ** P.dustExp;
+        const arm = rng() < 0.5 ? 0 : 1;
+        const th = armAngleAt(Math.max(r, 1e-9), P.pitch, armPhase, P.arms === 2 ? arm : Math.floor(rng() * P.arms), P.arms) + scatterAt(P.dustScatter, r) * (2 * rng() - 1);
+        p = at(r, th, P.dustY, rng);
+      } else if (P.dustMode === 'disc') {
+        const r = P.radialLaw === 'exp' ? drawR(rng) : R * rng() ** P.dustExp;
+        p = at(r, 2 * Math.PI * rng(), P.dustY, rng);
+      } else {
+        const r = P.radialLaw === 'exp' ? drawR(rng) : R * rng() ** P.dustExp;
+        const arm = Math.floor(rng() * P.arms) % P.arms;
+        const sg = sigmaAt(r);
+        const [x, z] = onArm(r, arm, (P.laneOffset + 0.5 * P.laneWidth * gauss3(rng)) * sg);
+        p = [Math.fround(x), Math.fround(P.dustY * (rng() + rng() - 1)), Math.fround(z)];
+      }
+    } while (Math.hypot(p[0], p[1], p[2]) < P.coreExclusion);
+    dust.set([p[0], p[1], p[2], brightness], 4 * i);
+  }
+
+  return { stars: dimArr, bright: brightArr, dust, armPhase, wavePsi, knots, hood, touch, placement, ...(colour ? { starsTint: dimTint, brightTint, temps } : {}) };
+}
+
+
+import { AddEquation, BufferAttribute, CustomBlending, GLSL3, Group, InstancedBufferAttribute, InstancedBufferGeometry, Mesh, OneFactor, OneMinusSrcColorFactor, PerspectiveCamera, RawShaderMaterial, Scene, Vector2, Vector3, WebGLRenderer, Color } from '../../../node_modules/three/build/three.module.js';
+
+const DEG = Math.PI / 180;
+const $ = (s) => document.querySelector(s);
+
+// ---- parameters and their controls ----
+// [key, label, min, max, step, section, kind, options]
+const CONTROLS = [
+  ['shape', 'Shape (arms: today and recommended)', 0, 0, 0, 'Shape', 'select', ['arms', 'wave', 'field', 'recipe', 'wisps']],
+  ['place', 'Placement (halo clearance)', 0, 0, 0, 'Shape', 'select', ['roomiest', 'reject', 'none']],
+  ['youngShare', 'Young share (blue, in the arms)', 0, 0.8, 0.01, 'Shape', 'range'],
+  ['youngContrast', 'Young arm contrast A (peak = 1 + A)', 0, 40, 0.5, 'Shape', 'range'],
+  ['youngSharp', 'Young arm sharpness', 0.5, 30, 0.5, 'Shape', 'range'],
+  ['youngBright', 'Young brightness boost', 0, 1.5, 0.05, 'Shape', 'range'],
+  ['oldDim', 'Old stars dimmed by', 0, 0.8, 0.01, 'Shape', 'range'],
+  ['oldContrast', 'Old arm contrast A', 0, 10, 0.1, 'Shape', 'range'],
+  ['oldSharp', 'Old arm sharpness', 0.5, 12, 0.5, 'Shape', 'range'],
+  ['oldWarm', 'Old warm share at the rim', 0, 1, 0.01, 'Shape', 'range'],
+  ['armStart', 'Arms fade in by (share of R)', 0, 0.5, 0.01, 'Shape', 'range'],
+  ['discFade', 'Disc fades out from (share of R)', 0.3, 1, 0.01, 'Shape', 'range'],
+  ['waveEIn', 'Orbit ellipticity at the centre (wave)', 0, 0.3, 0.005, 'Shape', 'range'],
+  ['waveEOut', 'Orbit ellipticity at the rim (wave)', 0, 0.3, 0.005, 'Shape', 'range'],
+  ['dustContrast', 'Dust arm contrast A', 0, 10, 0.1, 'Shape', 'range'],
+  ['dustSharp', 'Dust arm sharpness', 0.5, 12, 0.5, 'Shape', 'range'],
+  ['starColour', 'Colour variety (0 off: the two tints)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['youngTempSpread', 'Young temperature spread (× the mixture)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['oldTempSpread', 'Old temperature spread (× the mixture)', 0, 2, 0.05, 'Star colour', 'range'],
+  ['colourLum', 'Coloured star brightness (× the agents\' blue)', 0.3, 3, 0.05, 'Star colour', 'range'],
+  ['dustLane', 'Dust crest into the lane (0 crest, 1 lane)', 0, 1, 0.05, 'Shape', 'range'],
+  ['armScale', 'Young scale length (× disc scale)', 0.6, 2, 0.05, 'Shape', 'range'],
+  ['modDepth', 'Along-arm modulation depth (± share)', 0, 1, 0.05, 'Shape', 'range'],
+  ['modPeriod', 'Along-arm modulation period (in ln r)', 0.1, 1.5, 0.05, 'Shape', 'range'],
+  ['armStartIn', 'Arms begin fading in at (share of R; 0: half the end)', 0, 0.5, 0.01, 'Shape', 'range'],
+  ['armEndOut', 'Arms gone by (share of R, when they dissolve)', 0.8, 1.3, 0.01, 'Shape', 'range'],
+  ['discFadeEnd', 'Disc taper ends at (share of R)', 1, 1.4, 0.01, 'Shape', 'range'],
+
+  ['widthOld', 'Old arm FWHM (× r)', 0.05, 0.8, 0.01, 'Recipe (M74)', 'range'],
+  ['widthYoung', 'Young arm FWHM (× r)', 0.02, 0.4, 0.005, 'Recipe (M74)', 'range'],
+  ['sersicN', 'Cross-arm Sérsic n (0.5 gaussian, 1 exponential)', 0.3, 1.5, 0.05, 'Recipe (M74)', 'range'],
+  ['youngOffset', 'Young crest downstream (old half-widths)', -1, 1, 0.01, 'Recipe (M74)', 'range'],
+  ['knotSigma', 'Knot spread (× r)', 0.005, 0.15, 0.005, 'Recipe (M74)', 'range'],
+  ['spurShare', 'Spur share of the stars', 0, 0.2, 0.01, 'Recipe (M74)', 'range'],
+  ['spurCount', 'Spurs', 0, 60, 1, 'Recipe (M74)', 'range'],
+  ['spurAngle', 'Spur angle from the arm (°)', 0, 90, 1, 'Recipe (M74)', 'range'],
+  ['spurLength', 'Spur length (× r)', 0.02, 0.5, 0.01, 'Recipe (M74)', 'range'],
+  ['spurWidth', 'Spur width (× r)', 0.002, 0.05, 0.001, 'Recipe (M74)', 'range'],
+  ['dustLaneGain', 'Dust peak in the lane (gain)', 0, 8, 0.1, 'Recipe (M74)', 'range'],
+  ['dustArmShare', 'Dust drawn on the arms (share)', 0, 1, 0.05, 'Recipe (M74)', 'range'],
+  ['zOld', 'Old vertical σ (× disc scale)', 0, 0.4, 0.01, 'Recipe (M74)', 'range'],
+  ['zYoung', 'Young vertical σ (× disc scale)', 0, 0.2, 0.005, 'Recipe (M74)', 'range'],
+  ['zDust', 'Dust vertical σ (× disc scale)', 0, 0.3, 0.005, 'Recipe (M74)', 'range'],
+
+  ['wispBias', 'Spiral bias contrast A (peak = 1 + A)', 0, 6, 0.05, 'Wisps', 'range'],
+  ['wispSharp', 'Spiral bias sharpness', 0.5, 12, 0.5, 'Wisps', 'range'],
+  ['wispAlong', 'Noise scale along the flow (× r)', 0.05, 2, 0.01, 'Wisps', 'range'],
+  ['wispAcross', 'Noise scale across the flow (× r)', 0.005, 0.3, 0.005, 'Wisps', 'range'],
+  ['wispAniso', 'Anisotropy strength (0 round, 1 as set, 2 doubled)', 0, 2, 0.05, 'Wisps', 'range'],
+  ['wispOctaves', 'Noise octaves', 1, 6, 1, 'Wisps', 'range'],
+  ['wispRidge', 'Ridged blend (0 soft streaks, 1 filaments)', 0, 1, 0.05, 'Wisps', 'range'],
+  ['wispPower', 'Contrast power (wisps vs gaps)', 1, 12, 0.25, 'Wisps', 'range'],
+  ['wispShear', 'Shear off the arm (°, + outward)', -30, 30, 0.5, 'Wisps', 'range'],
+  ['wispYoung', 'Young field sharpness (power of the field)', 1, 6, 0.1, 'Wisps', 'range'],
+  ['wispOld', 'Old disc wisp texture (share)', 0, 1, 0.05, 'Wisps', 'range'],
+  ['clumpShare', 'Knot share of the stars', 0, 0.4, 0.01, 'Wisps', 'range'],
+  ['youngShare', 'Young share (the rest after bulge and knots is old)', 0, 0.8, 0.01, 'Wisps', 'range'],
+  ['wispKnotGap', 'Knot spacing at least (× R)', 0, 0.4, 0.01, 'Wisps', 'range'],
+
+  ['wispNoise', 'Noise (value: a draw per lattice point; gradient: Perlin, on ridges)', 0, 0, 0, 'Wisps (reviewed)', 'select', ['value', 'gradient']],
+  ['wispRidgeFeed', 'Ridged multifractal feed (detail only on the ridges)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispWarp', 'Meander: domain warp across the flow (u)', 0, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispWarpAlong', 'Meander scale along the flow (× r)', 0.3, 4, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBiasRise', 'Bias contrast rises outward by (share)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBiasRiseTo', 'Bias contrast reaches full by (share of R)', 0.1, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['modDepth', 'Along-arm segments: modulation depth (± share)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['modPeriod', 'Along-arm segment period (in ln r)', 0.1, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBranch', 'Branch: a second bias of this × A past the fork', 0, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispBranchPitch', 'Branch pitch (more open than the arm)', 0.15, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispBranchFrom', 'Branch leaves the arm at (share of R)', 0.2, 0.9, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispFeather', 'Feathers: weight added on the outer flank', 0, 2, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherShear', 'Feather angle off the arm (°, outward)', 0, 80, 1, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAlong', 'Feather length (× r)', 0.03, 0.6, 0.01, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAcross', 'Feather width (× r)', 0.004, 0.08, 0.001, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherAt', 'Feathers centred at (bias σ, + outer flank)', -2, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherWidth', 'Feather window σ (bias σ)', 0.1, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispFeatherOctaves', 'Feather noise octaves', 1, 6, 1, 'Wisps (reviewed)', 'range'],
+  ['wispLaneAlong', 'Lane filament length (× r; 0: the wisps\' geometry)', 0, 3, 0.05, 'Wisps (reviewed)', 'range'],
+  ['wispLaneAcross', 'Lane filament width (× r)', 0.005, 0.1, 0.005, 'Wisps (reviewed)', 'range'],
+  ['wispKnotMode', 'Knots (densest wisps, or beads walked along the arms)', 0, 0, 0, 'Wisps (reviewed)', 'select', ['densest', 'beads']],
+  ['wispKnotJitter', 'Bead spacing jitter (± share of the mean gap)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['dustWispShare', 'Arm dust tracing the wisps (share; the rest peaks in the lane)', 0, 1, 0.05, 'Wisps (reviewed)', 'range'],
+  ['clumpOut', 'Beads sit downstream of the crest (bias σ)', -1.5, 1.5, 0.05, 'Wisps (reviewed)', 'range'],
+  ['knotSigma', 'Knot spread (× r)', 0.005, 0.15, 0.005, 'Wisps (reviewed)', 'range'],
+  ['clumpCount', 'Knots', 4, 120, 1, 'Wisps (reviewed)', 'range'],
+  ['oldDim', 'Old stars dimmed by', 0, 0.8, 0.01, 'Wisps (reviewed)', 'range'],
+  ['oldWarm', 'Old warm share at the rim', 0, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['armEnd', 'Arms dissolve past (share of R)', 0.4, 1, 0.01, 'Wisps (reviewed)', 'range'],
+  ['armEndOut', 'Arms gone by (share of R)', 0.8, 1.3, 0.01, 'Wisps (reviewed)', 'range'],
+
+  ['hoodLod0', 'Far form whole below (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLod1', 'Real form whole above (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLateLod0', 'Dissolve (late): far form whole below (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodLateLod1', 'Dissolve (late): real form whole above (glow px)', 2, 18, 0.5, 'Neighbourhood', 'range'],
+  ['hoodJitter', 'Jitter σ (units; Jitter mode)', 0, 30, 0.5, 'Neighbourhood', 'range'],
+  ['hoodGap', 'Minimum gap between spots (units; Jitter mode)', 0, 30, 0.5, 'Neighbourhood', 'range'],
+  ['hoodSnap', 'Snap to the densest background (0 pure jitter, 1 densest candidate)', 0, 1, 0.05, 'Neighbourhood', 'range'],
+
+  ['tier', 'Tier (sets the halo clearance)', 0, 0, 0, 'Budget', 'select', ['phone', 'desktop']],
+  ['stars', 'Background stars', 500, 8000, 50, 'Budget', 'range'],
+  ['dust', 'Dust motes', 0, 12000, 100, 'Budget', 'range'],
+  ['seed', 'Seed', 1, 99, 1, 'Budget', 'range'],
+  ['hood', 'Neighbourhood sprites (30)', 0, 1, 1, 'Budget', 'range'],
+
+  ['arms', 'Arm count', 1, 5, 1, 'Arms', 'range'],
+  ['pitch', 'Pitch (θ = ln(r/2) / pitch)', 0.12, 0.8, 0.01, 'Arms', 'range'],
+  ['armMode', 'Scatter', 0, 0, 0, 'Arms', 'select', ['bearing', 'perp']],
+  ['armSoft', 'Edge softness (0 uniform, 1 gaussian)', 0, 1, 0.05, 'Arms', 'range'],
+  ['armCross', 'Cross-arm profile (perp mode)', 0, 0, 0, 'Arms', 'select', ['gauss3', 'normal', 'sersic']],
+  ['scatter', 'Bearing scatter (rad, bearing mode)', 0, 1.2, 0.01, 'Arms', 'range'],
+  ['scatterRim', 'Bearing scatter at the rim (× centre)', 0, 2, 0.05, 'Arms', 'range'],
+  ['sigmaCore', 'Arm σ at the centre (units, perp mode)', 0.5, 20, 0.5, 'Arms', 'range'],
+  ['sigmaRim', 'Arm σ at the rim (units, perp mode)', 1, 60, 0.5, 'Arms', 'range'],
+  ['armEnd', 'Arms dissolve past (share of radius)', 0.4, 1, 0.01, 'Arms', 'range'],
+
+  ['radialLaw', 'Radial law', 0, 0, 0, 'Disc and bulge', 'select', ['power', 'exp']],
+  ['starExp', 'Power-law exponent (r = R·u^exp)', 0.3, 1.5, 0.01, 'Disc and bulge', 'range'],
+  ['discScale', 'Exponential scale length (share of R)', 0.1, 0.6, 0.01, 'Disc and bulge', 'range'],
+  ['discShare', 'Inter-arm disc share', 0, 0.8, 0.01, 'Disc and bulge', 'range'],
+  ['radius', 'Radius (units)', 100, 320, 5, 'Disc and bulge', 'range'],
+  ['coreShare', 'Bulge share of the stars', 0, 0.6, 0.01, 'Disc and bulge', 'range'],
+  ['bulgeMode', 'Bulge', 0, 0, 0, 'Disc and bulge', 'select', ['rings', 'exp']],
+  ['coreAt', 'Rings reach (share of R, rings mode)', 0.1, 0.8, 0.01, 'Disc and bulge', 'range'],
+  ['bulgeScale', 'Bulge scale (share of R, exp mode)', 0.03, 0.3, 0.005, 'Disc and bulge', 'range'],
+  ['bulgeFlat', 'Bulge flattening (y scale)', 0.1, 1, 0.05, 'Disc and bulge', 'range'],
+  ['coreExclusion', 'Core exclusion (room for the black hole)', 0, 60, 1, 'Disc and bulge', 'range'],
+  ['starY', 'Star height scatter (±)', 0, 12, 0.1, 'Disc and bulge', 'range'],
+
+  ['brightShare', 'Bright set share', 0, 0.5, 0.01, 'Stars and colour', 'range'],
+  ['brightFloor', 'Brightness floor', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['brightPow', 'Brightness power (higher: more faint)', 0.5, 6, 0.1, 'Stars and colour', 'range'],
+  ['warmShare', 'Warm share (flat)', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['warmGradient', 'Warm gradient strength', 0, 1, 0.05, 'Stars and colour', 'range'],
+  ['warmCore', 'Warm share at the centre', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['warmRim', 'Warm share at the rim', 0, 1, 0.01, 'Stars and colour', 'range'],
+  ['agent', 'Cool tint', 0, 0, 0, 'Stars and colour', 'color'],
+  ['warm', 'Warm tint', 0, 0, 0, 'Stars and colour', 'color'],
+  ['warmMix', 'Warm mix toward the warm tint', 0, 1, 0.01, 'Stars and colour', 'color-range'],
+  ['hazeWarm', 'Warm core haze', 0, 1, 1, 'Stars and colour', 'range'],
+
+  ['clumpShare', 'Share of stars in knots', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['clumpCount', 'Knots', 4, 120, 1, 'Knots and dust lanes', 'range'],
+  ['clumpRadius', 'Knot radius (units)', 1, 15, 0.5, 'Knots and dust lanes', 'range'],
+  ['clumpOut', 'Knots sit outward (σ)', -1.5, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['clumpBright', 'Knot brightness boost', 0, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneDepth', 'Dust lane depth (share removed)', 0, 1, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneOffset', 'Lane position (σ, − inner edge)', -1.5, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneWidth', 'Lane width (σ)', 0.05, 1.5, 0.05, 'Knots and dust lanes', 'range'],
+  ['laneShape', 'Lane shape (arms generator)', 0, 0, 0, 'Knots and dust lanes', 'select', ['band', 'dip']],
+  ['dustMode', 'Dust motes lie', 0, 0, 0, 'Knots and dust lanes', 'select', ['arms', 'disc', 'lanes']],
+  ['dustScatter', 'Dust bearing scatter (arms mode)', 0, 2, 0.05, 'Knots and dust lanes', 'range'],
+  ['dustExp', 'Dust radial exponent', 0.3, 1.5, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustFloor', 'Dust brightness floor', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustRange', 'Dust brightness range', 0, 0.6, 0.01, 'Knots and dust lanes', 'range'],
+  ['dustY', 'Dust height scatter (±)', 0, 12, 0.1, 'Knots and dust lanes', 'range'],
+
+  ['haloStar', 'Star sprite from afar (px)', 1, 6, 0.5, 'Sprites', 'range'],
+  ['maxStar', 'Star sprite nearer, at most (px)', 1, 12, 0.5, 'Sprites', 'range'],
+  ['worldStar', 'Star world size', 0.1, 3, 0.1, 'Sprites', 'range'],
+  ['haloBright', 'Bright sprite from afar (px)', 1, 8, 0.5, 'Sprites', 'range'],
+  ['maxBright', 'Bright sprite nearer, at most (px)', 1, 16, 0.5, 'Sprites', 'range'],
+  ['worldBright', 'Bright world size', 0.1, 4, 0.1, 'Sprites', 'range'],
+  ['dustPx', 'Dust mote (px)', 0.5, 3, 0.5, 'Sprites', 'range'],
+  ['hazePx', 'Core haze (px)', 0, 160, 2, 'Sprites', 'range'],
+  ['hazeGain', 'Core haze brightness', 0, 1, 0.01, 'Sprites', 'range'],
+  ['gain', 'Overall gain', 0, 2, 0.01, 'Sprites', 'range'],
+];
+const GEN_KEYS = new Set(['dustWispShare', 'wispFeatherOctaves', 'wispNoise', 'wispRidgeFeed', 'wispWarp', 'wispWarpAlong', 'wispBiasRise', 'wispBiasRiseTo', 'wispBranch', 'wispBranchPitch', 'wispBranchFrom', 'wispFeather', 'wispFeatherShear', 'wispFeatherAlong', 'wispFeatherAcross', 'wispFeatherAt', 'wispFeatherWidth', 'wispLaneAlong', 'wispLaneAcross', 'wispKnotMode', 'wispKnotJitter', 'wispBias', 'wispSharp', 'wispAlong', 'wispAcross', 'wispAniso', 'wispOctaves', 'wispRidge', 'wispPower', 'wispShear', 'wispYoung', 'wispOld', 'wispKnotGap', 'armCross', 'laneShape', 'starColour', 'youngTempSpread', 'oldTempSpread', 'shape', 'place', 'oldDim', 'dustLane', 'armScale', 'modDepth', 'modPeriod', 'armStartIn', 'armEndOut', 'discFadeEnd', 'widthOld', 'widthYoung', 'sersicN', 'youngOffset', 'knotSigma', 'spurShare', 'spurCount', 'spurAngle', 'spurLength', 'spurWidth', 'dustLaneGain', 'dustArmShare', 'zOld', 'zYoung', 'zDust', 'youngShare', 'youngContrast', 'youngSharp', 'youngBright', 'oldContrast', 'oldSharp', 'oldWarm', 'armStart', 'discFade', 'waveEIn', 'waveEOut', 'dustContrast', 'dustSharp', 'tier', 'stars', 'dust', 'seed', 'hood', 'arms', 'pitch', 'armMode', 'armSoft', 'scatter', 'scatterRim', 'sigmaCore', 'sigmaRim', 'armEnd', 'radialLaw', 'starExp', 'discScale', 'discShare', 'radius', 'coreShare', 'bulgeMode', 'coreAt', 'bulgeScale', 'bulgeFlat', 'coreExclusion', 'starY', 'brightShare', 'brightFloor', 'brightPow', 'warmShare', 'warmGradient', 'warmCore', 'warmRim', 'clumpShare', 'clumpCount', 'clumpRadius', 'clumpOut', 'clumpBright', 'laneDepth', 'laneOffset', 'laneWidth', 'dustMode', 'dustScatter', 'dustExp', 'dustFloor', 'dustRange', 'dustY', 'haloStar', 'haloBright']);
+
+// TODAY and RECOMMENDED do not name the shape modes' keys: BASE is today with the shape defaults (shape 'arms',
+// place 'roomiest'), which generate exactly what TODAY alone did. The brackets and dots compare against it.
+const BASE = { ...SHAPE_DEFAULTS, ...TODAY };
+let P = { ...BASE };
+// The camera: the essay's galaxy wide. `turn` is the galaxy's pose in the stills (galaxyTurn(AMBIENT_POSE)).
+const ESSAY_CAM = { bearing: 0, elevation: 86, distance: 640, fov: 40, essay: true, turn: 0.04979659524447205 * 180 / Math.PI, spinPeriod: 120 };
+let C = { ...ESSAY_CAM };
+let spinning = false;
+let frameMode = 'fit';
+// The presets the swipe walks through, in order. Each one's geometry is generated once per tier and cached.
+const PRESETS = [
+  ['Today', TODAY],
+  ['Recommended', RECOMMENDED],
+  ['Recommended (soft)', RECOMMENDED_SOFT],
+  ['Wisps', WISPS],
+  ['Wisps (reviewed)', WISPS_REVIEWED],
+  ['Density wave', DENSITY_WAVE],
+  ['Smooth field', SMOOTH_FIELD],
+  ['M74 recipe', RECIPE_M74],
+  ['Readable', RECIPE_READABLE],
+  ['Readable + colour', RECIPE_READABLE_COLOUR],
+  ['Density wave + colour', DENSITY_WAVE_COLOUR],
+];
+let cur = 4; // the preset shown: Wisps (reviewed) on a first visit
+// The neighbourhood's representation (shape-notes §12), applied on top of whatever preset is showing.
+const HOOD_MODES = [['today', 'As today'], ['blend', 'Blend'], ['dissolve', 'Dissolve'], ['dissolve-late', 'Dissolve (late)'], ['jitter', 'Jitter']];
+let hoodMode = 'dissolve-late'; // the first visit lands on the proposed combination (Wisps (reviewed) · Dissolve (late)); localStorage restores a later choice
+let edited = false; // a slider moved since the preset was shown
+// The viewer's camera (and preset) survive a reload; storage may be refused, so every access is guarded.
+const CAM_KEY = 'galaxy-tuner/camera/v1';
+function saveCam() {
+  clearTimeout(saveCam.t);
+  saveCam.t = setTimeout(() => {
+    try { localStorage.setItem(CAM_KEY, JSON.stringify({ C, frameMode, preset: cur, hoodMode })); } catch {}
+  }, 200);
+}
+function loadCam() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CAM_KEY) ?? 'null');
+    if (s && typeof s.C === 'object') C = { ...ESSAY_CAM, ...s.C };
+    if (s && ['fit', 'phone', 'desktop'].includes(s.frameMode)) frameMode = s.frameMode;
+    if (s && Number.isInteger(s.preset) && s.preset >= 0 && s.preset < PRESETS.length) cur = s.preset;
+    if (s && HOOD_MODES.some(([m]) => m === s.hoodMode)) hoodMode = s.hoodMode;
+  } catch {}
+}
+
+// ---- UI ----
+const sections = new Map();
+const inputs = new Map();
+const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(v < 1 ? 3 : 2).replace(/0+$/, '').replace(/\.$/, '')) : String(v));
+for (const [key, label, min, max, step, section, kind, options] of CONTROLS) {
+  if (!sections.has(section)) {
+    const d = document.createElement('details');
+    d.innerHTML = `<summary>${section} <small></small></summary><div class="grid"></div>`;
+    $('#sections').append(d);
+    sections.set(section, d);
+  }
+  const grid = sections.get(section).querySelector('.grid');
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  const id = `c-${key}` + (inputs.has(key) ? `-${inputs.get(key).length + 1}` : '');
+  let input;
+  if (kind === 'select') {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><select id="${id}">${options.map((o) => `<option>${o}</option>`).join('')}</select>`;
+  } else if (kind === 'color') {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><input id="${id}" type="color">`;
+  } else {
+    wrap.innerHTML = `<label for="${id}">${label}</label><output></output><input id="${id}" type="range" min="${min}" max="${max}" step="${step}">`;
+  }
+  grid.append(wrap);
+  input = wrap.querySelector('select, input');
+  inputs.set(key, [...(inputs.get(key) ?? []), { input, wrap, out: wrap.querySelector('output'), kind }]);
+  input.addEventListener('input', () => {
+    const v = input.type === 'range' ? Number(input.value) : input.value;
+    P[key] = v;
+    edited = true;
+    updatePill(false);
+    refreshOne(key);
+    if (GEN_KEYS.has(key)) scheduleGen();
+    else if (key.startsWith('hood') && key !== 'hood') applyHood();
+    else applySprites();
+  });
+}
+function refreshOne(key) {
+  const v = P[key];
+  for (const c of inputs.get(key) ?? []) {
+    if (c.input.type === 'range') c.input.value = v;
+    else c.input.value = String(v);
+    c.out.textContent = `${fmt(v)}${v !== BASE[key] ? ` (${fmt(BASE[key])})` : ''}`;
+    c.wrap.classList.toggle('changed', v !== BASE[key]);
+  }
+}
+function refreshAll() {
+  for (const key of inputs.keys()) refreshOne(key);
+  for (const [name, d] of sections) {
+    const n = CONTROLS.filter((c) => c[5] === name && P[c[0]] !== BASE[c[0]]).length;
+    d.querySelector('summary small').textContent = n ? `${n} changed` : '';
+  }
+}
+function tierFor() {
+  return frameMode === 'desktop' || (frameMode === 'fit' && Math.min(stage.clientWidth, stage.clientHeight) >= 600) ? 'desktop' : 'phone';
+}
+const TIER_COUNTS = { phone: [2400, 4000], desktop: [4000, 8000] };
+/** Parameters `p` with the essay's tier (by the frame's shorter side) when its counts are still a tier's defaults. */
+function tierAdjusted(p) {
+  const tier = tierFor();
+  const [s0, d0] = TIER_COUNTS[p.tier];
+  if (p.tier !== tier && p.stars === s0 && p.dust === d0) return { ...p, tier, stars: TIER_COUNTS[tier][0], dust: TIER_COUNTS[tier][1] };
+  return p;
+}
+function followTier() {
+  const q = tierAdjusted(P);
+  const changed = q !== P;
+  P = q;
+  return changed;
+}
+// ---- the preset carousel: cached geometry, instant swaps, the camera untouched ----
+const geomCache = new Map();
+const cacheKey = (k) => `${k}/${tierFor()}`;
+function presetGeometry(k) {
+  const key = cacheKey(k);
+  let hit = geomCache.get(key);
+  if (!hit) {
+    const p = tierAdjusted({ ...SHAPE_DEFAULTS, ...PRESETS[k][1] });
+    const t0 = performance.now();
+    const bg = linearise(generateBackground(p));
+    hit = { p, bg, ms: performance.now() - t0 };
+    geomCache.set(key, hit);
+  }
+  return hit;
+}
+/** Show preset k (wrapping): only the galaxy changes; the camera, framing and zoom stay exactly as they are. */
+function showPreset(k, flash = true) {
+  cur = ((k % PRESETS.length) + PRESETS.length) % PRESETS.length;
+  const { p, bg, ms } = presetGeometry(cur);
+  clearTimeout(genTimer);
+  P = { ...p };
+  edited = false;
+  refreshAll();
+  genMs = ms;
+  upload(bg);
+  updatePill(flash);
+  saveCam();
+}
+const step = (dir) => showPreset(cur + dir);
+/** Fill the cache in the background, one preset per slice, so every swipe is a buffer swap. */
+function pregenerate() {
+  clearTimeout(pregenerate.t);
+  const k = PRESETS.findIndex((_, i) => !geomCache.has(cacheKey(i)));
+  if (k >= 0) {
+    presetGeometry(k);
+    pregenerate.t = setTimeout(pregenerate, 30);
+  }
+}
+function applyPreset(preset) {
+  const k = PRESETS.findIndex(([, q]) => q === preset);
+  if (k >= 0) return showPreset(k);
+  P = { ...SHAPE_DEFAULTS, ...preset };
+  followTier();
+  edited = true;
+  updatePill(true);
+  refreshAll();
+  scheduleGen(0);
+}
+const PRESET_BUTTONS = ['#preset-today', '#preset-rec', '#preset-rec-soft', '#preset-wisps', '#preset-wisps-reviewed', '#preset-wave', '#preset-field', '#preset-m74', '#preset-readable', '#preset-readable-colour', '#preset-wave-colour'];
+PRESET_BUTTONS.forEach((sel, k) => $(sel).addEventListener('click', () => showPreset(k)));
+// The pill: the preset's name and a dot per preset; it brightens on a switch, then fades back.
+$('#pill-dots').innerHTML = PRESETS.map(() => '<i></i>').join('');
+$('#pill-dots2').innerHTML = HOOD_MODES.map(() => '<i></i>').join('');
+const hoodIndex = () => Math.max(0, HOOD_MODES.findIndex(([m]) => m === hoodMode));
+function updatePill(flash) {
+  $('#pill-name').textContent = PRESETS[cur][0] + (edited ? ' (edited)' : '') + ' · ' + HOOD_MODES[hoodIndex()][1];
+  $('#pill-dots').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === cur));
+  $('#pill-dots2').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === hoodIndex()));
+  PRESET_BUTTONS.forEach((sel, i) => $(sel).classList.toggle('on', i === cur && !edited));
+  const pill = $('#pill');
+  if (flash) {
+    pill.classList.add('flash');
+    clearTimeout(updatePill.t);
+    updatePill.t = setTimeout(() => pill.classList.remove('flash'), 700);
+  }
+}
+function openSheet(open) {
+  document.body.classList.toggle('open', open);
+  $('#sheet').classList.toggle('closed', !open);
+  layout();
+}
+$('#pill').addEventListener('click', () => openSheet(true));
+$('#close').addEventListener('click', () => openSheet(false));
+$('#copy').addEventListener('click', async () => {
+  const text = JSON.stringify({ galaxy: P, camera: { ...C, frame: frameMode }, note: 'Motes of Work galaxy tuner: galaxy keys follow src/galaxy/background.ts BG + galaxySystem.ts sprites; the rest are the recommended additions.' }, null, 2);
+  const box = $('#json');
+  box.value = text;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied');
+  } catch {
+    box.hidden = false;
+    box.focus();
+    box.select();
+    toast('Clipboard refused: the values are selected below');
+  }
+});
+// Hold to see: while the button is held, the control sheet is transparent and lets touches through.
+{
+  const peek = $('#peek');
+  const on = (ev) => { ev.preventDefault(); peek.setPointerCapture?.(ev.pointerId); $('#sheet').classList.add('peek'); peek.classList.add('on'); };
+  const off = () => { $('#sheet').classList.remove('peek'); peek.classList.remove('on'); };
+  peek.addEventListener('pointerdown', on);
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) peek.addEventListener(type, off);
+  peek.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Keyboard: hold the space bar on the focused button.
+  peek.addEventListener('keydown', (ev) => { if (ev.key === ' ') { ev.preventDefault(); $('#sheet').classList.add('peek'); peek.classList.add('on'); } });
+  peek.addEventListener('keyup', (ev) => { if (ev.key === ' ') off(); });
+}
+function toast(msg) {
+  $('#toast').textContent = msg;
+  setTimeout(() => ($('#toast').textContent = ''), 2500);
+}
+$('#cam-essay').addEventListener('click', () => { C = { ...ESSAY_CAM, spinPeriod: C.spinPeriod, turn: C.turn }; pose(); });
+$('#cam-reset').addEventListener('click', () => { C = { ...ESSAY_CAM }; spinning = false; $('#spin').classList.remove('on'); pose(); });
+$('#cam-over').addEventListener('click', () => { C.elevation = 89.5; C.essay = true; pose(); });
+$('#cam-tilt').addEventListener('click', () => { C.elevation = 70; C.essay = true; pose(); });
+$('#band-toggle').addEventListener('click', () => { $('#band').hidden = !$('#band').hidden; $('#band-toggle').classList.toggle('on', !$('#band').hidden); });
+$('#spin').addEventListener('click', () => { spinning = !spinning; $('#spin').classList.toggle('on', spinning); });
+$('#frame-size').addEventListener('change', (e) => {
+  frameMode = e.target.value;
+  layout();
+  retier();
+});
+/** After the frame changes size: follow the tier (from the cache when the preset is unedited). */
+function retier() {
+  if (!edited) {
+    if (tierAdjusted({ ...SHAPE_DEFAULTS, ...PRESETS[cur][1] }).tier !== P.tier) showPreset(cur, false);
+  } else if (followTier()) {
+    refreshAll();
+    scheduleGen(0);
+  }
+  pregenerate();
+}
+
+// ---- rendering ----
+const VERT = `precision highp float;
+in vec2 aCorner;
+in vec4 aStar;
+in vec3 aTint;
+uniform float uUseTint;
+uniform float uLum;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform vec2 uViewport;
+uniform float uPixelRatio;
+uniform float uSizeWorld;
+uniform float uMinPx;
+uniform float uMaxPx;
+uniform float uGain;
+// The neighbourhood's cross-fade (§12): uFade 1 fades in, 2 out, by the spot's glow sprite size, clamp(uGlowWorld·ppu, uGlowMin, uGlowMax) CSS px, over [uLod0, uLod1].
+uniform float uFade;
+uniform float uGlowWorld;
+uniform float uGlowMin;
+uniform float uGlowMax;
+uniform float uLod0;
+uniform float uLod1;
+uniform vec3 uAgent;
+uniform vec3 uWarm;
+uniform float uWarmMix;
+out vec2 vUv;
+out vec3 vColor;
+flat out float vRadiusPx;
+void main() {
+  vec4 view = modelViewMatrix * vec4(aStar.xyz, 1.0);
+  float focalDev = projectionMatrix[1][1] * uViewport.y * 0.5;
+  float ppuCss = focalDev / max(1e-4, -view.z) / uPixelRatio;
+  float px = clamp(uSizeWorld * ppuCss, uMinPx, uMaxPx) * uPixelRatio;
+  vec4 clip = projectionMatrix * view;
+  clip.xy += aCorner * (px / uViewport) * clip.w;
+  gl_Position = clip;
+  vUv = aCorner;
+  vec3 tint = aStar.w < 0.0 ? mix(uAgent, uWarm, uWarmMix) : uAgent;
+  // Star colour model: the star's own (guarded, linear) blackbody tint at the luminance uLum.
+  if (uUseTint > 0.5) tint = aTint * (uLum / max(1e-4, dot(aTint, vec3(0.2126, 0.7152, 0.0722))));
+  float glow = clamp(uGlowWorld * ppuCss, uGlowMin, uGlowMax);
+  float near = smoothstep(uLod0, uLod1, glow);
+  float fade = uFade < 0.5 ? 1.0 : uFade < 1.5 ? near : 1.0 - near;
+  vColor = tint * abs(aStar.w) * uGain * fade;
+  vRadiusPx = 0.5 * px;
+}`;
+const FRAG = `precision highp float;
+in vec2 vUv;
+in vec3 vColor;
+flat in float vRadiusPx;
+uniform int uProfile;
+out vec4 outColor;
+void main() {
+  float r = length(vUv);
+  if (r > 1.0) discard;
+  float alpha;
+  if (uProfile == 0) {
+    alpha = 1.0 - smoothstep(1.0 - 1.0 / max(vRadiusPx, 1.0), 1.0, r);
+  } else if (uProfile == 1) {
+    alpha = (1.0 - smoothstep(0.0, 0.35, r)) + 0.45 * (1.0 - r) * (1.0 - r);
+  } else {
+    alpha = (1.0 - r) * (1.0 - r);
+  }
+  alpha = min(alpha, 1.0);
+  outColor = vec4(vColor * alpha, alpha);
+}`;
+
+const stage = $('#stage');
+const frame = $('#frame');
+const renderer = new WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+renderer.setClearColor(new Color('#0b0d12'), 1);
+frame.prepend(renderer.domElement);
+const scene = new Scene();
+const camera = new PerspectiveCamera(40, 1, 1, 5000);
+const galaxy = new Group();
+scene.add(galaxy);
+const viewport = { value: new Vector2(1, 1) };
+const pixelRatio = { value: 1 };
+const QUAD = [-1, -1, 1, -1, 1, 1, -1, 1];
+const QUAD_INDEX = [0, 1, 2, 0, 2, 3];
+const SETS = {
+  haze: { profile: 2 },
+  dust: { profile: 0 },
+  stars: { profile: 1 },
+  bright: { profile: 1 },
+  hood: { profile: 1 },
+  farDim: { profile: 1 }, // the neighbourhood's far form (Blend, Dissolve): star-sized sprites that fade out on approach
+  farBright: { profile: 1 },
+};
+const parts = {};
+for (const [name, set] of Object.entries(SETS)) {
+  const g = new InstancedBufferGeometry();
+  g.setAttribute('aCorner', new BufferAttribute(new Float32Array(QUAD), 2));
+  g.setIndex(QUAD_INDEX);
+  g.setAttribute('aStar', new InstancedBufferAttribute(new Float32Array(4), 4));
+  g.setAttribute('aTint', new InstancedBufferAttribute(new Float32Array(3), 3));
+  g.instanceCount = 0;
+  const material = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: VERT,
+    fragmentShader: FRAG,
+    uniforms: {
+      uSizeWorld: { value: 0 }, uMinPx: { value: 1 }, uMaxPx: { value: 1 }, uGain: { value: 1 }, uUseTint: { value: 0 }, uLum: { value: 0.35 },
+      uFade: { value: 0 }, uGlowWorld: { value: 4.5 }, uGlowMin: { value: 5 }, uGlowMax: { value: 18 }, uLod0: { value: 6 }, uLod1: { value: 12 },
+      uProfile: { value: set.profile }, uViewport: viewport, uPixelRatio: pixelRatio,
+      uAgent: { value: new Color(P.agent) }, uWarm: { value: new Color(P.warm) }, uWarmMix: { value: P.warmMix },
+    },
+    blending: CustomBlending, blendEquation: AddEquation, blendSrc: OneFactor, blendDst: OneMinusSrcColorFactor,
+    depthWrite: false, depthTest: false, transparent: true,
+  });
+  const mesh = new Mesh(g, material);
+  mesh.frustumCulled = false;
+  galaxy.add(mesh);
+  parts[name] = { mesh, g, material };
+}
+/** Upload instances; `tint` (linear RGB per instance) switches the material to the star colour model. */
+function setData(name, data, tint = null) {
+  const p = parts[name];
+  const n = data.length / 4;
+  p.g.setAttribute('aStar', new InstancedBufferAttribute(data, 4));
+  p.g.setAttribute('aTint', new InstancedBufferAttribute(tint ?? new Float32Array(Math.max(3, 3 * n)), 3));
+  p.material.uniforms.uUseTint.value = tint ? 1 : 0;
+  p.g.instanceCount = n;
+}
+/** sRGB 0..1 → linear, as three's ColorManagement treats the tint uniforms (#4DA3FF and the rest). */
+const toLinear = (a) => a.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+function linearise(bg) {
+  if (bg.starsTint && !bg.starsTintLin) {
+    bg.starsTintLin = toLinear(bg.starsTint);
+    bg.brightTintLin = toLinear(bg.brightTint);
+  }
+  return bg;
+}
+let genMs = 0;
+let bgCounts = { stars: 0, bright: 0, dust: 0 };
+let bgTouch = { bright: 0, all: 0 };
+function applySprites() {
+  const u = (name, world, min, max, gain) => {
+    const m = parts[name].material.uniforms;
+    m.uSizeWorld.value = world; m.uMinPx.value = min; m.uMaxPx.value = max; m.uGain.value = gain;
+    m.uAgent.value.set(P.agent); m.uWarm.value.set(P.warm); m.uWarmMix.value = P.warmMix;
+  };
+  u('haze', 0, P.hazePx, P.hazePx, P.gain);
+  parts.haze.material.uniforms.uWarmMix.value = 1; // the haze takes the warm tint whole
+  u('dust', 0, P.dustPx, P.dustPx, P.gain);
+  u('stars', P.worldStar, P.haloStar, P.maxStar, P.gain);
+  u('bright', P.worldBright, P.haloBright, P.maxBright, P.gain);
+  u('hood', 4.5, 5, 18, P.gain);
+  u('farDim', P.worldStar, P.haloStar, P.maxStar, P.gain);
+  u('farBright', P.worldBright, P.haloBright, P.maxBright, P.gain);
+  const lod = hoodMode === 'blend' || hoodMode === 'dissolve' || hoodMode === 'dissolve-late';
+  const [lod0, lod1] = hoodBand();
+  for (const [name, mode] of [['hood', lod ? 1 : 0], ['farDim', 2], ['farBright', 2]]) {
+    const m = parts[name].material.uniforms;
+    m.uFade.value = mode; m.uLod0.value = lod0; m.uLod1.value = lod1;
+  }
+  // Coloured stars take the agents' blue's luminance (× colourLum), so colour changes hue, not brightness.
+  const agent = parts.stars.material.uniforms.uAgent.value;
+  const lum = (0.2126 * agent.r + 0.7152 * agent.g + 0.0722 * agent.b) * (P.colourLum ?? 1);
+  parts.stars.material.uniforms.uLum.value = lum;
+  parts.bright.material.uniforms.uLum.value = lum;
+  setData('haze', new Float32Array([0, 0, 0, P.hazeWarm ? -P.hazeGain : P.hazeGain]));
+  readout();
+}
+let genTimer = 0;
+function scheduleGen(delay = 90) {
+  clearTimeout(genTimer);
+  genTimer = setTimeout(regenerate, delay);
+}
+function regenerate() {
+  const t0 = performance.now();
+  let bg;
+  try {
+    bg = generateBackground(P);
+  } catch (e) {
+    toast(String(e.message || e));
+    return;
+  }
+  genMs = performance.now() - t0;
+  upload(linearise(bg));
+}
+/** Put a generated background on screen (a buffer swap: the camera is not touched). */
+let lastBg = null;
+let hoodReport = { mode: 'today', moved: [], pulled: [] };
+/** The nearest background stars to (x, z): indices into the dim set (i < nDim) or the bright set (i − nDim), nearest first. */
+function nearestStars(bg, x, z, n, taken) {
+  const nDim = bg.stars.length / 4;
+  const best = [];
+  const consider = (i, arr, j) => {
+    if (taken?.has(i)) return;
+    const d = Math.hypot(arr[j] - x, arr[j + 2] - z);
+    if (best.length < n || d < best[best.length - 1].d) {
+      best.push({ i, d });
+      best.sort((a, b) => a.d - b.d);
+      if (best.length > n) best.pop();
+    }
+  };
+  for (let j = 0; j < bg.stars.length; j += 4) consider(j / 4, bg.stars, j);
+  for (let j = 0; j < bg.bright.length; j += 4) consider(nDim + j / 4, bg.bright, j);
+  return best;
+}
+/**
+ * Represent the 30 neighbourhood spots in the chosen mode (shape-notes §12) on top of the generated background,
+ * which is never changed: the sets get copies. today: the uniform sprites. blend: the positions stay; each spot's far
+ * form takes the class (dim/bright) and brightness of one of its 12 nearest background stars, drawn per spot from
+ * stream bgHoodLook (salt 20), and the real sprite fades in on approach. dissolve: the nearest background star is
+ * pulled onto each spot (one star per spot, nearest first) as its far form, so the zoom-in lands on a real star; the
+ * real sprite fades in. jitter: the spots move (16 seeded candidates per spot, σ hoodJitter, stream bgHoodJitter,
+ * salt 21; the one on the densest background by hoodSnap, never nearer than hoodGap to a spot already placed).
+ */
+function applyHood() {
+  const bg = lastBg;
+  if (!bg) return;
+  const seed = P.seed | 0;
+  const nDim = bg.stars.length / 4;
+  let stars = bg.stars, bright = bg.bright, starsTint = bg.starsTintLin ?? null, brightTint = bg.brightTintLin ?? null;
+  const hood = [], farDim = [], farBright = [], farDimTint = [], farBrightTint = [];
+  const report = { mode: hoodMode, moved: [], pulled: [] };
+  const entryOf = (i) => (i < nDim ? { arr: bg.stars, j: 4 * i, bright: false, tint: starsTint, t: 3 * i } : { arr: bg.bright, j: 4 * (i - nDim), bright: true, tint: brightTint, t: 3 * (i - nDim) });
+  const pushFar = (x, z, e) => {
+    const v = e.arr[e.j + 3];
+    (e.bright ? farBright : farDim).push(x, 0, z, v);
+    if (e.tint) (e.bright ? farBrightTint : farDimTint).push(e.tint[e.t], e.tint[e.t + 1], e.tint[e.t + 2]);
+  };
+  if (hoodMode === 'blend') {
+    bg.hood.forEach(([x, z], k) => {
+      hood.push(x, 0, z, 1);
+      const rng = streamFor(seed, 'bgHoodLook', k);
+      const near = nearestStars(bg, x, z, 12);
+      pushFar(x, z, entryOf(near[Math.floor(rng() * near.length) % near.length].i));
+    });
+  } else if (hoodMode === 'dissolve' || hoodMode === 'dissolve-late') {
+    stars = bg.stars.slice(); bright = bg.bright.slice();
+    const taken = new Set();
+    bg.hood.forEach(([x, z]) => {
+      hood.push(x, 0, z, 1);
+      const [n] = nearestStars(bg, x, z, 1, taken);
+      taken.add(n.i);
+      const e = entryOf(n.i);
+      pushFar(x, z, e);
+      (e.bright ? bright : stars)[e.j + 3] = 0; // not drawn where it was: it now stands on the spot
+      report.pulled.push(n.d);
+    });
+  } else if (hoodMode === 'jitter') {
+    const sig = P.hoodJitter ?? 8, gap = P.hoodGap ?? 14, snap = P.hoodSnap ?? 1;
+    const density = (x, z) => {
+      let n = 0;
+      for (const arr of [bg.stars, bg.bright]) for (let j = 0; j < arr.length; j += 4) if (Math.hypot(arr[j] - x, arr[j + 2] - z) < 6) n++;
+      return n;
+    };
+    const placed = [];
+    bg.hood.forEach(([x0, z0], k) => {
+      const rng = streamFor(seed, 'bgHoodJitter', k);
+      const gaussN = () => Math.sqrt(-2 * Math.log(Math.max(1e-12, rng()))) * Math.cos(2 * Math.PI * rng());
+      const cands = [];
+      for (let t = 0; t < 16; t++) cands.push([x0 + sig * gaussN(), z0 + sig * gaussN()]);
+      const dens = cands.map(([x, z]) => density(x, z)), dMax = Math.max(1, ...dens);
+      let best = null, bestScore = -Infinity;
+      cands.forEach(([x, z], t) => {
+        if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < gap)) return;
+        const score = snap * (dens[t] / dMax) - (1 - snap) * (t / 16);
+        if (score > bestScore) { bestScore = score; best = [x, z]; }
+      });
+      best ??= [x0, z0]; // no candidate clears the gap: the spot stays put
+      placed.push(best);
+      hood.push(best[0], 0, best[1], 1);
+      report.moved.push(Math.hypot(best[0] - x0, best[1] - z0));
+    });
+  } else {
+    bg.hood.forEach(([x, z]) => hood.push(x, 0, z, 1));
+  }
+  setData('stars', stars, starsTint);
+  setData('bright', bright, brightTint);
+  setData('hood', new Float32Array(hood));
+  setData('farDim', new Float32Array(farDim), starsTint ? new Float32Array(farDimTint) : null);
+  setData('farBright', new Float32Array(farBright), brightTint ? new Float32Array(farBrightTint) : null);
+  hoodReport = report;
+  for (const b of document.querySelectorAll('#hood-row .chip')) b.classList.toggle('on', b.dataset.hood === hoodMode);
+  applySprites();
+}
+function setHoodMode(mode, flash = true) {
+  if (!HOOD_MODES.some(([m]) => m === mode)) return;
+  hoodMode = mode;
+  applyHood();
+  updatePill(flash);
+  saveCam();
+}
+/** The second swipe axis: the next or previous neighbourhood option (wrapping); the camera is not touched. */
+const stepHood = (dir) => setHoodMode(HOOD_MODES[((hoodIndex() + dir) % HOOD_MODES.length + HOOD_MODES.length) % HOOD_MODES.length][0]);
+for (const b of document.querySelectorAll('#hood-row .chip')) b.addEventListener('click', () => setHoodMode(b.dataset.hood));
+/** The handover band in use (glow px): Dissolve (late) has its own, the other fading modes share hoodLod0/1. */
+function hoodBand() {
+  const lod0 = hoodMode === 'dissolve-late' ? P.hoodLateLod0 ?? 11 : P.hoodLod0 ?? 6;
+  const lod1 = hoodMode === 'dissolve-late' ? P.hoodLateLod1 ?? 16 : P.hoodLod1 ?? 12;
+  return [lod0, Math.max(lod0 + 0.01, lod1)];
+}
+/** Each neighbourhood spot's glow sprite size (CSS px, the essay's glowPx) and its real form's share at the current camera. */
+function hoodLod() {
+  camera.updateMatrixWorld(true);
+  const focalCss = (camera.projectionMatrix.elements[5] * H) / 2;
+  const [lod0, lod1] = hoodBand();
+  const ss = (x) => { const t = Math.min(1, Math.max(0, (x - lod0) / (lod1 - lod0))); return t * t * (3 - 2 * t); };
+  const spots = [];
+  const hoodArr = parts.hood.g.getAttribute('aStar').array;
+  for (let i = 0; i < hoodArr.length; i += 4) {
+    const v = new Vector3(hoodArr[i], hoodArr[i + 1], hoodArr[i + 2]).applyMatrix4(galaxy.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+    const glow = Math.min(18, Math.max(5, (4.5 * focalCss) / Math.max(1e-4, -v.z)));
+    const clip = new Vector3(hoodArr[i], hoodArr[i + 1], hoodArr[i + 2]).applyMatrix4(galaxy.matrixWorld).project(camera);
+    spots.push({ glow, near: ss(glow), x: ((clip.x + 1) / 2) * W, y: ((1 - clip.y) / 2) * H });
+  }
+  return spots;
+}
+function upload(bg) {
+  lastBg = bg;
+  setData('dust', bg.dust);
+  applyHood();
+  bgTouch = bg.touch;
+  window.__tunerTouch = bg.touch;
+  bgCounts = { stars: bg.stars.length / 4, bright: bg.bright.length / 4, dust: bg.dust.length / 4, hood: bg.hood.length };
+  applySprites();
+  window.__tunerGen = (window.__tunerGen || 0) + 1;
+}
+function readout() {
+  const n = bgCounts.stars + bgCounts.bright + bgCounts.dust + 1;
+  $('#readout').textContent = `${bgCounts.stars + bgCounts.bright} stars · ${bgCounts.dust} dust · ${n} of 76,000 · ${genMs.toFixed(0)} ms · dpr ${pixelRatio.value} · ${C.elevation.toFixed(0)}° / ${C.distance.toFixed(0)} · ${P.shape}/${P.place} · halos touch: bright ${(100 * bgTouch.bright).toFixed(1)} %, all ${(100 * bgTouch.all).toFixed(1)} % · neighbourhood ${hoodMode}${hoodReport.moved.length ? ` (moved mean ${(hoodReport.moved.reduce((a, b) => a + b, 0) / hoodReport.moved.length).toFixed(1)}, max ${Math.max(...hoodReport.moved).toFixed(1)} units)` : ''}${hoodReport.pulled.length ? ` (pulled mean ${(hoodReport.pulled.reduce((a, b) => a + b, 0) / hoodReport.pulled.length).toFixed(1)}, max ${Math.max(...hoodReport.pulled).toFixed(1)} units)` : ''}`;
+}
+
+// ---- camera ----
+let W = 390, H = 844;
+function layout() {
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const sheetH = $('#sheet').offsetHeight;
+  if (frameMode === 'fit') { W = sw; H = sh; } else if (frameMode === 'desktop') { W = 1440; H = 900; } else { W = 390; H = 844; }
+  const avail = frameMode === 'fit' ? sh : Math.max(200, sh - (frameMode === 'phone' ? 0 : sheetH));
+  const scale = frameMode === 'fit' ? 1 : Math.min(1, sw / W, avail / H);
+  frame.style.width = `${W}px`;
+  frame.style.height = `${H}px`;
+  frame.style.transform = `translate(${-W * scale / 2}px, ${-H * scale / 2 - (frameMode === 'fit' ? 0 : (frameMode === 'phone' ? 0 : sheetH / 2))}px) scale(${scale})`;
+  frame.classList.toggle('boxed', frameMode !== 'fit');
+  frame.classList.toggle('wide', W > H);
+  pixelRatio.value = Math.min(3, window.devicePixelRatio || 1);
+  renderer.setPixelRatio(pixelRatio.value);
+  renderer.setSize(W, H, true);
+  viewport.value.set(W * pixelRatio.value, H * pixelRatio.value);
+  pose();
+}
+function pose() {
+  const aspect = W / H;
+  let d = C.distance, fov = C.fov;
+  if (C.essay && aspect < 1) {
+    const k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+    d *= k;
+    fov = (2 * Math.atan(Math.tan((fov * DEG) / 2) * k)) / DEG;
+  }
+  const b = C.bearing * DEG, e = Math.min(89.5, Math.max(2, C.elevation)) * DEG;
+  camera.position.set(Math.cos(e) * Math.sin(b) * d, Math.sin(e) * d, Math.cos(e) * Math.cos(b) * d);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0, 0);
+  camera.aspect = aspect;
+  camera.fov = fov;
+  if (C.essay) {
+    const at = aspect < 1 ? { x: 0.5, y: 0.62 } : { x: 0.5, y: 0.66 };
+    camera.setViewOffset(aspect, 1, (0.5 - at.x) * aspect, 0.5 - at.y, aspect, 1);
+  } else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+  readout();
+  saveCam();
+}
+
+// Gestures. One finger (or a plain click-drag) sideways: the next or previous preset; up or down: the next or previous
+// neighbourhood option (§12). The dominant axis wins (1.2× the other), so a diagonal swipe picks one; one step per swipe,
+// and a one-finger drag never orbits. Two fingers: pinch to zoom, drag to orbit or tilt. Desktop: wheel to
+// zoom, a trackpad's sideways swipe or ← → to change preset, right-drag or modifier-drag to orbit.
+const pointers = new Map();
+let gesture = null; // 'swipe' | 'orbit' | 'two' | 'done'
+let two0 = null;
+const SWIPE_PX = 36; // forgiving: 36 px sideways, at least 1.2× the vertical travel
+const orbitBy = (dx, dy, from) => {
+  C.bearing = from.bearing - dx * 0.3;
+  C.elevation = Math.min(89.5, Math.max(2, from.elevation + dy * 0.3));
+};
+const pair = () => {
+  const [a, b] = [...pointers.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+};
+stage.addEventListener('contextmenu', (ev) => ev.preventDefault());
+stage.addEventListener('pointerdown', (ev) => {
+  stage.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY });
+  if (pointers.size === 1) {
+    const orbit = ev.pointerType === 'mouse' && (ev.button === 2 || ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey);
+    gesture = orbit ? 'orbit' : 'swipe';
+    two0 = { bearing: C.bearing, elevation: C.elevation };
+  } else if (pointers.size === 2) {
+    const q = pair();
+    gesture = 'two';
+    two0 = { ...q, distance: C.distance, bearing: C.bearing, elevation: C.elevation };
+  }
+});
+stage.addEventListener('pointermove', (ev) => {
+  const p = pointers.get(ev.pointerId);
+  if (!p) return;
+  p.x = ev.clientX;
+  p.y = ev.clientY;
+  if (gesture === 'orbit' && pointers.size === 1) {
+    orbitBy(p.x - p.x0, p.y - p.y0, two0);
+    pose();
+  } else if (gesture === 'two' && pointers.size === 2) {
+    const q = pair();
+    if (two0.d > 0 && q.d > 0) C.distance = Math.min(3000, Math.max(20, (two0.distance * two0.d) / q.d));
+    orbitBy(q.mx - two0.mx, q.my - two0.my, two0);
+    pose();
+  } else if (gesture === 'swipe' && pointers.size === 1) {
+    const dx = p.x - p.x0, dy = p.y - p.y0;
+    if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) >= 1.2 * Math.abs(dy)) {
+      gesture = 'done'; // one step per swipe
+      step(dx < 0 ? 1 : -1);
+    } else if (Math.abs(dy) >= SWIPE_PX && Math.abs(dy) >= 1.2 * Math.abs(dx)) {
+      gesture = 'done';
+      stepHood(dy < 0 ? 1 : -1); // swipe up: the next option
+    }
+  }
+});
+const up = (ev) => {
+  pointers.delete(ev.pointerId);
+  if (pointers.size === 0) gesture = null;
+  else if (gesture === 'two') gesture = 'done'; // lifting one of two fingers never turns into a swipe
+};
+stage.addEventListener('pointerup', up);
+stage.addEventListener('pointercancel', up);
+let wheelX = 0, wheelLast = 0, wheelStep = 0;
+stage.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const now = performance.now();
+  if (!ev.ctrlKey && Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+    // A trackpad's sideways swipe: accumulate, one step per swipe (its momentum tail is ignored by the cooldown).
+    if (now - wheelLast > 250) wheelX = 0;
+    wheelLast = now;
+    wheelX += ev.deltaX;
+    if (Math.abs(wheelX) > 60 && now - wheelStep > 600) {
+      step(wheelX > 0 ? 1 : -1);
+      wheelX = 0;
+      wheelStep = now;
+    }
+    return;
+  }
+  C.distance = Math.min(3000, Math.max(20, C.distance * Math.exp(ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0012))));
+  pose();
+}, { passive: false });
+window.addEventListener('keydown', (ev) => {
+  if (ev.target?.closest?.('input, select, textarea')) return;
+  if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
+  else if (ev.key === 'ArrowLeft') { ev.preventDefault(); step(-1); }
+  else if (ev.key === 'ArrowUp') { ev.preventDefault(); stepHood(1); }
+  else if (ev.key === 'ArrowDown') { ev.preventDefault(); stepHood(-1); }
+  else if (ev.key === 'Escape' && document.body.classList.contains('open')) openSheet(false);
+});
+
+// ---- loop ----
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (spinning) C.turn = (C.turn + (360 * dt) / C.spinPeriod) % 360;
+  galaxy.rotation.y = C.turn * DEG;
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+window.addEventListener('resize', () => { layout(); retier(); });
+new ResizeObserver(layout).observe($('#sheet'));
+loadCam();
+$('#frame-size').value = frameMode;
+refreshAll();
+layout();
+showPreset(cur, false);
+requestAnimationFrame(tick);
+setTimeout(pregenerate, 250);
+window.tuner = { get P() { return P; }, get C() { return C; }, get index() { return cur; }, get hoodMode() { return hoodMode; }, setHoodMode, hoodLod, get hoodReport() { return hoodReport; }, HOOD_MODES, pose, stepHood, hoodBand, get cached() { return geomCache.size; }, names: PRESETS.map(([n]) => n), applyPreset, showPreset, step, openSheet, TODAY, RECOMMENDED, RECOMMENDED_SOFT, WISPS, WISPS_REVIEWED, DENSITY_WAVE, SMOOTH_FIELD, RECIPE_M74, RECIPE_READABLE, RECIPE_READABLE_COLOUR, DENSITY_WAVE_COLOUR, SHAPE_DEFAULTS };
+</script>

@@ -1,0 +1,470 @@
+@import './fonts/fonts.css';
+
+:root {
+  --bg: #0b0d12;
+  /* Text: about 91% luminance rather than white; a met brief line a touch brighter still. */
+  --ink: #e8e6ee;
+  --ink-lit: #f8f7fc;
+  /*
+   * A superseded line on a page: the ink at 80% over the stage, a gentle step back that still reads
+   * as text, never greyed out. --ink-dim is for quiet chrome (the footer link), not story text.
+   */
+  --ink-superseded: #bcbbc2;
+  --ink-dim: #9f9dab;
+  /* Mote colours, as the stage draws them. */
+  --agent: #4da3ff;
+  --human: #ffb347;
+  --dialogue: #c4b0ff;
+  /* Hairline for the credits dialog (story text has no rules or boxes). */
+  --rule: rgba(230, 221, 255, 0.14);
+  --gutter: clamp(1rem, 5vw, 4rem);
+  /* Where the text sits: a band at the top of the screen, the machine framed below it. */
+  --text-top: 7vh;
+}
+
+html {
+  /* The scroll driver owns the scroll position on resize; the browser must not adjust it too. */
+  overflow-anchor: none;
+  scroll-behavior: auto;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/*
+ * Literata for the text. Legibility over the motes comes from a layered shadow in the stage colour
+ * (a tight one, the last line of defence where text crosses bright motes, and two wide ones), a
+ * scrim that darkens the top of the stage under the text band, and the camera keeping the machine
+ * below that band. `body` is also the containing block for the footer, which sits inside the
+ * story's trailing spacer.
+ */
+body {
+  position: relative;
+  font: 400 1.1875rem/1.55 'Literata', Georgia, serif;
+  font-optical-sizing: auto;
+  text-shadow:
+    0 1px 2px rgba(11, 13, 18, 0.9),
+    0 0 14px rgba(11, 13, 18, 0.95),
+    0 0 30px rgba(11, 13, 18, 0.8);
+  -webkit-font-smoothing: antialiased;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/*
+ * Vignette over the stage (above the canvas, below the story panels): gives the wide shots a
+ * centre without touching the renderer, so frames stay a pure function of state.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 62%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+#story {
+  position: relative;
+  z-index: 1;
+}
+
+/* The scrim: above the canvas and the vignette, under the text (it paints first in #story). */
+#story::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(11, 13, 18, 0.72) 0, rgba(11, 13, 18, 0.45) 22svh, transparent 42svh);
+}
+
+/*
+ * A section is `length` screens tall (vh, because progress is measured against innerHeight), so its
+ * top meets the top of the viewport exactly when its span starts. Its track runs from that top to
+ * `--text-top + --panel-h` past its end (`--panel-h` measured by src/story/dom.ts): the panel sticks
+ * at the anchor from 0.07 screens before the section, at opacity 0, until exactly the section's end,
+ * when its last page has faded out, and only then is pushed up. The overflow lies over the next
+ * section, or the trailing spacer, and never changes the scroll range.
+ */
+.section {
+  position: relative;
+  height: calc(var(--length, 1) * 100vh);
+}
+
+.track {
+  height: calc(var(--length, 1) * 100vh + var(--text-top) + var(--panel-h, 50vh));
+  padding: 0 var(--gutter);
+  box-sizing: border-box;
+}
+
+/* One viewport after the last section, so the scroll range is the summed section heights. */
+.story-end {
+  height: 100vh;
+}
+
+/*
+ * A story panel is type on the stage, not a card: no border, no fill and nothing drawn behind it. A
+ * centred column, its text left-aligned. Its pages share one grid cell, so they overlay at one
+ * anchor and the panel is as tall as its tallest page; each beat is in its final place from the
+ * start, so a line coming up never moves another.
+ *
+ * A page's opacity and a beat's `--reveal` and `--dim` are set from scroll progress
+ * (src/story/reveal.ts), never transitioned: a beat comes up by opacity, and steps back gently from
+ * the ink to the superseded ink once the next line on its page is up.
+ */
+.panel {
+  position: sticky;
+  top: var(--text-top);
+  display: grid;
+  box-sizing: border-box;
+  width: min(36rem, 100%);
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.page {
+  grid-area: 1 / 1;
+}
+
+.beat {
+  opacity: var(--reveal, 0);
+  color: color-mix(in oklab, var(--ink), var(--ink-superseded) calc(var(--dim, 0) * 100%));
+}
+
+.beat > :first-child {
+  margin-top: 0;
+}
+
+.page > .beat:last-child > :last-child {
+  margin-bottom: 0;
+}
+
+.panel p {
+  margin: 0 0 0.85em;
+}
+
+/*
+ * The brief in the cold open (src/story/brief.ts): the ask a pull-quote in Instrument Serif italic,
+ * and its lines hanging from the text edge with no marker. Each line is absent (opacity 0, still in
+ * the accessibility tree) until its own scroll position, then comes up in full ink (its own
+ * `--reveal`, src/story/reveal.ts), never greyed out; a met line brightens a touch and takes a faint
+ * blue halo, as if lit by the agent, once the bike parts it names have settled. No transition on purpose: the look
+ * is a pure function of scroll progress, so a jump and a scroll must show the same brief.
+ */
+div.brief {
+  margin: 1.1rem 0 1.2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.panel .brief-ask {
+  margin: 0 0 0.5rem;
+  font: italic 400 1.8rem/1.2 'Instrument Serif', serif;
+  letter-spacing: 0.005em;
+}
+
+ul.brief {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+ul.brief > li {
+  margin: 0;
+  padding: 0.42rem 0;
+  color: var(--ink);
+  opacity: var(--reveal, 1);
+  transition: none;
+}
+
+ul.brief > li[data-met] {
+  color: var(--ink-lit);
+  text-shadow:
+    0 0 10px rgba(77, 163, 255, 0.5),
+    0 1px 2px rgba(11, 13, 18, 0.9),
+    0 0 14px rgba(11, 13, 18, 0.95);
+}
+
+/*
+ * Portrait: the text takes the full width at the top, 16px from the sides, below the safe area. svh
+ * for the anchor, so a phone's toolbars never move the text.
+ */
+@media (orientation: portrait) {
+  :root {
+    --text-top: calc(env(safe-area-inset-top, 0px) + 6svh);
+  }
+
+  body {
+    font-size: 1.0625rem;
+  }
+
+  body::after {
+    background: radial-gradient(ellipse at 50% 64%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+  }
+
+  .track {
+    padding: 0 16px;
+  }
+
+  /* A little tighter than on a wide screen, so the brief's page stays in the text band. */
+  .panel .brief-ask {
+    font-size: 1.45rem;
+  }
+
+  ul.brief {
+    font-size: 1rem;
+  }
+
+  ul.brief > li {
+    padding: 0.34rem 0;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Context lost or no WebGL: the story reads on its own. */
+.no-webgl #stage,
+.no-webgl::after {
+  display: none;
+}
+
+/*
+ * No JavaScript (index.html's first script removes `no-js`): nothing drives the scroll, so the
+ * story is a plain document. Every page flows in order, nothing sticks, every line is up at full
+ * ink, and the canvas, the scrim and the vignette are off.
+ */
+.no-js #stage,
+.no-js #story::before,
+.no-js body::after,
+.no-js .story-end {
+  display: none;
+}
+
+.no-js .section,
+.no-js .track {
+  height: auto;
+}
+
+.no-js .section {
+  padding: 2rem 0;
+}
+
+.no-js .panel {
+  position: static;
+  display: block;
+}
+
+.no-js .page {
+  grid-area: auto;
+}
+
+.no-js .page + .page {
+  margin-top: 0.85em;
+}
+
+.no-js .beat,
+.no-js ul.brief > li {
+  --reveal: 1;
+  --dim: 0;
+}
+
+/*
+ * Footer: out of flow at the very bottom of the page, inside the trailing spacer, so it never
+ * changes the scroll range. Quiet until focused or hovered. Bottom left, clear of the auto-advance
+ * ring in the bottom-right corner.
+ */
+#site-footer {
+  position: absolute;
+  left: var(--gutter);
+  bottom: 1rem;
+  z-index: 1;
+  font-size: 0.875rem;
+}
+
+button.link {
+  padding: 0;
+  font: inherit;
+  color: var(--ink-dim);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+button.link:hover,
+button.link:focus-visible {
+  color: var(--ink);
+}
+
+/*
+ * Auto-advance (src/autoAdvance/indicator.ts): a small ring in the bottom-right corner on every
+ * screen, its edge 16px in from the corner (plus a phone's safe area), clear of the text band; the
+ * credits link sits bottom left, out of its way. The arc sweeps on clockwise through a hold and clears clockwise through
+ * a scroll; paused, a play glyph. Ink at about 55 % for the ring, the dial brighter. Behind it a soft
+ * pool of the stage colour (a radial gradient, no edge) so it reads over bright motes and the ink
+ * sheet: no border, no box, no shadow. The 44px button is its hit area, and takes no touch gesture
+ * (touch-action) so a press on it never scrolls; nothing outside it is caught. Its only transition is
+ * the fade when the essay ends.
+ */
+#auto-advance {
+  position: fixed;
+  right: calc(env(safe-area-inset-right, 0px) + 8px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  background: radial-gradient(closest-side, rgba(11, 13, 18, 0.78) 62%, rgba(11, 13, 18, 0.45) 82%, rgba(11, 13, 18, 0) 100%);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#auto-advance svg {
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+}
+
+.auto-advance-track {
+  stroke-width: 1.25;
+  stroke-opacity: 0.55;
+}
+
+.auto-advance-arc {
+  stroke-width: 2;
+  stroke-opacity: 0.9;
+}
+
+.auto-advance-play {
+  display: none;
+  fill: currentColor;
+  fill-opacity: 0.85;
+  stroke: none;
+}
+
+#auto-advance:hover .auto-advance-track,
+#auto-advance:focus-visible .auto-advance-track {
+  stroke-opacity: 0.8;
+}
+
+#auto-advance:hover .auto-advance-play,
+#auto-advance:focus-visible .auto-advance-play {
+  fill-opacity: 1;
+}
+
+#auto-advance:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 0;
+}
+
+#auto-advance[data-state='paused'] .auto-advance-arc {
+  display: none;
+}
+
+#auto-advance[data-state='paused'] .auto-advance-play {
+  display: inline;
+}
+
+#auto-advance[data-state='ended'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.8s ease,
+    visibility 0s linear 0.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #auto-advance[data-state='ended'] {
+    transition: none;
+  }
+}
+
+/* Credits */
+
+dialog {
+  width: min(46rem, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0 20px 16px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dialog-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 8px;
+  background: var(--bg);
+}
+
+.dialog-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+#credits-body h1 {
+  display: none; /* the dialog title already says it */
+}
+
+#credits-body h2 {
+  font-size: 0.9375rem;
+}
+
+#credits-body pre {
+  overflow-x: auto;
+  padding: 10px;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+#credits-body a {
+  color: inherit;
+}

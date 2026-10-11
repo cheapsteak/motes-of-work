@@ -1,0 +1,25 @@
+bike: the bicycle drawn in ink, stroke by stroke
+
+ink.ts builds the bike as a side elevation in polylines, from the same
+constants and helpers as the solids: a tube is its two contour lines, a
+wheel its tyre and rim circles, hub, spokes and reflector, a gear its
+tooth outline, the chain a dashed line of links. Both builds are drawn
+by the same calls, point for point, and a stroke moves (struck out and
+redrawn) when its two builds stand apart once posed at rest: exactly
+the saddle, the bars, and of the frame the seat tube, top tube, head
+tube and cables. Page strokes (construction lines, hatching, three
+blocks of mirror-wise scribble, the person's ring and tick) sit on the
+ground part. The strokes come in the pen's order, under 3,900 segments
+with the moving ones counted twice (the budget is 6,000).
+
+The mechanism contract gains an optional ink() and sheet; the bike has
+both. shapes.ts exports the few internals the builder reuses; a check
+against the old file found its geometry unchanged.
+
+Tests: determinism, point-for-point builds, the 30 mm segment limit and
+the budget, the moving set against the posed builds, every bike stroke
+within 15 mm of its own part's sampled surface on both builds, the pen
+order and the redraw order, and the notes as texture (no glyph table,
+no two rows alike).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

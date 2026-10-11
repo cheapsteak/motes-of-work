@@ -1,0 +1,16 @@
+text: pages of lines, scrubbed by scroll, above the machine
+
+The story markdown now holds beats and pages (<!-- beat id at [document] -->,
+<!-- page -->), and the picture-book copy of the storyboard: vibe-build 6
+screens, reveal 4, rewind 1, spec 6. Each page fades in and out whole, each
+line comes up on its turn and dims when the next arrives, all pure functions
+of progress written from the scroll driver. The text sits in a centred column
+at the top (full width on a phone) over a scrim; the build writes the story
+into the page so it reads without JavaScript.
+
+Lints: words per line and per screen, lines per page, increasing beat
+timings, the dwell each line gets, and a sync fence against the storyboard's
+copy and timing tables. The cold open's assembly and drive follow the
+storyboard so the brief's lines light at 0.48, 0.56, 0.64, 0.72 and 0.80.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

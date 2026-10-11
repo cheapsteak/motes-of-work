@@ -1,0 +1,23 @@
+scene: each part closes its exploded offset over its own settle window
+
+The offset was lerped by 1 - assembly for every part, so at the spec
+section's hold (assembly 0.46) every part, the core included, was still
+54 percent exploded, and the gold saddle, bars and pedals floated off the
+ghost outline at the bottom of the page. Now partAssembly(part, assembly)
+smoothsteps from the moment a part's first mote sets out (from minus
+SETTLE_WINDOW) to the moment its last lands (to), so a part arrives with
+its motes, sits exactly in its pose once its window has ended, and stays
+fully exploded before it. TypeScript transforms only; the shaders are
+untouched.
+
+Tests: every part of every machine is fully exploded before its window,
+exactly posed after it, and closes monotonically; from spec@0.8 to the end
+every core part of every machine equals its ghost pose within 1e-6; at
+p = 1 the drawn bicycle core projects onto its ghost to within 0.1 px at
+1440x900 and 390x844. The mote test of the half-way offset moves to the
+middle of a core part's window. The assembled core is narrower than the
+part-exploded one was, so the phone's spec framing floor drops from 60 to
+48 percent of the width (it spans about 50-57); dollying in to keep 60
+pushed the top of the ghost off screen.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

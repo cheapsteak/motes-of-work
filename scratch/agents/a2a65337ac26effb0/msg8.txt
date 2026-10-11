@@ -1,0 +1,9 @@
+story: the twin's seat is fixed atop its steering column, not welded
+
+The cold-open brief asks for a seat and handlebars both adjustable, and
+the reveal says every line is met; a welded seat broke that. The column
+telescopes in the mast (spec), so the copy now says the seat is fixed atop
+the steering column (79 words). The alt text names the basket the seat
+sits behind and the rack over the back wheel. Draft copy.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

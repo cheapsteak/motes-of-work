@@ -1,0 +1,9 @@
+fix: steam and strandbeest blurbs say what their wrong twin does
+
+meta.ts documents the blurb as what the machine is and what its wrong
+twin does; two blurbs never named the twin. Each now adds the twin clause
+in the same sentence, short enough that the comparison panel still fits
+1280x720 for every mechanism, and meta.test.ts checks every blurb names
+its wrong twin.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,9 @@
+story: zoom-out, the first section of Act II, fenced against its storyboard
+
+The two lines of the zoom-out (2.2 screens, one page, draft), as the Act II storyboard has them. The
+storyboard fence now takes a list of storyboards, each naming the sections it covers, and checks that
+every section is covered once: Act I's document keeps its four, Act II's covers zoom-out for now. The
+Act II words fence keeps colour, dot and picture words (stack, cube, stream, crack, ring, glow) out
+of its narration.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

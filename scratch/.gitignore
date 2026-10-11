@@ -1,0 +1,8 @@
+# Media stays out of git (regenerable from the mocks; see README.md).
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.mp4
+*.webm

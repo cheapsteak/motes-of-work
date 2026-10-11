@@ -1,0 +1,30 @@
+story: the spec section draws on paper, redraws, and lifts the drawing into the bike
+
+The spec section is 8 screens (Act I: 21). The cloud dims to dust as a
+sheet of paper fades up square on (S11); the pen draws the wrong bike
+in ink over sp-2; the camera closes on the seat on its mast (S11c);
+the person rings it in gold, the agent strikes the wrong lines faint and
+draws the seat, the bars, the top tube, seat tube and cables again; a
+gold tick says yes. Then the camera turns to the build's three-quarter,
+the lines lift off the page rear first as it fades and the stars come
+back, the gold lands on the lines, the blue builds round it, and the
+finished bike rides with the lines faint beneath it.
+
+New copy: sp-2 names the ink and the paper, and sp-6 is the lift's one
+line ("Then the drawing lifts off the page. Every line stands where a
+part will go."); the old sp-6 and sp-7 are now sp-7 and sp-8. The
+dotted ghost is not keyed here any more (mech.ghost and ghostVariant
+stay for later use, 0). The lift runs over 0.61-0.69, not 0.58-0.68,
+so nothing lifts through an opaque page; S11c looks a little lower than
+designed so the basket and the front wheel are in the close frame.
+
+The storyboard's Section 4 copy, its alt text and its §2.4 table follow
+the design, so the sync fence reads them. Tests pin the eight tracks
+(drawn monotone, the redraw inside sp-4, flat only as the page fades,
+the cloud dim under the page and back before any mote lands), the core
+landing alone in sp-7, the bike built on its lines by 0.95, the shots,
+the turn to the build never turning back, and the page framed under
+the text band. The continuity test samples long sections twice as
+densely, since the bike now rides 1.4 turns in under a screen.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

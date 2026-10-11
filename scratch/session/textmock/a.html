@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option A — Memo</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* OPTION A — "The memo"
+   Body: IBM Plex Sans. Brief: IBM Plex Mono, a quoted document with ONE left hairline.
+   Met: a blue-pencil tick stroked in the left margin (a reviewer's mark), line brightens.
+   Legibility: a fixed side scrim down the left of the stage (desktop) / bottom scrim (portrait). */
+body { font: 400 1.125rem/1.6 'IBM Plex Sans', system-ui, sans-serif; }
+.run { font-family: 'IBM Plex Mono', monospace; }
+
+#scrim { position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(11,13,18,0.88) 0, rgba(11,13,18,0.80) 30rem, rgba(11,13,18,0) 46rem); }
+body[data-view="portrait"] #scrim {
+  background: linear-gradient(to top, rgba(11,13,18,0.94) 0, rgba(11,13,18,0.86) 40svh, rgba(11,13,18,0) 64svh); }
+
+.brief { font: 400 0.9375rem/1.55 'IBM Plex Mono', monospace; padding-left: 1.25rem;
+  border-left: 1px solid rgba(232,230,238,0.2); }
+.brief-label { margin: 0 0 0.35rem; font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
+.brief-ask { font-weight: 500; }
+ul.brief > li { padding: 0.2rem 0; color: var(--ink-dim); }
+ul.brief > li[data-met] { color: var(--ink); }
+/* The margin mark: sits in the gutter to the LEFT of the rule, like a pencil tick on a printout. */
+ul.brief > li[data-met]::before {
+  content: ''; position: absolute; left: calc(-1.25rem - 1px - 0.95rem); top: 0.55rem;
+  width: 0.7rem; height: 0.45rem;
+  border-left: 1.5px solid var(--agent); border-bottom: 1.5px solid var(--agent);
+  transform: rotate(-48deg) skewX(-8deg); opacity: 0.95;
+}
+body[data-view="portrait"] { font-size: 1.0625rem; }
+body[data-view="portrait"] .brief { font-size: 0.875rem; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="vignette"></div>
+<div id="scrim"></div>
+<article class="panel"></article>
+<script src="render.js"></script>
+<script>
+  // Option A adds a document label above the ask.
+  const ask = document.querySelector('.brief-ask');
+  if (ask) ask.insertAdjacentHTML('beforebegin', '<p class="brief-label">The brief</p>');
+</script>
+</body>
+</html>

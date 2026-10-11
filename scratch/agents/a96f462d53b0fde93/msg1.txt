@@ -1,0 +1,15 @@
+node: the network reads on a phone: dense rule cracks, larger motes up the layers, halos held to a core
+
+A rule hero's crack cube is sampled eight times denser than the rest of
+its stack, each of its motes carrying an eighth of the light (a new
+per-mote share, in both mirrors), so the crack reads up close and the
+cube is no brighter from afar. Motes are drawn larger up the layers
+(1.5, 2.2 and 3.2 times a bike mote), so plans and rules read as stacks
+at medium range; far away a mote is one pixel either way. Landed motes
+are brighter (0.8 of their glow, from 0.5), and the first stack ends
+zoom-out at 0.05 to match. A halo is capped at 0.15 of the screen's
+shorter side, its far glow and highlight fade as its stack grows past
+0.15 to 0.35 of it, a lit halo is tighter and fuller (radius 1.0, alpha
+1.0), and the surge's flash stays as a core.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

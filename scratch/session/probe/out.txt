@@ -1,0 +1,6 @@
+desktop {"stars":30,"planets":114,"moons":138,"core":6,"motes":66516,"tracks":15780,"glow":36,"bodies":288,"streams":153,"streamDots":2284,"sumNet":82620,"sumNetStreams":84904,"budget":76000,"bg":12000}
+P1-P3 parents0 ["R0","R0","R0"]
+desktop {"focal":1236.3648387545802,"camD":639.9999999999999,"ppu":1.9318200605540319,"hoodGlowPx":8.693190272493144,"minBgToHoodPx":5.275986828543789,"bgHalosTouchingRealHoodGlow":5}
+phone {"stars":30,"planets":114,"moons":138,"core":6,"motes":66516,"tracks":15780,"glow":36,"bodies":288,"streams":153,"streamDots":2284,"sumNet":82620,"sumNetStreams":84904,"budget":76000,"bg":6400}
+P1-P3 parents0 ["R0","R0","R0"]
+phone {"focal":835.4349881599987,"camD":888.2063978199013,"ppu":0.9405865463371692,"hoodGlowPx":5,"minBgToHoodPx":5.258282557177391,"bgHalosTouchingRealHoodGlow":0}

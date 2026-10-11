@@ -1,0 +1,10 @@
+0.35 story asm=0.08 drive-gear:468-821 driven-gear:1241-1430 crank:1387-1533 frame:661-1100 loose-bracket:1185-1266
+0.35 assembled asm=1.00 drive-gear:666-975 driven-gear:973-1130 crank:961-1064 frame:666-1193 loose-bracket:1105-1172
+0.5 story asm=0.17 drive-gear:486-834 driven-gear:1214-1400 crank:1275-1484 frame:659-1109 loose-bracket:1179-1259
+0.5 assembled asm=1.00 drive-gear:665-974 driven-gear:973-1129 crank:910-1066 frame:663-1196 loose-bracket:1106-1174
+0.7 story asm=0.28 drive-gear:506-855 driven-gear:1180-1366 crank:1334-1420 frame:657-1121 loose-bracket:1171-1250
+0.7 assembled asm=1.00 drive-gear:660-976 driven-gear:973-1133 crank:1000-1067 frame:660-1199 loose-bracket:1108-1177
+0.9 story asm=0.39 drive-gear:526-875 driven-gear:1148-1331 crank:1320-1491 frame:654-1133 loose-bracket:1163-1241
+0.9 assembled asm=1.00 drive-gear:657-976 driven-gear:974-1136 crank:1039-1177 frame:656-1202 loose-bracket:1110-1180
+1 story asm=0.45 drive-gear:537-885 driven-gear:1133-1314 crank:1292-1490 frame:653-1140 loose-bracket:1159-1237
+1 assembled asm=1.00 drive-gear:655-977 driven-gear:976-1138 crank:1041-1203 frame:655-1203 loose-bracket:1111-1182

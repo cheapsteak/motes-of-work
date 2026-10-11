@@ -1,0 +1,55 @@
+
+ RUN  v5.0.3 /home/user/motes-of-work
+
+ ❯ src/scene/mote/attributes.test.ts (7 tests | 3 failed) 89ms
+   ❯ settleWindow (2)
+     × returns the role default for a part without settle 4ms
+     × returns the part's own window when given 1ms
+   ❯ buildMoteAttrs with a part window (1)
+     × puts every mote of a part with settle [0.6, 0.7] inside that window and leaves other parts alone 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/scene/mote/attributes.test.ts > settleWindow > returns the role default for a part without settle
+TypeError: settleWindow is not a function
+ ❯ src/scene/mote/attributes.test.ts:25:12
+     23| describe('settleWindow', () => {
+     24|   it('returns the role default for a part without settle', () => {
+     25|     expect(settleWindow(part('core'))).toEqual([SETTLE_WINDOW, 0.45]);
+       |            ^
+     26|     expect(settleWindow(part('body'))).toEqual([0.35, 0.95]);
+     27|     expect(settleWindow(part('drift'))).toEqual([0.5, 0.95]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/scene/mote/attributes.test.ts > settleWindow > returns the part's own window when given
+TypeError: settleWindow is not a function
+ ❯ src/scene/mote/attributes.test.ts:32:12
+     30|
+     31|   it("returns the part's own window when given", () => {
+     32|     expect(settleWindow(part('body', [0.6, 0.7]))).toEqual([0.6, 0.7]);
+       |            ^
+     33|   });
+     34| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/scene/mote/attributes.test.ts > buildMoteAttrs with a part window > puts every mote of a part with settle [0.6, 0.7] inside that window and leaves other parts alone
+AssertionError: expected 0.8394282221794128 to be less than or equal to 0.7
+ ❯ src/scene/mote/attributes.test.ts:64:26
+     62|         inTarget++;
+     63|         expect(a.settle).toBeGreaterThanOrEqual(0.6);
+     64|         expect(a.settle).toBeLessThanOrEqual(0.7);
+       |                          ^
+     65|       } else {
+     66|         expect(a.settle).toBe(plain[i].settle);
+ ❯ src/scene/mote/attributes.test.ts:60:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 57 passed (60)
+   Start at  14:08:27
+   Duration  1.99s (tests 41%, transform 29%, import 29%)
+

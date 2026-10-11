@@ -1,0 +1,7 @@
+auto-advance: stops, dwells and transits from the beat data
+
+A stop is where a beat, or a brief line, has finished fading in; it holds
+for max(floor, words / words per second) and moves on at a steady, eased
+pace. Settings from config, with ?auto, ?dwell, ?wps and ?pace overrides.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

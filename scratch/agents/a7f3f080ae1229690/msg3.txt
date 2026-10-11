@@ -1,0 +1,8 @@
+galaxy: fade the shell's wave to nothing at the poles, and seed each body's shapes and spin from its own id
+
+The equation's bracket is enveloped by the latitude's cosine in both mirrors, so
+the rows at the poles stay clean whatever the phases. shellEvent takes a required
+body seed (shellSeed of the body's id), so cracked bodies that derp in step still
+take their own shapes and their own spin axes.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

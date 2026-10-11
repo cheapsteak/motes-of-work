@@ -1,0 +1,8 @@
+Per-part settle windows
+
+A mechanism part can set `settle: [from, to]` to choose the assembly window in
+which its motes land; omitted keeps the role default. Role defaults live in one
+ROLE_SETTLE table shared by settleWindow() and the contract test, which checks
+that any declared window is non-empty and inside the default for its role.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

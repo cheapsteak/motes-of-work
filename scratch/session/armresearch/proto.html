@@ -1,0 +1,292 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Arm recipe prototype</title>
+<style>
+  html, body { margin: 0; background: #0b0d12; color: #8b94a8; font: 11px/1.3 ui-monospace, Menlo, monospace; }
+  canvas { display: block; }
+  #readout { position: fixed; left: 6px; top: 4px; white-space: pre; pointer-events: none; }
+</style>
+<canvas id="c"></canvas>
+<div id="readout"></div>
+<script type="module">
+// A standalone check of the "Sc like M74" recipe in findings.md §7: populations, Sérsic-n cross-arm
+// profile, width ∝ r, interarm sea, knots, spurs, a Gaussian dust-lane dip, amplitude modulation
+// along the arm, soft arm ends. Pure and deterministic (seeded streams, the essay's hash/PRNG);
+// every star draws from its own stream. No clearance rule (halos may overlap), only the
+// neighbourhood's spots are kept clear. Canvas 2D stand-in for the essay's sprites.
+
+// ---- seeded streams (src/math/hash.ts, src/galaxy/seeds.ts) ----
+function pcg(v) {
+  const state = (Math.imul(v, 747796405) + 2891336453) >>> 0;
+  const word = Math.imul((state >>> ((state >>> 28) + 4)) ^ state, 277803737);
+  return ((word >>> 22) ^ word) >>> 0;
+}
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seededStream(seed, salt, key) {
+  const mix = pcg((Math.imul(salt, 0x9e3779b9) ^ Math.imul(key + 1, 0x85ebca6b)) >>> 0);
+  const rng = mulberry32(pcg((seed ^ mix) >>> 0));
+  rng();
+  return rng;
+}
+// Salts: 8–13 are the tuner's; 14+ are new (named so a port can register them in seeds.ts).
+const SALT = { bgStars: 8, bgDust: 9, bgRingTurn: 10, bgRingSlots: 11, bgKnots: 12, bgPop: 13, bgArmMod: 14, bgSpurs: 15 };
+const streamFor = (seed, concern, key) => seededStream(seed, SALT[concern], key);
+/** A standard normal from two uniforms of `rng` (Box–Muller): unbounded. */
+const gauss = (rng) => Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
+
+const HOOD = [[40.56849831458735, 50.916398553737885], [1.770350329115594, 62.78735155128766], [76.288246784307, 10.305155087775375], [23.385861863098377, 65.81756125989156], [-3.122948906301559, 49.600918248980655], [-10.553806108089127, 76.87937303337944], [61.7004639497727, -10.377435182254736], [43.614410768926135, -5.327483041449241], [55.09292161930464, 33.00245393950609], [-19.943450515518556, 45.71430884531119], [32.389926994676635, 28.371870461757027], [83.56656184686572, -11.221931765880381], [39.15783780683068, -21.432765435886], [-30.402512794132925, 69.51406721790879], [47.849466053974005, 71.96268825671399], [33.57024108853895, 81.39182060963665], [65.02971047537018, 52.61990503455431], [53.56424566632622, 10.878353435945801], [15.13142463832957, 45.71592688469676], [85.86797546290158, 24.915191040140733], [56.7381388864808, -28.447209586430706], [-36.7996069017704, 32.57951466621239], [-43.85931610993133, 52.23434143749557], [72.96724215774285, 30.850165708796162], [9.748347801080314, 82.80483443202], [76.13609300989098, -32.96671428947812], [46.42407642261762, -38.71976340805213], [19.981803240294283, -34.811393464814664], [-38.961187118605714, 11.783882055277346], [-56.58197443306347, 69.75555196235015]];
+
+const wrap = (a) => { const w = a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI)); return w <= -Math.PI ? w + 2 * Math.PI : w; };
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** The recipe (§7 of findings.md). Tuner names where they exist; new names marked NEW. */
+const RECIPE = {
+  seed: 1, stars: 2400, dust: 4000, radius: 220, arms: 2, pitch: 0.28,
+  // populations (shares of `stars`)             tuner: coreShare · (1−discShare−clumpShare) · youngShare · clumpShare · NEW spurShare
+  bulgeShare: 0.08, oldShare: 0.50, youngShare: 0.26, clumpShare: 0.12, spurShare: 0.04,
+  // radial laws (share of R)                    tuner: bulgeScale · discScale · NEW armScale · NEW discFade
+  bulgeScale: 0.06, bulgeFlat: 0.6, discScale: 0.32, armScale: 0.42, discFade: [0.9, 1.2],
+  coreExclusion: 16, // soft: weight smoothstep(0.75·x, 1.25·x)
+  // arms                                        tuner: armStart · armEnd · NEW armContrastOld/Young · NEW widthOld/Young (FWHM / r) · NEW sersicN
+  armStart: [0.07, 0.18], armEnd: [0.85, 1.05],
+  contrastOld: 1.8, contrastYoung: 9, widthOld: 0.30, widthYoung: 0.13, sersicN: 0.6,
+  youngOffset: 0.12, // NEW: the young crest sits this many old half-widths OUTSIDE the old crest (downstream)
+  modDepth: 0.45, modPeriod: 0.35, // NEW: along-arm amplitude modulation (value noise in ln r, period 0.35 ≈ a 5 kpc segment)
+  // dust lane (in old half-widths; negative is the inner, concave edge)   tuner: laneDepth · laneOffset · laneWidth
+  laneDepth: 0.6, laneOffset: -0.45, laneWidth: 0.14, dustLaneGain: 2.5,
+  // knots                                       tuner: clumpCount · clumpRadius (now a share of r) · clumpOut · clumpBright
+  clumpCount: 26, clumpRadius: 0.045, clumpOut: 0.15, clumpBright: 0.45,
+  // spurs (NEW)
+  spurCount: 20, spurAngle: 50, spurLength: 0.16, spurWidth: 0.012,
+  // vertical (σ, Gaussian)                      tuner: starY · dustY (now by population)
+  zOld: 0.12, zYoung: 0.04, zDust: 0.06, // × discScale·R
+  // colour                                       tuner: warmCore · warmRim · warmMix · brightFloor · brightPow
+  warmCore: 0.75, warmRim: 0.2, oldDim: 0.75, brightFloor: 0.3, brightPow: 2.5, brightShare: 0.15,
+  // dust
+  dustArmShare: 0.7, dustContrast: 1.2,
+};
+
+function generate(P) {
+  const seed = P.seed | 0, R = P.radius, m = P.arms;
+  const i = Math.atan(P.pitch), sinI = Math.sin(i), cosI = Math.cos(i);
+  const phase = wrap(0.9 - Math.log(65 / 2) / P.pitch);
+  const armAngle = (r, arm) => wrap((arm * 2 * Math.PI) / m + Math.log(r / 2) / P.pitch + phase);
+  /** Signed perpendicular distance from the nearest arm's old crest (negative = inner/concave side). */
+  const perp = (r, th) => {
+    const d = wrap(m * (th - armAngle(r, 0))) / m; // bearing offset to the nearest crest, in (−π/m, π/m]
+    return -d * r * sinI; // ahead in bearing (trailing arms wind +θ outward) is inward of the crest
+  };
+  const wOld = (r) => 0.5 * P.widthOld * r * cosI; // half width at half max, perpendicular
+  const wYoung = (r) => 0.5 * P.widthYoung * r * cosI;
+  const sersic = (d, w) => Math.exp(-Math.LN2 * Math.pow(Math.abs(d) / w, 1 / P.sersicN));
+  const ramp = (r) => smooth(P.armStart[0] * R, P.armStart[1] * R, r) * (1 - smooth(P.armEnd[0] * R, P.armEnd[1] * R, r));
+  const discTaper = (r) => (1 - smooth(P.discFade[0] * R, P.discFade[1] * R, r)) * smooth(0.75 * P.coreExclusion, 1.25 * P.coreExclusion, r);
+  // Along-arm amplitude modulation: value noise on u = ln r / period, one seeded table per arm.
+  const modTable = Array.from({ length: m }, (_, arm) => { const rng = streamFor(seed, 'bgArmMod', arm); return Array.from({ length: 64 }, () => rng()); });
+  const mod = (r, arm) => {
+    const u = Math.log(Math.max(r, 1)) / P.modPeriod + 8;
+    const k = Math.floor(u), t = u - k, tab = modTable[arm];
+    const v = tab[k % 64] + (tab[(k + 1) % 64] - tab[k % 64]) * (t * t * (3 - 2 * t));
+    return 1 - P.modDepth + P.modDepth * (2 * v); // 1−depth … 1+depth
+  };
+  const nearestArm = (r, th) => { let best = 0, bd = Infinity; for (let a = 0; a < m; a++) { const d = Math.abs(wrap(th - armAngle(r, a))); if (d < bd) { bd = d; best = a; } } return best; };
+  const laneDip = (d, w) => 1 - P.laneDepth * Math.exp(-0.5 * ((d - P.laneOffset * w) / (P.laneWidth * w)) ** 2);
+  const lanePeak = (d, w) => 1 + P.dustLaneGain * Math.exp(-0.5 * ((d - P.laneOffset * w) / (P.laneWidth * w)) ** 2);
+  const drawR = (rng, scale) => -scale * R * Math.log(Math.max(1e-12, rng() * rng())); // Gamma(2): 2-D exponential disc
+  const nearHood = (x, z) => HOOD.some(([hx, hz]) => Math.hypot(x - hx, z - hz) < 3.2);
+
+  const n = P.stars;
+  const counts = { bulge: Math.round(P.bulgeShare * n), old: Math.round(P.oldShare * n), young: Math.round(P.youngShare * n), knot: Math.round(P.clumpShare * n) };
+  counts.spur = n - counts.bulge - counts.old - counts.young - counts.knot;
+  // Knot centres: on the young crest, clumpOut old half-widths further out, radii from the arm law.
+  const knots = [];
+  for (let k = 0; k < P.clumpCount; k++) {
+    const rng = streamFor(seed, 'bgKnots', k);
+    let r; do r = drawR(rng, P.armScale); while (r < P.armStart[1] * R || r > P.armEnd[0] * R);
+    const arm = k % m;
+    const w = wOld(r);
+    const d = (P.youngOffset + P.clumpOut) * w + 0.25 * w * gauss(rng);
+    const th = armAngle(r, arm) - d / (r * sinI);
+    knots.push({ x: r * Math.cos(th), z: r * Math.sin(th), r, sigma: P.clumpRadius * r * (0.7 + 0.6 * rng()), arm });
+  }
+  // Spurs: leave the arm's OUTER edge at spurAngle to the arm, trailing; length a share of r.
+  const spurs = [];
+  for (let k = 0; k < P.spurCount; k++) {
+    const rng = streamFor(seed, 'bgSpurs', k);
+    let r; do r = drawR(rng, P.armScale); while (r < P.armStart[1] * R || r > P.armEnd[0] * R);
+    const arm = k % m;
+    const w = wOld(r);
+    const d0 = (P.youngOffset + 0.6) * w; // start at the young arm's outer flank
+    const th0 = armAngle(r, arm) - d0 / (r * sinI);
+    // Arm tangent at (r, th0) and the outward normal; the spur direction is rotated spurAngle from the tangent, trailing.
+    const c = Math.cos(th0), s = Math.sin(th0);
+    let tx = c - s / P.pitch, tz = s + c / P.pitch; const tl = Math.hypot(tx, tz); tx /= tl; tz /= tl;
+    let nx = -tz, nz = tx; if (nx * c + nz * s < 0) { nx = -nx; nz = -nz; }
+    const a = (P.spurAngle * Math.PI) / 180;
+    // trailing, like the arm: lean along the tangent (toward +θ, the arm's outer parts), turned outward by spurAngle.
+    const dx = tx * Math.cos(a) + nx * Math.sin(a), dz = tz * Math.cos(a) + nz * Math.sin(a);
+    spurs.push({ x: r * c, z: r * s, dx, dz, len: P.spurLength * r * (0.6 + 0.8 * rng()), width: P.spurWidth * r });
+  }
+
+  const pts = []; // {x,y,z,b,warm,pop,bright}
+  const hDisc = P.discScale * R;
+  for (let idx = 0; idx < n; idx++) {
+    const rng = streamFor(seed, 'bgStars', idx);
+    const pop = idx < counts.bulge ? 'bulge' : idx < counts.bulge + counts.old ? 'old' : idx < counts.bulge + counts.old + counts.young ? 'young' : idx < n - counts.spur ? 'knot' : 'spur';
+    const u = rng();
+    let b = P.brightFloor + (1 - P.brightFloor) * u ** P.brightPow;
+    const warmU = rng();
+    let x, y, z, warm = false;
+    for (let tries = 0; ; tries++) {
+      if (tries > 4000) throw new Error('no room ' + idx);
+      if (pop === 'bulge') {
+        const h = P.bulgeScale * R;
+        const r = -h * Math.log(Math.max(1e-12, rng() * rng() * rng()));
+        const th = 2 * Math.PI * rng(), cy = 2 * rng() - 1, sy = Math.sqrt(1 - cy * cy);
+        x = r * sy * Math.cos(th); y = r * cy * P.bulgeFlat; z = r * sy * Math.sin(th);
+        if (rng() > smooth(0.75 * P.coreExclusion, 1.25 * P.coreExclusion, Math.hypot(x, y, z))) continue;
+        warm = warmU < 0.95; b *= 0.9;
+      } else if (pop === 'old' || pop === 'young') {
+        const young = pop === 'young';
+        const r = drawR(rng, young ? P.armScale : P.discScale);
+        const th = 2 * Math.PI * rng();
+        const arm = nearestArm(r, th);
+        const w = wOld(r);
+        const d = perp(r, th);
+        const A = (young ? P.contrastYoung : P.contrastOld) * ramp(r) * mod(r, arm);
+        const prof = young ? sersic(d - P.youngOffset * w, wYoung(r)) : sersic(d, w);
+        let wgt = ((1 + A * prof) / (1 + (young ? P.contrastYoung : P.contrastOld))) * discTaper(r) * laneDip(d, w);
+        if (young) wgt *= ramp(r); // young stars live where the arms are
+        if (rng() > wgt) continue;
+        x = r * Math.cos(th); z = r * Math.sin(th);
+        y = (young ? P.zYoung : P.zOld) * hDisc * gauss(rng);
+        if (young) { b = 0.45 + 0.55 * u * u; } else { b *= P.oldDim; const t = Math.min(1, r / R); warm = warmU < P.warmCore + (P.warmRim - P.warmCore) * Math.sqrt(t); }
+      } else if (pop === 'knot') {
+        const K = knots[Math.floor(rng() * knots.length) % knots.length];
+        x = K.x + K.sigma * gauss(rng); z = K.z + K.sigma * gauss(rng);
+        y = P.zYoung * hDisc * gauss(rng);
+        b = Math.min(1, (0.45 + 0.55 * u * u) * (1 + P.clumpBright));
+      } else {
+        const S = spurs[Math.floor(rng() * spurs.length) % spurs.length];
+        const t = -S.len * Math.log(Math.max(1e-12, rng())) * 0.5; // exponential along the spur: dense at the root
+        x = S.x + S.dx * t + S.width * gauss(rng); z = S.z + S.dz * t + S.width * gauss(rng);
+        y = P.zYoung * hDisc * gauss(rng);
+        b = 0.4 + 0.5 * u * u;
+      }
+      if (nearHood(x, z)) continue;
+      break;
+    }
+    pts.push({ x, y, z, b, warm, pop });
+  }
+  const rank = pts.map((p, k) => k).sort((a, c) => pts[c].b - pts[a].b || a - c);
+  const nBright = Math.round(P.brightShare * n);
+  for (let k = 0; k < nBright; k++) pts[rank[k]].bright = true;
+
+  const dust = [];
+  for (let idx = 0; idx < P.dust; idx++) {
+    const rng = streamFor(seed, 'bgDust', idx);
+    const b = 0.08 + 0.14 * rng();
+    const onArm = rng() < P.dustArmShare;
+    for (let tries = 0; ; tries++) {
+      if (tries > 4000) break;
+      const r = drawR(rng, P.discScale);
+      const th = 2 * Math.PI * rng();
+      let wgt = discTaper(r);
+      if (onArm) {
+        const d = perp(r, th), w = wOld(r);
+        const A = P.dustContrast * ramp(r) * mod(r, nearestArm(r, th));
+        wgt *= ((1 + A * sersic(d, w)) / (1 + P.dustContrast)) * lanePeak(d, w) / (1 + P.dustLaneGain);
+      }
+      if (rng() > wgt) continue;
+      dust.push({ x: r * Math.cos(th), y: P.zDust * hDisc * gauss(rng), z: r * Math.sin(th), b });
+      break;
+    }
+  }
+  // Metrics: the old population's cross-arm histogram at r 80–160 (3-unit bins of perpendicular distance), and shares.
+  const bins = new Array(41).fill(0);
+  let interarm = 0, oldN = 0;
+  for (const p of pts) {
+    if (p.pop !== 'old') continue;
+    const r = Math.hypot(p.x, p.z); if (r < 80 || r > 160) continue;
+    const d = perp(r, Math.atan2(p.z, p.x)); oldN++;
+    if (Math.abs(d) > wOld(r)) interarm++;
+    const bi = Math.round(d / 3) + 20; if (bi >= 0 && bi < 41) bins[bi]++;
+  }
+  const steps = []; for (let k = 1; k < bins.length; k++) if (bins[k - 1] > 8 && bins[k] > 8) steps.push(Math.max(bins[k] / bins[k - 1], bins[k - 1] / bins[k]));
+  return { pts, dust, knots, spurs, metrics: { counts, oldInterarmShareBeyondHWHM: +(interarm / oldN).toFixed(3), oldBins80to160: bins, maxBinStep: +Math.max(...steps).toFixed(2) } };
+}
+
+// ---- render (Canvas 2D stand-in: additive sprites, the tuner's colours) ----
+const q = new URLSearchParams(location.search);
+const view = q.get('view') ?? 'phone';
+const seed = Number(q.get('seed') ?? 1);
+const over = q.get('p') ? JSON.parse(q.get('p')) : {};
+const gain = Number(q.get('gain') ?? 1.6), dustGain = Number(q.get('dustgain') ?? 3);
+const P = { ...RECIPE, seed, ...over };
+const dpr = Math.min(3, window.devicePixelRatio || 1);
+const W = view === 'phone' ? 390 : 800, H = view === 'phone' ? 844 : 800;
+const canvas = document.getElementById('c');
+canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+const ctx = canvas.getContext('2d');
+ctx.scale(dpr, dpr);
+ctx.fillStyle = '#0b0d12'; ctx.fillRect(0, 0, W, H);
+// Phone: the essay's galaxy wide (0.94 CSS px per unit at the centre, the core at y = 0.62 H, elevation 86° ≈ face-on).
+const ppu = view === 'phone' ? 0.94 : 1.7;
+const cx = W / 2, cy = view === 'phone' ? 0.62 * H : H / 2;
+const elev = (86 * Math.PI) / 180;
+const project = (x, y, z) => [cx + x * ppu, cy + (z * Math.sin(elev) - y * Math.cos(elev)) * ppu];
+const COOL = [0x4d, 0xa3, 0xff], WARM = [0xff, 0xd9, 0xa0], WARM_MIX = 0.85;
+const tint = (warm) => warm ? COOL.map((c, k) => c + (WARM[k] - c) * WARM_MIX) : COOL;
+function sprite(px, profile) {
+  const s = Math.ceil(px) + 2, c = document.createElement('canvas'); c.width = c.height = s * dpr;
+  const g = c.getContext('2d'); g.scale(dpr, dpr);
+  const img = g.createImageData(s * dpr, s * dpr);
+  for (let yy = 0; yy < s * dpr; yy++) for (let xx = 0; xx < s * dpr; xx++) {
+    const rr = Math.hypot((xx + 0.5) / dpr - s / 2, (yy + 0.5) / dpr - s / 2) / (px / 2);
+    let a = 0;
+    if (rr <= 1) {
+      if (profile === 0) a = 1 - smooth(1 - 1 / Math.max(px / 2, 1), 1, rr);
+      else if (profile === 1) a = Math.min(1, (1 - smooth(0, 0.35, rr)) + 0.45 * (1 - rr) * (1 - rr));
+      else a = (1 - rr) * (1 - rr);
+    }
+    const o = 4 * (yy * s * dpr + xx); img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = Math.round(255 * a);
+  }
+  g.putImageData(img, 0, 0);
+  return { c, s };
+}
+const SPR = { star: sprite(2, 1), bright: sprite(3, 1), dust: sprite(1, 0), hood: sprite(6, 1), haze: sprite(64, 2) };
+ctx.globalCompositeOperation = 'lighter';
+function blit(spr, x, y, rgb, gain) {
+  // tint by drawing the white sprite through a coloured fill: use an offscreen per colour bucket (cheap enough here)
+  const key = rgb.map((v) => Math.round(v * gain)).join(',');
+  let c = blit.cache.get(key);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = spr.c.width; c.height = spr.c.height;
+    const g = c.getContext('2d'); g.drawImage(spr.c, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = `rgb(${key})`; g.fillRect(0, 0, c.width, c.height);
+    blit.cache.set(key, c);
+  }
+  ctx.drawImage(c, x - spr.s / 2, y - spr.s / 2, spr.s, spr.s);
+}
+blit.cache = new Map();
+const t0 = performance.now();
+const G = generate(P);
+const genMs = performance.now() - t0;
+for (const d of G.dust) { const [x, y] = project(d.x, d.y, d.z); blit(SPR.dust, x, y, COOL, Math.min(1, d.b * dustGain)); }
+// core haze (warm)
+{ const [x, y] = project(0, 0, 0); blit(SPR.haze, x, y, WARM, 0.35); }
+for (const p of G.pts) { const [x, y] = project(p.x, p.y, p.z); blit(p.bright ? SPR.bright : SPR.star, x, y, tint(p.warm), Math.min(1, p.b * gain)); }
+if (q.get('hood') !== '0') for (const [hx, hz] of HOOD) { const [x, y] = project(hx, 0, hz); blit(SPR.hood, x, y, COOL, 1); }
+ctx.globalCompositeOperation = 'source-over';
+const shares = Object.fromEntries(Object.entries(G.metrics.counts).map(([k, v]) => [k, v]));
+document.getElementById('readout').textContent = `${G.pts.length} stars · ${G.dust.length} dust · ${genMs.toFixed(0)} ms · seed ${seed} · pitch ${P.pitch}\n` + JSON.stringify(shares) + `\nold interarm (beyond HWHM, r 80–160): ${G.metrics.oldInterarmShareBeyondHWHM} · max bin step ${G.metrics.maxBinStep}`;
+window.__proto = { metrics: G.metrics, P, done: true };
+</script>

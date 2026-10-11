@@ -1,0 +1,9 @@
+parity: a node() mode, the GLSL network library held to its TypeScript mirror
+
+?lib=node renders node() through the node layout's real instanced attributes and the network's
+two textures over a sample of the essay's network (the crack faces, crack-cube builders and person
+motes of C1 and R0, and motes spread over every stack) in eight states: building, fixing, the
+twelve lit, the surge, the network hidden and every clock at 1. Each NodeOut field is compared with
+the TypeScript reference; e2e/parity.spec.ts runs both modes.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

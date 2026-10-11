@@ -1,0 +1,23 @@
+story: the spec section draws the bike first, then builds it
+
+The storyboard's spec section, in keys:
+
+- sp-2: the drawing traces in (ghost 0 to 0.6 over 0.08 to 0.17) in the
+  wrong shape (ghostVariant 1): seat atop the steering post, bars on the
+  stub. The motes stay a loose cloud.
+- sp-3: still, close on the seat on the front.
+- sp-4: the lines re-form into the right bike (ghostVariant 1 to 0 over
+  0.35 to 0.44); no dots are spent.
+- sp-5: one gentle brightening as you say yes (0.85 at 0.50, 0.7 by 0.55).
+- sp-6: the gold core lands on the drawing (assembly 0 to 0.46 over 0.60
+  to 0.74) while no body mote has begun.
+- sp-7: the blue body builds round it (to 1 by 0.92), the finished bike
+  rides (drive 0 to 1.4 over 0.84 to 1) and the drawing fades to 0.25
+  under it.
+
+The old spec tests pinned the section that ended on the gold core alone;
+they are replaced by tests of this sequence, ending with every part of
+every machine on its drawing and the bicycle drawn on it to a tenth of a
+pixel at desktop and phone sizes.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

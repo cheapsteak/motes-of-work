@@ -1,0 +1,10 @@
+auto-advance: the ring in the bottom-right corner, findable on a phone
+
+A 28px ring, its edge 16px in from the corner plus the safe area, in a
+44px hit area: the ring at about 55 % ink, the dial brighter, over a
+soft radial pool of the stage colour so it reads over bright motes and
+the ink sheet. No border, no box, no shadow. The credits link moves to
+the bottom left, out of its way. The e2e follows the stops to the end
+of each scene and checks the ring's place at 1440x900 and 390x844.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

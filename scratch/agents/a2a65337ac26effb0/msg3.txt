@@ -1,0 +1,17 @@
+bike: seat the reveal mannequin on the twin saddle
+
+It read as a big figure standing behind the bike: its legs reached down to
+where the correct bike's pedals would be, near the ground. Now its legs are
+a seated person's with nothing to stand on: thighs forward, 6 degrees
+below level and splayed 4 degrees so the knees pass either side of the
+front wheel, shanks hanging 8 degrees back of plumb, feet relaxed with the
+toes dropped. The upper body is unchanged (torso 12 degrees off vertical,
+hands closed on air where the correct grips would be).
+
+The pose test now asks for a torso 10-20 degrees off vertical, thighs
+within 10 degrees of level and pointing forward, shanks within 15 degrees
+of plumb and a seated hip angle; a new test keeps its lowest point at
+least 0.1 m above the ground at every drive. Hands stay at least 0.3 m
+from the twin's handlebars and feet at least 0.2 m from every pedal.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

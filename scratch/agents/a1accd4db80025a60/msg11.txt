@@ -1,0 +1,3 @@
+style: wrap the pane-camera line and say what it sizes
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

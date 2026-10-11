@@ -1,0 +1,10 @@
+fix: the fill spike says its worst-case framing was chosen on the gears
+
+The fill spike now renders ACTIVE_MECHANISM, but its worst-case halo
+framing was chosen on the gears; after a switch it scales with the new
+machine without being re-derived as that machine's worst case. Its
+results now carry framingFor: gears beside the mechanism on stage, and the
+comment says to re-derive the framing before trusting a fill verdict for
+another mechanism.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

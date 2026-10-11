@@ -1,0 +1,15 @@
+galaxy: background halos apart at the galaxy wide, and no hole round the neighbourhood
+
+The arm-spacing median, which the specified counts could not reach, is replaced by the rule it was
+for: at the galaxy wide, on the phone and desktop probe screens, at least 95 % of background stars
+keep their halo under half the on-screen distance to their nearest neighbour. Stars are drawn
+until their halo is clear (or take the roomiest of 64 draws), and the counts fall to the most that
+keep the rule with a margin: 850 on a phone (was 2,400) and 3,400 on a desktop (was 4,000), at the
+arms' own scatter.
+
+The 50-unit exclusion round the neighbourhood, which cut a one-sided bite out of the core, is gone.
+Only the 16 units round the centre stay clear; background halos keep apart from the neighbourhood's
+stars instead. Core stars fill rings with evenly spaced, jittered bearings, so no sector of the
+core is bare.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

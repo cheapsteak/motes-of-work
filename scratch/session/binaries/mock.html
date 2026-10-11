@@ -1,0 +1,580 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Binary star mocks</title>
+<style>
+  :root { --bg: #0b0d12; --ink: #d8dce6; --dim: #8a90a0; --line: rgba(216,220,230,0.14); --accent: #4da3ff; color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); overflow: hidden; height: 100%; }
+  body { font: 13px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  #stage { position: fixed; inset: 0; background: var(--bg); touch-action: pan-y; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  button { font: inherit; color: inherit; background: rgba(216,220,230,0.08); border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+  button.on { background: rgba(77,163,255,0.22); border-color: rgba(77,163,255,0.6); }
+  #band { position: fixed; left: 0; right: 0; top: 0; height: 42%; background: rgba(11,13,18,0.82); border-bottom: 1px dashed rgba(216,220,230,0.35); display: none; align-items: flex-end; padding: 0 22px 26px; box-sizing: border-box; pointer-events: none; }
+  #band.show { display: flex; }
+  #band p { margin: 0; font-family: Georgia, serif; font-size: 15px; color: var(--dim); font-style: italic; }
+  #top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; pointer-events: none; }
+  #top > * { pointer-events: auto; }
+  #top h1 { margin: 0; font-size: 13px; font-weight: 500; color: var(--dim); }
+  #top .right { display: flex; gap: 6px; }
+  #bottom { position: fixed; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, rgba(11,13,18,0), rgba(11,13,18,0.8) 30%); padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 6px; }
+  #bottom.hidden { display: none; }
+  .row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+  .row::-webkit-scrollbar { display: none; }
+  .row button { flex: 0 0 auto; }
+  #time { flex: 1; min-width: 80px; accent-color: #8fe3c8; }
+  #tval { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: right; }
+  #desc { color: var(--ink); font-size: 12px; max-width: 42em; margin-top: 4px; }
+  #info { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+  #info summary { cursor: pointer; list-style: none; }
+  #info summary::-webkit-details-marker { display: none; }
+  #info summary::before { content: '▸ '; }
+  #info[open] summary::before { content: '▾ '; }
+  #info pre { margin: 4px 0 0; font: inherit; white-space: pre-wrap; }
+  #nojs { position: fixed; left: 16px; right: 16px; top: 46%; color: var(--dim); font-size: 13px; display: none; }
+  @media (min-width: 900px) { #bottom { max-width: 560px; margin-left: auto; margin-right: 12px; } }
+</style>
+
+<div id="stage"></div>
+<div id="band"><p>text band, top 42 % (empty in the mock)</p></div>
+<div id="top"><h1>Binaries · swipe or ← → between options</h1><div class="right"><button id="planBtn">plan</button><button id="bandBtn">band</button><button id="uiBtn">ui</button></div></div>
+<div id="nojs">Loading three.js…</div>
+<div id="bottom">
+  <div class="row"><span id="options" style="display:flex;gap:6px"></span><button id="frameBtn" title="framing: neighbourhood or close"></button></div>
+  <div class="row"><button id="play">❚❚</button><input id="time" type="range" min="0" max="1000" step="0.1"><span id="tval"></span><span id="speeds" style="display:flex;gap:4px"></span></div>
+  <details id="info"><summary id="sum"></summary><div id="desc"></div><pre id="pre"></pre></details>
+</div>
+
+<script>
+// ===================================================================================================
+// MODEL BEGIN: pure. Every value is a function of the seeded hashes below; no Math.random anywhere.
+// A port of the generator's slot, fit and placement rules (body.ts, generate.ts: drawSlot, layMoons,
+// layOut, fitSystem, placeStars) at the same constants, plus the binary rules this experiment proposes.
+// ===================================================================================================
+const STAR_R = 0.9, PLANET_ORBIT_FIRST = 2.2, PLANET_ORBIT_MAX = 9.6, PLANET_MARGIN = 0.15, MOON_MARGIN_SHARE = 0.05, PLANET_E_MIN = 0.05, HOOD_MARGIN = 1;
+const MOON_TRACK = [1.3, 1.9, 2.5], MOON_PERIOD = [6, 9, 12];
+const STAR_COUNT = 30, SCRIPTED = 6;                     // the first six stand in for the story's scripted plans: never made binary
+const HOOD_SPREAD = [45, 35], HOOD_CANDIDATES = 1500, HOOD_BOXES = [90, 130, 180, 240, 320];
+const TRACK_DOTS = { planet: 90, moonTrack: 40 }, STAR_DOTS = 160, SPIKE_DOTS = 96;
+// the experiment's knobs
+const WIDE_K = 1.5;          // (b) and the singles of (c)/(d): two systems at least 1.5 x their combined outer radii apart
+const PAIR_K = 1.35;         // a close pair: mutual nearest neighbours in today's packing, closer than 1.35 x their combined outer radii
+const BIN_SHARE = 0.8, BIN_MAX = 4;   // of the close pairs (closest first), each kept with this seeded chance, at most this many
+const BIN_A = [16, 26];      // an S-type pair's separation: today's distance, clamped to this (16 lets most stars keep two planets)
+const BIN_E = [0.1, 0.4];    // and its eccentricity (wide binaries: roughly flat in e)
+const P_GAP = 1.8;           // a P-type pair's least star separation (periapsis): two star radii plus a little, so the cores never merge
+const P_E = [0.02, 0.12];    // a P-type pair's eccentricity (close binaries are near circular)
+const P_FIRST = 1.08;        // a circumbinary planet's periapsis sits just outside the limit (x a_crit), the observed pile-up
+const KEP = (60 + 18.75 * (5 - 2.4)) / Math.pow(5, 1.5);   // one Kepler constant, matched to planetPeriod at r = 5
+
+function hash(i, salt) { let x = (i * 374761393 + salt * 668265263) >>> 0; x = Math.imul(x ^ (x >>> 13), 1274126177) >>> 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; }
+function rngFor(key, salt) { let n = 0; return () => hash(key * 7919 + n++, salt); }
+function gaussR(rng) { const u = 1 - rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+// ---- body.ts, as is ----
+const planetCount = (u) => 2 + Math.floor(8 * u * u);
+function planetOrbitRadii(n, rng) {
+  const last = 5.5 + (4.1 * (n - 2)) / 7; if (n <= 1) return [PLANET_ORBIT_FIRST];
+  const gaps = Array.from({ length: n - 1 }, () => 1 + 0.15 * (2 * rng() - 1)); const scale = (last - PLANET_ORBIT_FIRST) / gaps.reduce((s, x) => s + x, 0);
+  const radii = [PLANET_ORBIT_FIRST]; for (let k = 0; k < n - 2; k++) radii.push(radii[k] + gaps[k] * scale); radii.push(last); return radii;
+}
+const planetRadius = (g) => clamp(0.22 * Math.exp(0.5 * g), 0.14, 0.5);
+const moonCount = (u0, u1) => (u0 < 0.45 ? 0 : Math.min(6, 1 + Math.floor(-Math.log(Math.max(1e-6, u1)) / 0.7)));
+const moonRadius = (Rp, g) => clamp(0.12 * Rp * Math.exp(0.45 * g), 0.04, 0.35 * Rp);
+function moonTrack(i, n) { const c0 = Math.ceil(n / 3), c1 = Math.ceil((n - 1) / 3); return i < c0 ? 0 : i < c0 + c1 ? 1 : 2; }
+const planetPeriod = (r) => 60 + 18.75 * (r - 2.4);
+const BANDS = { planet: { e: [0.05, 0.22], tilt: 0.25, precession: [400, 900] }, moon: { e: [0.05, 0.12], tilt: 0.2, precession: [90, 200] } };
+function orbitFor(kind, r, period, rng) {
+  const b = BANDS[kind]; const e = b.e[0] + (b.e[1] - b.e[0]) * rng(); const tilt = b.tilt * (2 * rng() - 1); const tiltAz = 2 * Math.PI * rng(); const omega0 = 2 * Math.PI * rng();
+  const precession = b.precession[0] + (b.precession[1] - b.precession[0]) * rng(); const phase = rng();
+  return { r, a: r / (1 + e), e, tilt, tiltAz, omega0, precession, period, phase };
+}
+function latticeRowCols(rows, cols) { const out = []; for (let i = 0; i < rows; i++) { const lat = -Math.PI / 2 + (Math.PI * (i + 0.5)) / rows; out.push(Math.max(6, Math.round(cols * Math.cos(lat)))); } return out; }
+const latticeCount = (rows, cols) => latticeRowCols(rows, cols).reduce((s, n) => s + n, 0);
+const planetLattice = (R) => [Math.max(5, Math.round((14 * R) / 0.3)), Math.max(10, Math.round((36 * R) / 0.3))];
+const moonLattice = (R, Rp, pl) => [Math.max(3, Math.round((pl[0] * R) / Rp)), Math.max(6, Math.round((pl[1] * R) / Rp))];
+
+// ---- generate.ts: slots, moons, the fit ----
+const slotReach = (s) => Math.max(s.R, s.ms);
+function layMoons(slot) {
+  const m = slot.moons.length; const onTrack = [0, 1, 2].map((t) => slot.moons.filter((_, j) => moonTrack(j, m) === t).length); const seen = [0, 0, 0];
+  slot.moons.forEach((moon, j) => { moon.track = moonTrack(j, m); moon.orbit = { ...moon.orbit, phase: (slot.trackPhase[moon.track] + seen[moon.track]++ / onTrack[moon.track]) % 1 }; });
+  const margin = MOON_MARGIN_SHARE * slot.R; let outer = slot.R;
+  for (const t of [0, 1, 2]) {
+    const on = slot.moons.filter((x) => x.track === t); if (on.length === 0) continue;
+    const big = Math.max(...on.map((x) => x.R)); const el = slot.tracks[t];
+    const r = Math.max(MOON_TRACK[t] * slot.R, ((outer + big + margin) * (1 + el.e)) / (1 - el.e));
+    for (const x of on) x.orbit = { ...el, r, a: r / (1 + el.e), phase: x.orbit.phase };
+    outer = r + big;
+  }
+  slot.ms = slot.moons.length > 0 ? outer : 0;
+}
+function drawSlot(key, k) {
+  const prng = rngFor(key * 16 + k, 3);
+  const R = planetRadius(gaussR(prng)); const own = prng(); const m = moonCount(own, prng());
+  const orbit = orbitFor('planet', 1, 1, prng);
+  const tracks = [0, 1, 2].map((t) => orbitFor('moon', 1, MOON_PERIOD[t], prng)); const trackPhase = [prng(), prng(), prng()];
+  const moons = Array.from({ length: m }, (_, j) => { const t = moonTrack(j, m); return { R: moonRadius(R, gaussR(prng)), track: t, orbit: tracks[t] }; });
+  const slot = { R, orbit, e0: orbit.e, moons, tracks, trackPhase, ms: 0, key, k };
+  layMoons(slot); return slot;
+}
+const slotCount = (key) => planetCount(rngFor(key, 2)());
+const drawSlots = (key) => Array.from({ length: slotCount(key) }, (_, k) => drawSlot(key, k));
+function nominalRadii(key, n) { const rng = rngFor(key, 2); rng(); return planetOrbitRadii(n, rng); }
+// layOut with two generalisations: the bound (a_crit for an S-type star) and the first orbit's inner clearance (a_crit for a P-type pair)
+function layOut(slots, floors, ecc, maxR, inner0) {
+  const radii = [];
+  slots.forEach((s, k) => {
+    const e = ecc(s.e0, k); const p = slots[k - 1];
+    const inner = k === 0 ? inner0(s) : radii[k - 1] + Math.max(p.R + s.R + Math.max(p.ms, s.ms), slotReach(p) + slotReach(s));
+    radii.push(Math.max(floors[k], ((inner + PLANET_MARGIN) * (1 + e)) / (1 - e)));
+  });
+  return radii[radii.length - 1] <= maxR ? radii : null;
+}
+function largestFit(fits) { if (fits(1)) return 1; let lo = 0, hi = 1; for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; } return lo; }
+// fitSystem: as the generator's (ease the eccentricities, then drop the outermost slots), with o.maxR, o.inner0, o.floors,
+// o.least and o.eAdd (a forced eccentricity per slot, added on top of the band). o.strict: return null instead of flattening.
+function fitSystem(key, all, o) {
+  const maxR = o.maxR ?? PLANET_ORBIT_MAX, inner0 = o.inner0 ?? ((s) => STAR_R + slotReach(s)), least = o.least ?? 2, add = o.eAdd ?? [];
+  const floorsFor = o.floors ?? ((n) => nominalRadii(key, n));
+  const apply = (slots, radii, ecc) => { slots.forEach((s, k) => { const e = ecc(s.e0, k); s.orbit = { ...s.orbit, r: radii[k], e, a: radii[k] / (1 + e), period: planetPeriod(radii[k]) }; }); return slots; };
+  const eased = (x) => (e0, k) => Math.min(0.4, PLANET_E_MIN + x * (e0 - PLANET_E_MIN) + (add[k] ?? 0));
+  for (let n = all.length; n >= Math.min(least, all.length); n--) {
+    const slots = all.slice(0, n); const floors = floorsFor(n);
+    if (!layOut(slots, floors, eased(0), maxR, inner0)) continue;
+    const x = largestFit((v) => layOut(slots, floors, eased(v), maxR, inner0) !== null);
+    return apply(slots, layOut(slots, floors, eased(x), maxR, inner0), eased(x));
+  }
+  if (o.strict) return null;
+  const slots = all.slice(0, least); const floors = slots.map((_, k) => (k === 0 ? PLANET_ORBIT_FIRST : 0)); const scaled = (x) => (e0) => x * e0;
+  for (;;) {
+    if (layOut(slots, floors, scaled(0), maxR, inner0)) { const x = largestFit((v) => layOut(slots, floors, scaled(v), maxR, inner0) !== null); return apply(slots, layOut(slots, floors, scaled(x), maxR, inner0), scaled(x)); }
+    const free = slots.filter((s) => s.moons.length > 0); if (free.length === 0) throw new Error('does not fit');
+    const widest = free.reduce((a, b) => (b.ms > a.ms ? b : a)); widest.moons.pop(); layMoons(widest);
+  }
+}
+const outerOf = (slots) => slots.reduce((m, s) => Math.max(m, s.orbit.r + slotReach(s)), STAR_R);
+
+// ---- the stability limits (Holman & Wiegert 1999, AJ 117, 621: eqs. 1 and 3) ----
+// S-type: the largest stable semi-major axis round a star, in units of the binary's a; mu = m_other / (m_host + m_other). Valid 0.1 <= mu <= 0.9, 0 <= e <= 0.8.
+const hwS = (mu, e) => 0.464 - 0.380 * mu - 0.631 * e + 0.586 * mu * e + 0.150 * e * e - 0.198 * mu * e * e;
+// P-type: the smallest stable semi-major axis round both, in units of the binary's a; mu = m2 / (m1 + m2). Valid 0.1 <= mu <= 0.9, 0 <= e <= 0.7.
+const hwP = (mu, e) => 1.60 + 5.10 * e - 2.22 * e * e + 4.12 * mu - 4.27 * e * mu - 5.09 * mu * mu + 4.61 * e * e * mu * mu;
+const kepPeriod = (a) => KEP * Math.pow(a, 1.5);
+
+// ---- the stars ----
+function makeStars() {
+  return Array.from({ length: STAR_COUNT }, (_, key) => {
+    const rng = rngFor(key, 5); const bright = 0.5 + 0.5 * rng(); const temp = rng();
+    const mass = 0.5 + 0.7 * (bright - 0.5) / 0.5;    // a stand-in: the essay has no masses; the brighter star is the heavier
+    const slots = fitSystem(key, drawSlots(key), { least: 2 });
+    return { key, scripted: key < SCRIPTED, bright, temp, mass, slots, outer: outerOf(slots) };
+  });
+}
+
+// ---- placeStars, in the arm's own frame (u along, v across); the galactic-radius band is left out ----
+function place(units, gap, salt) {
+  for (const box of HOOD_BOXES) {
+    const placed = []; let ok = true;
+    for (const u of units) {
+      const rng = rngFor(u.key + 1000 * HOOD_BOXES.indexOf(box), salt); let best = null, bs = Infinity;
+      for (let k = 0; k < HOOD_CANDIDATES; k++) {
+        const cu = box * (2 * rng() - 1), cv = box * (2 * rng() - 1); const sc = (cu / HOOD_SPREAD[0]) ** 2 + (cv / HOOD_SPREAD[1]) ** 2;
+        if (sc >= bs) continue;
+        if (placed.every((o) => Math.hypot(cu - o.u, cv - o.v) >= gap(u, o))) { best = [cu, cv]; bs = sc; }
+      }
+      if (!best) { ok = false; break; }
+      u.u = best[0]; u.v = best[1]; placed.push(u);
+    }
+    if (ok) return box;
+  }
+  throw new Error('no room');
+}
+const orderUnits = (units) => [...units].sort((a, b) => (a.scripted ? 0 : 1) - (b.scripted ? 0 : 1) || a.key - b.key);
+
+// ---- the binaries ----
+const toPlanet = (s) => ({ R: s.R, orbit: s.orbit, lattice: planetLattice(s.R), moons: s.moons.map((m) => ({ R: m.R, orbit: m.orbit, track: m.track })) });
+// an S-type star's own planets, truncated at a_crit: the generator's fit with a_crit for 9.6 and its floors scaled in, at least one planet; the forced eccentricity
+// (Heppenheimer 1978: e_F = 5/4 (a / a_B) e_B / (1 - e_B^2)) added to each, and the precession quickened as a planet nears the limit
+function fitS(star, ac, ab, eb) {
+  // the designed spacing (nominalRadii) is scaled into the stable zone, so a binary's star keeps a small system rather than one planet
+  const floors = (n) => { const f = nominalRadii(star.key, n); const k = Math.min(1, (0.92 * ac) / f[n - 1]); return f.map((r) => r * k); };
+  const fit = (add) => fitSystem(star.key, drawSlots(star.key), { least: 1, maxR: ac, strict: true, eAdd: add, floors });
+  const first = fit([]); if (!first) return null;
+  const add = first.map((s) => 1.25 * (s.orbit.a / ab) * eb / (1 - eb * eb));
+  const slots = fit(add) ?? first;
+  for (const s of slots) s.orbit = { ...s.orbit, precession: s.orbit.precession / (1 + 2 * Math.pow(s.orbit.r / ac, 3)) };
+  return slots;
+}
+function buildS(A, B, d, key) {
+  if (B.mass > A.mass) [A, B] = [B, A];
+  const rng = rngFor(key, 9); const e = BIN_E[0] + (BIN_E[1] - BIN_E[0]) * rng(); const omega = 2 * Math.PI * rng(); const phase = rng();
+  const M = A.mass + B.mass; const muA = B.mass / M, muB = A.mass / M;    // each star's perturber share
+  let ab = clamp(d, BIN_A[0], BIN_A[1]); let sa, sb, acA, acB;
+  for (let i = 0; i < 200; i++) { acA = hwS(muA, e) * ab; acB = hwS(muB, e) * ab; sa = fitS(A, acA, ab, e); sb = fitS(B, acB, ab, e); if (sa && sb) break; ab *= 1.03; }
+  const bin = { a: ab, e, omega, phase, period: kepPeriod(ab), fa: muA, fb: muB };   // star A sits fa x r from the barycentre, B fb x r
+  const outer = Math.max(muA * ab * (1 + e) + outerOf(sa), muB * ab * (1 + e) + outerOf(sb));
+  return { type: 'S', key, stars: [A, B], bin, outer, groups: [{ centre: 0, ac: acA, planets: sa.map(toPlanet) }, { centre: 1, ac: acB, planets: sb.map(toPlanet) }], dropped: A.slots.length + B.slots.length - sa.length - sb.length };
+}
+// a P-type pair: both stars' slots, interleaved, round the barycentre from just outside a_crit out to 9.6
+function buildP(A, B, key) {
+  if (B.mass > A.mass) [A, B] = [B, A];
+  const rng = rngFor(key, 11); const e = P_E[0] + (P_E[1] - P_E[0]) * rng(); const omega = 2 * Math.PI * rng(); const phase = rng();
+  const M = A.mass + B.mass; const mu = B.mass / M;
+  const ab = P_GAP / (1 - e) + 0.1 * rng(); const ac = hwP(mu, e) * ab;
+  const sa = drawSlots(A.key), sb = drawSlots(B.key); const all = [];
+  for (let k = 0; k < Math.max(sa.length, sb.length); k++) { if (sa[k]) all.push(sa[k]); if (sb[k]) all.push(sb[k]); }
+  const floors = (n) => Array.from({ length: n }, () => 0);
+  const opt = { least: 1, floors, inner0: (s) => P_FIRST * ac + slotReach(s) - PLANET_MARGIN };
+  const first = fitSystem(A.key, all, opt);
+  // Moriwaki & Nakagawa 2004: e_F ~ 5/4 (a_B / a) e_B (m1 - m2)/(m1 + m2): small, so circumbinary planets stay near circular
+  const add = first.map((s) => 1.25 * (ab / s.orbit.a) * e * (1 - 2 * mu));
+  const slots = fitSystem(A.key, all.map((s) => ({ ...s })), { ...opt, eAdd: add });
+  for (const s of slots) s.orbit = { ...s.orbit, precession: s.orbit.precession / (1 + 2 * Math.pow(ac / s.orbit.r, 2)) };
+  const bin = { a: ab, e, omega, phase, period: kepPeriod(ab), fa: mu, fb: 1 - mu };
+  const outer = Math.max(outerOf(slots), (1 - mu) * ab * (1 + e) + STAR_R);
+  return { type: 'P', key, stars: [A, B], bin, outer, mu, groups: [{ centre: 'bary', ac, planets: slots.map(toPlanet) }], dropped: A.slots.length + B.slots.length - slots.length };
+}
+const single = (s) => ({ type: 'single', key: s.key, scripted: s.scripted, stars: [s], outer: s.outer, groups: [{ centre: 0, planets: s.slots.map(toPlanet) }] });
+
+// ---- the four options ----
+function buildModel() {
+  const stars = makeStars();
+  // (a) today's packing and (b) the widened one
+  const A = orderUnits(stars.map(single)); place(A, (u, o) => u.outer + o.outer + HOOD_MARGIN, 21);
+  const Bw = orderUnits(stars.map(single)); place(Bw, (u, o) => WIDE_K * (u.outer + o.outer), 21);
+  // the close pairs of today's packing: mutual nearest filler neighbours closer than PAIR_K x their combined outer radii, closest first
+  const pos = new Map(A.map((u) => [u.key, u]));
+  const nearest = (u) => A.filter((o) => o !== u).reduce((b, o) => (!b || Math.hypot(o.u - u.u, o.v - u.v) < Math.hypot(b.u - u.u, b.v - u.v) ? o : b), null);
+  const close = [];
+  for (const u of A) { const o = nearest(u); if (u.key < o.key && nearest(o) === u && !u.scripted && !o.scripted) { const d = Math.hypot(o.u - u.u, o.v - u.v); const k = d / (u.outer + o.outer); if (k < PAIR_K) close.push({ a: u.key, b: o.key, d, k }); } }
+  close.sort((x, y) => x.k - y.k);
+  const pairs = []; for (const p of close) if (pairs.length < BIN_MAX && hash(p.a * 64 + p.b, 77) < BIN_SHARE) pairs.push(p);
+  // the hero pair: the kept pair nearest the neighbourhood's middle (the close framing's subject)
+  const mid = (p) => Math.hypot((pos.get(p.a).u + pos.get(p.b).u) / 2, (pos.get(p.a).v + pos.get(p.b).v) / 2);
+  const hero = pairs.length ? pairs.reduce((b, p) => (mid(p) < mid(b) ? p : b)) : null;
+  const inPair = new Set(pairs.flatMap((p) => [p.a, p.b]));
+  const layoutWith = (heroType) => {
+    const units = stars.filter((s) => !inPair.has(s.key)).map(single);
+    for (const p of pairs) {
+      const key = Math.min(p.a, p.b);
+      units.push(p === hero && heroType === 'P' ? buildP(stars[p.a], stars[p.b], key) : buildS(stars[p.a], stars[p.b], p.d, key));
+    }
+    const U = orderUnits(units); place(U, (u, o) => WIDE_K * (u.outer + o.outer), 21); return U;
+  };
+  // (d) keeps (c)'s spots: only the middle pair changes, from S-type to P-type, in place (its P-type footprint is the smaller)
+  const C = layoutWith('S');
+  const D = C.map((u) => (hero && u.type === 'S' && u.stars.some((s) => s.key === hero.a) ? Object.assign(buildP(stars[hero.a], stars[hero.b], u.key), { u: u.u, v: u.v }) : { ...u }));
+  // every option is moved so the hero pair's barycentre is the origin: the camera never moves between swipes
+  const baryOf = (units) => {
+    const ua = units.find((u) => u.stars.some((s) => s.key === hero.a)), ub = units.find((u) => u.stars.some((s) => s.key === hero.b));
+    if (ua === ub) return [ua.u, ua.v];
+    const ma = stars[hero.a].mass, mb = stars[hero.b].mass; return [(ua.u * ma + ub.u * mb) / (ma + mb), (ua.v * ma + ub.v * mb) / (ma + mb)];
+  };
+  // the neighbourhood framing anchors each option on the centroid of its spots instead (anchor()), so both cameras stay put on a swipe
+  const options = { a: A, b: Bw, c: C, d: D };
+  for (const units of Object.values(options)) {
+    const [cu, cv] = hero ? baryOf(units) : [0, 0]; const mu = units.reduce((s, u) => s + u.u, 0) / units.length, mv = units.reduce((s, u) => s + u.v, 0) / units.length;
+    for (const u of units) { u.close = [u.v - cv, u.u - cu]; u.hood = [u.v - mv, u.u - mu]; u.x = u.close[0]; u.z = u.close[1]; }
+  }
+  return { stars, options, pairs, hero, close };
+}
+
+// ---- positions: every one a pure function of the ambient time t ----
+function kepler(M, e) { let E = M + e * Math.sin(M); for (let i = 0; i < 6; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; }   // fixed iterations: bit-stable
+// the relative orbit of B about A, in the plane
+function binRel(bin, t) {
+  const E = kepler(2 * Math.PI * (t / bin.period + bin.phase), bin.e);
+  const x = bin.a * (Math.cos(E) - bin.e), y = bin.a * Math.sqrt(1 - bin.e * bin.e) * Math.sin(E); const c = Math.cos(bin.omega), s = Math.sin(bin.omega);
+  return [x * c - y * s, x * s + y * c];
+}
+// a star of a unit: a single sits at its spot; a pair's stars go round the barycentre (the unit's spot), A at -fa r, B at +fb r
+function starPos(u, i, t) {
+  if (u.type === 'single') return [u.x, 0, u.z];
+  const [rx, rz] = binRel(u.bin, t); const f = i === 0 ? -u.bin.fa : u.bin.fb; return [u.x + f * rx, 0, u.z + f * rz];
+}
+const groupCentre = (u, g, t) => (g.centre === 'bary' ? [u.x, 0, u.z] : starPos(u, g.centre, t));
+// a Kepler orbit (body.ts OrbitElements) about c at the ambient time t, or at eccentric anomaly E if given
+function orbitPos(o, t, c, Eopt) {
+  const w = o.omega0 + (2 * Math.PI * t) / o.precession;
+  const E = Eopt ?? kepler(2 * Math.PI * (t / o.period + o.phase), o.e);
+  const xo = o.a * (Math.cos(E) - o.e), yo = o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E); const cw = Math.cos(w), sw = Math.sin(w);
+  const x = xo * cw - yo * sw, z = xo * sw + yo * cw;
+  const kx = Math.cos(o.tiltAz), kz = Math.sin(o.tiltAz), ct = Math.cos(o.tilt), st = Math.sin(o.tilt); const kv = kx * x + kz * z;   // Rodrigues about (kx, 0, kz)
+  return [c[0] + x * ct + kz * 0 * st + kx * kv * (1 - ct), c[1] + (kz * x - kx * z) * st, c[2] + z * ct + kz * kv * (1 - ct)];
+}
+
+// ---- instance budgets, counted the way the generator's fitBudget counts them (every shell at full lattice) ----
+const BIN_PLAN = { bary: 24, orbitA: 60, orbitB: 90, limit: 60 };     // the binary plan's dots (fixed counts, drawn as such)
+function budget(units) {
+  const b = { stars: 0, shells: 0, moons: 0, tracks: 0, plan: 0, planets: 0, moonsN: 0, systems: units.length, pairs: 0 };
+  for (const u of units) {
+    b.stars += u.stars.length * (STAR_DOTS + SPIKE_DOTS);
+    if (u.type !== 'single') { b.pairs++; b.plan += BIN_PLAN.bary + BIN_PLAN.orbitA + BIN_PLAN.orbitB + BIN_PLAN.limit * u.groups.length; }
+    for (const g of u.groups) for (const p of g.planets) {
+      b.planets++; b.shells += latticeCount(...p.lattice); b.tracks += TRACK_DOTS.planet + TRACK_DOTS.moonTrack * new Set(p.moons.map((m) => m.track)).size;
+      for (const m of p.moons) { b.moonsN++; b.moons += latticeCount(...moonLattice(m.R, p.R, p.lattice)); }
+    }
+  }
+  b.total = b.stars + b.shells + b.moons + b.tracks + b.plan; return b;
+}
+// how many stars would lose their outer planets if their nearest neighbour were bound to them (a circular binary, the S-type limit)
+function overLimit(units) {
+  const st = []; units.forEach((u) => u.stars.forEach((s, i) => st.push({ u, s, p: starPos(u, i, 0), rOut: Math.max(0, ...u.groups.filter((g) => g.centre === i).flatMap((g) => g.planets.map((p) => p.orbit.a))) })));
+  let n = 0, worst = 0;
+  for (const a of st) {
+    if (a.rOut === 0) continue;
+    let best = null, bd = Infinity; for (const b of st) { if (b.u === a.u) continue; const d = Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]); if (d < bd) { bd = d; best = b; } }
+    const lim = hwS(best.s.mass / (a.s.mass + best.s.mass), 0) * bd; const k = a.rOut / lim; worst = Math.max(worst, k); if (k > 1) n++;
+  }
+  return { n, of: st.length, worst };
+}
+function extent(units) { return units.reduce((m, u) => Math.max(m, Math.hypot(u.hood[0], u.hood[1]) + u.outer), 0); }
+// which anchor the spots use: 'hood' (each option's centroid at the origin) or 'close' (the middle pair's barycentre at the origin)
+function anchor(units, which) { for (const u of units) { u.x = u[which][0]; u.z = u[which][1]; } }
+// MODEL END
+// ===================================================================================================
+</script>
+
+<script>
+window.__boot = function (THREE) {
+  if (window.__booted) return; window.__booted = true; document.getElementById('nojs').style.display = 'none';
+  const q = new URLSearchParams(location.search);
+  const P = {
+    option: q.get('o') || 'a', framing: q.get('f') || 'hood', plan: q.get('plan') !== '0', band: q.get('band') === '1', ui: q.get('ui') !== '0',
+    t: q.has('t') ? parseFloat(q.get('t')) : 0, live: !q.has('t'), speed: q.has('speed') ? parseFloat(q.get('speed')) : 10,
+    dpr: q.has('dpr') ? parseFloat(q.get('dpr')) : Math.min(window.devicePixelRatio || 1, 2),
+  };
+  const OPTIONS = {
+    a: { name: 'a today', long: 'a · today', desc: 'Today\'s packing: every pair of systems just their outer radii plus 1 apart. The dashed rings round the two middle stars are where their planets would stop being stable if the pair were bound (a circular binary): most of their planets lie outside them.' },
+    b: { name: 'b wide', long: 'b · widened', desc: 'Every pair of systems at least 1.5 × their combined outer radii apart. The neighbourhood grows; the planets sit near or inside the would-be limit rings.' },
+    c: { name: 'c S-type', long: 'c · S-type', desc: 'Today\'s closest pairs become binaries. Each star keeps only the planets inside its stability limit (dashed); the two go round their shared barycentre (the cross) on Kepler ellipses, slowly; the planets ride their star. Singles are widened as in b.' },
+    d: { name: 'd P-type', long: 'd · P-type', desc: 'As c, but the middle pair is a tight binary with planets round both: the stars whirl round the barycentre every few tens of seconds, and the planets start just outside the circumbinary limit (dashed), near circular.' },
+  };
+  const FRAMINGS = { hood: 'hood', close: 'close' };
+  const SPEEDS = [1, 10, 60];
+  const ORDER = Object.keys(OPTIONS);
+
+  // ---------- colours (the essay's) ----------
+  const hex = (h) => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
+  const AGENT = hex('#4DA3FF'), WHITE = hex('#F4F7FF'), AMBER = hex('#FFD9A0'), PHOSPHOR = hex('#8FE3C8');
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const gaussH = (i, salt) => { const u = Math.max(hash(i, salt), 1e-6), v = hash(i, salt + 7); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+
+  // ---------- renderer and two dot layers (as the schematic mock) ----------
+  const stage = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+  renderer.setPixelRatio(P.dpr); renderer.setClearColor(0x0b0d12, 1); stage.appendChild(renderer.domElement);
+  const VERT = `attribute float aSize; attribute vec3 aColor; attribute float aAlpha; varying vec3 vColor; varying float vAlpha; varying float vSize; uniform float uDpr;
+    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float s = aSize * uDpr; gl_PointSize = max(s, 1.0); vSize = max(s, 1.0); vColor = aColor; vAlpha = aAlpha; }`;
+  const FRAG = `precision mediump float; varying vec3 vColor; varying float vAlpha; varying float vSize;
+    void main() { float d = length(gl_PointCoord - 0.5) * vSize; float r = vSize * 0.5; float a = (1.0 - smoothstep(r - 0.75, r + 0.25, d)) * vAlpha; gl_FragColor = vec4(vColor * a, a); }`;
+  class DotLayer {
+    constructor(cap) {
+      this.cap = cap; this.pos = new Float32Array(cap * 3); this.size = new Float32Array(cap); this.col = new Float32Array(cap * 3); this.alpha = new Float32Array(cap);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1));
+      g.setAttribute('aColor', new THREE.BufferAttribute(this.col, 3)); g.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1));
+      const m = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: { uDpr: { value: P.dpr } }, transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor });
+      this.points = new THREE.Points(g, m); this.points.frustumCulled = false; this.g = g; this.n = 0;
+    }
+    begin() { this.n = 0; }
+    add(x, y, z, size, c, a) {
+      // the text band stays dark: a dot that projects into it (or within BAND_FADE px under its margin) fades out
+      if (this.clip && CLIP.on) { const e = CLIP.m; const w = e[3] * x + e[7] * y + e[11] * z + e[15]; const sy = (1 - (e[1] * x + e[5] * y + e[9] * z + e[13]) / w) / 2 * H; a *= smooth(CLIP.px, CLIP.px + BAND_FADE, sy); }
+      else if (!this.clip && CLIP.on) a *= smooth(CLIP.px, CLIP.px + BAND_FADE, y);
+      if (a <= 0.002 || this.n >= this.cap) return; const i = this.n++; this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z; this.size[i] = size; this.col[i * 3] = c[0]; this.col[i * 3 + 1] = c[1]; this.col[i * 3 + 2] = c[2]; this.alpha[i] = a; }
+    end() { this.g.setDrawRange(0, this.n); for (const k of ['position', 'aSize', 'aColor', 'aAlpha']) this.g.attributes[k].needsUpdate = true; }
+  }
+  const world = new DotLayer(120000), hud = new DotLayer(20000); world.clip = true;
+  const BAND_FADE = 36; const CLIP = { on: true, px: 0, m: null }; const _m = new THREE.Matrix4();
+  const sceneW = new THREE.Scene(); sceneW.add(world.points); const sceneH = new THREE.Scene(); sceneH.add(hud.points);
+  const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 5000); const camH = new THREE.OrthographicCamera(0, 1, 0, 1, -1, 1);
+  let W = 1, H = 1;
+  const _v = new THREE.Vector3();
+  const focalPx = () => (H / 2) / Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+  function project(p) { _v.set(p[0], p[1], p[2]).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
+  function pxPerUnit(p) { _v.set(p[0], p[1], p[2]).applyMatrix4(cam.matrixWorldInverse); return focalPx() / Math.max(-_v.z, 0.01); }
+
+  // ---------- the model, built once ----------
+  const MODEL = buildModel();
+  const BUD = Object.fromEntries(ORDER.map((k) => [k, budget(MODEL.options[k])]));
+  const LIM = Object.fromEntries(ORDER.map((k) => [k, overLimit(MODEL.options[k])]));
+  const heroUnit = (k) => MODEL.options[k].find((u) => u.stars.some((s) => s.key === MODEL.hero.a));
+  const T_MAX = Math.ceil(heroUnit('c').bin.period);
+  // the cameras: fixed per framing, from the union of the four options, so nothing moves on a swipe
+  // the neighbourhood: aimed at the mean of every option's spots, sized to the farthest spot of any option (its outer radius included)
+  const HOOD_T = [0, 0, 0]; const R_HOOD = Math.max(...ORDER.map((k) => extent(MODEL.options[k])));
+  // close: the middle pair's barycentre, sized to the S-type pair's stars' ellipses plus their limits
+  const hc = heroUnit('c'); const R_CLOSE = Math.max(hc.bin.fa, hc.bin.fb) * hc.bin.a * (1 + hc.bin.e) + Math.max(...hc.groups.map((g) => g.ac));
+  const CAM = { hood: { el: 60, az: 10, want: 0.71, fit: R_HOOD * 0.98, target: HOOD_T }, close: { el: 55, az: -18, want: 0.71, fit: R_CLOSE * 0.68, target: [0, 0, 0] } };
+  function frameCamera() {
+    const c = CAM[P.framing]; const T = c.target;
+    const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * Math.min(W / H, 1.0);   // fit the radius to the narrower of width and height
+    const tanV = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * 0.55;                   // and to the lower 58 % (the plane foreshortens by sin(el))
+    const el = THREE.MathUtils.degToRad(c.el), az = THREE.MathUtils.degToRad(c.az);
+    const dist = Math.max(c.fit / tanH, (c.fit * Math.sin(el)) / tanV);
+    cam.position.set(T[0] + dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el), T[2] + dist * Math.cos(el) * Math.cos(az)); cam.lookAt(T[0], 0, T[2]);
+    cam.rotateX(Math.atan(((c.want - 0.5) * H) / focalPx())); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+  }
+  function resize() { W = stage.clientWidth; H = stage.clientHeight; renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); camH.left = 0; camH.right = W; camH.top = 0; camH.bottom = H; camH.updateProjectionMatrix(); }
+  window.addEventListener('resize', () => { resize(); dirty = true; });
+
+  // ---------- draws ----------
+  const CNT = { stars: 0, shells: 0, moons: 0, tracks: 0, plan: 0, bg: 0 };
+  function counted(key, fn) { const n0 = world.n + hud.n; fn(); CNT[key] += world.n + hud.n - n0; }
+  function background() {
+    const n = 900;
+    for (let i = 0; i < n; i++) {
+      const th = hash(i, 21) * 2 * Math.PI, ph = Math.acos(2 * hash(i, 22) - 1), r = 900 + hash(i, 23) * 600; const b = 0.3 + 0.7 * Math.pow(hash(i, 24), 2.2);
+      world.add(cam.position.x + r * Math.sin(ph) * Math.cos(th), cam.position.y + r * Math.cos(ph), cam.position.z + r * Math.sin(ph) * Math.sin(th), b > 0.8 ? 2.6 : 1.8, hash(i, 25) < 0.5 ? mix(WHITE, AMBER, 0.85) : WHITE, 0.22 + 0.5 * b);
+    }
+  }
+  function drawStar(s, p, t) {
+    const tint = mix(WHITE, AMBER, s.temp); const breath = 1 + 0.12 * Math.sin((2 * Math.PI * t) / 6 + s.key);
+    const d = Math.hypot(p[0] - cam.position.x, p[1] - cam.position.y, p[2] - cam.position.z); const glowPx = Math.min(18, Math.max(5, (5 * STAR_R * focalPx()) / d));
+    for (let i = 0; i < 40; i++) { const k = s.key * 1000 + i; world.add(p[0] + gaussH(k, 31) * 0.25 * STAR_R, p[1] + gaussH(k, 32) * 0.25 * STAR_R, p[2] + gaussH(k, 33) * 0.25 * STAR_R, 1.6 + 0.3 * smooth(10, 18, glowPx), tint, 0.9 * breath * s.bright); }
+    for (let i = 0; i < 120; i++) {
+      const k = s.key * 1000 + 100 + i; const rho = 0.6 - Math.log(1 - hash(k, 34) * 0.95) * 0.55; const u = hash(k, 35) * 2 * Math.PI, v = Math.acos(2 * hash(k, 36) - 1);
+      world.add(p[0] + rho * STAR_R * Math.sin(v) * Math.cos(u), p[1] + rho * STAR_R * Math.cos(v), p[2] + rho * STAR_R * Math.sin(v) * Math.sin(u), 1.4, tint, 0.55 * Math.exp(-rho / 0.7) * breath * s.bright);
+    }
+    const [sx, sy] = project(p); const n = s.bright > 0.8 ? 6 : 4; const angles = n === 6 ? [0, 60, 120, 180, 240, 300] : [45, 135, 225, 315];
+    const len = 1.6 * glowPx * s.bright * smooth(6, 12, glowPx);
+    for (const ang of angles) for (let j = 0; j < 16; j++) { const u = (j + 0.5) / 16, a = THREE.MathUtils.degToRad(ang); hud.add(sx + Math.cos(a) * u * len, sy + Math.sin(a) * u * len, 0, 1.2, tint, 0.5 * Math.pow(1 - u, 1.5) * breath); }
+    for (const [f, a] of [[1, 0.07], [0.72, 0.09], [0.48, 0.12], [0.28, 0.18]]) hud.add(sx, sy, 0, glowPx * f, tint, a);
+  }
+  // a shell on its lattice (body.ts latticeRowCols), lit from the star
+  function shell(c, R, lattice, col, lit, alpha) {
+    const rows = latticeRowCols(...lattice);
+    rows.forEach((n, i) => {
+      const lat = -Math.PI / 2 + (Math.PI * (i + 0.5)) / rows.length; const y = Math.sin(lat), rr = Math.cos(lat);
+      for (let j = 0; j < n; j++) { const lo = (2 * Math.PI * (j + 0.5 * (i % 2))) / n; const nx = rr * Math.cos(lo), nz = rr * Math.sin(lo); const l = Math.max(0, nx * lit[0] + y * lit[1] + nz * lit[2]); world.add(c[0] + nx * R, c[1] + y * R, c[2] + nz * R, 1.4, col, alpha * (0.16 + 0.84 * l)); }
+    });
+  }
+  function track(o, t, c, n, col, alpha, size = 1.2) { for (let k = 0; k < n; k++) { const p = orbitPos(o, t, c, (2 * Math.PI * k) / n); world.add(p[0], p[1], p[2], size, col, alpha); } }
+  function ringFlat(c, r, n, col, alpha, dash, size = 1.3) { for (let k = 0; k < n; k++) { if (dash && k % 8 >= 5) continue; const a = (2 * Math.PI * k) / n; world.add(c[0] + r * Math.cos(a), c[1], c[2] + r * Math.sin(a), size, col, alpha); } }
+  // the plan of a pair: the barycentre's mark, each star's ellipse about it, and the dashed stability limit(s)
+  function binaryPlan(u, t, gain) {
+    const ui = PHOSPHOR; const c = [u.x, 0, u.z]; const b = u.bin;
+    for (const [dx, dz] of [[1, 0], [0, 1]]) for (let k = 0; k < 7; k++) { const s = (k / 6 - 0.5) * 1.6; world.add(c[0] + dx * s, 0, c[2] + dz * s, 1.6, ui, 1.0 * gain); }
+    ringFlat(c, 0.45, 10, ui, 0.9 * gain, false, 1.3);
+    for (const [i, n] of [[0, BIN_PLAN.orbitA], [1, BIN_PLAN.orbitB]]) {
+      const f = i === 0 ? -b.fa : b.fb;
+      for (let k = 0; k < n; k++) { const E = (2 * Math.PI * k) / n; const x = b.a * (Math.cos(E) - b.e), y = b.a * Math.sqrt(1 - b.e * b.e) * Math.sin(E); const cw = Math.cos(b.omega), sw = Math.sin(b.omega); world.add(c[0] + f * (x * cw - y * sw), 0, c[2] + f * (x * sw + y * cw), 1.3, ui, 0.5 * gain); }
+    }
+    for (const g of u.groups) ringFlat(groupCentre(u, g, t), g.ac, 96, ui, 0.95 * gain, true, 1.7);
+  }
+  // (a) and (b): the limits the hero pair's planets would have if the two were bound, on a circular orbit at today's distance
+  function wouldBePlan(units, t, gain) {
+    const ua = units.find((u) => u.stars.some((s) => s.key === MODEL.hero.a)), ub = units.find((u) => u.stars.some((s) => s.key === MODEL.hero.b));
+    const pa = starPos(ua, 0, t), pb = starPos(ub, 0, t); const d = Math.hypot(pb[0] - pa[0], pb[2] - pa[2]); const ma = ua.stars[0].mass, mb = ub.stars[0].mass;
+    ringFlat(pa, hwS(mb / (ma + mb), 0) * d, 96, PHOSPHOR, 0.95 * gain, true, 1.7); ringFlat(pb, hwS(ma / (ma + mb), 0) * d, 96, PHOSPHOR, 0.95 * gain, true, 1.7);
+    const c = [(pa[0] * ma + pb[0] * mb) / (ma + mb), 0, (pa[2] * ma + pb[2] * mb) / (ma + mb)];
+    for (const [dx, dz] of [[1, 0], [0, 1]]) for (let k = 0; k < 7; k++) { const s = (k / 6 - 0.5) * 1.6; world.add(c[0] + dx * s, 0, c[2] + dz * s, 1.3, PHOSPHOR, 0.5 * gain); }
+  }
+  function drawUnit(u, t) {
+    const sysPx = 2 * u.outer * pxPerUnit([u.x, 0, u.z]);
+    const trackA = 0.32 * smooth(40, 110, sysPx);
+    u.stars.forEach((s, i) => counted('stars', () => drawStar(s, starPos(u, i, t), t)));
+    for (const g of u.groups) {
+      const c = groupCentre(u, g, t); const tint = mix(WHITE, AMBER, (g.centre === 'bary' ? u.stars[0] : u.stars[g.centre]).temp);
+      for (const pl of g.planets) {
+        if (trackA > 0) counted('tracks', () => track(pl.orbit, t, c, TRACK_DOTS.planet, AGENT, trackA));
+        const p = orbitPos(pl.orbit, t, c); const ppu = pxPerUnit(p); const px = 2 * pl.R * ppu; const col = mix(AGENT, tint, 0.18);
+        const L = Math.hypot(c[0] - p[0], c[1] - p[1], c[2] - p[2]) || 1; const lit = [(c[0] - p[0]) / L, (c[1] - p[1]) / L, (c[2] - p[2]) / L];
+        if (px >= 9) {
+          counted('shells', () => shell(p, pl.R, pl.lattice, col, lit, 0.9));
+          const tracksUsed = new Set();
+          for (const m of pl.moons) {
+            if (!tracksUsed.has(m.track)) { tracksUsed.add(m.track); counted('tracks', () => track(m.orbit, t, p, TRACK_DOTS.moonTrack, AGENT, 0.22)); }
+            const mp = orbitPos(m.orbit, t, p); counted('moons', () => shell(mp, m.R, moonLattice(m.R, pl.R, pl.lattice), mix(col, WHITE, 0.15), lit, 0.85));
+          }
+        } else counted('shells', () => world.add(p[0], p[1], p[2], Math.max(1.6, Math.min(px * 0.8, 3.2)), col, 0.85));
+      }
+    }
+    if (P.plan && u.type !== 'single') { const gain = smooth(40, 110, sysPx); if (gain > 0) counted('plan', () => binaryPlan(u, t, gain)); }
+  }
+
+  // ---------- frame ----------
+  let dirty = true, last = performance.now();
+  function draw() {
+    frameCamera(); world.begin(); hud.begin(); for (const k in CNT) CNT[k] = 0;
+    const t = P.t; const units = MODEL.options[P.option]; anchor(units, P.framing);
+    CLIP.on = false; counted('bg', background);   // the far background is the one thing behind the text
+    CLIP.on = true; CLIP.px = 0.42 * H + 8; CLIP.m = _m.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).elements;
+    for (const u of units) drawUnit(u, t);
+    if (P.plan && (P.option === 'a' || P.option === 'b')) counted('plan', () => wouldBePlan(units, t, 1));
+    world.end(); hud.end();
+    renderer.autoClear = true; renderer.render(sceneW, cam); renderer.autoClear = false; renderer.render(sceneH, camH);
+    info();
+  }
+  const fmt = (n) => n.toLocaleString('en-GB');
+  function info() {
+    const B = BUD[P.option], L = LIM[P.option], drawn = world.n + hud.n - CNT.bg; const hu = heroUnit(P.option);
+    document.getElementById('sum').textContent = `${OPTIONS[P.option].long} · ${P.framing === 'hood' ? 'neighbourhood' : 'close'} · drawn ${fmt(drawn)} dots · budget ${fmt(B.total)}`;
+    const lines = [
+      `drawn now: stars ${fmt(CNT.stars)} · shells ${fmt(CNT.shells)} · moons ${fmt(CNT.moons)} · tracks ${fmt(CNT.tracks)} · plan ${fmt(CNT.plan)} (+ ${fmt(CNT.bg)} background)`,
+      `budget (every shell at full lattice): stars ${fmt(B.stars)} · shells ${fmt(B.shells)} · moons ${fmt(B.moons)} · tracks ${fmt(B.tracks)} · binary plan ${fmt(B.plan)} = ${fmt(B.total)}`,
+      `${B.systems} systems · ${B.pairs} pairs · ${B.planets} planets · ${B.moonsN} moons · neighbourhood radius ${extent(MODEL.options[P.option]).toFixed(0)}`,
+      `stars whose outermost planet lies past the limit their nearest neighbour would set if bound: ${L.n} of ${L.of} (worst ${L.worst.toFixed(2)}×)`,
+    ];
+    if (hu.bin) lines.push(`middle pair: ${hu.type}-type · a ${hu.bin.a.toFixed(1)} · e ${hu.bin.e.toFixed(2)} · period ${hu.bin.period.toFixed(0)} s · limit ${hu.groups.map((g) => g.ac.toFixed(1)).join(' / ')} · planets ${hu.groups.map((g) => g.planets.length).join(' + ')}`);
+    lines.push(`${W}×${H} @${P.dpr} · t ${P.t.toFixed(1)} s`);
+    document.getElementById('pre').textContent = lines.join('\n');
+    document.getElementById('tval').textContent = `${(P.t % T_MAX).toFixed(0)} s`;
+  }
+  function loop(now) {
+    if (P.live) { P.t += ((now - last) / 1000) * P.speed; timeEl.value = P.t % T_MAX; dirty = true; }
+    last = now; if (dirty) { draw(); dirty = false; } requestAnimationFrame(loop);
+  }
+
+  // ---------- ui ----------
+  const timeEl = document.getElementById('time'); timeEl.max = T_MAX;
+  function chips(el, map, key) {
+    el.innerHTML = '';
+    for (const [k, v] of Object.entries(map)) { const b = document.createElement('button'); b.textContent = typeof v === 'string' ? v : v.name; b.className = P[key] === k ? 'on' : ''; b.onclick = () => { P[key] = k; sync(); }; el.appendChild(b); }
+  }
+  function sync() {
+    chips(document.getElementById('options'), OPTIONS, 'option'); document.getElementById('frameBtn').textContent = FRAMINGS[P.framing];
+    const sp = document.getElementById('speeds'); sp.innerHTML = '';
+    for (const s of SPEEDS) { const b = document.createElement('button'); b.textContent = `×${s}`; b.className = P.speed === s ? 'on' : ''; b.onclick = () => { P.speed = s; P.live = true; sync(); }; sp.appendChild(b); }
+    document.getElementById('play').textContent = P.live ? '❚❚' : '▶';
+    document.getElementById('planBtn').className = P.plan ? 'on' : '';
+    document.getElementById('desc').textContent = OPTIONS[P.option].desc;
+    document.getElementById('band').classList.toggle('show', P.band);
+    document.getElementById('bottom').classList.toggle('hidden', !P.ui); document.getElementById('top').style.display = P.ui ? '' : 'none';
+    try { const u = new URL(location.href); u.searchParams.set('o', P.option); u.searchParams.set('f', P.framing); history.replaceState(null, '', u); } catch (e) { /* file:// or a framed page may refuse */ }
+    dirty = true;
+  }
+  timeEl.oninput = () => { P.t = parseFloat(timeEl.value); P.live = false; sync(); };
+  document.getElementById('play').onclick = () => { P.live = !P.live; sync(); };
+  document.getElementById('planBtn').onclick = () => { P.plan = !P.plan; sync(); };
+  document.getElementById('frameBtn').onclick = () => { P.framing = P.framing === 'hood' ? 'close' : 'hood'; sync(); };
+  document.getElementById('bandBtn').onclick = () => { P.band = !P.band; sync(); };
+  document.getElementById('uiBtn').onclick = () => { P.ui = !P.ui; sync(); };
+  const step = (d) => { P.option = ORDER[(ORDER.indexOf(P.option) + d + ORDER.length) % ORDER.length]; sync(); };
+  let p0 = null;
+  stage.addEventListener('pointerdown', (e) => { p0 = [e.clientX, e.clientY]; });
+  stage.addEventListener('pointerup', (e) => { if (!p0) return; const dx = e.clientX - p0[0], dy = e.clientY - p0[1]; p0 = null; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') step(1); if (e.key === 'ArrowLeft') step(-1); });
+
+  resize(); sync(); requestAnimationFrame(loop);
+  window.__mock = { P, MODEL, BUD, LIM, T_MAX, draw: () => { draw(); dirty = false; }, sync, counts: () => ({ ...CNT, drawn: world.n + hud.n - CNT.bg }) };
+};
+</script>
+<script type="module">
+import * as THREE from '../../../node_modules/three/build/three.module.js';
+window.__boot(THREE);
+</script>
+<script>
+// file:// in a browser that refuses module imports there: the same three.js as one classic script
+if (location.protocol === 'file:') setTimeout(() => {
+  if (window.__booted) return;
+  const s = document.createElement('script'); s.src = './three.classic.js'; s.onload = () => window.__boot(window.THREE);
+  s.onerror = () => { const n = document.getElementById('nojs'); n.style.display = 'block'; n.textContent = 'Could not load three.js from this folder: serve this folder with any static server and open it over http.'; };
+  document.head.appendChild(s);
+}, 300);
+setTimeout(() => { if (!window.__booted) document.getElementById('nojs').style.display = 'block'; }, 1500);
+</script>

@@ -1,0 +1,11 @@
+spec: build the wrong twin's frame around the swap
+
+The saddle sits welded on a cradle at the top of a tall steering mast, the
+handlebars clamp into a stub of seat tube through a short stem, and the top
+tube climbs from the stub to the mast, so fixing the twin reads as a new
+frame, not a turned part. Brake cables committed to that frame, a headlamp
+and a rear mudguard reflector as direction cues on both bikes, the reveal
+mannequin seated with level thighs and hanging shanks, and the spec section
+holding a settled core over its last fifth. Tests in the testing section.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

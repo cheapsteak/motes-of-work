@@ -1,0 +1,14 @@
+e2e: test 11 over the stack, as designed, with the warm dusting a stated carve-out
+
+The crack test counts over the stack's screen rectangle, not its crack
+cube's, and the far half must have a rectangle of at least 100 px and 20
+drawn px, so it cannot pass by being empty. The only carve-out is the
+fix's own warm motes: a change with amber's channel order (red rising,
+red's rise at least green's, green's at least blue's), and every
+assertion reports the count with and without it. R0 is measured at
+tr-2's close shot, read from the page and the moves, and at its fix
+close-up, and R1 at its own. The wide-top check also counts N18 and N20,
+the fix-onset check names C1, R0 and R1, the parity reference reads the
+glow share as float32, and the design's notes are corrected.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

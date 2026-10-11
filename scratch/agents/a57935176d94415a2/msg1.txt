@@ -1,0 +1,20 @@
+scene: mech.steer, mech.ghostVariant and camera.frame
+
+Three new SceneState scalars from the storyboard, each 0 by default and
+each leaving every existing pose unchanged at 0:
+
+- mech.steer adds to the drive's own steering as a fraction of full lock,
+  clamped at the lock; pose takes it as an optional fourth argument, which
+  machines that do not steer ignore.
+- mech.ghostVariant is the variant the ghost outline is drawn in: its part
+  texture and its points take the twin positions as the motes do.
+- camera.frame composes the shot round the text at the top: the rig lands
+  the authored target low-centre (wide) or lower, and right of the column
+  on a wide screen (close). The portrait rig now keeps the authored target
+  and no longer lifts the machine; the option is renamed compose. Without
+  it the camera is exactly the plain camera.
+
+The comparison bench gains steer and ghost-twin sliders. The e2e check that
+the phone draws the machine in the upper frame is retired with the lift.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

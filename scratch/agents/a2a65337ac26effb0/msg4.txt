@@ -1,0 +1,9 @@
+story: the reveal says the frame is built around the swap
+
+The second paragraph now says the seat is welded to the steering column,
+the handlebars jut from a seat-tube stub, and the frame is built around
+them, so you would need a new one; the warm line is cut to its first
+clause to stay within 80 words (79). The alt text describes the new twin
+and the seated figure. Draft copy.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

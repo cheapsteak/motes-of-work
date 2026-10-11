@@ -1,0 +1,104 @@
+:root {
+  --bg: #0b0d12;
+  --text: #ecebf2;
+  --panel-bg: rgba(11, 13, 18, 0.78);
+  --panel-edge: rgba(230, 221, 255, 0.14);
+  --gutter: clamp(1rem, 5vw, 4rem);
+}
+
+html {
+  /* The scroll driver owns the scroll position on resize; the browser must not adjust it too. */
+  overflow-anchor: none;
+  scroll-behavior: auto;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/*
+ * Vignette over the stage (above the canvas, below the story panels): gives the wide shots a
+ * centre without touching the renderer, so frames stay a pure function of state.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 60% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+#story {
+  position: relative;
+  z-index: 1;
+}
+
+.section {
+  position: relative;
+  height: calc(var(--length, 1) * 100vh);
+  padding-top: 50vh;
+  box-sizing: border-box;
+}
+
+/* Starts and ends half a viewport below its section; see src/story/dom.ts for why. */
+.track {
+  height: calc(var(--length, 1) * 100vh);
+  padding: 0 var(--gutter);
+  box-sizing: border-box;
+}
+
+/* One viewport after the last section, so the scroll range is the summed section heights. */
+.story-end {
+  height: 100vh;
+}
+
+.panel {
+  position: sticky;
+  top: max(0px, calc(50vh - var(--half-h, 25vh)));
+  max-width: 28rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--panel-edge);
+  border-radius: 0.5rem;
+  background: var(--panel-bg);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.panel > :first-child {
+  margin-top: 0;
+}
+
+.panel > :last-child {
+  margin-bottom: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Context lost or no WebGL: the story reads on its own. */
+.no-webgl #stage,
+.no-webgl::after {
+  display: none;
+}

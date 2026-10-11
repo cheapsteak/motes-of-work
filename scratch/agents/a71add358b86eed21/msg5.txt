@@ -1,0 +1,10 @@
+docs: the round-2 cold open as built
+
+The build-and-orbit design gains a section on where the build differs
+from it and why: the drive's window starts at 0.54 so nothing sets out
+before the spec section's hold, the fittings overlap the frame as
+designed, the fence's reading of a line's parts, the nearest-surface
+rule for the frame's tubes, and the crane and diagram moved out to keep
+the text clear. The storyboard's as-built list points to it.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

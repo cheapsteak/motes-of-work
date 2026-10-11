@@ -1,0 +1,7 @@
+network: the stack of cubes and the first stack
+
+A brick-bond cluster builder (courses from the bottom, bricks side by side along the stack's x, each
+course in bond with the one below), its crack site, radius, height and surface area, and
+firstStack(): the six-cube code stack at the origin the bike will reflow into.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

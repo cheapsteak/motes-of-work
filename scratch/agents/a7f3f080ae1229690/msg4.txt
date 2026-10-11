@@ -1,0 +1,9 @@
+galaxy: make the freeze pin's fence walk every slot, require the moon's jump at a fifth of its track, and keep the shell's event salts off the schedule's
+
+The fence re-reads every slot of the six moons in the search's own order with
+independent clause checks: nothing before the pin meets its path, and nothing
+anywhere meets a stronger one. The pin's jump must take the moon at least 0.2 r
+off its ellipse. A scatter's per-event hashes start at j = 2, so slot 0's sweep
+and aftershock no longer read the slot's own offset and kind hashes.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

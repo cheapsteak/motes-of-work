@@ -1,0 +1,14 @@
+feat: credits and licences link at the end of the essay
+
+The essay bundles the ported BSD-2 involute code (through the gears) but
+shipped no notice and never linked the comparison page, which alone
+carried CREDITS.md. The credits dialog is now a shared module that both
+pages mount, so the notices ride in a chunk each page loads, and the
+essay ends on an unobtrusive "Credits and licences" button in a footer
+that sits inside the trailing spacer (the scroll range is unchanged).
+
+CREDITS.md now lists marked (MIT) beside three.js, with both libraries'
+notices in full; marked's licence file also carries the original
+Markdown notice, reproduced with it.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,11 @@
+docs: the storyboard records its shots as built
+
+A new §2.7 lists where the built shots differ from the starting values and
+why: medium-close shots that keep the twin under the text, the close
+framing at 78% on a wide screen, the reveal pulled back to 4.8 m, the
+rewind from the drive side, and the late body parts flying in from below.
+
+S9' is brought back to 4.15 m: nearer, the drawing's front wheel and
+ground left the bottom of a wide screen while the gold landed.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

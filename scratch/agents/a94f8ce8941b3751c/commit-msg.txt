@@ -1,0 +1,11 @@
+refactor: mechanism-relative camera and gear-independent tests
+
+Camera pos/target are now in units of the mechanism's anchors (lerp of the
+whole machine and its core by camera.coreFocus), so any registered mechanism
+is framed by the same keyframes. The spec section closes on the whole core,
+right of the text panel. Tests, spikes and parity no longer name the gears:
+framing iterates every mechanism by role, looks probes projected anchors,
+app.spec reads spans from the DOM, parity loops over all mechanisms, and
+?mech=<id> selects a mechanism in test mode.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

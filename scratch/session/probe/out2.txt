@@ -1,0 +1,4 @@
+{"seed":1,"shells":64869,"person":1647,"planets":114,"moons":138,"task5Sum":80973}
+{"seed":2,"shells":67198,"person":1840,"planets":117,"moons":146,"task5Sum":83903}
+{"seed":3,"shells":64312,"person":1458,"planets":104,"moons":107,"task5Sum":78235}
+worst 84741

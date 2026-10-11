@@ -1,0 +1,613 @@
+<meta charset="utf-8" />
+<title>The freeze frame</title>
+    <style>
+      @font-face { font-family: 'Literata'; font-style: normal; font-weight: 400; src: url(./literata-400.woff) format('woff'); }
+      :root { --bg: #0b0d12; --ink: #e8e6ee; --ink-superseded: #bcbbc2; --text-top: 7vh; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); height: 100%; overflow: hidden; }
+      body { font: 400 1.1875rem/1.55 'Literata', Georgia, serif; -webkit-font-smoothing: antialiased;
+        text-shadow: 0 1px 2px rgba(11,13,18,.9), 0 0 14px rgba(11,13,18,.95), 0 0 30px rgba(11,13,18,.8); }
+      #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+      #scrim { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22svh, transparent 42svh); }
+      #panel { position: fixed; top: var(--text-top); left: 0; right: 0; width: min(36rem, 100%); margin: 0 auto; padding: 0 clamp(1rem, 5vw, 4rem); box-sizing: border-box; }
+      #panel p { margin: 0 0 .85em; opacity: 0; }
+      #label { position: fixed; left: 0; right: 0; bottom: 8px; text-align: center; font: 12px/1.3 system-ui, sans-serif; color: #6f6d7a; text-shadow: none; pointer-events: none; }
+      #ui { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px 24px; background: linear-gradient(to top, rgba(11,13,18,.96), rgba(11,13,18,.7) 70%, transparent); font: 13px/1.4 system-ui, sans-serif; text-shadow: none; color: #cfcdd6; }
+      #ui .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+      #ui input[type=range] { flex: 1; min-width: 120px; }
+      #ui button { font: inherit; background: #1b1f2a; color: #e8e6ee; border: 1px solid #343a4a; border-radius: 6px; padding: 4px 10px; }
+      #ui button.on { background: #2b3550; border-color: #4da3ff; }
+      #ui .cap { color: #8f8d99; font-size: 12px; }
+      #ui b.ev { color: #ff8a6b; }
+      #ui label { display: inline-flex; gap: 4px; align-items: center; color: #9b99a6; }
+      body.still #ui { display: none; }
+      /* the comparison's chrome */
+      #cmp { position: fixed; inset: 0; pointer-events: none; display: none; font: 13px/1.35 system-ui, sans-serif; text-shadow: none; color: #cfcdd6; }
+      body.compare #cmp { display: block; }
+      body.compare #panel, body.compare #scrim { display: none; }
+      #cmp .head { position: absolute; top: 10px; left: 0; width: 50%; text-align: center; font-size: 15px; color: #e8e6ee; }
+      #cmp .head.b { left: 50%; }
+      #cmp .cap { position: absolute; left: 0; width: 50%; box-sizing: border-box; padding: 0 8px; color: #b9b7c2; font-size: 11.5px; line-height: 1.3; }
+      #cmp .cap.b { left: 50%; }
+      #cmp .small { position: absolute; left: 0; width: 50%; text-align: center; color: #8f8d99; font-size: 11px; }
+      #cmp .small.b { left: 50%; }
+      #cmp .divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #262b38; }
+    </style>
+<canvas id="stage"></canvas>
+    <div id="scrim"></div>
+    <div id="panel"><p id="l1">Come closer. Out here, one piece of code has a defect.</p><p id="l2">Up close, if you watch, you can see it.</p><p id="l3">So you fix it.</p></div>
+    <div id="cmp">
+      <div class="divider"></div>
+      <div class="head a">A</div><div class="head b">B</div>
+      <div class="cap a" id="capA"></div><div class="cap b" id="capB"></div>
+      <div class="small a" id="smallA">later, on page 8: defective pieces light up (one star of them)</div><div class="small b" id="smallB">later, on page 8: defective pieces light up (one star of them)</div>
+    </div>
+    <div id="label"></div>
+    <div id="ui">
+      <div class="row"><button id="bBefore">before: focus, no freeze</button><button id="bFreeze">the freeze frame</button><button id="bPlay">play the beat</button><button id="bCompare">compare</button><button id="bPause">pause</button></div>
+      <div class="row"><span id="out" style="min-width:12em">local 0.330</span><input id="scrub" type="range" min="0.20" max="0.49" step="0.0005" value="0.33" /></div>
+      <div class="row"><label><input id="tFlash" type="checkbox" checked /> flash</label><label><input id="tReduced" type="checkbox" /> reduced motion</label><label><input id="tTicks" type="checkbox" checked /> ticks</label><label><input id="tSplit" type="checkbox" checked /> split</label><label><input id="tTilt" type="checkbox" checked /> tilt</label><label><input id="tFixed" type="checkbox" /> compare: fix landed</label></div>
+      <div class="cap" id="capMain">Page 7 of Act II at a phone size: the push-in under “Come closer”, the cut to the held frame under “Up close, if you watch, you can see it.”, and the fix under its own line, “So you fix it.” The moons run on the ambient clock (wall time); the held frame replaces that clock with a pinned instant: the piece (a planet with its moons) caught mid-derp, the planet's shell mid-scatter and one moon mid-burst, off its track with its ghost beside it. The fix heals the whole piece: the shell re-forms, every moon settles, the person's motes land across all of it. “Play” runs the beat at auto-advance pace with its three rests. <span id="evOut"></span></div>
+    </div>
+    <script type="module">
+      import * as THREE from '../../../node_modules/three/build/three.module.js';
+
+      // ---------- rng / hash ----------
+      function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      function hash01(seed, k) { let h = (Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(k + 1, 0xc2b2ae35)) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0x27d4eb2f) >>> 0; h ^= h >>> 15; return (h >>> 8) / 16777216; }
+      const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const inOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+      const TAU = Math.PI * 2;
+      const SEED = 11;
+      const rng = mulberry32(SEED * 7919 + 13);
+
+      // ---------- colours ----------
+      const AGENT = new THREE.Color('#4da3ff');
+      const HUMAN = new THREE.Color('#ffb347');
+      const EMBER = new THREE.Color('#ff6b57');
+      const INK = new THREE.Color('#e8e6ee');
+      const DIMTINT = new THREE.Color('#5c6a86');
+      const BG = new THREE.Color('#0B0D12');
+
+      // ---------- the bodies (galaxy §1.2: star = rule, planet = plan, moon = code; world units, ambient seconds) ----------
+      const BODY = {
+        star: { R: 0.90, shell: 700, orbits: [2.4, 4.0, 5.6, 7.2, 8.8], orbitPeriods: [60, 90, 120, 150, 180] },
+        planet: { R: 0.30, shell: 300, tracks: [0.36, 0.52, 0.68], periods: [6, 9, 12] },
+        moon: { R: 0.10, shell: 36 },
+      };
+      // ---------- the derp schedule (galaxy §5.2, §12.3; scatter §2.2): slot T, event D, kinds by weight ----------
+      const DERP = { T: 2.2, D: 1.0, stall: 0.7, reverse: 0.5, skip: 0.55, lift: 0.2, wobble: 0.06, ring: 2 };
+      const KINDS = ['burst', 'scatter', 'skip', 'stall', 'reverse', 'wobble'];
+      const WEIGHTS = [0.30, 0.25, 0.20, 0.10, 0.075, 0.075];
+      function kindOf(h) { let acc = 0; for (let i = 0; i < WEIGHTS.length; i++) { acc += WEIGHTS[i]; if (h < acc) return i; } return WEIGHTS.length - 1; }
+      function derpEvent(seed, t, phase) {
+        const k = Math.floor(t / DERP.T + phase);
+        const t0 = (k - phase) * DERP.T + hash01(seed, k * 2) * (DERP.T - DERP.D);
+        const s = (t - t0) / DERP.D;
+        return { s, kind: kindOf(hash01(seed, k * 2 + 1)), active: s >= 0 && s <= 1, k, t0 };
+      }
+      function snapProfile(s) { if (s < 0.6) return smoothstep(0, 0.6, s); if (s < 0.72) return 1 - (s - 0.6) / 0.12; const r = (s - 0.72) / 0.28; return -0.25 * Math.sin(Math.PI * DERP.ring * r) * (1 - r); }
+      // The orbit derp: what an event does to a body's true anomaly (rad), radius (share), lift (share), its
+      // orbital time (the burst's quantised stutter), the wobble, and the ghost double's offset (rad; null = none).
+      function orbitDerp(seed, t, omega, phase, v) {
+        const out = { dA: 0, dR: 0, dUp: 0, wobble: [0, 0, 0], ghost: null, tM: t, ev: null, s: 0 };
+        if (v <= 0) return out;
+        const e = derpEvent(seed, t, phase); if (!e.active) return out;
+        const s = e.s; out.ev = KINDS[e.kind]; out.s = s;
+        if (e.kind === 0) { // burst: eight un-eased micro-slots of 125 ms (galaxy §12.3)
+          const slot = Math.min(7, Math.floor(s * 8)), f = s * 8 - slot; const h = (j) => hash01(seed, e.k * 64 + slot * 8 + j);
+          const on = f < 0.6;
+          if (on) { out.dA = (h(0) - 0.5) * 0.45; if (h(2) < 0.7) out.dR = (h(2) / 0.7 - 0.5) * 0.9; out.dUp = (h(3) - 0.5) * 0.3; if (h(5) < 0.5) out.ghost = (h(6) - 0.5) * 0.6 + (h(6) < 0.5 ? -0.15 : 0.15); }
+          const j30 = Math.floor(t * 30); out.dA += (hash01(seed, 7000 + j30) - 0.5) * 0.06; out.dR += (hash01(seed, 9000 + j30) - 0.5) * 0.06;
+          if (s > 0.33 && s < 0.67) { const n40 = Math.floor(t * 40); out.wobble = [(hash01(seed, 11000 + n40) - 0.5) * 0.1, (hash01(seed, 13000 + n40) - 0.5) * 0.05, (hash01(seed, 15000 + n40) - 0.5) * 0.1]; }
+          if (h(7) < 0.45) out.tM = Math.floor(t / 0.1) * 0.1;
+        } else if (e.kind === 2) { const p = snapProfile(s); out.dR = DERP.skip * p; out.dUp = DERP.lift * p; }
+        else if (e.kind === 3) { const held = Math.min(s, DERP.stall); out.dA = -omega * DERP.D * (held - DERP.stall * smoothstep(DERP.stall, 1, s)); }
+        else if (e.kind === 4) out.dA = -DERP.reverse * Math.sin(Math.PI * s);
+        else if (e.kind === 5) { const env = Math.sin(Math.PI * s); const n = (x) => 2 * (hash01(seed ^ 0x5151, Math.floor(x)) * (1 - (x % 1)) + hash01(seed ^ 0x5151, Math.floor(x) + 1) * (x % 1)) - 1; out.wobble = [DERP.wobble * env * n(s * 9), 0.5 * DERP.wobble * env * n(s * 9 + 31), DERP.wobble * env * n(s * 9 + 63)]; }
+        out.dA *= v; out.dR *= v; out.dUp *= v; out.wobble = out.wobble.map((w) => w * v); if (v < 0.5) out.ghost = null; if (v < 1) out.tM = t;
+        return out;
+      }
+      // The shell's scatter (scatter §2.2): seconds since the event's t0 if it is a scatter, else -1; its sweep direction.
+      function shellEvent(seed, t, phase, v) {
+        if (v <= 0) return { s: -1, sweep: [1, 0, 0], k: 0 };
+        const e = derpEvent(seed, t, phase);
+        if (!e.active || e.kind !== 1) return { s: -1, sweep: [1, 0, 0], k: e.k };
+        const h = (j) => hash01(seed, e.k * 64 + j); const sw = [h(1) - 0.5, h(2) - 0.5, h(3) - 0.5]; const n = Math.hypot(...sw) || 1;
+        return { s: (t - e.t0), sweep: sw.map((x) => x / n), k: e.k, after: h(4) < 0.5 };
+      }
+      // How many scatters a body has had by t: the morph's phase (the shape jumps at each one).
+      function scatterCount(seed, t, phase) { const k = Math.floor(t / DERP.T + phase); let n = 0; for (let i = Math.max(0, k - 40); i <= k; i++) if (kindOf(hash01(seed, i * 2 + 1)) === 1) n++; return n; }
+
+      // ---------- Kepler orbits with precession (galaxy §12.1) ----------
+      function makeOrbit(r, rr, kind) {
+        const e = kind === 'moon' ? 0.05 + 0.07 * rr() : 0.05 + 0.17 * rr();
+        return { r, a: r / (1 + e), e, tilt: (rr() * 2 - 1) * (kind === 'moon' ? 0.20 : 0.25), az: rr() * TAU, w0: rr() * TAU, P: kind === 'moon' ? 90 + 110 * rr() : 400 + 500 * rr() };
+      }
+      function kepler(o, M) { let E = M; for (let i = 0; i < 3; i++) E -= (E - o.e * Math.sin(E) - M) / (1 - o.e * Math.cos(E)); const nu = 2 * Math.atan2(Math.sqrt(1 + o.e) * Math.sin(E / 2), Math.sqrt(1 - o.e) * Math.cos(E / 2)); return { nu, r: o.a * (1 - o.e * Math.cos(E)) }; }
+      function orbitXYZ(o, t, nu, rad, up) {
+        const w = o.w0 + TAU * t / o.P; const a = nu + w;
+        const x = rad * Math.cos(a), z = rad * Math.sin(a); const ca = Math.cos(o.az), sa = Math.sin(o.az); const ct = Math.cos(o.tilt), st = Math.sin(o.tilt);
+        const along = x * ca + z * sa; const px = x - along * ca, pz = z - along * sa;
+        return [along * ca + px * ct, (sa * px - ca * pz) * st + up, along * sa + pz * ct];
+      }
+      function trackPoint(o, t, nu) { const k = kepler(o, nu); return orbitXYZ(o, t, k.nu, k.r, 0); }
+
+      // ---------- bodies ----------
+      function makePlanet(seed, opts = {}) {
+        const rr = mulberry32(seed);
+        const tracks = BODY.planet.tracks.map((r) => makeOrbit(r, rr, 'moon'));
+        const moons = []; tracks.forEach((o, ti) => { for (let j = 0; j < 2; j++) moons.push({ track: ti, phase: rr() * TAU + j * Math.PI, R: BODY.moon.R * (0.9 + 0.2 * rr()), period: BODY.planet.periods[ti], seed: seed * 31 + ti * 7 + j, dphase: rr() }); });
+        const defectMoon = moons.findIndex((m) => m.track === tracks.length - 1);
+        return { kind: 'planet', R: BODY.planet.R, tracks, moons, defectMoon, seed, phase: rr(), shell: opts.hero ? 6000 : BODY.planet.shell, cracked: !!opts.cracked, hero: !!opts.hero, lit: !!opts.lit };
+      }
+      function moonPos(planet, mi, t, v) {
+        const m = planet.moons[mi]; const o = planet.tracks[m.track]; const omega = TAU / m.period;
+        const cracked = planet.cracked && mi === planet.defectMoon;
+        const d = cracked ? orbitDerp(m.seed, t, omega, m.dphase, v) : null;
+        const tM = d ? d.tM : t;
+        const k = kepler(o, m.phase + omega * tM);
+        const nu = k.nu + (d ? d.dA : 0); const rad = k.r * (1 + (d ? d.dR : 0)); const up = (d ? d.dUp : 0) * k.r;
+        const p = orbitXYZ(o, t, nu, rad, up);
+        const g = d && d.ghost !== null ? orbitXYZ(o, t, k.nu + d.ghost, k.r, 0) : null;
+        return { p, ghost: g, d };
+      }
+
+      // ---------- renderer ----------
+      const canvas = document.getElementById('stage');
+      const W = innerWidth, H = innerHeight, DPR = devicePixelRatio;
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(DPR); renderer.setSize(W, H, false); renderer.setClearColor(BG, 1);
+      renderer.autoClear = false;
+
+      // Shared freeze/shell terms on every material. Shell motes: morph (4 sine lobes) + scatter (sweep, hold, 3-step return).
+      const SHELL_GLSL = `
+        uniform float uMorphAmp, uMorphPhase, uT, uScatS, uV; uniform vec3 uSweep;
+        float morphN(vec3 u, float phase) {
+          vec3 d0 = normalize(vec3(0.3, 0.8, 0.5)), d1 = normalize(vec3(-0.7, 0.2, 0.6)), d2 = normalize(vec3(0.5, -0.6, 0.6)), d3 = normalize(vec3(-0.4, -0.5, -0.7));
+          return 0.50 * sin(7.0 * dot(u, d0) + 1.3 + phase + 0.35 * uT) + 0.30 * sin(11.0 * dot(u, d1) + 2.1 + phase * 1.47 - 0.55 * uT)
+               + 0.15 * sin(16.0 * dot(u, d2) + 0.4 + phase * 1.69 + 0.80 * uT) + 0.05 * sin(23.0 * dot(u, d3) + 3.0 + phase * 1.99 - 1.30 * uT);
+        }
+        // k: how far out a mote is in the scatter (0 home, 1 out), from its position along the sweep and its hashes
+        float scatterK(vec3 u, float h4, float h7) {
+          if (uScatS < 0.0) return 0.0;
+          float su = dot(u, uSweep); float tdep = 0.04 * (su + 1.0); float hold = 0.12 + 0.06 * h4;
+          float a = uScatS - tdep; float k = 0.0;
+          if (a >= 0.0 && a < hold) k = 1.0; else if (a >= hold && a < hold + 0.05) k = 0.55; else if (a >= hold + 0.05 && a < hold + 0.10) k = 0.25;
+          // the aftershock at 550 ms, half amplitude, hold only
+          float b = uScatS - 0.55 - tdep; if (h7 < 0.5 && b >= 0.0 && b < hold) k = max(k, 0.45);
+          return k;
+        }
+        float settleRing(vec3 u, float h4) {
+          if (uScatS < 0.0) return 0.0;
+          float su = dot(u, uSweep); float tdep = 0.04 * (su + 1.0); float hold = 0.12 + 0.06 * h4; float a = uScatS - tdep - hold - 0.10;
+          return a > 0.0 ? 0.06 * exp(-a / 0.16) * cos(6.2832 * 6.0 * a) : 0.0;
+        }`;
+      const SHARED = () => ({
+        uOff: { value: new THREE.Vector2(0, 0) }, uGain: { value: 1 }, uTint: { value: new THREE.Color(1, 1, 1) }, uTintMix: { value: 0 },
+        uLimb: { value: 0 }, uLight: { value: new THREE.Vector2(-0.5, 0.866) }, uProj11: { value: 1 }, uHalfH: { value: (H * DPR) / 2 },
+        uMorphAmp: { value: 0 }, uMorphPhase: { value: 0 }, uT: { value: 0 }, uScatS: { value: -1 }, uV: { value: 1 }, uSweep: { value: new THREE.Vector3(1, 0, 0) },
+      });
+      const rimMat = (col, fill, rim, gain = 1) => new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: col.clone() }, uFill: { value: fill }, uRim: { value: rim }, uBase: { value: gain }, ...SHARED() },
+        vertexShader: `uniform vec2 uOff; varying vec3 vN; varying vec3 vV; ${SHELL_GLSL}
+          void main(){ vec3 u = normalize(position); vec3 p = u * (1.0 + uMorphAmp * uV * morphN(u, uMorphPhase)); vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(p,1.0); vV = -mv.xyz; vec4 c = projectionMatrix * mv; c.xy += uOff * c.w; gl_Position = c; }`,
+        fragmentShader: `uniform vec3 uColor, uTint; uniform float uFill, uRim, uBase, uGain, uTintMix, uScatS; varying vec3 vN; varying vec3 vV; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); float fill = uFill * (uScatS >= 0.0 && uScatS < 0.36 ? 0.5 : 1.0); float a = fill + uRim * pow(f, 2.6); vec3 col = mix(uColor, uTint, uTintMix); gl_FragColor = vec4(col * a * uBase * uGain, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      // Motes: round sprites of a world size; the shell terms when the geometry carries `aH` (per-mote hashes) and `aDir`.
+      const pointMat = (size, opacity, shell) => new THREE.ShaderMaterial({
+        uniforms: { uSize: { value: size }, uOpacity: { value: opacity }, uShell: { value: shell ? 1 : 0 }, ...SHARED() },
+        vertexShader: `
+          attribute vec3 color; attribute vec4 aH; attribute vec3 aDir; uniform vec2 uOff, uLight; uniform float uSize, uProj11, uHalfH, uLimb, uShell; varying vec3 vC; varying float vInk; ${SHELL_GLSL}
+          void main(){
+            vec3 u = normalize(position); vec3 p = position;
+            if (uShell > 0.5) {
+              float k = scatterK(u, aH.x, aH.w) * uV;
+              float phase = uMorphPhase + (uScatS >= 0.0 && k <= 0.0 && uScatS > 0.04 * (dot(u, uSweep) + 1.0) ? 1.0 : 0.0);
+              p = u * (1.0 + uMorphAmp * uV * morphN(u, phase) + settleRing(u, aH.x) * uV) + aDir * aH.y * k;
+              if (k > 0.0) p += (aH.zxy - 0.5) * 0.06 * fract(sin(floor(uT * 30.0) * 12.9898 + aH.z * 78.233) * 43758.5);
+            }
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            vec3 n = normalize(normalMatrix * u);
+            float f = 1.0 - abs(n.z);
+            float band = smoothstep(0.78, 0.92, f);
+            float ang = atan(n.y, n.x);
+            float gap = smoothstep(0.17, 0.42, abs(ang - 2.356));
+            float w = 0.7 + 0.6 * max(0.0, dot(n.xy, uLight));
+            float ink = uShell * uLimb * band * gap * w;
+            vInk = ink; vC = color;
+            vec4 c = projectionMatrix * mv; c.xy += uOff * c.w; gl_Position = c;
+            gl_PointSize = uSize * uProj11 * uHalfH / -mv.z * (1.0 + 0.55 * ink);
+          }`,
+        fragmentShader: `uniform vec3 uTint; uniform float uGain, uTintMix, uOpacity; varying vec3 vC; varying float vInk; void main(){ vec2 d = gl_PointCoord - 0.5; if (dot(d, d) > 0.25) discard; vec3 col = mix(vC, uTint, uTintMix) * uGain * (1.0 + 1.25 * vInk); gl_FragColor = vec4(col * uOpacity, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const ALL_MATS = [];
+      function points(pos, col, size, opacity, shell = false, seed = 1) {
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        const n = pos.length / 3; const h = new Float32Array(n * 4), dir = new Float32Array(n * 3); const r = mulberry32(seed ^ 0x77);
+        for (let i = 0; i < n; i++) {
+          const u = [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]]; const L = Math.hypot(...u) || 1; const uu = u.map((x) => x / L);
+          const inward = r() < 0.22 ? -0.6 : 1; const h0 = r(), h1 = r(), h2 = r(), h3 = r(), h4 = r(), h5 = r(), h7 = r();
+          let d = [uu[0] * inward * (0.35 + 0.65 * h0) + 0.9 * (h1 - 0.5), uu[1] * inward * (0.35 + 0.65 * h0) + 0.9 * (h2 - 0.5), uu[2] * inward * (0.35 + 0.65 * h0) + 0.9 * (h3 - 0.5)]; const dl = Math.hypot(...d) || 1;
+          dir.set(d.map((x) => x / dl), i * 3); h.set([h4, 0.12 + 0.28 * h5 * h5, r(), h7], i * 4);
+        }
+        g.setAttribute('aH', new THREE.BufferAttribute(h, 4)); g.setAttribute('aDir', new THREE.BufferAttribute(dir, 3));
+        const m = pointMat(size, opacity, shell); ALL_MATS.push(m);
+        return new THREE.Points(g, m);
+      }
+      const sphereGeo = new THREE.IcosahedronGeometry(1, 3);
+      const moonGeo = new THREE.IcosahedronGeometry(1, 1);
+      function shellPoints(n, R, seed, col, k, size, opacity) {
+        const sp = [], sc = []; const r = mulberry32(seed ^ 0xabcdef);
+        for (let i = 0; i < n; i++) { const zz = 2 * r() - 1, ph = r() * TAU, rr = Math.sqrt(1 - zz * zz); sp.push(rr * Math.cos(ph), zz, rr * Math.sin(ph)); sc.push(col.r * k, col.g * k, col.b * k); }
+        const pts = points(sp, sc, size, opacity, true, seed); pts.scale.setScalar(R); /* gl_PointSize ignores the scale */ pts.userData.size = size; return pts;
+      }
+
+      const bgScene = new THREE.Scene(), heroScene = new THREE.Scene(), fxScene = new THREE.Scene(), sysScene = new THREE.Scene();
+      const recs = [];
+      // A planet with its moons and tracks as a group; `scene` is where it draws; `bg` marks it as not-the-subject.
+      function addPlanet(planet, pos, scene, bg, colOverride) {
+        const g = new THREE.Group(); g.position.set(...pos); scene.add(g);
+        const col = colOverride || (planet.lit ? EMBER : AGENT);
+        const bm = rimMat(col, 0.035, 0.55, planet.lit ? 1.35 : 1); ALL_MATS.push(bm);
+        const mesh = new THREE.Mesh(sphereGeo, bm); mesh.scale.setScalar(planet.R); g.add(mesh);
+        const shell = shellPoints(planet.shell, planet.R, planet.seed, col, planet.lit ? 0.9 : 0.7, planet.hero ? 0.011 : 0.022, 0.85); g.add(shell);
+        const TN = 40; const tp = new Array(planet.tracks.length * TN * 3).fill(0), tc = []; for (let i = 0; i < planet.tracks.length * TN; i++) { const k = planet.lit ? 0.5 : 0.3; tc.push(col.r * k, col.g * k, col.b * k); }
+        const trackPts = points(tp, tc, 0.014, 0.8); g.add(trackPts);
+        const moonMeshes = planet.moons.map((mo, mi) => {
+          const mc = planet.lit ? EMBER : col;
+          const mm = new THREE.Mesh(moonGeo, rimMat(mc, 0.28, 1.1, 1.2)); ALL_MATS.push(mm.material); mm.scale.setScalar(mo.R); g.add(mm);
+          const dust = shellPoints(BODY.moon.shell, 1.15, mo.seed, mc, 1, 0.016, 0.9); mm.add(dust);
+          const ghost = new THREE.Mesh(moonGeo, rimMat(mc, 0.28, 1.1, 0.45)); ALL_MATS.push(ghost.material); ghost.scale.setScalar(mo.R); ghost.visible = false; g.add(ghost);
+          return { mm, dust, ghost };
+        });
+        const rec = { planet, group: g, mesh, shell, trackPts, moonMeshes, pos, bg, TN, mats: [bm, shell.material, trackPts.material, ...moonMeshes.flatMap((m) => [m.mm.material, m.dust.material, m.ghost.material])] };
+        recs.push(rec); return rec;
+      }
+      function addStar(seed, pos, scene, bg, R = BODY.star.R, lit = false) {
+        const g = new THREE.Group(); g.position.set(...pos); scene.add(g); const col = lit ? EMBER.clone().lerp(AGENT, 0.2) : AGENT;
+        const bm = rimMat(col, 0.05, 0.6, 1.2); ALL_MATS.push(bm); const mesh = new THREE.Mesh(sphereGeo, bm); mesh.scale.setScalar(R); g.add(mesh);
+        const shell = shellPoints(BODY.star.shell, R, seed, col, 0.9, 0.02, 0.85); g.add(shell);
+        // the star's glow (galaxy §4): one bounded sprite
+        const cv = document.createElement('canvas'); cv.width = cv.height = 64; const cx = cv.getContext('2d'); const gr = cx.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.3, 'rgba(120,180,255,0.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); cx.fillStyle = gr; cx.fillRect(0, 0, 64, 64);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.scale.setScalar(R * 4); g.add(sp);
+        const rec = { star: true, group: g, mesh, shell, sprite: sp, bg, pos, mats: [bm, shell.material] }; recs.push(rec); return rec;
+      }
+      // Pose every body for the shown ambient `t`, with the derp amplitude `v` on the hero (1 open .. 0 fixed).
+      function pose(t, vHero) {
+        for (const rec of recs) {
+          if (rec.star) continue;
+          const pl = rec.planet; const v = pl.hero ? vHero : 1;
+          // the planet's own shell: morph phase, scatter
+          const se = pl.cracked ? shellEvent(pl.seed + 5, t, pl.phase, v) : { s: -1, sweep: [1, 0, 0] };
+          const phase = pl.cracked ? scatterCount(pl.seed + 5, t, pl.phase) : 0;
+          for (const m of [rec.shell.material, rec.mesh.material]) { const u = m.uniforms; u.uMorphAmp.value = pl.cracked ? 0.035 : 0; u.uMorphPhase.value = phase * 2.399; u.uT.value = t; u.uScatS.value = se.s; u.uSweep.value.set(...se.sweep); u.uV.value = v; }
+          // the tracks at their current precession
+          const arr = rec.trackPts.geometry.attributes.position.array;
+          pl.tracks.forEach((o, ti) => { for (let i = 0; i < rec.TN; i++) { const p = trackPoint(o, t, (i / rec.TN) * TAU); arr.set(p, (ti * rec.TN + i) * 3); } });
+          rec.trackPts.geometry.attributes.position.needsUpdate = true;
+          // the moons
+          let wob = [0, 0, 0];
+          pl.moons.forEach((mo, mi) => {
+            const { p, ghost, d } = moonPos(pl, mi, t, v); const M = rec.moonMeshes[mi];
+            M.mm.position.set(...p); M.ghost.visible = !!ghost; if (ghost) M.ghost.position.set(...ghost);
+            if (d && d.wobble) wob = d.wobble;
+            const mse = pl.cracked && mi === pl.defectMoon ? shellEvent(mo.seed + 9, t, mo.dphase, v) : { s: -1, sweep: [1, 0, 0] };
+            const u = M.dust.material.uniforms; u.uScatS.value = mse.s; u.uSweep.value.set(...mse.sweep); u.uV.value = v; u.uT.value = t; u.uMorphAmp.value = 0;
+          });
+          // the burst's tremble moves the whole planet-and-moons group
+          rec.group.position.set(rec.pos[0] + wob[0] * pl.R * 2, rec.pos[1] + wob[1] * pl.R * 2, rec.pos[2] + wob[2] * pl.R * 2);
+        }
+      }
+
+      // ---------- the scene: P1 (hero) with six moons; two neighbour planets and the star, dimmed ----------
+      const hero = makePlanet(SEED * 131 + 7, { hero: true, cracked: true });
+      const heroRec = addPlanet(hero, [0, 0, 0], heroScene, false);
+      addPlanet(makePlanet(SEED * 131 + 100), [-1.7, 0.1, -1.1], bgScene, true);
+      addPlanet(makePlanet(SEED * 131 + 107), [1.9, -0.2, -2.0], bgScene, true);
+      addPlanet(makePlanet(SEED * 131 + 114), [2.6, 0.15, 1.4], bgScene, true);
+      addStar(SEED * 131 + 900, [-3.4, 0.4, -4.6], bgScene, true);
+      { // the stream from the star to the hero
+        const pa = new THREE.Vector3(-3.4, 0.4, -4.6), pb = new THREE.Vector3(0, 0, 0);
+        const d = pb.clone().sub(pa); const len = d.length(); const dir = d.clone().normalize();
+        const s0 = pa.clone().add(dir.clone().multiplyScalar(1.2)); const s1 = pb.clone().sub(dir.clone().multiplyScalar(hero.R * 1.1));
+        const mid = s0.clone().add(s1).multiplyScalar(0.5); const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(len * 0.12);
+        const c = mid.add(side); const n = Math.max(10, Math.round(len * 2.2)); const sp = [], sc = [];
+        for (let i = 0; i <= n; i++) { const t = (i + rng() * 0.6) / n; const om = 1 - t; const p = s0.clone().multiplyScalar(om * om).add(c.clone().multiplyScalar(2 * om * t)).add(s1.clone().multiplyScalar(t * t)); sp.push(p.x, p.y, p.z); sc.push(AGENT.r * 0.5, AGENT.g * 0.5, AGENT.b * 0.5); }
+        const st = points(sp, sc, 0.05, 0.7); bgScene.add(st); recs.push({ star: true, group: st, mesh: st, shell: st, bg: true, pos: [0, 0, 0], mats: [st.material] });
+      }
+
+      // ---------- the pin (freeze §1.2, §3.3): a burst micro-slot with the jump and the ghost on, the home point facing
+      // the camera, and the planet mid-scatter; searched over the ambient period, with named fallbacks ----------
+      const CAM_DIR = [Math.sin(-35 * Math.PI / 180) * Math.cos(32 * Math.PI / 180), Math.sin(32 * Math.PI / 180), Math.cos(-35 * Math.PI / 180) * Math.cos(32 * Math.PI / 180)];
+      const AMBIENT_PERIOD = 1200; // the galaxy's turn
+      const FORCE = { scatterS: 0.16, moonS: 0.3 };
+      function searchPin(needGhost, needScatter) {
+        const mo = hero.moons[hero.defectMoon];
+        for (let k = 1; k < AMBIENT_PERIOD / DERP.T; k++) {
+          const t = (k - mo.dphase) * DERP.T + 0.5 * DERP.T; const e = derpEvent(mo.seed, t, mo.dphase); if (e.k !== k || e.kind !== 0) continue;
+          const pin = e.t0 + FORCE.moonS * DERP.D; const d = orbitDerp(mo.seed, pin, TAU / mo.period, mo.dphase, 1);
+          if (d.dR === 0 || (needGhost && d.ghost === null)) continue;
+          const home = moonPos(hero, hero.defectMoon, pin, 0).p; const n = Math.hypot(...home) || 1;
+          if ((home[0] * CAM_DIR[0] + home[1] * CAM_DIR[1] + home[2] * CAM_DIR[2]) / n < 0.35) continue;
+          if (needScatter) { const se = shellEvent(hero.seed + 5, pin, hero.phase, 1); if (!(se.s >= 0.10 && se.s <= 0.20)) continue; }
+          const mp = moonPos(hero, hero.defectMoon, pin, 1).p; const [px, py] = projectPx(new THREE.Vector3(...mp)); if (Math.abs(px - VW / 2) > 0.30 * VW || py < 0.42 * VH || py > 0.9 * VH) continue;
+          return pin;
+        }
+        return null;
+      }
+      // (the camera is declared below; aim it once so the search can project the pinned pose)
+      let PIN = null, PIN_PATH = '', FORCE_SCATTER = false;
+      function runPinSearch() {
+      PIN = searchPin(true, true), PIN_PATH = 'full: burst + jump + ghost, home facing, planet mid-scatter', FORCE_SCATTER = false;
+      if (PIN === null) { PIN = searchPin(true, false); PIN_PATH = 'burst + jump + ghost, home facing; the planet\'s scatter forced'; FORCE_SCATTER = true; }
+      if (PIN === null) { PIN = searchPin(false, false); PIN_PATH = 'burst + jump, home facing; ghost and scatter forced'; FORCE_SCATTER = true; }
+      if (PIN === null) { PIN = 0; PIN_PATH = 'none found: everything forced'; FORCE_SCATTER = true; }
+      }
+
+      // the person's warm motes (the fix): fall onto the held moon, then ride it as dust
+      // The person's warm motes land across the whole piece: 70 on the planet's shell, 50 over its moons (the
+      // derping one takes 20, the others 6 each); each rides what it landed on. `warmHost` -1 = the planet, else the moon.
+      const N_WARM = 120; const warmLocal = [], warmStart = [], warmCtl = [], warmHost = [];
+      { const r = mulberry32(777); for (let i = 0; i < N_WARM; i++) { const zz = 2 * r() - 1, ph = r() * TAU, s = Math.sqrt(1 - zz * zz); const host = i < 70 ? -1 : i < 90 ? hero.defectMoon : (i - 90) % hero.moons.length; const k = host < 0 ? hero.R * 1.06 : 1.2; warmHost.push(host); warmLocal.push([s * Math.cos(ph) * k, zz * k, s * Math.sin(ph) * k]); warmStart.push([(r() - 0.5) * 0.9, 1.6 + r() * 0.6, (r() - 0.5) * 0.9]); warmCtl.push([(r() - 0.5) * 0.8, 0.8 + r() * 0.3, (r() - 0.5) * 0.8]); } }
+      const warmPts = points(new Array(N_WARM * 3).fill(0), new Array(N_WARM).fill(0).flatMap(() => [HUMAN.r, HUMAN.g, HUMAN.b]), 0.024, 1); heroScene.add(warmPts);
+
+      // The bursts: the moon's (14 short dense dashes) and the planet's (22 long sparse dashes), straight, dotted,
+      // in the view plane, alternating cold / warm. Two sources must read as two: the planet's ticks are sparser
+      // and longer, start outside the scattered shell's reach, leave a gap toward the moon, and the moon's ticks
+      // never enter the planet's cloud.
+      const TICK = { moon: { n: 14, per: 6, r0: 2.1, len: [14, 30] }, planet: { n: 22, per: 7, r0: 1.12, len: [26, 50], gapHalf: 0.45 } };
+      function makeTicks(spec) { const pts = points(new Array(spec.n * spec.per * 3).fill(0), new Array(spec.n * spec.per).fill(0).flatMap(() => [1, 1, 1]), 0.016, 1); fxScene.add(pts); return pts; }
+      const tickPts = makeTicks(TICK.moon), planetTickPts = makeTicks(TICK.planet);
+      function tickColours(pts, spec, warm, phase) { const c = pts.geometry.attributes.color.array; for (let i = 0; i < spec.n * spec.per; i++) { const k = (Math.floor(i / spec.per) + phase) % 2 ? warm : AGENT; c[i * 3] = k.r; c[i * 3 + 1] = k.g; c[i * 3 + 2] = k.b; } pts.geometry.attributes.color.needsUpdate = true; }
+      // place one burst: centre (world), its screen radius, visibility 0..1, a hash salt, an optional gap direction (screen
+      // angle) and an exclusion disc (centre px, radius px) the dashes may not enter
+      // `retract` = 1 − v: as the fix lands each dash loses motes toward its limb in steps and winks out at its own
+      // hashed moment (un-eased), so no danger line is left once v reaches 0.
+      function placeTicks(pts, spec, centreW, screenR, vis, variant, salt, r0Mul, gap, exclude, retract = 0) {
+        const [cx, cy] = projectPx(centreW); const arr = pts.geometry.attributes.position.array; const r0 = screenR * r0Mul;
+        for (let i = 0; i < spec.n; i++) {
+          const a = (i / spec.n) * TAU + (salt ? Math.PI / spec.n : 0) + (hash01(SEED, salt + 300 + i * 2 + variant) - 0.5) * 0.14;
+          const len = (spec.len[0] + (spec.len[1] - spec.len[0]) * hash01(SEED, salt + 400 + i * 2 + variant)) * (0.6 + 0.4 * vis);
+          const gone = retract > 0.15 + 0.8 * hash01(SEED, salt + 500 + i); const keep = Math.min(1, (1 - retract) * 1.6);
+          let inGap = false; if (gap) { let d = Math.abs(((a - gap.angle) % TAU + TAU) % TAU); if (d > Math.PI) d = TAU - d; inGap = d < gap.half; }
+          for (let j = 0; j < spec.per; j++) {
+            const k = i * spec.per + j; const rr = r0 + len * (j / (spec.per - 1)); const px = cx + rr * Math.cos(a), py = cy + rr * Math.sin(a);
+            const blocked = exclude && Math.hypot(px - exclude.x, py - exclude.y) < exclude.r;
+            const drawn = opts.ticks && vis > 0 && !gone && !inGap && !blocked && j / (spec.per - 1) <= vis * keep;
+            if (!drawn) { arr.set([1e4, 1e4, 1e4], k * 3); continue; }
+            const p = unprojectPx(px, py, centreW); arr.set([p.x, p.y, p.z], k * 3);
+          }
+        }
+        pts.geometry.attributes.position.needsUpdate = true;
+        return [cx, cy];
+      }
+
+      // ---------- the twelve (galaxy §5.3): R0's system, three planets and nine moons ember, one moon amber; for the comparison ----------
+      {
+        const rr = mulberry32(4242); const star = addStar(5000, [0, 0, 0], sysScene, false, BODY.star.R, true);
+        BODY.star.orbits.forEach((r, i) => {
+          const o = makeOrbit(r, rr, 'planet'); const lit = i !== 1; const pl = makePlanet(6000 + i * 13, { lit }); pl.cracked = false; pl.orbit = o; pl.oPeriod = BODY.star.orbitPeriods[i]; pl.oPhase = rr() * TAU;
+          const rec = addPlanet(pl, [0, 0, 0], sysScene, false); rec.sys = true;
+          if (i === 1) { // the fixed piece: blue, dusted warm on the planet and every moon
+            for (const m of [rec.mesh.material, ...rec.moonMeshes.map((mm) => mm.mm.material)]) { m.uniforms.uTint.value.copy(HUMAN); m.uniforms.uTintMix.value = 0.35; }
+            for (const mm of rec.moonMeshes) { const dc = mm.dust.geometry.attributes.color.array; for (let j = 0; j < dc.length; j += 3) { dc[j] = HUMAN.r; dc[j + 1] = HUMAN.g; dc[j + 2] = HUMAN.b; } mm.dust.geometry.attributes.color.needsUpdate = true; }
+          }
+          const TN = 90; const op = new Array(TN * 3).fill(0), oc = []; for (let j = 0; j < TN; j++) { const c = lit ? EMBER : AGENT; const k = lit ? 0.45 : 0.28; oc.push(c.r * k, c.g * k, c.b * k); }
+          const orbitPts = points(op, oc, 0.03, 0.8); sysScene.add(orbitPts); rec.orbitPts = orbitPts; rec.orbitTN = TN;
+        });
+      }
+      function poseSystem(t) {
+        for (const rec of recs) {
+          if (!rec.sys) continue; const pl = rec.planet; const o = pl.orbit;
+          const k = kepler(o, pl.oPhase + TAU * t / pl.oPeriod); const p = orbitXYZ(o, t, k.nu, k.r, 0); rec.pos = p;
+          const arr = rec.orbitPts.geometry.attributes.position.array; for (let i = 0; i < rec.orbitTN; i++) arr.set(trackPoint(o, t, (i / rec.orbitTN) * TAU), i * 3); rec.orbitPts.geometry.attributes.position.needsUpdate = true;
+        }
+        pose(t, 1);
+      }
+
+      // ---------- camera: the close shot N8 (bearing −35, elevation 32, fov 36, frame 1; the planet), the portrait rig, a roll ----------
+      const camera = new THREE.PerspectiveCamera(36, W / H, 0.05, 400);
+      const CAM = { b: -35, e: 32, fov: 36, t: [0, 0, 0], frameY: 0.76 };
+      let VW = W, VH = H;
+      function aim(dist, rollDeg, vw = W, vh = H, frameY = CAM.frameY, c = CAM) {
+        VW = vw; VH = vh;
+        const t = new THREE.Vector3(...c.t); const br = (c.b * Math.PI) / 180, er = (c.e * Math.PI) / 180;
+        const aspect = vw / vh; camera.aspect = aspect; const k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+        const d = dist * k;
+        camera.position.set(t.x + d * Math.cos(er) * Math.sin(br), t.y + d * Math.sin(er), t.z + d * Math.cos(er) * Math.cos(br));
+        camera.fov = Math.min(100, c.fov * k);
+        const dir = t.clone().sub(camera.position).normalize();
+        camera.up.copy(new THREE.Vector3(0, 1, 0).applyAxisAngle(dir, (rollDeg * Math.PI) / 180)); camera.lookAt(t);
+        camera.updateProjectionMatrix();
+        camera.setViewOffset(vw, vh, 0, -(frameY - 0.5) * vh, vw, vh);
+        camera.updateMatrixWorld();
+        for (const m of ALL_MATS) { m.uniforms.uProj11.value = camera.projectionMatrix.elements[5]; m.uniforms.uHalfH.value = (vh * DPR) / 2; }
+      }
+      function unprojectPx(px, py, depthRef) { const ndcZ = depthRef.clone().project(camera).z; return new THREE.Vector3((px / VW) * 2 - 1, 1 - (py / VH) * 2, ndcZ).unproject(camera); }
+      const projectPx = (v) => { const p = v.clone().project(camera); return [((p.x + 1) / 2) * VW, ((1 - p.y) / 2) * VH]; };
+
+      aim(3.4, 0); runPinSearch();
+
+      // ---------- the beat's timeline (section-local progress of `defect`, L = 4.8 screens) ----------
+      const T = {
+        pushIn: [0.04, 0.20], df2: 0.24, df2b: 0.36, cut: 0.2605, flash: [0.260, 0.264], dressIn: [0.262, 0.292],
+        fixFall: [0.37, 0.40], fixTake: [0.385, 0.40], release: 0.405, dressOut: [0.405, 0.421], pullOut: [0.4392, 0.4808], pageOut: [0.46, 0.4808],
+        stop1: 0.238, stop2: 0.358, stop3: 0.437,
+      };
+      const DIST = { far: 4.8, near: 3.4 };
+      function stateAt(local, opts) {
+        const s = {};
+        const push = inOutCubic(smoothstep(T.pushIn[0], T.pushIn[1], local));
+        s.focus = push * (1 - smoothstep(T.pullOut[0], T.pullOut[1], local));
+        s.dist = local < T.pullOut[0] ? DIST.far + (DIST.near - DIST.far) * push : DIST.near + (16 - DIST.near) * inOutCubic(clamp((local - T.pullOut[0]) / (T.pullOut[1] - T.pullOut[0]), 0, 1));
+        s.hold = local >= T.cut && local < T.release ? 1 : 0;
+        s.flash = local >= T.flash[0] && local < T.flash[1] ? 1 - (local - T.flash[0]) / (T.flash[1] - T.flash[0]) : 0;
+        s.dress = local < T.release ? inOutCubic(clamp((local - T.dressIn[0]) / (T.dressIn[1] - T.dressIn[0]), 0, 1)) : 1 - inOutCubic(clamp((local - T.dressOut[0]) / (T.dressOut[1] - T.dressOut[0]), 0, 1));
+        s.fixFall = smoothstep(T.fixFall[0], T.fixFall[1], local);
+        s.v = 1 - smoothstep(T.fixTake[0], T.fixTake[1], local);
+        s.roll = 4 * s.dress;
+        if (opts.before) { s.hold = 1; s.dress = 0; s.flash = 0; s.roll = 0; }
+        if (!opts.flash) s.flash = 0;
+        if (!opts.tilt) s.roll = 0;
+        const out = 1 - smoothstep(T.pageOut[0], T.pageOut[1], local);
+        s.l1 = smoothstep(0, 0.0208, local) * out; s.l2 = smoothstep(T.df2, T.df2 + 0.0208, local) * out; s.l3 = smoothstep(T.df2b, T.df2b + 0.0208, local) * out;
+        s.l1dim = smoothstep(T.df2, T.df2 + 0.0208, local); s.l2dim = smoothstep(T.df2b, T.df2b + 0.0208, local);
+        return s;
+      }
+      function phaseName(local) {
+        if (local < T.pushIn[1]) return 'the push-in under “Come closer”';
+        if (local < T.cut) return 'held close, live: df-1’s rest; the moons run on the ambient clock';
+        if (local < T.flash[1]) return 'the cut (and the one-frame flash)';
+        if (local < T.dressIn[1]) return 'the dressing snaps in';
+        if (local < T.df2b) return 'the held frame: df-2’s rest, the defect shown';
+        if (local < T.fixFall[0]) return '“So you fix it.” comes up on the held frame';
+        if (local < T.release) return 'the fix lands on the held moon; the shell re-forms; the moon slides home; the bursts wink out';
+        if (local < T.dressOut[1]) return 'release: the clock resumes, the dressing goes';
+        if (local < T.pullOut[0]) return 'df-2b’s rest: the mended orbit running';
+        return 'the pull-out and page turn';
+      }
+
+      // ---------- draw ----------
+      const scrubEl = document.getElementById('scrub'), out = document.getElementById('out'), evOut = document.getElementById('evOut'), label = document.getElementById('label');
+      const l1 = document.getElementById('l1'), l2 = document.getElementById('l2'), l3 = document.getElementById('l3');
+      const opts = { flash: true, reduced: false, ticks: true, split: true, tilt: true, before: false, compare: false, cmpFixed: false };
+      let local = 0.33, ambient = 0, playing = false, playT = 0;
+      const tmpV = new THREE.Vector3();
+      function setMats(mats, f) { for (const m of mats) f(m.uniforms); }
+      const dimCol = (c) => `color-mix(in oklab, var(--ink), var(--ink-superseded) ${Math.round(c * 100)}%)`;
+
+      // One view of the beat into a viewport: `warmA` true = the warm copy is ember before the fix (A), false = amber throughout (B).
+      function drawView(vp, s, shown, twos, warmEmber, fy = CAM.frameY) {
+        const [vx, vy, vw, vh] = vp; const variant = twos % 2; const dress = s.dress;
+        renderer.setViewport(vx, vy, vw, vh); renderer.setScissor(vx, vy, vw, vh);
+        pose(shown, s.v);
+        if (s.hold && FORCE_SCATTER && s.v > 0) { for (const m of [heroRec.shell.material, heroRec.mesh.material]) { m.uniforms.uScatS.value = FORCE.scatterS; m.uniforms.uSweep.value.set(0.6, 0.5, -0.62); } }
+        aim(s.dist, s.roll, vw, vh, fy);
+        const warm = warmEmber ? EMBER.clone().lerp(HUMAN, 1 - s.v) : HUMAN;
+        const M = heroRec.moonMeshes[hero.defectMoon]; M.mm.updateMatrixWorld(true); heroRec.group.updateMatrixWorld(true);
+        { // the warm motes
+          const arr = warmPts.geometry.attributes.position.array;
+          for (let i = 0; i < N_WARM; i++) {
+            const p = clamp((s.fixFall - i / N_WARM * 0.35) / 0.65, 0, 1); const q = smoothstep(0, 1, p);
+            const host = warmHost[i]; const end = host < 0 ? tmpV.set(...warmLocal[i]).add(heroRec.group.position) : tmpV.set(...warmLocal[i]).applyMatrix4(heroRec.moonMeshes[host].mm.matrixWorld);
+            const st = warmStart[i], c = warmCtl[i]; const om = 1 - q;
+            if (s.fixFall <= 0) { arr.set([1e4, 1e4, 1e4], i * 3); continue; }
+            arr.set([om * om * (end.x + st[0]) + 2 * om * q * (end.x + c[0]) + q * q * end.x, om * om * (end.y + st[1]) + 2 * om * q * (end.y + c[1]) + q * q * end.y, om * om * (end.z + st[2]) + 2 * om * q * (end.z + c[2]) + q * q * end.z], i * 3);
+          }
+          warmPts.geometry.attributes.position.needsUpdate = true;
+        }
+        { // the two bursts
+          const vis = smoothstep(0.45, 0.95, dress);
+          const mw = new THREE.Vector3().setFromMatrixPosition(M.mm.matrixWorld); const pw = new THREE.Vector3().setFromMatrixPosition(heroRec.mesh.matrixWorld);
+          const pxOf = (R, w) => (R * camera.projectionMatrix.elements[5] * (vh / 2)) / w.clone().applyMatrix4(camera.matrixWorldInverse).length();
+          const moonR = pxOf(hero.moons[hero.defectMoon].R, mw), planetR = pxOf(hero.R, pw);
+          const [mx, my] = projectPx(mw), [px, py] = projectPx(pw);
+          // the planet's ticks start outside the scattered shell's reach (0.40 R + jitter) while it is out, at the limb once home
+          const shellOut = (s.hold && (FORCE_SCATTER || heroRec.shell.material.uniforms.uScatS.value >= 0)) ? s.v : 0;
+          const gapAngle = Math.atan2(my - py, mx - px);
+          placeTicks(planetTickPts, TICK.planet, pw, planetR, vis, variant, 1000, TICK.planet.r0 + 0.40 * shellOut, { angle: gapAngle, half: TICK.planet.gapHalf }, null, 1 - s.v);
+          placeTicks(tickPts, TICK.moon, mw, moonR, vis, variant, 0, TICK.moon.r0, null, { x: px, y: py, r: planetR * (TICK.planet.r0 + 0.40 * shellOut) }, 1 - s.v);
+          tickColours(tickPts, TICK.moon, warm, 0); tickColours(planetTickPts, TICK.planet, warm, 1);
+        }
+        // 1. the rest of the field: the focus floor, dimmed and greyed further by the dressing
+        const floor = 1 - 0.7 * s.focus; const dimGain = floor * (1 - 0.6 * dress);
+        for (const rec of recs) if (rec.bg) setMats(rec.mats, (u) => { u.uOff.value.set(0, 0); u.uGain.value = dimGain; u.uTint.value.copy(DIMTINT); u.uTintMix.value = 0.55 * dress; u.uLimb.value = 0; });
+        for (const rec of recs) if (rec.sprite) rec.sprite.material.opacity = dimGain;
+        renderer.render(bgScene, camera);
+        // 2. the hero: the base draw, then the two misregistered copies (its two lights)
+        const flashMix = 0.45 * s.flash, flashGain = 1 + 1.0 * s.flash;
+        const heroMats = [...heroRec.mats, warmPts.material];
+        const copies = opts.split ? [[0, 1, null, 0], [-1, 0.26 * dress, AGENT, 1], [1, 0.26 * dress, warm, 1]] : [[0, 1, null, 0]];
+        for (const [side, gain, tint, tintMix] of copies) {
+          if (gain <= 0) continue;
+          const jit = side === 0 ? 0 : (hash01(SEED, 950 + twos + side) - 0.5) * 0.8 * dress;
+          const offPx = side * 3 * dress + jit;
+          setMats(heroMats, (u) => { u.uOff.value.set((offPx * 2) / vw, 0); u.uGain.value = gain * flashGain; u.uTint.value.set(1, 1, 1); u.uTintMix.value = flashMix; u.uLimb.value = dress * (side === 0 ? 1 : 0.5); });
+          if (tint) setMats(heroMats, (u) => { u.uTint.value.copy(tint); u.uTintMix.value = Math.max(tintMix, flashMix); });
+          for (const m of [M.mm.material, M.dust.material, M.ghost.material]) m.uniforms.uOff.value.set((offPx * 2 * 2) / vw, 0);
+          if (side === 0) { for (const mm of heroRec.moonMeshes) for (const m of [mm.mm.material, mm.dust.material]) { m.uniforms.uTint.value.copy(HUMAN); m.uniforms.uTintMix.value = Math.max(flashMix, 0.6 * (1 - s.v)); } for (const m of [heroRec.mesh.material]) { m.uniforms.uTint.value.copy(HUMAN); m.uniforms.uTintMix.value = Math.max(flashMix, 0.3 * (1 - s.v)); } }
+          renderer.render(heroScene, camera);
+        }
+        // 3. the marks
+        setMats([tickPts.material, planetTickPts.material], (u) => { u.uOff.value.set(0, 0); u.uGain.value = 1.2 * smoothstep(0.45, 0.95, dress); u.uTintMix.value = 0; u.uLimb.value = 0; });
+        renderer.render(fxScene, camera);
+      }
+      function drawSystem(vp, t) {
+        const [vx, vy, vw, vh] = vp; renderer.setViewport(vx, vy, vw, vh); renderer.setScissor(vx, vy, vw, vh);
+        poseSystem(t);
+        for (const rec of recs) if (rec.sys) setMats(rec.mats, (u) => { u.uOff.value.set(0, 0); u.uGain.value = 1; if (!u.uTint.value.equals(HUMAN)) u.uTintMix.value = 0; u.uLimb.value = 0; u.uMorphAmp.value = 0; u.uScatS.value = -1; });
+        aim(vw / vh < 1.6 ? 24 : 14, 0, vw, vh, 0.5, { b: -10, e: 70, fov: 40, t: [0, 0, 0] });
+        renderer.render(sysScene, camera);
+      }
+      const CAPS = {
+        A: 'A. The warm ghost is the <b>alarm colour</b>: “this piece carries a defect”. It turns into the person’s colour as the fix lands. The reader sees the alarm colour again on page 8, when the twelve light up.',
+        B: 'B. The warm ghost is the <b>person’s colour</b> from the start: “a person is looking at this”. The alarm colour is held back; the reader first sees it on page 8, when the twelve light up.',
+      };
+      const FREEZE_WARM_MODE = 'A'; // the author's choice: ember before the fix, amber as it lands (B = amber throughout)
+      function render() {
+        const s0 = stateAt(local, opts);
+        const amb = opts.reduced ? PIN : ambient;
+        const shown = s0.hold ? PIN : amb;
+        const twos = opts.reduced ? 0 : Math.floor(amb * 12);
+        document.body.classList.toggle('compare', opts.compare);
+        renderer.setScissorTest(true); renderer.setViewport(0, 0, W, H); renderer.setScissor(0, 0, W, H); renderer.clear();
+        if (opts.compare) {
+          const lc = opts.cmpFixed ? 0.40 : 0.33; const s = stateAt(lc, { ...opts, before: false });
+          const half = Math.floor(W / 2); const sysH = Math.round(H * 0.20), capH = Math.round(H * 0.21), top = 34; const mainH = H - top - sysH - capH - 16 - 30;
+          document.getElementById('capA').innerHTML = CAPS.A; document.getElementById('capB').innerHTML = CAPS.B;
+          for (const el of ['capA', 'capB']) document.getElementById(el).style.top = `${top + mainH + 4}px`;
+          for (const el of ['smallA', 'smallB']) document.getElementById(el).style.top = `${H - sysH - 30 - 16}px`;
+          for (const [i, ember] of [[0, true], [1, false]]) {
+            drawView([i * half, H - top - mainH, half, mainH], s, PIN, twos, ember, 0.62);
+            drawSystem([i * half, 30, half, sysH], amb);
+          }
+          label.textContent = `comparison · the held frame at local ${lc.toFixed(2)}${opts.cmpFixed ? ' (the fix landed)' : ' (before the fix)'} · left: ember then amber · right: amber throughout`;
+          evOut.innerHTML = 'Compare: the same held frame twice. Tick “compare: fix landed” to see both after the fix (they agree). The small picture under each is the later moment the twelve light up.';
+          out.textContent = `local ${lc.toFixed(3)} · ambient ${amb.toFixed(1)} s`;
+        } else {
+          drawView([0, 0, W, H], s0, shown, twos, FREEZE_WARM_MODE === 'A');
+          l1.style.opacity = s0.l1; l1.style.color = dimCol(s0.l1dim); l2.style.opacity = s0.l2; l2.style.color = dimCol(s0.l2dim); l3.style.opacity = s0.l3;
+          const mo = hero.moons[hero.defectMoon]; const d = orbitDerp(mo.seed, shown, TAU / mo.period, mo.dphase, s0.v); const se = shellEvent(hero.seed + 5, shown, hero.phase, s0.v);
+          out.textContent = `local ${local.toFixed(3)} · ambient ${amb.toFixed(1)} s`;
+          evOut.innerHTML = `${phaseName(local)}. Shown clock ${shown.toFixed(2)} s${s0.hold ? ' (pinned: ' + PIN_PATH + ')' : ''}; the defect moon: <b class="ev">${d.ev ? d.ev + ' at ' + d.s.toFixed(2) + (d.ghost !== null ? ', ghost' : '') : 'on its track'}</b>; the planet's shell: <b class="ev">${se.s >= 0 ? 'scatter at ' + se.s.toFixed(2) + ' s' : s0.hold && FORCE_SCATTER && s0.v > 0 ? 'scatter (forced) at 0.16 s' : 'whole'}</b>.`;
+          label.textContent = `${opts.before ? 'focus, no freeze' : 'the freeze frame'} · local ${local.toFixed(3)} · ${s0.hold ? 'held at the pin' : 'ambient ' + amb.toFixed(1) + ' s'}${s0.dress > 0 && !opts.before ? ' · dress ' + s0.dress.toFixed(2) : ''}${s0.v < 1 ? ' · fixed ' + (1 - s0.v).toFixed(2) : ''}`;
+        }
+        renderer.setScissorTest(false);
+        window.__frame = (window.__frame || 0) + 1;
+      }
+
+      // ---------- play: the beat at auto-advance pace (0.6 screens/s, L = 4.8: 0.125 local/s), with its three rests ----------
+      const PACE = 0.6 / 4.8;
+      const PLAN = [['move', 0.20, T.stop1], ['rest', Math.max(2, 11 / 3), T.stop1], ['move', T.stop1, T.stop2], ['rest', Math.max(2, 9 / 3), T.stop2], ['move', T.stop2, T.stop3], ['rest', Math.max(2, 4 / 3), T.stop3], ['move', T.stop3, 0.49], ['rest', 1.0, 0.49]];
+      function planAt(tt) {
+        let t = tt;
+        for (let loop = 0; loop < 1000; loop++) for (const seg of PLAN) {
+          if (seg[0] === 'rest') { if (t < seg[1]) return seg[2]; t -= seg[1]; }
+          else { const dur = (seg[2] - seg[1]) / PACE; if (t < dur) { const f = t / dur; const e = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2; return seg[1] + (seg[2] - seg[1]) * e; } t -= dur; }
+        }
+        return 0.2;
+      }
+      let last = performance.now();
+      function tick(now) {
+        const dt = Math.min(0.1, (now - last) / 1000); last = now;
+        if (!opts.reduced) ambient += dt;
+        if (playing) { playT += dt; local = planAt(playT); scrubEl.value = local.toFixed(4); }
+        render();
+        requestAnimationFrame(tick);
+      }
+      // ---------- chrome ----------
+      const B = (id) => document.getElementById(id);
+      function mode(m) { opts.before = m === 'before'; opts.compare = m === 'compare'; playing = m === 'play'; if (m === 'play') playT = 0; if (m !== 'play') local = 0.33; scrubEl.value = local.toFixed(4); for (const [b, k] of [['bBefore', 'before'], ['bFreeze', 'freeze'], ['bPlay', 'play'], ['bCompare', 'compare']]) B(b).classList.toggle('on', k === m); }
+      B('bBefore').onclick = () => mode('before'); B('bFreeze').onclick = () => mode('freeze'); B('bPlay').onclick = () => mode('play'); B('bCompare').onclick = () => mode('compare');
+      B('bPause').onclick = (e) => { playing = !playing; e.target.textContent = playing ? 'pause' : 'resume'; };
+      scrubEl.oninput = () => { local = Number(scrubEl.value); playing = false; opts.before = false; opts.compare = false; B('bBefore').classList.remove('on'); B('bPlay').classList.remove('on'); B('bCompare').classList.remove('on'); B('bFreeze').classList.add('on'); };
+      for (const [id, key] of [['tFlash', 'flash'], ['tReduced', 'reduced'], ['tTicks', 'ticks'], ['tSplit', 'split'], ['tTilt', 'tilt'], ['tFixed', 'cmpFixed']]) B(id).onchange = (e) => { opts[key] = e.target.checked; };
+      mode('freeze');
+      requestAnimationFrame(tick);
+      // a hook for the headless shooter (not for readers): set the frame, render, done
+      window.__mock = { set(o) { for (const k of ['local', 'ambient']) if (o[k] !== undefined) (k === 'local' ? (local = o.local) : (ambient = o.ambient)); for (const k of ['before', 'reduced', 'flash', 'compare', 'cmpFixed']) if (o[k] !== undefined) opts[k] = o[k]; if (o.still) document.body.classList.add('still'); playing = false; render(); return window.__frame; }, pin: PIN, pinPath: PIN_PATH, T };
+      window.__done = true;
+    </script>

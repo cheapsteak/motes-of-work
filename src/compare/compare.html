@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mechanism comparison</title>
+    <link rel="stylesheet" href="./compare.css" />
+  </head>
+  <body>
+    <aside id="panel">
+      <header>
+        <h1>Mechanism comparison</h1>
+      </header>
+      <div id="controls"></div>
+      <footer>
+        <button type="button" class="link" id="credits-open">Credits and licences</button>
+        <a href="../../index.html">Read the essay</a>
+      </footer>
+    </aside>
+    <main id="view">
+      <canvas id="stage" aria-label="The selected mechanism, built from motes"></canvas>
+      <div id="panes"></div>
+      <p id="orbit-hint">Drag to orbit, scroll to zoom, right-drag to pan.</p>
+      <p id="building" role="status" hidden></p>
+      <p id="notice" hidden></p>
+    </main>
+    <dialog id="credits" aria-labelledby="credits-title">
+      <div class="dialog-head">
+        <h2 id="credits-title">Credits and licences</h2>
+        <button type="button" id="credits-close">Close</button>
+      </div>
+      <div id="credits-body"></div>
+    </dialog>
+    <script type="module" src="./compare.ts"></script>
+  </body>
+</html>

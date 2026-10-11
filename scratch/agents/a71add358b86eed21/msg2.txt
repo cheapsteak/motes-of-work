@@ -1,0 +1,19 @@
+bike: the frame is laid in place, tube by tube
+
+FRAME_LAY (shapes.ts) lists the frame's tubes in a frame builder's order:
+the bottom-bracket shell, the down tube, the head tube, the seat tube
+with its collar, the top tube, the chainstays with the dropouts, the seat
+stays, the brake bridge, and the cables last. Each tube has a slot of the
+frame's settle window [0.81, 0.95]. It is built from the same named solids
+as frame(), which now builds from that list in the same order; the frame's
+points are unchanged.
+
+The frame's settle field puts each mote in the slot of the tube whose
+surface it lies on, 80 % by how far along the tube it is and 20 % by its
+hash, so every tube is laid root first behind a soft front. The twin's
+points map one to one, so its mast rises with the head tube and its
+climbing top tube follows the correct one, with no rule of its own.
+
+The frame no longer slides in: its exploded offset is the identity.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

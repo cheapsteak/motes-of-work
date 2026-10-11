@@ -1,0 +1,4 @@
+     × lays out every mechanism, near square, with no empty row or column 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+TypeError: gridShape is not a function
+      Tests  1 failed | 28 skipped (29)

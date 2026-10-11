@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Act II mock</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0D12; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  #scrim { position: fixed; inset: 0; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22svh, transparent 42svh); }
+  #panel { position: fixed; left: 50%; transform: translateX(-50%); top: 7vh; width: min(36rem, 100vw - 32px);
+    color: #e8e6ee; font: 400 1.1875rem/1.55 Literata, Georgia, serif; text-shadow: 0 1px 2px #0B0D12, 0 0 14px #0B0D12, 0 0 30px #0B0D12; }
+  #panel p { margin: 0 0 .85em; }
+  #panel p.dim { color: #bcbbc2; }
+  @media (max-aspect-ratio: 1/1) { #panel { top: 6svh; left: 16px; right: 16px; width: auto; transform: none; font-size: 1.0625rem; } }
+  #band { position: fixed; left: 0; right: 0; top: 42vh; border-top: 1px dashed rgba(255,255,255,.18); pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="scrim"></div>
+<div id="band"></div>
+<div id="panel"></div>
+<script>
+// A static mock of one Act II frame (docs/specs/2026-10-06-act-2-storyboard-and-network.md):
+// ?frame=twelve  df-5 "Twelve new defects. You fixed one." at the wide shot N9 (bearing 50, elev 34, d 42)
+// ?frame=far     fr-1 "From far away, everything looks right." at N7 (bearing 30, elev 32, d 40)
+// ?frame=lesson  ls-1 at N20 (bearing 10, elev 48, d 30, target (0, 9, 0))
+// The network is a seeded stand-in for the generator: three layers, clustered lineage, brick stacks.
+const params = new URLSearchParams(location.search);
+const frame = params.get('frame') || 'twelve';
+const growth = { far: 0.27, twelve: 0.355, lesson: 1.0 }[frame];
+
+// ---- seeded rng ----
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rng = mulberry32(7);
+
+// ---- the network ----
+const LAYER_Y = [0, 7, 14], RADIUS = [26, 16, 7], UNIT = [0.42, 0.65, 1.10], CUBES = [[5, 7], [9, 12], [16, 22]];
+const nodes = [];
+function place(layer, near, within) {
+  for (let tries = 0; tries < 200; tries++) {
+    let x, z;
+    if (near) { const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * within; x = near.x + Math.cos(a) * r; z = near.z + Math.sin(a) * r; }
+    else { const a = rng() * Math.PI * 2, r = Math.sqrt(rng()) * RADIUS[layer]; x = Math.cos(a) * r; z = Math.sin(a) * r; }
+    if (Math.hypot(x, z) > RADIUS[layer]) continue;
+    const rad = UNIT[layer] * 2.1;
+    if (nodes.some(n => n.layer === layer && Math.hypot(n.x - x, n.z - z) < 0.9 * (n.rad + rad))) continue;
+    return { x, z, rad };
+  }
+  return null;
+}
+function addNode(layer, parent, born, cracked, fixed) {
+  const p = place(layer, parent, layer === 1 ? 7 : 4);
+  if (!p) return null;
+  const y = LAYER_Y[layer] + (rng() - 0.5) * [1.2, 2, 3][layer];
+  const n = { layer, x: p.x, y, z: p.z, rad: p.rad, u: UNIT[layer], parent, born, cracked, fixed, yaw: rng() * Math.PI * 2,
+    cubes: Math.round(CUBES[layer][0] + rng() * (CUBES[layer][1] - CUBES[layer][0])) };
+  nodes.push(n);
+  return n;
+}
+// Rules (scripted) then plans and code (filler with a scripted cracked lineage).
+const R = [];
+for (let i = 0; i < 6; i++) R.push(addNode(2, null, [0, 0.05, 0.09, 0.2, 0.39, 0.8][i], i === 1 || i === 4, false));
+const R0 = R[1], R1 = R[4];
+const plans = [];
+for (let i = 0; i < 40; i++) {
+  const born = i / 40;
+  const parent = R[Math.floor(rng() * 6)];
+  const cracked = (parent === R0 || parent === R1) && born < 0.665;
+  const n = addNode(1, parent, born, cracked, false);
+  if (n) plans.push(n);
+}
+// Make sure P1..P3 (the cracked plans the twelve hang from) exist early.
+const crackedPlans = plans.filter(p => p.cracked).sort((a, b) => a.born - b.born);
+crackedPlans.slice(0, 3).forEach((p, i) => { p.born = [0.10, 0.24, 0.31][i]; });
+plans.sort((a, b) => a.born - b.born);
+const code = [];
+let crackedCode = 0;
+for (let i = 0; i < 300; i++) {
+  const born = Math.pow(i / 300, 1 / 1.3);
+  const parent = plans[Math.min(plans.length - 1, Math.floor(rng() * plans.length * Math.min(1, born + 0.05)))];
+  let cracked = parent.cracked && born < 0.665;
+  const n = addNode(0, parent, born, cracked, false);
+  if (n) code.push(n);
+}
+// Pin the twelve: the first cracked code stacks born after C1 up to growth 0.34.
+const crackedCodeAll = code.filter(c => c.cracked).sort((a, b) => a.born - b.born);
+crackedCodeAll.forEach((c, i) => { c.born = 0.14 + i * 0.022; if (i === 0) c.fixed = true; });
+// The real generator's scripted table makes this exactly twelve; the stand-in takes the first twelve by birth.
+const candidates = nodes.filter(n => n.cracked && !n.fixed && n.born <= 0.34 && n !== R0 && n !== R1).sort((a, b) => a.born - b.born);
+candidates.forEach((n, i) => { n.twelve = i < 12; });
+const lit = nodes.filter(n => n.twelve);
+
+// ---- camera (elevated wide shot; portrait rig widens by sqrt(m)) ----
+const shots = {
+  twelve: { target: [0, 10, 0], bearing: 50, elev: 18, d: 52, fov: 40 },
+  far: { target: [0, 10, 0], bearing: 30, elev: 16, d: 52, fov: 40 },
+  lesson: { target: [0, 9, 0], bearing: 10, elev: 48, d: 30, fov: 40 },
+};
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio, 2);
+canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+const aspect = W / H;
+const shot = shots[frame];
+const DEG = Math.PI / 180;
+const b = shot.bearing * DEG, e = shot.elev * DEG;
+const look = [Math.cos(e) * Math.sin(b), Math.sin(e), Math.cos(e) * Math.cos(b)]; // bearing 0 from +z
+let k = 1;
+if (aspect < 1) k = Math.sqrt(Math.min(2.4, Math.max(1, 0.89 / aspect)));
+const d = shot.d * k;
+const fov = 2 * Math.atan(Math.tan(shot.fov * DEG / 2) * k);
+const cam = shot.target.map((t, i) => t + look[i] * d);
+// basis
+const fwd = look.map(v => -v);
+const right = [fwd[2], 0, -fwd[0]]; const rl = Math.hypot(...right); right.forEach((v, i) => right[i] = v / rl);
+// up = fwd x right (right x fwd points down: the first mock frames were upside down).
+const up = [fwd[1] * right[2] - fwd[2] * right[1], fwd[2] * right[0] - fwd[0] * right[2], fwd[0] * right[1] - fwd[1] * right[0]];
+const f = 1 / Math.tan(fov / 2);
+const targetY = aspect < 1 ? 0.62 : 0.66; // frame 0
+function project(p) {
+  const v = [p[0] - cam[0], p[1] - cam[1], p[2] - cam[2]];
+  const x = v[0] * right[0] + v[1] * right[1] + v[2] * right[2];
+  const y = v[0] * up[0] + v[1] * up[1] + v[2] * up[2];
+  const z = v[0] * fwd[0] + v[1] * fwd[1] + v[2] * fwd[2];
+  if (z <= 0.1) return null;
+  const nx = (x * f / aspect) / z, ny = (y * f) / z;
+  return { x: (nx + 1) / 2 * W, y: (1 - (ny + 1) / 2) * H + (targetY - 0.5) * H, z, px: f * H / 2 / z };
+}
+
+// ---- draw ----
+ctx.fillStyle = '#0B0D12'; ctx.fillRect(0, 0, W, H);
+const AGENT = '77,163,255', EMBER = '255,107,87', HUMAN = '255,179,71';
+// streams: a few dots per edge, dim
+const born = nodes.filter(n => n.born <= growth);
+for (const n of born) {
+  if (!n.parent) continue;
+  const a = project([n.parent.x, n.parent.y - n.parent.rad * 0.8, n.parent.z]);
+  const c = project([n.x, n.y + n.rad * 0.8, n.z]);
+  if (!a || !c) continue;
+  const K = 14;
+  const hi = n.twelve ? 1 : 0;
+  for (let i = 0; i < K; i++) {
+    const t = (i + 0.5) / K;
+    const x = a.x + (c.x - a.x) * t, y = a.y + (c.y - a.y) * t;
+    ctx.fillStyle = `rgba(${hi ? EMBER : AGENT},${hi ? 0.9 : 0.35})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+// far-glow impostors and ember halos
+for (const n of born) {
+  const p = project([n.x, n.y, n.z]); if (!p) continue;
+  const rpx = n.rad * p.px;
+  const lod = 1 - Math.min(1, Math.max(0, (rpx - 10) / 18));
+  const hi = n.twelve ? 1 : 0;
+  const alpha = 0.35 * lod + 0.6 * hi;
+  if (alpha <= 0) continue;
+  const rr = 1.2 * rpx;
+  const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
+  const col = hi ? EMBER : AGENT;
+  g.addColorStop(0, `rgba(${col},${alpha})`); g.addColorStop(0.5, `rgba(${col},${alpha * 0.45})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.fill();
+}
+// stacks as dotted bricks
+for (const n of born) {
+  const courses = n.layer === 0 ? [3, 2, 1] : n.layer === 1 ? [4, 3, 2, 1] : [5, 4, 4, 3, 2];
+  const u = n.u; const bw = u * 1.35, bh = u * 0.6, bd = u * 0.8;
+  const cy = Math.cos(n.yaw), sy = Math.sin(n.yaw);
+  let y = n.y - n.rad * 0.6;
+  const mult = 1;
+  courses.forEach((m, ci) => {
+    for (let i = 0; i < m; i++) {
+      const cx = (i - (m - 1) / 2) * bw * 1.05 + (ci % 2 ? bw / 2 : 0) * 0.3;
+      const centre = [n.x + cx * cy, y + bh / 2, n.z - cx * sy];
+      // sample a few points on the brick's faces
+      const count = Math.round((n.layer === 0 ? 16 : n.layer === 1 ? 26 : 40) * mult);
+      for (let s = 0; s < count; s++) {
+        const face = Math.floor(rng() * 6);
+        let lx = (rng() - 0.5) * bw, ly = (rng() - 0.5) * bh, lz = (rng() - 0.5) * bd;
+        if (face === 0) lx = bw / 2; else if (face === 1) lx = -bw / 2; else if (face === 2) ly = bh / 2; else if (face === 3) ly = -bh / 2; else if (face === 4) lz = bd / 2; else lz = -bd / 2;
+        const wx = centre[0] + lx * cy + lz * sy, wy = centre[1] + ly, wz = centre[2] - lx * sy + lz * cy;
+        const p = project([wx, wy, wz]); if (!p) continue;
+        const lit = face === 2 || face === 4 ? 1 : 0.6;
+        const hi = n.twelve ? 1 : 0;
+        const col = n.fixed && rng() < 0.3 ? HUMAN : hi ? EMBER : AGENT;
+        ctx.fillStyle = `rgba(${col},${0.55 * lit * (hi ? 1.6 : 1)})`;
+        ctx.fillRect(p.x, p.y, 1.2, 1.2);
+      }
+    }
+    y += bh;
+  });
+}
+
+// ---- text ----
+const lines = {
+  twelve: [['dim', 'Now step back.'], ['dim', 'The agents kept building. Whatever is built on a defect carries it too.'], ['', 'Twelve new defects. You fixed one.']],
+  far: [['', 'From far away, everything looks right.']],
+  lesson: [['', 'The higher up a thing sits, the longer you look at it.']],
+}[frame];
+document.getElementById('panel').innerHTML = lines.map(([c, t]) => `<p class="${c}">${t}</p>`).join('');
+window.__mock = { lit: lit.length, born: born.length, nodes: nodes.length };
+</script>
+</body>
+</html>

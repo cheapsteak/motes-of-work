@@ -1,0 +1,165 @@
+<title>Network form options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Instrument+Serif:ital@1&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --panel: #12151c;
+    --fg: #e6e8ee;
+    --muted: #9aa3b5;
+    --rule: #232838;
+    --blue: #6aa9ff;
+    --ember: #ff6b57;
+    --pick: #f3c56b;
+  }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.55 Literata, Georgia, serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 40px; }
+  header { display: grid; gap: 10px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+  h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.15; margin: 0; font-weight: 600; text-wrap: balance; }
+  h1 em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
+  h2 { font-size: 22px; margin: 0; font-weight: 600; text-wrap: balance; }
+  h3 { font-size: 18px; margin: 0; font-weight: 600; }
+  p { margin: 0; max-width: 65ch; }
+  .muted { color: var(--muted); }
+  blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--rule); color: var(--muted); font-style: italic; max-width: 65ch; }
+  section { display: grid; gap: 14px; }
+  .option { display: grid; gap: 12px; padding-block: 22px; border-top: 1px solid var(--rule); }
+  .tag { display: inline-block; font: 600 12px/1 system-ui, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; color: var(--bg); background: var(--pick); margin-left: 8px; vertical-align: 3px; }
+  .frames { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+  figure { margin: 0; scroll-snap-align: start; display: grid; gap: 6px; min-width: 0; align-content: start; }
+  figure img { width: 100%; height: auto; aspect-ratio: 390 / 844; border-radius: 6px; border: 1px solid var(--rule); background: #000; display: block; }
+  figcaption { color: var(--muted); font-size: 13px; }
+  ul.pc { margin: 0; padding-left: 18px; display: grid; gap: 4px; max-width: 65ch; }
+  .plus::marker { content: '+  '; color: var(--blue); }
+  .minus::marker { content: '−  '; color: var(--ember); }
+  .decide { background: var(--panel); border-radius: 8px; padding: 18px 16px; display: grid; gap: 12px; }
+  .decide ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 65ch; }
+  code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Motes of work · Act II · choosing a form</div>
+    <h1>What should the network <em>look</em> like?</h1>
+    <p class="muted">Rough mock frames at phone size. They are not the essay's renderer, but they show each option's composition honestly. Swipe each row sideways.</p>
+    <blockquote>"Each stack being a brick wall one brick deep looks really boring and cheap, and why walls. … middle and bottom blurry as heck, top half just looks like a bunch of misshapen walls strewn about."</blockquote>
+  </header>
+
+  <section>
+    <h2>Why it looks like that now</h2>
+    <p><strong>Walls.</strong> Each piece's cubes were laid as one row of bricks, so every piece is a wall one brick deep, narrowing to a stepped triangle. Each was also turned to a random angle, which made them look strewn about.</p>
+    <p><strong>Blur.</strong> Every piece has a soft round glow so that it reads from far away. Hundreds of glows overlap into fog. Every option below removes the glows entirely; a defect lights its cubes in ember with a brighter edge instead.</p>
+    <p><strong>The camera fight.</strong> The three layers are wide discs stacked up high, which is a landscape shape on a portrait phone. Any pull-back drags the upper layers through the text.</p>
+  </section>
+
+  <section>
+    <h2>Chosen: the galaxy, made of planets and moons</h2>
+    <p>Each piece of work is a planet: a crisp shell of motes with one to six moons on dotted tracks. Code planets have one track and plan planets two. Rule planets have three tracks and four to six moons, so each is a little solar system. From overhead, each planet with its rings has the same shape as the galaxy itself, which gives the zoom out its powers of ten: one planet, then its system, then the galaxy. The planets stay in place and only the moons move. The soft round glows are gone.</p>
+    <p><strong>The defect is a derp.</strong> Once in a while, one moon stalls, runs backwards, or skips off its track and snaps back, or the planet shivers. From far away the difference is a few pixels. Up close, watching against the dotted track, it is unmistakable. Healthy moons never derp. Anything built on a defect derps the same way, and the fix makes it settle.</p>
+    <p><a href="https://claude.ai/artifact/2GPqgqst5xgaEddmTJtc1o" style="color: var(--pick)">Watch it move →</a> <span class="muted">(healthy on the left, carrying the defect on the right; the moving clock shows the motion that scrolling will drive)</span></p>
+    <div class="frames">
+      <figure><img src="img/g-close-healthy.jpg" alt="A healthy planet close up, moons on their tracks"><figcaption>Up close, healthy</figcaption></figure>
+      <figure><img src="img/g-close-derp.jpg" alt="The same planet close up mid-derp, a moon off its track"><figcaption>Up close, mid-derp</figcaption></figure>
+      <figure><img src="img/g-zoom-end.jpg" alt="End of the zoom-out: a small galaxy of planets with rings"><figcaption>End of the zoom-out</figcaption></figure>
+      <figure><img src="img/g-galaxy-twelve.jpg" alt="The galaxy with twelve planets lit in ember along one arm"><figcaption>The twelve</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>1 · The shape of one piece (earlier options)</h2>
+    <p class="muted">Every option uses whole cubes on a grid, so no piece is ever a wall. Each frame shows a code piece, a plan, a rule and a row of code far behind.</p>
+    <div class="frames">
+      <figure><img src="img/pieces-crate.jpg" alt="Crate pieces: squat square blocks with a partial top course"><figcaption><strong>P1 Crate</strong> <span class="tag">pick</span><br>A square footprint, filled course by course; the last course is partial, so a cube landing on a notch is an event.</figcaption></figure>
+      <figure><img src="img/pieces-block.jpg" alt="Cube-of-cubes pieces: near-perfect cubes with corners bitten out"><figcaption><strong>P2 Cube of cubes</strong><br>The crispest square, but every piece looks the same.</figcaption></figure>
+      <figure><img src="img/pieces-cluster.jpg" alt="Cairn pieces: lumpy hand-piled heaps of cubes"><figcaption><strong>P3 Cairn</strong><br>Hand-piled lumps, no two alike. Hard to stop it making slabs.</figcaption></figure>
+      <figure><img src="img/pieces-pillar.jpg" alt="Pillar pieces: 2 by 2 towers, rules tall"><figcaption><strong>P4 Pillar</strong><br>Towers. Tall rules put height exactly where the text is.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · The shape of the whole system</h2>
+    <p class="muted">Each option is shown at three moments: the end of the zoom-out, "Rules shape plans…", and the twelve lit. All use the crate.</p>
+
+    <div class="option">
+      <h3>S3 Terraces <span class="tag">recommended</span></h3>
+      <p>Three steps climbing away from you, like a stair or a hillside of rice terraces. Code sits on the lowest, nearest, widest step, plans on the step behind and above it, and rules on the top step at the back, few and large. Streams fall over the steps' edges, and new work is born at the front edge, coming toward you.</p>
+      <div class="frames">
+        <figure><img src="img/terraces-zoom.jpg" alt="Terraces at the end of the zoom-out"><figcaption>End of zoom-out</figcaption></figure>
+        <figure><img src="img/terraces-layers.jpg" alt="Terraces: three bands, rules top, plans middle, code bottom"><figcaption>Rules shape plans…</figcaption></figure>
+        <figure><img src="img/terraces-twelve.jpg" alt="Terraces with twelve pieces lit in ember"><figcaption>The twelve</figcaption></figure>
+      </div>
+      <ul class="pc">
+        <li class="plus">Rules are always the top of the picture and code the bottom, from overhead or side-on, so nothing is ever dragged through the text. The powers-of-ten zoom-out works.</li>
+        <li class="plus">Portrait by nature, and every word of the script stays. The twelve count at a glance with nothing hiding them.</li>
+        <li class="plus">The reviewer works the front row, where new work arrives, and the final sweep of fixes runs toward you.</li>
+        <li class="minus">A stair says "hierarchy" out loud, which is slightly literal. The far-away shot sways instead of circling all the way round, because from behind the stair the order flips.</li>
+      </ul>
+    </div>
+
+    <div class="option">
+      <h3>S1 Column</h3>
+      <p>The same three layers, made tall and narrow: a tower of three clouds, few and big at the top, a dense swarm at the foot. This is the cheapest change.</p>
+      <div class="frames">
+        <figure><img src="img/column-zoom.jpg" alt="Column seen from overhead at the end of the zoom-out"><figcaption>End of zoom-out</figcaption></figure>
+        <figure><img src="img/column-layers.jpg" alt="Column: three stacked clusters"><figcaption>Rules shape plans…</figcaption></figure>
+        <figure><img src="img/column-twelve.jpg" alt="Column with lit pieces"><figcaption>The twelve</figcaption></figure>
+      </div>
+      <ul class="pc">
+        <li class="plus">The layers read clearly side-on; a full orbit still works.</li>
+        <li class="minus">It is still a cone. From overhead the rules sit on top of the code, so the zoom-out flies through them.</li>
+      </ul>
+    </div>
+
+    <div class="option">
+      <h3>S2 Chandelier</h3>
+      <p>The network laid out as the tree it is: each plan hangs under its rule, and each piece of code hangs under its plan.</p>
+      <div class="frames">
+        <figure><img src="img/chandelier-zoom.jpg" alt="Chandelier seen from overhead"><figcaption>End of zoom-out</figcaption></figure>
+        <figure><img src="img/chandelier-layers.jpg" alt="Chandelier: a hanging tree in three tiers"><figcaption>Rules shape plans…</figcaption></figure>
+        <figure><img src="img/chandelier-twelve.jpg" alt="Chandelier with one branch lit"><figcaption>The twelve</figcaption></figure>
+      </div>
+      <ul class="pc">
+        <li class="plus">Lineage is the layout itself, and the twelve are one visible branch.</li>
+        <li class="minus">It is the mound you already rejected, drawn better, and it is wide again at the base.</li>
+      </ul>
+    </div>
+
+    <div class="option">
+      <h3>S4 Galaxy</h3>
+      <p>Laid flat and seen from above: rules at the hub, plans on an inner ring, code out along spiral arms.</p>
+      <div class="frames">
+        <figure><img src="img/galaxy-zoom.jpg" alt="Galaxy: a spiral seen from overhead"><figcaption>End of zoom-out</figcaption></figure>
+        <figure><img src="img/galaxy-layers.jpg" alt="Galaxy: hub and rings, no top or bottom"><figcaption>Rules shape plans…</figcaption></figure>
+        <figure><img src="img/galaxy-twelve.jpg" alt="Galaxy with a lit arm segment"><figcaption>The twelve</figcaption></figure>
+      </div>
+      <ul class="pc">
+        <li class="plus">The most literal powers-of-ten zoom: one piece, then an arm, then a galaxy.</li>
+        <li class="minus">There is no top, middle or bottom. About six lines would change ("At the top" becomes "At the centre", and "The higher up a thing sits" becomes "The closer to the centre…"). From straight above, cubes lose their sides.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · The defect, from its shape alone</h2>
+    <p class="muted">There is no colour or glow before the defect is found. The crack runs diagonally as a jagged bolt, wraps over the top edge, and is wide at the mouth and a hairline at the foot. The loose piece leans out about 8°, so the outline steps. The camera moves in under "Come closer" at a three-quarter angle, and the rest of the stack fades to 30%. Because the treatment is in the cube's own frame, it works on any of the piece shapes above.</p>
+    <div class="frames">
+      <figure><img src="img/defect-0.jpg" alt="Today: a straight vertical line seen head-on among brick joints"><figcaption>Today: a straight line head-on; it reads as a brick joint</figcaption></figure>
+      <figure><img src="img/defect-1.jpg" alt="Proposed: a jagged diagonal crack across two faces, one piece leaning out"><figcaption>Proposed, on today's piece</figcaption></figure>
+      <figure><img src="img/defect-2.jpg" alt="Proposed on a lone cube: jagged crack, leaning piece"><figcaption>Proposed, on a lone cube</figcaption></figure>
+      <figure><img src="img/defect-3.jpg" alt="Lone cube from a slightly different angle"><figcaption>The same, slightly more from above</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="decide">
+    <h2>What I need from you</h2>
+    <ol>
+      <li><strong>System:</strong> terraces (recommended), column, chandelier or galaxy?</li>
+      <li><strong>Piece:</strong> crate (recommended), cube of cubes, cairn or pillar?</li>
+      <li><strong>Defect:</strong> does the proposed crack read as broken to you?</li>
+      <li><strong>If terraces:</strong> is a slow sway acceptable for "From far away, everything looks right", in place of a full circle? And should it end on about 180 pieces of code (closer to "a hundred things") rather than 300?</li>
+    </ol>
+    <p class="muted">Whatever you pick, the soft round glows go, the cube bodies being built now carry over, and the zig-zag crack applies to a single cube in any of these.</p>
+  </section>
+</div>

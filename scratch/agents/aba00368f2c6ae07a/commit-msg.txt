@@ -1,0 +1,9 @@
+galaxy: test the dotted orbits turned, parity on dark motes, ceil the stream instances, name the salts, and compare a second stream's gradient
+
+The dotted orbits get a TypeScript twin of the track dot (trackDot) and a pixel test at the pose and at 101 s, where the galaxy has turned: every lit track pixel lies on a twin dot. Reverting the turn in track.vert.glsl fails it at both sizes.
+
+The body parity mode draws the 64 hashed motes under the planet, star, core and lineage lamps, nearly all of them dark. The stream instance count rounds up, so the last partly present dot has an instance (75,925 drawn, within budget). The three literal salts in bodyAttrs.ts are named in SALT and the salts test scans the file. bodyMote() calls moteHashes. mote.frag's LIT_CORE is fenced to BODY_LOOK.litCore.
+
+The streams' gradient is compared on the neighbourhood as well as the system probe, each dot read on its own pixel and compared only when no other drawn dot is within reach.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

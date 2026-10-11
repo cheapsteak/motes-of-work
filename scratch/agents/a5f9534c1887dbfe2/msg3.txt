@@ -1,0 +1,13 @@
+timeline: layers, far and defect shot, each band crossing carried by a page turn
+
+netShots gains the shots N3 to N9, the waypoints where each fast move
+stands when the next line comes up, and splineKeys: the lap's spline in
+network terms, run from rest to rest or leaving at speed, pasted into the
+keyframes and held to them. On a phone no rise, drop, pull-back or dive
+keeps the upper layers out of the text band, so each starts as its page
+starts to fade and is over the band before the next page is up. The
+orbit ends at 0.92 so the dive can leave from rest.
+
+The stops at those page turns sit where the move leaves, text still
+whole; the stop test names them. The continuity test samples a billionth
+apart, so the dive through the far/defect boundary is no jump.

@@ -1,0 +1,18 @@
+feat: comparison page polish (twin pair, camera row, one budget, dev lighting)
+
+- Twin pair view: one mechanism, left variant 0 / vibed 0, right variant 1 /
+  vibed 1 / ghost 0, sharing the orbit through the existing pane/scissor code;
+  portrait panes widen their vertical fov so the horizontal fov is the framing's.
+- Camera row: Three-quarter, Cold open, Spec (core), Head-on, Side low, all
+  machine-relative; coreFocus plumbed into stateFromSliders; orbit and Reset
+  view work about the chosen framing.
+- One budget selector for every view, default 100k; cache disposal unchanged.
+- Presets: ghost 0.4 / 0.6 / 0.6, Faults jitter 0.25; the blurb shows the
+  ghost, an em dash replaces the double colon, set off with a rule.
+- Drive nudges -0.02 / +0.02 beside Play; arrow keys step the drive 0.01.
+- ?dev=1: collapsed "Lighting (dev)" group bound to the LIGHTING uniforms,
+  with Copy as JSON (spike clipboard fallback) and Reset.
+- buildThenDraw in try/finally; picker marks all mechanisms in side by side;
+  fit test covers every mechanism x view x preset.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

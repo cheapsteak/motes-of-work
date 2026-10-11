@@ -1,0 +1,10 @@
+     × every part moves continuously in drive at variant 0.25 154ms
+     × every part moves continuously in drive at variant 0.5 135ms
+     × every part moves continuously in drive at variant 0.75 139ms
+     × every part moves continuously along the whole story 274ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: barrel at variant 0.25: expected 1.0002063036263689 to be less than 0.6
+AssertionError: barrel at variant 0.5: expected 1.0001395687901102 to be less than 0.6
+AssertionError: barrel at variant 0.75: expected 0.9998972194408254 to be less than 0.6
+AssertionError: barrel along the story: expected 0.9972103782060391 to be less than 0.6
+      Tests  4 failed | 24 passed (28)

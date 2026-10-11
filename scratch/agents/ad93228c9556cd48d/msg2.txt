@@ -1,0 +1,7 @@
+e2e: the cold open's named frames at the simultaneous build's timings
+
+Each brief line is shot just as it has come up, its parts already in
+flight, and again just after it lights; the turn, the frame and the lap
+frames move to their new locals.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

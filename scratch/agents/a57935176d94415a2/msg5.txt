@@ -1,0 +1,16 @@
+e2e: the machine keeps below the text, and the essay ends on the bike
+
+New clearance.spec (storyboard §4 test 12), at 1440x900 and 390x844: at
+every 0.01 of section progress through each page's full-ink stretch, the
+visible machine (settled motes and the drawing, through the composed
+camera) starts at least 8 px below the bottom of its section's panel,
+measured on the page; the panel itself stays inside the 42% band. The
+last frame is checked whole: assembled, correct, riding, every visible
+mote settled and on screen under the text, and the rendered canvas lit
+under the panel and all but empty above it.
+
+e2e/machine.ts now projects through the composed camera, counts only what
+falls inside the screen's width (a close shot may run off a side), and
+builds its mote attributes once per machine.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

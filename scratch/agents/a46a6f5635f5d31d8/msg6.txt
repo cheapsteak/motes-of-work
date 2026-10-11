@@ -1,0 +1,10 @@
+galaxy: keep the full background and make its stars crisp points instead
+
+The galaxy should read as a galaxy, so the background keeps its 2,400 stars on a phone and 4,000 on
+a desktop. Halos stay apart at the galaxy wide because a background star is now a crisp 2 px point
+(a bright one 3 px) rather than a 3.5 or 6 px glow: the glow belongs to the core's haze, the
+neighbourhood's stars and nearer stars. Through the real camera, 98.9 to 99.2 % of a phone's stars
+and 99.2 to 99.6 % of a desktop's keep their halo under half the distance to their nearest
+neighbour, and none touches a neighbourhood star's.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,7 @@
+ ❯ src/timeline/keyframes.test.ts (19 tests | 2 failed) 639ms
+     × opens low and three-quarter on the bike from the drive side, sweeping as it assembles 115ms
+     × shows the ghost in the spec while only the core settles 8ms
+AssertionError: local 0: expected 1.5894093658747273 to be less than 0.5175000000000001
+AssertionError: expected { pos: [ -0.98, 0.1, 4 ], …(4) } to match object { pos: [ 0.406, 0.049, 4.137 ], …(3) }
+ Test Files  1 failed (1)
+      Tests  2 failed | 17 passed (19)

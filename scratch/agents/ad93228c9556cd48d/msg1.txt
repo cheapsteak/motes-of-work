@@ -1,0 +1,20 @@
+story: the cold open builds each line's parts as the line comes up
+
+The author asked for the 3D build to happen at the same time as the text,
+and for the blue dots line to go. So each brief line's parts now set out
+the moment the line appears: the reading leads before each stage are
+gone, and the camera moves that played inside them now play just before
+their line, so the camera is in place before anything sets out. vb-3
+("See the blue dots?") is cut; vb-2 leads straight into the list.
+
+The stages, the front wheel's turn, the frame laid tube by tube and the
+lap keep their lengths. The section goes from 8 to 6.4 screens, and the
+lap starts at 0.84375.
+
+The ordering fence becomes "the words and the parts arrive together": a
+line's new parts set out at or after its data-at and within 0.1 screen
+of it, it is never met while invisible, and it stays the newest line for
+its reading time. Both design docs give the new timing, dated, with the
+author's reason.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

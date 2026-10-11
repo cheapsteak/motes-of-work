@@ -1,0 +1,10 @@
+mote: the reflow, every mote of the machine onto the first stack
+
+Step 3b of mote(), in both mirrors: with mech.reflow above 0 the posed, drifted rest blends along an
+outward bow to a point on the first stack, chosen from the seed alone (a box by surface area, a face
+by its area, a point on it; four new salts), and the normal turns to that face's. The stack's six
+yawed boxes are one source, STACK (float32), spliced into the GLSL as STACK_* constants beside the
+salts. At 0 nothing runs: a fingerprint of mote() over every Act I section's golden states is the
+one it had before. The parity page samples reflow 0.4 and 1; the renderer sets uReflow from state.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

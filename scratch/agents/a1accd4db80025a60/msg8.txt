@@ -1,0 +1,10 @@
+fix: side by side lays out every registered mechanism, not four
+
+PANES_IN_GRID = 4 meant a fifth registered mechanism would silently never
+appear in Side by side. The grid now comes from gridShape(n) (near square,
+cols = ceil(sqrt n), so four stays 2x2 and five becomes 3x2); spare cells
+are blank instead of reading "Not yet built", and the pane overlay takes
+its grid-template from the same layout. The e2e derives the pane count and
+cells from gridShape, and the view hint no longer says 2x2.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,7 @@
+docs: README covers the comparison page and the folded shot list
+
+Adds the comparison page's URL parameters (?mech=, ?budget=, ?dev=1 and
+the ?test=1 hook window.__compare) to the table, a short section on what
+the page is, and the per-mechanism shots that npm run shots now writes.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

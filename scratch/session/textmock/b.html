@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option B — Motes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* OPTION B — "Motes"
+   Body: Newsreader (optical size on). Labels: Geist Mono. Brief: Newsreader, ask in italic, no rule.
+   Met: an agent mote (blue, glowing) lands in the gutter beside the line and the line brightens.
+   Unmet: an unlit 4px mote. Legibility: a feathered pool behind the column (blurred block, no edge). */
+body { font: 400 1.25rem/1.5 'Newsreader', Georgia, serif; font-optical-sizing: auto; }
+.run, .brief-label { font-family: 'Geist Mono', monospace; }
+
+.panel::before { content: ''; position: absolute; z-index: -1; inset: -2.75rem -3.25rem;
+  background: rgba(11,13,18,0.86); border-radius: 2.5rem; filter: blur(26px); }
+body[data-view="portrait"] .panel::before { display: none; }
+#scrim { display: none; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(11,13,18,0.95) 0, rgba(11,13,18,0.88) 38svh, rgba(11,13,18,0) 62svh); }
+body[data-view="portrait"] #scrim { display: block; }
+
+.brief { padding-left: 1.5rem; }
+.brief-label { margin: 0 0 0.3rem; font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+.brief-ask { font-style: italic; font-size: 1.3rem; line-height: 1.35; }
+ul.brief { font-size: 1.125rem; line-height: 1.42; }
+ul.brief > li { padding: 0.28rem 0; color: var(--ink-dim); }
+ul.brief > li[data-met] { color: var(--ink); }
+/* The mote: unlit until the agent's parts settle, then lit in agent blue with a soft glow. */
+ul.brief > li::before { content: ''; position: absolute; left: -1.5rem; top: 0.86em; width: 4px; height: 4px;
+  border-radius: 50%; background: rgba(232,230,238,0.28); transform: translate(2px, 0); }
+ul.brief > li[data-met]::before { width: 7px; height: 7px; transform: translate(0.5px, -1.5px);
+  background: radial-gradient(circle at 40% 40%, #dff0ff 0, var(--agent) 55%, #2d7ad6 100%);
+  box-shadow: 0 0 6px 1px rgba(77,163,255,0.65), 0 0 16px 3px rgba(77,163,255,0.28); }
+body[data-view="portrait"] { font-size: 1.125rem; }
+body[data-view="portrait"] ul.brief { font-size: 1.0625rem; }
+body[data-view="portrait"] .brief-ask { font-size: 1.2rem; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="vignette"></div>
+<div id="scrim"></div>
+<article class="panel"></article>
+<script src="render.js"></script>
+<script>
+  const ask = document.querySelector('.brief-ask');
+  if (ask) ask.insertAdjacentHTML('beforebegin', '<p class="brief-label">The brief</p>');
+</script>
+</body>
+</html>

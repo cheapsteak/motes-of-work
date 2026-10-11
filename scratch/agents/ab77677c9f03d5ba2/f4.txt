@@ -1,0 +1,11 @@
+feat: amber core (80% Human), core settles from the settle window
+
+- Specced core motes are Human below h2 0.8 (was 0.55), Dialogue above:
+  at 55/45 the screen-mixed amber and violet read cream.
+- Core settle runs from SETTLE_WINDOW to 0.45, so no core mote is part
+  settled at assembly 0. TS only: settle is an attribute, so parity is
+  unaffected.
+- The settle constants move to settle.ts (attributes.ts and mote.ts both
+  need them).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

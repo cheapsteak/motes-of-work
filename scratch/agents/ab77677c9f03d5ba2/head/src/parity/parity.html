@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mote parity</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        background: #0b0d12;
+        color: #e6ddff;
+        font-family: system-ui, sans-serif;
+      }
+      td,
+      th {
+        padding: 0.2rem 0.8rem;
+        text-align: left;
+      }
+      .fail {
+        color: #ffb347;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GLSL and TS mote() parity</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Max error</th>
+        </tr>
+      </thead>
+      <tbody id="results"></tbody>
+    </table>
+    <canvas id="gl" width="16" height="16" hidden></canvas>
+    <script type="module" src="./parity.ts"></script>
+  </body>
+</html>

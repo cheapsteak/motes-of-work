@@ -1,0 +1,9 @@
+fix: align story panels with progress spans and frame the spec core
+
+A trailing one-viewport spacer makes the scroll range equal the summed
+section heights, and each panel rides a track offset half a viewport so it
+holds the centre line for exactly its section's progress span. The spec
+camera now tracks the exploded drive gear in the right half of the frame,
+clear of the text panel.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

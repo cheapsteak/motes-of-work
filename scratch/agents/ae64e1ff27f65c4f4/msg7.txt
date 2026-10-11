@@ -1,0 +1,10 @@
+e2e: count every landed cube's corners; zoom-out's shots move in to 8
+
+The clearance test sampled the network at about 6,000 motes, a dozen or two to a plain stack, so a
+stack's top course could go uncounted. It now counts the corners of every cube whose motes have
+all landed. Counted that way, the first stack's plan sits at the top of a phone's frame at zoom-out
+0.55, inside the text band, so N1 and N2 come in from 9 to 8 units (same bearings and elevations).
+The file's header now says that the network is visibleNetwork(), beside visibleMachine(), and that
+off-screen network points are not counted.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

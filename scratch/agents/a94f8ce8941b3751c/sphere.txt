@@ -1,0 +1,5 @@
+0.35 unit-sphere x[0.009, 0.922] |y|<0.787 story drive gear left px 524
+0.5 unit-sphere x[0.005, 0.926] |y|<0.794 story drive gear left px 540
+0.7 unit-sphere x[-0.001, 0.932] |y|<0.803 story drive gear left px 558
+0.9 unit-sphere x[-0.006, 0.938] |y|<0.813 story drive gear left px 577
+1 unit-sphere x[-0.009, 0.941] |y|<0.818 story drive gear left px 587

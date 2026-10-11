@@ -1,0 +1,88 @@
+/* Shared scaffolding for the three text-treatment options. Each option file overrides the tokens
+   and the brief treatment; this file owns the stage, the (simulated) portrait reframe and the
+   positioning that mirrors src/story/dom.ts (desktop: sticky, centred on the viewport centre line). */
+@import url(fonts/newsreader.css);
+@import url(fonts/plexsans.css);
+@import url(fonts/plexmono.css);
+@import url(fonts/geistmono.css);
+@import url(fonts/literata.css);
+@import url(fonts/instrument.css);
+
+:root {
+  --bg: #0b0d12;
+  --ink: #e8e6ee;        /* ~91% luminance, not #fff: research "90-95% luminance text" */
+  --ink-dim: #9f9dab;    /* unmet lines; 6.3:1 on --bg */
+  --ink-mute: #76748a;   /* labels only, never body: 4.6:1 */
+  --agent: #4da3ff;
+  --human: #ffb347;
+  --dialogue: #c4b0ff;
+  --gutter: clamp(1rem, 5vw, 4rem);
+  --measure: 30rem;
+}
+
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+body { overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* The captured canvas frame stands in for the WebGL stage. */
+#stage { position: fixed; inset: 0; background: var(--bg) center / cover no-repeat; }
+/* Portrait: the SAME desktop frame, cropped to its bike half and scaled to the viewport width, with
+   the bike's centre at ~35% of the height. This simulates the portrait camera rule in the spec
+   (target on the machine's axis, horizontal field halved, lens shift up); the real renderer
+   produces it from the camera, not from a crop. Edges feathered so the crop reads as a frame. */
+body[data-view="portrait"] #stage { background: none; }
+body[data-view="portrait"] #stage::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: var(--crop-top, 80px);
+  height: var(--crop-h, 460px);
+  background: var(--frame) var(--crop-x, -360px) 0 / auto 100% no-repeat;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 72px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 72px), transparent);
+}
+/* Desktop only: the captured frames carry the OLD boxed panel; paint it out (feathered, bg colour)
+   so the new treatment sits on the canvas alone. The portrait crops come from the bike half, so
+   they never contain it. */
+#patch { position: absolute; display: none; background: linear-gradient(90deg, #080a0e, #0a0c11); filter: blur(14px); }
+body[data-view="desktop"] #patch { display: block; }
+body[data-view="desktop"][data-moment="brief"] #patch { left: 50px; top: 188px; width: 526px; height: 424px; }
+body[data-view="desktop"][data-moment="reveal"] #patch { left: 50px; top: 226px; width: 526px; height: 348px; }
+
+/* Vignette as shipped (body::after in style.css). */
+#vignette { position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 60% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%); }
+body[data-view="portrait"] #vignette { background: radial-gradient(ellipse at 50% 38%, transparent 50%, rgba(0, 0, 0, 0.45) 100%); }
+
+/* The text column: desktop = left column centred on the centre line; portrait = bottom-anchored. */
+.panel {
+  position: absolute;
+  left: var(--gutter);
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(var(--measure), calc(100vw - 2 * var(--gutter)));
+  box-sizing: border-box;
+}
+body[data-view="portrait"] .panel {
+  left: 16px; right: 16px; width: auto;
+  top: auto; bottom: max(20px, env(safe-area-inset-bottom)); transform: none;
+}
+
+.panel > :first-child { margin-top: 0; }
+.panel > :last-child { margin-bottom: 0; }
+.panel p { margin: 0 0 0.85em; }
+
+/* Running label above each section's text: wayfinding without a box. */
+.run { margin: 0 0 0.9rem; font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
+
+/* The brief: a quoted document, not a form. Options restyle everything below. */
+.brief { margin: 1.1rem 0 1.2rem; }
+.brief-ask { margin: 0 0 0.6rem; }
+ul.brief { margin: 0; padding: 0; list-style: none; }
+ul.brief > li { position: relative; margin: 0; }
+
+/* Contact-sheet labels (only used by sheet-*.html). */
+.sheet { background: #16181f; color: #e8e6ee; font: 500 15px/1.3 'IBM Plex Mono', monospace; padding: 24px; display: grid; gap: 24px; }
+.sheet figure { margin: 0; }
+.sheet figcaption { margin: 0 0 8px; }
+.sheet figcaption b { display: inline-block; min-width: 1.6em; padding: 2px 6px; margin-right: 8px; background: #e8e6ee; color: #0b0d12; border-radius: 3px; }
+.sheet img { display: block; width: 100%; height: auto; }

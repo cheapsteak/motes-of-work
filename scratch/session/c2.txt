@@ -1,0 +1,6 @@
+auto-advance: the essay moves itself, with a faint ring to pause it
+
+Any manual scroll intent pauses it; pressing the ring resumes it from where
+the reader is. Starts paused under reduced motion; fades away at the end.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

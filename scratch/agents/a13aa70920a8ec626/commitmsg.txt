@@ -1,0 +1,10 @@
+fix: hero fraction for large human and dialogue forms
+
+Spec counts are tens-hundreds of humans and hundreds of dialogue pairs,
+but provenance typing makes thousands of each. Only hash01(seed, 15) <
+0.01 (Human) / < 0.03 (Dialogue) now take the large halo / twin+thread
+form; the rest render as small hard points in their type colour. Thread
+alpha is back to 0.25 as briefed and the halo/core intensities are
+restored now that heroes are few.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

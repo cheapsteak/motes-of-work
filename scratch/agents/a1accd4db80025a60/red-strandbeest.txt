@@ -1,0 +1,10 @@
+     × every foot walks a continuous path at ratio 0.25, at every variant 55ms
+     × every foot walks a continuous path at ratio 0.5, at every variant 41ms
+     × every foot walks a continuous path at ratio 0.75, at every variant 36ms
+     × every foot walks a continuous path at ratio 1, at every variant 43ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: variant 0: expected 49.03490584502634 to be less than 1
+AssertionError: variant 0: expected 0.6490175571306027 to be less than 0.6
+AssertionError: variant 0: expected 0.7004704455053771 to be less than 0.6
+AssertionError: variant 0: expected 0.9835714685656394 to be less than 0.6
+      Tests  4 failed | 1 passed | 22 skipped (27)

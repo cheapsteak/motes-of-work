@@ -1,0 +1,31 @@
+diff --git a/src/main.ts b/src/main.ts
+index 4061ae8..79f1620 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -63,7 +63,7 @@ declare global {
+   }
+ }
+ 
+-const params = new URLSearchParams(window.location.search);
++const params = new URLSearchParams(window.location.search || window.location.hash.slice(1));
+ // ?test=1: no idle shimmer, so every frame is a pure function of progress; render only on change.
+ const testMode = params.get('test') === '1';
+ 
+@@ -75,7 +75,7 @@ const shimmerOn = (): boolean => !testMode && !reducedMotion.matches;
+ // Act II is the galaxy (src/galaxy, src/scene/galaxy, src/scene/node/bodySystem.ts). In test mode
+ // ?shot=<name> frames one of its probe shots (netShots.ts GALAXY_SHOTS), tracking its target, and
+ // draws the galaxy alone: the bike's motes and the drawing are not drawn.
+-const shotName = testMode ? params.get('shot') : null;
++const shotName = params.get('shot');
+ /** `?ambient=<s>` holds the galaxy's ambient clock at s seconds (src/scene/ambientClock.ts); null when absent or not a number. */
+ const ambientOverride = (() => {
+   const raw = params.get('ambient');
+@@ -119,6 +119,8 @@ const spans = sectionSpans(story);
+ const storyRoot = document.getElementById('story') as HTMLElement;
+ // The build writes the story into the page (vite.config.ts), so it reads without JavaScript.
+ const storyDom = mountStory(storyRoot, story);
++// Preview build only: a single galaxy shot shows no text.
++if (shotName !== null) { storyRoot.style.visibility = 'hidden'; (document.getElementById('site-footer') as HTMLElement).style.visibility = 'hidden'; }
+ // The brief ticks and the pages fade from the scroll driver, not the frame loop, so both work
+ // without WebGL.
+ const briefLines = parseBrief(storyRoot);

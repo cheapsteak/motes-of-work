@@ -1,0 +1,21 @@
+scene: a landing flare, a shorter settle window, and settle fields
+
+A mote is now brightest the instant it lands: one flight glow on top of
+its settled glow, gone 0.01 of assembly either side. One rule for every
+mote, in mote.glsl and mote.ts together (FLARE_WIDTH and FLARE_GAIN in
+settle.ts, checked against the GLSL declarations); the parity page agrees
+with it, and fails when the two gains differ.
+
+SETTLE_WINDOW goes from 0.12 to 0.08, so the bicycle's build stages can
+fit end to end inside assembly with a lead each. The core's role window
+ends at 0.44, one flare width before the cold open's hold, and the body's
+at 0.97, so the bicycle's last fittings fit inside it.
+
+A part may give a settleField: the place-ordered settle value of each
+mote, read at its correct position, in place of the hash spread. The
+contract test holds every sampled value inside the part's window.
+
+The three timing tests that read the core's end move by 0.01; the cold
+open's storyboard is re-cut in the commits that follow.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

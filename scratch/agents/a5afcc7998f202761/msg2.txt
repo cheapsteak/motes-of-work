@@ -1,0 +1,13 @@
+scene: the landing flare at three flight glows, so the frame's seam reads
+
+At a gain of 1 the tube being laid was barely brighter than the tubes
+already laid: screen blending saturates the agent blue, so a brighter
+mote can only go whiter, and the travelling seam was faint at 1x. At 3
+the live tube stands out, white-cored with blue edges, without blowing
+out. The width stays 0.01, so the holds still sit a flare width clear
+of every settle value and nothing flares at rest.
+
+Both mirrors change together (settle.ts and mote.glsl); the constant
+test and the parity page agree. The round-2 design records it as built.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

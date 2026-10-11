@@ -1,0 +1,8 @@
+network: the reviewer ring and its feed, against the visits
+
+ringAt(review, visits): the ring holds on each review visit for 70 % of its share and crosses to the
+next on a smoothstep, stays on the last past 1, fades in at the start and out over 1.5..2;
+feedAlpha(review) brings the feed up over 1..1.2. The fence of design test 7: by the reviewer
+section's designed keys, each visit is at least 80 % built when the ring reaches it.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

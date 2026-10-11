@@ -1,0 +1,6 @@
+ ❯ src/compare/controls.test.ts (30 tests | 2 failed) 46ms
+     × are the five framings of the visual review, machine-relative 12ms
+     × frame the cold open and the spec close-up as the story camera ends those sections 19ms
+AssertionError: expected [ …(5) ] to deeply equal [ …(5) ]
+AssertionError: Cold open: expected { pos: [ 1.528, -0.12, 2.103 ], …(4) } to match object { pos: [ 1.35, 0.3, 2.7 ], …(3) }
+ Test Files  1 failed (1)

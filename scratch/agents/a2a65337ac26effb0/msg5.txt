@@ -1,0 +1,17 @@
+story: land the core before the scroll ends, and hold it
+
+The spec section is the last one for now, and its assembly reached 0.45,
+the end of the core's settle window, exactly at spec@1, so the last core
+motes were still easing in at the bottom of the page. The assembly now
+reaches 0.46 by spec@0.8 and holds there, and the drive eases to rest by
+spec@0.8 (in-out, from the rest it starts at after the rewind) and holds
+too, so the last fifth of the scroll is a still frame of the core landed
+in the outline. The bike's drive parts start landing at 0.58 (from 0.57),
+so none of its body has begun to move at the hold.
+
+Tests: every registered machine's core motes are settled and still from
+spec@0.8 to the end; no bike body mote has begun to settle at spec@1; the
+drive slows into the hold; and an e2e scroll to the very bottom reaches
+progress 1, with the held state, at 1440x900 and 390x844.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

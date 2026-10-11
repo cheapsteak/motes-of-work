@@ -1,0 +1,17 @@
+feat: steam twin reads broken in a still; mill floor; heavier fork, solid comb
+
+Task 9 polish (visual review items 9, 10, 11 partial):
+- Steam twin, besides the runaway: the throttle lever hangs off its
+  fulcrum at -35 degrees, the valve stem has dropped into the bonnet and
+  leans 40 degrees against the valve, the spindle and everything on it
+  leans 12 degrees toward the flywheel about its foot, and the belt hangs
+  slack (localTwin sags both runs, 0.12 at mid-span; the wraps stay put).
+- Steam floor: a single-sided oval body part level with the underside of
+  the bed, with a pit where the flywheel rim passes through, holding a
+  fixed 2% of the body points. It sits inside the framing sphere of the
+  engine (whole radius 2.22 vs 2.24 before), and stays put under jitter.
+- Watch: pallet fork arms, lever and depth doubled (0.068 / 0.076 / 0.08);
+  the music-box comb is one extruded block with 0.1-wide tines and 0.025
+  slots, from the bedplate to the front face of the tines.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,271 @@
+{
+  "mock-phone": {
+    "info": {
+      "calls": 2,
+      "triangles": 0,
+      "points": 52000
+    },
+    "medianMs": 87.90000000037253,
+    "minMs": 75.60000000009313,
+    "readOnlyMs": 0.40000000037252903,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "frag": {
+      "image0": 326355,
+      "image1approx": 163178,
+      "dots": 26000
+    },
+    "dpr": 2,
+    "size": {
+      "w": 780,
+      "h": 1688
+    },
+    "errors": [
+      "[.WebGL-0x34ac00110e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x34ac00110e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x34ac00110e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x34ac00110e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    ]
+  },
+  "field-26000-phone": {
+    "dots": 26000,
+    "K": 15,
+    "density": 0.8555088486609748,
+    "cells": 3845,
+    "mesh": {
+      "vertices": 3977,
+      "triangles": 7680
+    },
+    "dpr": 2,
+    "info": {
+      "calls": 2,
+      "triangles": 15360
+    },
+    "medianMs": 1340.2999999998137,
+    "minMs": 978.6000000000931,
+    "readOnlyMs": 0.39999999990686774,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "coverage": {
+      "image0": 114858,
+      "image1": 104,
+      "screen": 1316640
+    },
+    "parity": {
+      "lit": {
+        "tested": 192,
+        "pass": 191,
+        "fail": [
+          {
+            "x": 344,
+            "y": 786.9,
+            "v": 1,
+            "expect": 23.4,
+            "r": 3.33
+          }
+        ]
+      },
+      "dark": {
+        "tested": 7,
+        "pass": 7,
+        "fail": []
+      }
+    },
+    "errors": []
+  },
+  "field-100000-phone": {
+    "dots": 100000,
+    "K": 58,
+    "density": 0.8486920584837208,
+    "cells": 3845,
+    "mesh": {
+      "vertices": 3977,
+      "triangles": 7680
+    },
+    "dpr": 2,
+    "info": {
+      "calls": 2,
+      "triangles": 15360
+    },
+    "medianMs": 3340.5,
+    "minMs": 2445.899999999907,
+    "readOnlyMs": 0.5,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "coverage": {
+      "image0": 114858,
+      "image1": 104,
+      "screen": 1316640
+    },
+    "parity": {
+      "lit": {
+        "tested": 180,
+        "pass": 180,
+        "fail": []
+      },
+      "dark": {
+        "tested": 0,
+        "pass": 0,
+        "fail": []
+      }
+    },
+    "errors": []
+  },
+  "mock-desktop": {
+    "info": {
+      "calls": 2,
+      "triangles": 0,
+      "points": 52000
+    },
+    "medianMs": 54.10000000009313,
+    "minMs": 36.200000000186265,
+    "readOnlyMs": 0.2999999998137355,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "frag": {
+      "image0": 81589,
+      "image1approx": 40794,
+      "dots": 26000
+    },
+    "dpr": 1,
+    "size": {
+      "w": 1440,
+      "h": 900
+    },
+    "errors": []
+  },
+  "field-26000-desktop": {
+    "dots": 26000,
+    "K": 15,
+    "density": 0.8555088486609748,
+    "cells": 3845,
+    "mesh": {
+      "vertices": 3977,
+      "triangles": 7680
+    },
+    "dpr": 1,
+    "info": {
+      "calls": 2,
+      "triangles": 15360
+    },
+    "medianMs": 287.60000000009313,
+    "minMs": 223.59999999962747,
+    "readOnlyMs": 0.5,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "coverage": {
+      "image0": 32652,
+      "image1": 32,
+      "screen": 1296000
+    },
+    "parity": {
+      "lit": {
+        "tested": 192,
+        "pass": 185,
+        "fail": [
+          {
+            "x": 817.3,
+            "y": 425,
+            "v": 14,
+            "expect": 40.6,
+            "r": 7.94
+          },
+          {
+            "x": 704.3,
+            "y": 381.9,
+            "v": 13,
+            "expect": 24.9,
+            "r": 9.18
+          },
+          {
+            "x": 705.5,
+            "y": 398,
+            "v": 0,
+            "expect": 14.2,
+            "r": 6.2
+          },
+          {
+            "x": 693,
+            "y": 398.9,
+            "v": 29,
+            "expect": 31.3,
+            "r": 6.63
+          },
+          {
+            "x": 798.3,
+            "y": 392.8,
+            "v": 14,
+            "expect": 14.1,
+            "r": 11.13
+          },
+          {
+            "x": 690.6,
+            "y": 413.8,
+            "v": 14,
+            "expect": 32.8,
+            "r": 4.56
+          },
+          {
+            "x": 823.6,
+            "y": 449.1,
+            "v": 53,
+            "expect": 53.9,
+            "r": 7.03
+          }
+        ]
+      },
+      "dark": {
+        "tested": 0,
+        "pass": 0,
+        "fail": []
+      }
+    },
+    "errors": []
+  },
+  "field-100000-desktop": {
+    "dots": 100000,
+    "K": 58,
+    "density": 0.8486920584837208,
+    "cells": 3845,
+    "mesh": {
+      "vertices": 3977,
+      "triangles": 7680
+    },
+    "dpr": 1,
+    "info": {
+      "calls": 2,
+      "triangles": 15360
+    },
+    "medianMs": 1164.2999999998137,
+    "minMs": 1121.2000000001863,
+    "readOnlyMs": 1.7000000001862645,
+    "n": 5,
+    "sync": "render + 1px readPixels",
+    "coverage": {
+      "image0": 32652,
+      "image1": 32,
+      "screen": 1296000
+    },
+    "parity": {
+      "lit": {
+        "tested": 180,
+        "pass": 179,
+        "fail": [
+          {
+            "x": 687,
+            "y": 392.7,
+            "v": 19,
+            "expect": 23.9,
+            "r": 8.02
+          }
+        ]
+      },
+      "dark": {
+        "tested": 0,
+        "pass": 0,
+        "fail": []
+      }
+    },
+    "errors": []
+  }
+}

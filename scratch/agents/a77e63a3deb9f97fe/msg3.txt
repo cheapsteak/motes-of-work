@@ -1,0 +1,15 @@
+text: style C is the one style; the switcher and unused fonts go
+
+The author picked C. Its rules fold into the base stylesheet: Literata
+for the text with a layered shadow and no pool, the brief's ask a
+pull-quote in Instrument Serif italic, and a met line that brightens
+and takes a faint blue halo, with no marker. Styles A and B, the draft
+switcher (module, styles, tests, e2e), the data-text attribute and the
+fonts nothing sets any more (Newsreader, Geist Mono, IBM Plex Sans and
+Mono) go, with their credits.
+
+The no-border, no-transition and met-line e2e checks now run for C
+alone; the font check also asserts readers fetch only the faces the
+text is set in.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

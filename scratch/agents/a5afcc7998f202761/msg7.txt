@@ -1,0 +1,5 @@
+e2e: the shimmer check looks at the built bike near the end
+
+At p=0.88 the essay is now in the spec section's lift, where no mote has settled, and the shimmer moves settled motes only, so the check that a frame changes with time without reduced motion had nothing to see. It looks at p=0.97, the built bike riding.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,10 @@
+node: every stream flows parent to child, so the up-stream climbs
+
+The up-stream's dots ran from R1 down to C7: the shader reversed them, but every edge already runs
+parent to child (the up-stream from C7's top to R1's foot, the way R1's builders fly). Every dot
+now moves the same way, at NODE_STREAM_SPEED spliced from birth.ts. stream.ts is the TypeScript
+twin of the dot's position, and stream.test.ts holds the shader to it and checks that the
+up-stream rises and every stream from above falls. Review tidies: the node parity test checks the
+hash as the mote test does, a sentinel is named, a change-detector test and a blank line go.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

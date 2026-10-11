@@ -1,0 +1,28 @@
+/*
+ * Self-hosted type (SIL Open Font License 1.1; notices in CREDITS.md). Vite fingerprints the files
+ * and rewrites these urls, relative to the built stylesheet under BASE_PATH=./, so nothing is
+ * fetched from the network. A browser fetches a face only when text is set in it.
+ */
+@font-face {
+  font-family: 'Literata';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./literata-400.woff) format('woff');
+}
+
+@font-face {
+  font-family: 'Literata';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./literata-400-italic.woff) format('woff');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./instrument-serif-400-italic.woff) format('woff');
+}

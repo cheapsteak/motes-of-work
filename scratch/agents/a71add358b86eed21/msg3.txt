@@ -1,0 +1,27 @@
+story: the cold open re-cut: four lines, words before parts
+
+The cold open is eight screens. The brief has four lines (the brakes and
+bell line is gone; the calipers, mudguards and rack are fittings of the
+frame and land with it). Each line carries its own data-at and is absent,
+not dim, until then: the loader reads the lines and lints their order,
+reveal.ts gives each a lineReveal, the page writes it as the line's
+--reveal, and CSS draws it as its opacity (1 without JavaScript).
+
+The words come before the parts. The bike builds in four stages whose
+windows fit end to end (core, drive [0.54, 0.60], fork [0.69, 0.72], the
+frame laid tube by tube [0.81, 0.95]), with the fittings [0.94, 0.97]
+last, and assembly holds one flare width past each stage, so nothing
+glows at rest. A content lint fences it: none of a line's new parts sets
+out until the line has been up for its reading time, and no line is met
+before it is up; it reads the markdown, the keys and the bike's windows.
+
+The drive turns twice with the chain while the authored steer cancels its
+swing, so the front wheel stays straight; then it rests at an even number
+of turns. The front wheel's turn is its own segment, before the frame:
+straight, one lock, the other, straight. The camera follows the re-timed
+storyboard; S4 is retired. vb-4 holds S1' here; the lap comes next.
+
+The storyboard's vibe-build tables follow, and the round-2 design's copy
+table and markdown are fenced as well. Its line 1 is 14 words, not 15.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

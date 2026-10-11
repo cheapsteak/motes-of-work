@@ -1,0 +1,25 @@
+bike: the wrong twin's frame is built around the swap
+
+The twin's head tube runs on up as a mast sleeve; the saddle sits on a
+cradle welded across the top of the steering column inside it (the saddle
+part's twin shape: its seat post becomes the column, its clamp the cradle),
+so it still turns with the fork. The seat tube is cut to a stub just above
+the stays and top tube, and the handlebars clamp into it through a short
+stem. The top tube climbs from the stub to the mast, 33 degrees in the
+side view and at least 15 on screen from the reveal camera, a new test.
+
+Brake cables on both bikes: a housing from each lever on the handlebars
+and a run on the frame, joined near the steering axis so they stay joined
+as the bars or the fork turn; on the twin the front cable runs up the
+climbing top tube and the rear one is a short loop. A headlamp on the fork
+crown and a reflector on the rear mudguard mark front and back on both.
+
+The frame, saddle and handlebars are each built twice by the same calls
+with other dimensions and sampled together by samplePartPair, so every
+point keeps its place along and round its tube and takes its twin normal
+from the twin surface; it gives the correct shape exactly the points
+samplePart gives. The added area re-pins the bike's point counts. The
+reveal camera pulls back 8 percent to keep the higher twin saddle and its
+mannequin in frame.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

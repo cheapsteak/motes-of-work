@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option C — Ink</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* OPTION C — "Ink"
+   Body: Literata. The ask is a pull-quote in Instrument Serif. Lines separated by hairlines, no marker:
+   a met line simply comes up from dim to full ink and takes a faint blue halo (lit by the agent).
+   Legibility: NO scrim on desktop, only a layered text shadow and the camera's copy space;
+   portrait still needs the bottom scrim. */
+body { font: 400 1.1875rem/1.55 'Literata', Georgia, serif; font-optical-sizing: auto;
+  text-shadow: 0 1px 2px rgba(11,13,18,0.9), 0 0 14px rgba(11,13,18,0.95), 0 0 30px rgba(11,13,18,0.8); }
+.run { font-family: 'Geist Mono', monospace; }
+#scrim { display: none; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(11,13,18,0.95) 0, rgba(11,13,18,0.88) 38svh, rgba(11,13,18,0) 62svh); }
+body[data-view="portrait"] #scrim { display: block; }
+
+.brief-ask { font: 400 1.8rem/1.2 'Instrument Serif', serif; font-style: italic; letter-spacing: 0.005em; margin-bottom: 0.5rem; }
+ul.brief { font-size: 1.0625rem; line-height: 1.45; }
+ul.brief > li { padding: 0.42rem 0; color: var(--ink-dim); border-top: 1px solid rgba(232,230,238,0.1); }
+ul.brief > li:last-child { border-bottom: 1px solid rgba(232,230,238,0.1); }
+ul.brief > li[data-met] { color: var(--ink);
+  text-shadow: 0 0 10px rgba(77,163,255,0.5), 0 1px 2px rgba(11,13,18,0.9), 0 0 14px rgba(11,13,18,0.95); }
+body[data-view="portrait"] { font-size: 1.0625rem; }
+body[data-view="portrait"] ul.brief { font-size: 1rem; }
+body[data-view="portrait"] .brief-ask { font-size: 1.6rem; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="vignette"></div>
+<div id="scrim"></div>
+<article class="panel"></article>
+<script src="render.js"></script>
+</body>
+</html>

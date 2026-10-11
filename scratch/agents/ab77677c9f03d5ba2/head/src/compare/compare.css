@@ -1,0 +1,397 @@
+:root {
+  --bg: #0b0d12;
+  --panel: #10131b;
+  --edge: rgba(230, 221, 255, 0.14);
+  --text: #ecebf2;
+  --muted: #9a93b3;
+  --accent: #ffb347;
+  --control: #1a1f2c;
+  --panel-width: 372px;
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    13px/1.35 system-ui,
+    sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: var(--panel-width) 1fr;
+  overflow: hidden;
+}
+
+/* Panel */
+
+#panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 10px 16px 8px;
+  overflow-y: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--edge);
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+h2 {
+  margin: 9px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.blurb,
+.preset-blurb,
+.group-hint {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.blurb {
+  min-height: 2.7em;
+  margin: 6px 0;
+}
+
+.preset-blurb {
+  min-height: 2.7em;
+  margin: 4px 0 0;
+}
+
+.group-hint {
+  margin: 0 0 3px;
+  font-size: 12px;
+}
+
+#controls {
+  flex: 1 0 auto;
+}
+
+button,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--control);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+select:hover {
+  border-color: rgba(230, 221, 255, 0.35);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button[aria-pressed='true'] {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.picker button {
+  padding: 4px 2px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.presets button {
+  padding: 3px 6px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 84px 1fr 34px;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.row label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.sliders.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 12px;
+}
+
+.sliders.two .row {
+  grid-template-columns: 82px 1fr 30px;
+  gap: 4px;
+}
+
+input[type='range'] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.play-row {
+  grid-template-columns: 84px 44px 1fr 44px;
+  margin-top: 2px;
+}
+
+.toggles {
+  display: flex;
+  gap: 6px;
+}
+
+.toggles select {
+  padding: 3px 4px;
+}
+
+.toggles .check {
+  overflow: visible;
+}
+
+.toggles .quiet {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#panel footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--edge);
+}
+
+a,
+button.link {
+  color: var(--accent);
+}
+
+button.link {
+  padding: 0;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+/* Viewport */
+
+#view {
+  position: relative;
+  min-width: 0;
+  height: 100vh;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+#panes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  pointer-events: none;
+}
+
+#panes.single {
+  grid-template: 1fr / 1fr;
+}
+
+#panes.grid {
+  grid-template: 1fr 1fr / 1fr 1fr;
+}
+
+.pane {
+  position: relative;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+
+#panes.grid .pane {
+  border: 0.5px solid var(--edge);
+}
+
+.pane .label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pane.empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+#orbit-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#building {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 8px 14px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+}
+
+#notice {
+  position: absolute;
+  inset: auto 16px 16px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+}
+
+/* Credits */
+
+dialog {
+  width: min(46rem, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0 20px 16px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dialog-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 8px;
+  background: var(--panel);
+}
+
+.dialog-head h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+#credits-body h1 {
+  display: none; /* the dialog title already says it */
+}
+
+#credits-body h2 {
+  font-size: 14px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#credits-body pre {
+  overflow-x: auto;
+  padding: 10px;
+  font-size: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+/* Narrow windows: the canvas on top, the panel below it. */
+@media (max-width: 720px) {
+  body {
+    display: flex;
+    flex-direction: column-reverse;
+    height: auto;
+    overflow: auto;
+  }
+
+  #view {
+    height: 60vh;
+  }
+
+  #panel {
+    height: auto;
+    border-right: 0;
+  }
+}

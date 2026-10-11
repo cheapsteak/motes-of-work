@@ -1,0 +1,3 @@
+Task 6 re-review: all seven resolved, no new Critical/Important (Minor 2 by reasoning; carry to task 7: a permanent unit assertion that each dark parity case has >= 8 motes visible-but-unlit). Task 6: complete (pushed cc91d66).
+Task 7 base: cc91d66
+Task 7: dispatched (opus). Carries: task-6 (3) twelve framed at every ambient both sizes; (4) close framing keeps a derped C1 in frame; HERO_CLOSE must not change (pin clause c uses it) — fence that the rendered close shot puts the pinned moon where searchPin projected it; dark-parity count assertion.

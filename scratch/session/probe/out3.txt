@@ -1,0 +1,5 @@
+old 56 new 56
+R0.hero: 8000 vs true
+R1.hero: 4000 vs true
+C1.hero: 8000 vs true
+C5.hero: 4000 vs true

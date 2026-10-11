@@ -1,0 +1,18 @@
+galaxy: the derps, a schedule of six kinds and an un-eased burst, in both mirrors
+
+A body that carries the defect now derps on the ambient clock. derp.ts and its GLSL mirror hash a
+slot of 2.2 s and an event of 1 s inside it from the seed, so a cracked body misbehaves 45 % of
+the time with no gap over 2.4 s, and draw its kind by weight: the burst, the scatter (whose clock
+goes to the shell), the skip, the stall, the reverse and the wobble. Every cracked body has the
+source's seed and its own phase, so they stutter in the same order. The burst is eight hashed
+micro-slots of hard cuts: a snap along the orbit, a jump off the track, a lift, a ghost double, a
+quantised clock, a jitter held for a thirtieth of a second, and a tremble in its middle third.
+Stars and the core only shiver, four times as hard, and the fix's v multiplies every term.
+
+The constants are spliced from birth.ts. The slot's time comes from the remainder of the ambient
+by the period, as the orbits' angles do, and the shader takes its sines from moteSinCos. The
+parity page gains ?lib=derp (C1, a moon, P1, R0 and a healthy planet over 0 to 20 s and at each
+kind's first events), which agrees to 5e-6; a sample a few float32 units from a cut is matched
+across it and counted.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

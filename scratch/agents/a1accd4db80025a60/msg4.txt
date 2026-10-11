@@ -1,0 +1,10 @@
+fix: light the steam twin's slack belt as it hangs
+
+The twin belt sagged but kept the taut belt's normals, so it was lit as
+if flat. Its twin normal now goes through the inverse transpose of the
+sag map's Jacobian, from the sag parabola's slope; the pulley wraps keep
+theirs. The test carries two tangents of the flat belt through the sag
+(by finite differences of beltSag itself) and checks the twin normal is
+square to both.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

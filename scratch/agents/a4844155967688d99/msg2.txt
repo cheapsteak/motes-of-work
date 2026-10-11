@@ -1,0 +1,13 @@
+galaxy: reduce the turn to one turn exactly, and name the bodies sampler for its texture
+
+The galaxy's turn is now reduced to one turn before it becomes an angle, in both mirrors, as the
+orbits' angles are: it swings points a hundred units from N0, so a day in, its float32 angle was
+off by 3.4e-3 units. Every reduction takes t - k P Cody-Waite style, with the period split into a
+9-bit head (exact times k) and a tail, so a planet's period no longer rounds k P by half a unit of
+t. The orbit parity samples a day in as well, one draw per time: it holds 7.8e-6 there.
+
+The orbit sampler is uBodyTex, not uBodies, which the reflow's per-part array in mote.glsl will
+take; the plan names it, and the streams texture's uStreamTex. The tests share the mirrors'
+elementsAt, name NODE_NEVER, and drop an assertion that proved nothing.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

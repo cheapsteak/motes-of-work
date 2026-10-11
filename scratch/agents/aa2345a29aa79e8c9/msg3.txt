@@ -1,0 +1,8 @@
+compare: the cold open and spec cameras stand where the story ends them
+
+Both presets take the story camera's position, field and core focus at the
+end of their sections, fenced against keyframes.json, but look at the centre
+of the machine (or its core): the story aims beside it to clear the text
+panel, which would push the machine off a narrower pane.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

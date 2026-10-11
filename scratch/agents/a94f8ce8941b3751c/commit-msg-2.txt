@@ -1,0 +1,9 @@
+fix: machine-relative default and vertex spike camera; memoise anchors per object
+
+The default camera is now a machine-relative overview (pos [0, 0, 3.1]) rather
+than eight machine radii away, and the vertex spike pins the camera that
+reproduces its old world framing for the gears. mechanismAnchors memoises by
+mechanism object in a WeakMap and returns a frozen result. The centre-line
+e2e reports each section edge as its own soft step.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

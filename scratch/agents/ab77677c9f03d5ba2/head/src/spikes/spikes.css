@@ -1,0 +1,108 @@
+:root {
+  --bg: #0b0d12;
+  --fg: #e6ddff;
+  --muted: #9a93b3;
+  --accent: #ffb347;
+  --pass: #7bd88f;
+  --fail: #ff6b6b;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 16px 3rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+table {
+  border-collapse: collapse;
+}
+
+td,
+th {
+  padding: 0.25rem 1rem 0.25rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pass {
+  color: var(--pass);
+}
+
+.fail {
+  color: var(--fail);
+}
+
+button {
+  font: inherit;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.6rem 1rem;
+  min-height: 44px;
+}
+
+#results-json {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 12rem;
+  margin-top: 0.5rem;
+  font:
+    13px/1.4 ui-monospace,
+    monospace; /* 13px is fine: the textarea is read-only, so iOS does not zoom */
+  color: var(--fg);
+  background: #141824;
+  border: 1px solid #2a2f40;
+}
+
+/* Render spikes: full-window canvas with the HUD and results panel floating over it. */
+canvas#stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+.overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 60vh;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 0.6rem 16px;
+  background: rgba(11, 13, 18, 0.82);
+  font-size: 14px;
+}
+
+.overlay pre {
+  margin: 0.3rem 0;
+  white-space: pre-wrap;
+  font:
+    12px/1.4 ui-monospace,
+    monospace;
+}
+
+.overlay b {
+  font-variant-numeric: tabular-nums;
+}

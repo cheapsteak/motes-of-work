@@ -1,0 +1,13 @@
+node: the network's position library, its TypeScript mirror and its motes
+
+node.glsl and node.ts, step for step: a mote lands on its clock (builders on net.growth inside
+their stack's duration, cube by cube; person motes on net.fix), flies in along its stream's Bezier
+or falls from above, flares as it lands, carries the crack until the fix closes it, and lights by
+the highlight and the fan-out surge. The surge's hop is clamped at 6 and both lights go out as the
+fix lands. The constants live once in birth.ts and are spliced into the GLSL; NodeOut is generated
+from the parity field list, NodeAttrs from nodeLayout.ts, and the two static textures are packed
+by nodeData.ts for both mirrors. The motes themselves (nodeAttrs.ts) are surface points on every
+stack's boxes, with the crack's twin on each cracked stack's crack cube (crack.ts) and its person
+set; the first stack has none, its motes are the bike's. Three salts for where a mote sets out.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

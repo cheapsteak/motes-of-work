@@ -1,0 +1,52 @@
+{
+  "tracks": {
+    "provenance.vibed": [
+      { "at": "vibe-build@0", "value": 1 },
+      { "at": "rewind@0.9", "value": 1 },
+      { "at": "rewind@1", "value": 0 }
+    ],
+    "mech.variant": [
+      { "at": "vibe-build@0", "value": 1 },
+      { "at": "rewind@0", "value": 1 },
+      { "at": "rewind@0.9", "value": 0 }
+    ],
+    "mech.assembly": [
+      { "at": "vibe-build@0", "value": 0 },
+      { "at": "vibe-build@0.7", "value": 1, "ease": "outCubic" },
+      { "at": "rewind@0", "value": 1 },
+      { "at": "rewind@0.8", "value": 0, "ease": "inOutQuad" },
+      { "at": "spec@0.2", "value": 0 },
+      { "at": "spec@1", "value": 0.45 }
+    ],
+    "mech.drive": [
+      { "at": "vibe-build@0", "value": 0 },
+      { "at": "vibe-build@1", "value": 2 },
+      { "at": "rewind@1", "value": 0 },
+      { "at": "spec@1", "value": 0.5 }
+    ],
+    "mech.ghost": [
+      { "at": "spec@0", "value": 0 },
+      { "at": "spec@0.3", "value": 1 }
+    ],
+    "camera.pos": [
+      { "at": "vibe-build@0", "value": [-0.068, 0.626, 5.484] },
+      { "at": "vibe-build@1", "value": [1.102, 0.431, 3.924], "ease": "inOutQuad" },
+      { "at": "rewind@1", "value": [-0.068, 0.04, 6.264], "ease": "inOutQuad" },
+      { "at": "spec@0.35", "value": [-1.02, 0.1, 4.15], "ease": "inOutCubic" },
+      { "at": "spec@1", "value": [-0.98, 0.1, 4] }
+    ],
+    "camera.target": [
+      { "at": "spec@0", "value": [-0.068, 0.04, 0.023] },
+      { "at": "spec@0.35", "value": [-1.02, 0, 0], "ease": "inOutCubic" },
+      { "at": "spec@1", "value": [-0.98, 0, 0] }
+    ],
+    "camera.coreFocus": [
+      { "at": "spec@0", "value": 0 },
+      { "at": "spec@0.35", "value": 1, "ease": "inOutCubic" }
+    ],
+    "camera.fov": [
+      { "at": "spec@0", "value": 40 },
+      { "at": "spec@0.35", "value": 35, "ease": "inOutCubic" }
+    ]
+  }
+}

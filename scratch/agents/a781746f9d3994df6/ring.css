@@ -1,0 +1,93 @@
+/*
+ * Auto-advance (src/autoAdvance/indicator.ts): a small ring in the bottom-right corner on every
+ * screen, its edge 16px in from the corner (plus a phone's safe area), clear of the text band; the
+ * credits link sits bottom left, out of its way. The arc dials down through a hold and fills through
+ * a scroll; paused, a play glyph. Ink at about 55 % for the ring, the dial brighter. Behind it a soft
+ * pool of the stage colour (a radial gradient, no edge) so it reads over bright motes and the ink
+ * sheet: no border, no box, no shadow. The 44px button is its hit area, and takes no touch gesture
+ * (touch-action) so a press on it never scrolls; nothing outside it is caught. Its only transition is
+ * the fade when the essay ends.
+ */
+#auto-advance {
+  position: fixed;
+  right: calc(env(safe-area-inset-right, 0px) + 8px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  background: radial-gradient(closest-side, rgba(11, 13, 18, 0.78) 62%, rgba(11, 13, 18, 0.45) 82%, rgba(11, 13, 18, 0) 100%);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#auto-advance svg {
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+}
+
+.auto-advance-track {
+  stroke-width: 1.25;
+  stroke-opacity: 0.55;
+}
+
+.auto-advance-arc {
+  stroke-width: 2;
+  stroke-opacity: 0.9;
+}
+
+.auto-advance-play {
+  display: none;
+  fill: currentColor;
+  fill-opacity: 0.85;
+  stroke: none;
+}
+
+#auto-advance:hover .auto-advance-track,
+#auto-advance:focus-visible .auto-advance-track {
+  stroke-opacity: 0.8;
+}
+
+#auto-advance:hover .auto-advance-play,
+#auto-advance:focus-visible .auto-advance-play {
+  fill-opacity: 1;
+}
+
+#auto-advance:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 0;
+}
+
+#auto-advance[data-state='paused'] .auto-advance-arc {
+  display: none;
+}
+
+#auto-advance[data-state='paused'] .auto-advance-play {
+  display: inline;
+}
+
+#auto-advance[data-state='ended'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.8s ease,
+    visibility 0s linear 0.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #auto-advance[data-state='ended'] {
+    transition: none;
+  }
+}
+

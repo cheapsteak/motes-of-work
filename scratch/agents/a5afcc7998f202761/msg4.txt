@@ -1,0 +1,25 @@
+scene: ink on a sheet of paper, and the cloud dimmed behind it
+
+The ink is one instanced draw of screen-space quads, one per segment
+(triangles; nothing in it is a point). Its vertex shader poses each
+segment with its part on the correct build or the twin's, presses it
+toward the page by ink.flat (rear parts first), reveals it along the
+pen's arc or the redraw's, fades struck-out lines to a pentimento, and
+gives the pen a wobble and a pressure keyed on the stroke, so a line
+never shivers between frames. The fragment shader draws a capsule with
+round ends at a stroke's own ends, butt joins between its segments and
+a nib where the pen has got to. Colours run from sepia on the page to
+pale and warm on the stage as the sheet fades.
+
+The sheet is a static quad of procedural paper (grain, fibres, flecks,
+a vignette, a cut edge) that writes depth only while fully opaque. The
+mote and thread draws take stage.motes as a brightness (uStage); the
+mote() library and its parity are untouched.
+
+SceneState gains eight leaves (sheet.opacity, ink.opacity, drawn,
+redraw, flat, ring, tick, stage.motes) whose defaults leave every
+existing frame as it was. inkLayout.ts builds the instances and
+inkPose.ts mirrors the shader's posing and visibility on the CPU for
+tests. The test hook reports what the last frame drew (drawStats).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

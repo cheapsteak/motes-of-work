@@ -1,0 +1,31 @@
+## Global Constraints
+
+- **Phone first.** Every visible change is checked at 390×844 portrait before 1440×900, in tests and in the stills a reviewer looks at.
+- **Purity.** A frame is a pure function of (scroll, ambient). Story motion means everything on `net.*`, `camera.*`, `freeze.*`, `mech.reflow` and `clock`. Ambient motion means orbits, the galaxy's turn, derps, morph and scatter. Nothing is integrated, and there is no `Math.random`.
+- **Ambient clock.** Wall time since the first frame. It is frozen by `?ambient=<s>`, by `?test=1` (at `AMBIENT_POSE` unless `?ambient=` is also given) and by `prefers-reduced-motion` (at `AMBIENT_POSE`). The only wall-time term during the freeze's hold is the 12 Hz twos, which is off in test mode and under reduced motion.
+- **Mirror pairs.** `x.glsl` and `x.ts` change in the same commit. Constants are spliced from one source (`src/scene/node/birth.ts`, as the `NODE_*` constants are), and each pair has a parity mode (`?lib=<name>`) with an `e2e/parity.spec.ts` test. `mote.glsl` and `mote.ts` follow the same rule.
+- **Text above the picture.** At every beat sample, at both sizes and at every `AMBIENT_GRID` pose, the topmost lit pixel is ≥ 8 px under the text panel's bottom.
+- **No soft discs.** The only glows are capped star sprites: 2 px for background stars and 3 px for the brightest 15 % (crisp points with at most a 1 px halo, `HALO_PX`; ruled in Task 1 fix round 2 so the galaxy wide keeps its halos apart at the full counts, superseding galaxy §4's 3.5 / 6 px), `clamp(5 R focal / d, 5, 18)` px for neighbourhood stars and `clamp(5 R focal / d, 5, 24)` px for core bodies (`glowPx`, src/galaxy/body.ts). The one exception is a single 56 px core haze at 0.35 brightness, drawn at the galaxy wides only. Every point is clamped to its `[minPx, maxPx]` in CSS px times the device pixel ratio.
+- **Healthy bodies are perfect.** A body that does not carry the defect is a lattice sphere on a smooth Kepler ellipse, with no event of any kind. Only cracked bodies derp, morph and scatter, and the fix's `v` multiplies every one of those terms.
+- **Streams only on lineage beats** (galaxy §15). The lineage streams and the reviewer's feed are scaled by the story leaf `net.streams`, never by the level of detail.
+  - `net.streams` is 1 only on ly-1, ly-5, up-1, re-3, tr-1, tr-2 and fx-4, and 0 everywhere else, the whole zoom-out included.
+  - Shown streams are 1 px dots, one per 1.2 units of chord, capped at `STREAM_CAP` 0.3 of a star glow's core, and faded `mix(1, 0.15, u)` from parent to child.
+  - Their control point sits 0.10 of the chord off the midpoint. Their dots flow on the ambient clock.
+  - A builder's flight is not a stream and is never gated.
+- **Level of detail by projected px** (`s_px`, a system's outer radius on screen in CSS px):
+  - planet points 10→20
+  - planet shells 25→50
+  - moons, tracks, orbits and every derp term 60→120
+  - at most two systems at full detail in any shot
+- **Copy.** The words are draft 4, verbatim. A line has at most 26 words and a page at most 3 lines.
+  - Act II narration never uses: galaxy, planet, moon, star, orbit, track or atom (singular or plural); stack, cube, stream, crack, ring or glow; or a colour or dot word.
+  - "system" appears exactly once, in `ly-6`.
+  - Story copy stays `draft: true`.
+- **Publication-safe.** No company, product, service, person or issue names in code, copy, comments or commit messages.
+- **Tooling.**
+  - No new runtime dependencies.
+  - Never run `playwright install`. Run e2e with `E2E_PORT=<port from dispatch>` and leave no background processes.
+  - Never `git add .`.
+  - Commits are small, and each ends with the dispatch trailer. Implementers do not push. The controller pushes after review, and only once `npm run typecheck && npm test && E2E_PORT=$PORT npm run e2e` is green.
+- **Spec path map.** The spec's `src/network/{galaxy,body,generate,lineage}.ts` are built as `src/galaxy/{background,body,generate,lineage}.ts` so that the old network keeps running until Task 8. Task 8 moves `src/network/{schedule,review}.ts` into `src/galaxy/` and deletes `src/network/`.
+

@@ -1,0 +1,4 @@
+[{"name":"rv1 ax13 p8 f30 d3.4","mode":"axis","az":13,"pitch":8,"d":3.4,"fov":30,"cx":0.42,"cy":0},
+ {"name":"sp1 ax20 p5 d4","mode":"axis","az":20,"pitch":5,"d":4,"fov":35,"cf":1,"role":"core","variant":0,"cx":0.44,"cy":0.08},
+ {"name":"sp.35 ax24 p6 d4.15","mode":"axis","az":24,"pitch":6,"d":4.15,"fov":35,"cf":1,"role":"core","variant":0,"cx":0.44,"cy":0.08},
+ {"name":"sp1 ax15 p5 d4","mode":"axis","az":15,"pitch":5,"d":4,"fov":35,"cf":1,"role":"core","variant":0,"cx":0.44,"cy":0.08}]

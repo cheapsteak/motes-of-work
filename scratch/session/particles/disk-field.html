@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disk field prototype</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Throwaway prototype: the black hole's accretion disk as a PER-PIXEL HASHED DOT FIELD drawn on a
+// coarse annulus mesh, instead of one instance per dot. The mesh vertices go through the SAME forward
+// lens as the dot-based reference (bhmock/blackhole.html), carrying the unbent disk coordinate as a
+// varying; the fragment shader unwinds the Keplerian shear per ring (rigid rotation inside a 0.25-unit
+// ring, differential between rings), hashes K candidate dots into each (ring, angular cell), tests the
+// 3x3 neighbouring cells, and sums additive discs sized in device px via the varying's derivative.
+// Everything is a pure function of (pixel, ambient). A TS-style enumerator (below, JS) lists the same
+// dots for the centre-sampling parity check and the count.
+import * as THREE from '../../../node_modules/three/build/three.module.js';
+
+const B_CRIT = 2.6, OMEGA0 = 3.1, REF_DIST = 75, R_IN = 2.75, R_OUT = 12.5, DR = Number(new URLSearchParams(location.search).get('dr') ?? 0.35), TAU = 6.283185307179586;
+const params = new URLSearchParams(location.search);
+const TARGET = Number(params.get('dots') ?? 26000);
+const AMBIENT = Number(params.get('ambient') ?? 3);
+const IMAGE1 = (params.get('image1') ?? '1') !== '0';
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(DPR);
+renderer.setClearColor(0x000000, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 600);
+const EL = 16 * Math.PI / 180;
+camera.position.set(0, REF_DIST * Math.sin(EL), REF_DIST * Math.cos(EL));
+camera.up.set(0, 1, 0);
+camera.lookAt(0, 0, 0);
+camera.updateMatrixWorld(true);
+
+// ---------------------------------------------------------------- GLSL
+const LENS = /* glsl */`
+uniform float uScale, uBcrit, uBend;
+// The reference page's lens, verbatim in its maths: image 0 the primary, 1 the far side's underside arc.
+vec3 lens(vec3 pv, vec3 hv, float image, out float ok){
+  vec3 rel = (pv - hv) / uScale;
+  float d = -rel.z;
+  vec2 t = rel.xy; float b = length(t);
+  float deff = max(d, 0.0) + 0.45*exp(-abs(d));
+  float disc = sqrt(b*b + 8.0*uBend*deff);
+  float bp; ok = 1.0;
+  if (image < 0.5) {
+    bp = 0.5*(b + disc);
+    if (d > 0.0 && bp < uBcrit) ok = 0.0;
+    ok *= 1.0 + 0.45*smoothstep(0.0, 3.0, d);
+  } else {
+    if (d < 0.4) ok = 0.0;
+    bp = 0.5*(disc - b);
+    bp = uBcrit + (bp - uBcrit)*0.35;
+    t = -t;
+  }
+  float x = bp - uBcrit; float k = 10.0;
+  float sp = log(1.0 + exp(k*min(x, 30.0)))/k;
+  ok *= mix(0.22, 1.0, smoothstep(-0.3, 0.45, x));
+  bp = uBcrit + 0.03 + sp;
+  vec2 tp = (b > 1e-4) ? t*(bp/b) : vec2(0.0, bp);
+  float w = d > 0.0 ? 1.0 : exp(d/3.0);
+  float z = mix(rel.z, 0.0, w);
+  return hv + vec3(tp, z)*uScale;
+}`;
+
+const VERT = /* glsl */`precision highp float;
+in vec3 position;
+uniform mat4 modelViewMatrix, projectionMatrix;
+uniform float uImage;
+${LENS}
+out vec2 vP;      // the UNBENT disk point (x, z): what the field is evaluated in
+out float vOk;    // the lens's gain (0 captured)
+void main(){
+  vP = position.xz;
+  vec3 hv = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vec3 pv = (modelViewMatrix * vec4(position, 1.0)).xyz;
+  float ok; vec3 lv = lens(pv, hv, uImage, ok);
+  vOk = ok;
+  gl_Position = projectionMatrix * vec4(lv, 1.0);
+}`;
+
+const FRAG = /* glsl */`precision highp float;
+precision highp int;
+in vec2 vP;
+in float vOk;
+uniform float uTime, uDpr, uSizeScale, uDiskGain, uLop, uImage, uDensity, uCoverage;
+uniform int uK;
+uniform vec3 uCamPos;
+out vec4 outColor;
+const float R_IN = ${R_IN.toFixed(3)}, R_OUT = ${R_OUT.toFixed(3)}, DR = ${DR.toFixed(3)}, OMEGA0 = ${OMEGA0.toFixed(3)};
+const float TAU = 6.283185307179586;
+
+// PCG hash, as the essay's mote library (integer, parity-safe).
+uint pcg(uint v){ uint s = v*747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
+float hash01(uint seed, uint salt){ return float(pcg(seed ^ (salt*0x9e3779b9u)) >> 8u) / 16777216.0; }
+
+vec2 doppler(vec3 p, vec3 v, float beta){
+  vec3 toCam = normalize(uCamPos - p);
+  float c = dot(v, toCam);
+  float g = sqrt(max(1.0 - beta*beta, 0.0)) / (1.0 - beta*c);
+  return vec2(pow(g, 3.0*uLop), g);
+}
+vec3 temp(float g, float heat){
+  vec3 warm = vec3(1.0, 0.64, 0.36), cool = vec3(0.55, 0.76, 1.0), white = vec3(0.96, 0.97, 1.0);
+  float m = smoothstep(0.72, 1.32, 1.0 + (g - 1.0)*uLop);
+  return mix(mix(warm, cool, m), white, heat*0.42);
+}
+
+void main(){
+  float r = length(vP);
+  bool inside = r >= R_IN && r <= R_OUT && vOk > 0.0;
+  if (uCoverage > 0.5) { outColor = inside ? vec4(1.0) : vec4(0.0); if (!inside) discard; return; }
+  if (!inside) discard;
+  float phi = atan(vP.y, vP.x);
+  // Shared per pixel (the dots are ~1 px, so their own place is the pixel's): the reference's intensity terms.
+  vec3 p = vec3(vP.x, 0.0, vP.y);
+  vec3 v = vec3(-sin(phi), 0.0, cos(phi));
+  vec2 dp = doppler(p, v, sqrt(0.5/max(r, 2.75)));
+  float heat = clamp((6.5 - r)/4.0, 0.0, 1.0);
+  float radial = pow(3.0/r, 1.25) * smoothstep(2.7, 3.3, r);
+  float grav = max(1.0 - 1.0/r, 0.0);
+  float outer = 1.0 - smoothstep(10.0, 12.5, r);
+  float base = radial * dp.x * grav * outer * uDiskGain * (uImage > 0.5 ? 0.55 : 1.0) * vOk;
+  vec3 col = temp(dp.y, heat);
+  // World units per device px at this pixel, from the unbent coordinate's screen derivative: dots keep
+  // their px size whatever the lens does to the mesh.
+  vec2 ddx = dFdx(vP), ddy = dFdy(vP);
+  float upp = max(sqrt(abs(ddx.x*ddy.y - ddx.y*ddy.x)), 1e-6);
+  int nRings = int(floor((R_OUT - R_IN)/DR + 0.5));
+  int i0 = int(floor((r - R_IN)/DR));
+  vec3 acc = vec3(0.0); float accA = 0.0;
+  for (int di = -1; di <= 1; di++) {
+    int i = i0 + di;
+    if (i < 0 || i >= nRings) continue;
+    float ri = R_IN + (float(i) + 0.5)*DR;
+    float omega = OMEGA0 * pow(ri, -1.5);
+    float turns = fract(omega*uTime/TAU);           // the phase reduced to turns (float-safe)
+    float phi0 = phi - turns*TAU;                   // this ring's unwound angle at the pixel
+    int n = max(6, int(floor(TAU*ri/DR + 0.5)));    // angular cells in this ring (~DR wide)
+    float w = TAU/float(n);
+    float u = phi0 / w;                             // cell coordinate, continuous (unwrapped)
+    int j0 = int(floor(u));
+    float pExist = min(1.0, uDensity * pow(3.5/ri, 0.8));
+    for (int dj = -1; dj <= 1; dj++) {
+      int j = j0 + dj;
+      int jj = ((j % n) + n) % n;                   // the cell's identity, wrapped
+      uint seed = pcg(uint(i)*7919u + uint(jj)*104729u + 17u);
+      for (int k = 0; k < uK; k++) {
+        uint sk = seed ^ (uint(k)*0x9e3779b9u);
+        if (hash01(sk, 1u) > pExist) continue;
+        float rc = ri + (hash01(sk, 2u) - 0.5)*DR*0.9;
+        float uc = float(j) + hash01(sk, 3u);       // unwrapped, so the seam needs no care
+        float bright = mix(0.3, 1.0, hash01(sk, 4u));
+        float I = bright * base;
+        float sizePx = max((1.3 + 0.9*hash01(sk, 5u))*uDpr*uSizeScale + 0.7*clamp(I - 1.0, 0.0, 1.5), uDpr);
+        float dphi = (u - uc)*w;
+        float dr = r - rc;
+        float dpx = sqrt(dr*dr + ri*ri*dphi*dphi) / upp;
+        float rad = 0.5*sizePx;
+        float e = 1.0 - smoothstep(rad - 0.75, rad + 0.25, dpx);
+        float a = clamp(I, 0.0, 1.0) * e;
+        acc += col*a; accA += a;
+      }
+    }
+  }
+  outColor = vec4(acc, min(accA, 1.0));
+}`;
+
+// ---------------------------------------------------------------- the mesh: a coarse annulus
+// NR rings (denser inside, where the lens bends most) x NS segments; the lens bends VERTICES, so the
+// mesh only has to be fine enough that the bent image is smooth. Vertex count is independent of dots.
+const NR = Number(params.get('nr') ?? 40), NS = Number(params.get('ns') ?? 96);
+function annulus() {
+  const pos = new Float32Array((NR + 1) * (NS + 1) * 3);
+  const idx = [];
+  for (let a = 0; a <= NR; a++) {
+    const u = a / NR;
+    const r = R_IN - 0.05 + (R_OUT + 0.05 - R_IN + 0.05) * Math.pow(u, 1.5);
+    for (let s = 0; s <= NS; s++) {
+      const phi = (s / NS) * TAU;
+      const o = (a * (NS + 1) + s) * 3;
+      pos[o] = r * Math.cos(phi); pos[o + 1] = 0; pos[o + 2] = r * Math.sin(phi);
+      if (a < NR && s < NS) {
+        const i0 = a * (NS + 1) + s, i1 = i0 + 1, i2 = i0 + NS + 1, i3 = i2 + 1;
+        idx.push(i0, i2, i1, i1, i2, i3);
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
+}
+const geo = annulus();
+const shared = {
+  uTime: { value: AMBIENT }, uScale: { value: 1 }, uBcrit: { value: B_CRIT }, uBend: { value: 0.6 }, uLop: { value: 1 },
+  uDpr: { value: DPR }, uSizeScale: { value: 1 }, uDiskGain: { value: 1 }, uDensity: { value: 1 }, uK: { value: 4 },
+  uCoverage: { value: 0 }, uCamPos: { value: camera.position.clone() },
+};
+function material(image) {
+  return new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG,
+    uniforms: Object.assign({}, shared, { uImage: { value: image } }),
+    transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  });
+}
+const mesh0 = new THREE.Mesh(geo, material(0)); mesh0.frustumCulled = false; mesh0.renderOrder = 2;
+const mesh1 = new THREE.Mesh(geo, material(1)); mesh1.frustumCulled = false; mesh1.renderOrder = 1; mesh1.visible = IMAGE1;
+scene.add(mesh0, mesh1);
+
+// ---------------------------------------------------------------- the twin: enumerate the dots
+function pcg(v) { let s = (Math.imul(v, 747796405) + 2891336453) >>> 0; let w = Math.imul(((s >>> ((s >>> 28) + 4)) ^ s) >>> 0, 277803737) >>> 0; return ((w >>> 22) ^ w) >>> 0; }
+function hash01(seed, salt) { return (pcg((seed ^ Math.imul(salt, 0x9e3779b9)) >>> 0) >>> 8) / 16777216; }
+const N_RINGS = Math.floor((R_OUT - R_IN) / DR + 0.5);
+function enumerate(density, K) {
+  const dots = [];
+  for (let i = 0; i < N_RINGS; i++) {
+    const ri = R_IN + (i + 0.5) * DR;
+    const n = Math.max(6, Math.floor(TAU * ri / DR + 0.5));
+    const w = TAU / n;
+    const pExist = Math.min(1, density * Math.pow(3.5 / ri, 0.8));
+    for (let jj = 0; jj < n; jj++) {
+      const seed = pcg((Math.imul(i, 7919) + Math.imul(jj, 104729) + 17) >>> 0);
+      for (let k = 0; k < K; k++) {
+        const sk = (seed ^ Math.imul(k, 0x9e3779b9)) >>> 0;
+        if (hash01(sk, 1) > pExist) continue;
+        const rc = ri + (hash01(sk, 2) - 0.5) * DR * 0.9;
+        const phi0 = (jj + hash01(sk, 3)) * w;
+        const bright = 0.3 + 0.7 * hash01(sk, 4);
+        const size = 1.3 + 0.9 * hash01(sk, 5);
+        dots.push({ i, ri, rc, phi0, bright, size });
+      }
+    }
+  }
+  return dots;
+}
+function countFor(density, K) {
+  let c = 0;
+  for (let i = 0; i < N_RINGS; i++) {
+    const ri = R_IN + (i + 0.5) * DR;
+    const n = Math.max(6, Math.floor(TAU * ri / DR + 0.5));
+    const pExist = Math.min(1, density * Math.pow(3.5 / ri, 0.8));
+    for (let jj = 0; jj < n; jj++) {
+      const seed = pcg((Math.imul(i, 7919) + Math.imul(jj, 104729) + 17) >>> 0);
+      for (let k = 0; k < K; k++) if (hash01((seed ^ Math.imul(k, 0x9e3779b9)) >>> 0, 1) <= pExist) c++;
+    }
+  }
+  return c;
+}
+let cells = 0;
+for (let i = 0; i < N_RINGS; i++) cells += Math.max(6, Math.floor(TAU * (R_IN + (i + 0.5) * DR) / DR + 0.5));
+const K = Math.max(2, Math.ceil(2.2 * TARGET / cells));
+let lo = 0, hi = 4;
+for (let it = 0; it < 40; it++) { const mid = 0.5 * (lo + hi); if (countFor(mid, K) < TARGET) lo = mid; else hi = mid; }
+const DENSITY = hi;
+shared.uDensity.value = DENSITY; shared.uK.value = K;
+const DOTS = enumerate(DENSITY, K);
+
+// Forward projection of a dot centre at the ambient, through the same lens (JS port), to device px.
+function lensJS(pv, hv, image) {
+  const rel = pv.clone().sub(hv);
+  const d = -rel.z; let tx = rel.x, ty = rel.y; const b = Math.hypot(tx, ty);
+  const deff = Math.max(d, 0) + 0.45 * Math.exp(-Math.abs(d));
+  const disc = Math.sqrt(b * b + 8 * 0.6 * deff);
+  let bp, ok = 1;
+  if (image < 0.5) { bp = 0.5 * (b + disc); if (d > 0 && bp < B_CRIT) ok = 0; ok *= 1 + 0.45 * ss(0, 3, d); }
+  else { if (d < 0.4) ok = 0; bp = 0.5 * (disc - b); bp = B_CRIT + (bp - B_CRIT) * 0.35; tx = -tx; ty = -ty; }
+  const x = bp - B_CRIT, k = 10;
+  const sp = Math.log(1 + Math.exp(k * Math.min(x, 30))) / k;
+  ok *= 0.22 + 0.78 * ss(-0.3, 0.45, x);
+  bp = B_CRIT + 0.03 + sp;
+  const tpx = b > 1e-4 ? tx * (bp / b) : 0, tpy = b > 1e-4 ? ty * (bp / b) : bp;
+  const w = d > 0 ? 1 : Math.exp(d / 3);
+  const z = rel.z * (1 - w);
+  return { p: new THREE.Vector3(hv.x + tpx, hv.y + tpy, hv.z + z), ok };
+}
+const ss = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
+function dotScreen(dot, t) {
+  const omega = OMEGA0 * Math.pow(dot.ri, -1.5);
+  const turns = omega * t / TAU - Math.floor(omega * t / TAU);
+  const phi = dot.phi0 + turns * TAU;
+  const p = new THREE.Vector3(dot.rc * Math.cos(phi), 0, dot.rc * Math.sin(phi));
+  const pv = p.clone().applyMatrix4(camera.matrixWorldInverse);
+  const hv = new THREE.Vector3(0, 0, 0).applyMatrix4(camera.matrixWorldInverse);
+  const { p: lv, ok } = lensJS(pv, hv, 0);
+  const clip = lv.clone().applyMatrix4(camera.projectionMatrix);
+  const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
+  // The expected intensity, the shader's terms at the dot (doppler at the dot's own place).
+  const r = dot.rc;
+  const v = new THREE.Vector3(-Math.sin(phi), 0, Math.cos(phi));
+  const toCam = camera.position.clone().sub(p).normalize();
+  const beta = Math.sqrt(0.5 / Math.max(r, 2.75));
+  const g = Math.sqrt(1 - beta * beta) / (1 - beta * v.dot(toCam));
+  const radial = Math.pow(3 / r, 1.25) * ss(2.7, 3.3, r);
+  const grav = Math.max(1 - 1 / r, 0);
+  const outer = 1 - ss(10, 12.5, r);
+  const I = dot.bright * radial * Math.pow(g, 3) * grav * outer * ok;
+  return { x: (clip.x + 1) / 2 * size.x, y: (1 - clip.y) / 2 * size.y, ok, I: Math.min(I, 1), phi, p };
+}
+
+// ---------------------------------------------------------------- hooks
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  const dist = camera.position.length();
+  shared.uSizeScale.value = Math.min(Math.max(REF_DIST / dist, 0.4), 2.2);
+}
+window.addEventListener('resize', resize); resize();
+const gl = renderer.getContext();
+function renderOnce() { renderer.render(scene, camera); }
+
+function readAll() {
+  const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
+  const buf = new Uint8Array(size.x * size.y * 4);
+  renderOnce();
+  gl.readPixels(0, 0, size.x, size.y, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  return { buf, w: size.x, h: size.y };
+}
+const pixelAt = (img, x, y) => { // device px from the top-left, as dotScreen gives them
+  const px = Math.floor(x), py = img.h - 1 - Math.floor(y);
+  if (px < 0 || py < 0 || px >= img.w || py >= img.h) return null;
+  const o = (py * img.w + px) * 4; return Math.max(img.buf[o], img.buf[o + 1], img.buf[o + 2]);
+};
+
+window.__field = {
+  dpr: DPR, K, density: DENSITY, dots: DOTS.length, cells, dr: DR, testsPerPixel: 9 * K, mesh: { vertices: geo.getAttribute('position').count, triangles: geo.index.count / 3 },
+  set: o => { if ('ambient' in o) shared.uTime.value = o.ambient; if ('image1' in o) mesh1.visible = !!o.image1; },
+  info: () => { const r = renderer.info.render; return { calls: r.calls, triangles: r.triangles, points: r.points }; },
+  timeRender: n => {
+    renderer.info.reset(); renderOnce(); gl.finish();
+    const info = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+    const times = [], px = new Uint8Array(4);
+    for (let i = 0; i < n; i++) { const t0 = performance.now(); renderOnce(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); times.push(performance.now() - t0); }
+    times.sort((a, b) => a - b);
+    const t1 = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const readOnlyMs = performance.now() - t1;
+    return { info, medianMs: times[Math.floor(times.length / 2)], minMs: times[0], readOnlyMs, n, sync: 'render + 1px readPixels' };
+  },
+  // Fragments shaded: the covered device px of each image's mesh (the rasterizer's work), by a flat pass.
+  coverage: () => {
+    const was1 = mesh1.visible;
+    shared.uCoverage.value = 1;
+    mesh1.visible = false; let img = readAll(); let c0 = 0; for (let i = 0; i < img.buf.length; i += 4) if (img.buf[i] > 0) c0++;
+    mesh0.visible = false; mesh1.visible = true; img = readAll(); let c1 = 0; for (let i = 0; i < img.buf.length; i += 4) if (img.buf[i] > 0) c1++;
+    mesh0.visible = true; mesh1.visible = was1; shared.uCoverage.value = 0; renderOnce();
+    return { image0: c0, image1: c1, screen: img.w * img.h };
+  },
+  // Centre-sampling parity: the enumerated dots' centres, forward-lensed by the twin, must be lit in the
+  // render; samples away from every dot must be dark. Image 1 is off for this (its arc overlaps).
+  parity: (nLit = 400, nDark = 400) => {
+    const was1 = mesh1.visible; mesh1.visible = false;
+    const img = readAll();
+    const t = shared.uTime.value;
+    let seed = 12345; const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    const lit = { tested: 0, pass: 0, fail: [] };
+    for (let n = 0; n < nLit; n++) {
+      const dot = DOTS[Math.floor(rnd() * DOTS.length)];
+      const s = dotScreen(dot, t);
+      if (s.ok < 0.5 || s.I < 0.15) continue; // dim or piled dots are not a clean test
+      const v = pixelAt(img, s.x, s.y); if (v === null) continue;
+      lit.tested++;
+      const expect = 0.35 * s.I * 255; // a centre sample of a >= 1 px disc carries most of its intensity
+      if (v >= expect) lit.pass++; else if (lit.fail.length < 8) lit.fail.push({ x: +s.x.toFixed(1), y: +s.y.toFixed(1), v, expect: +expect.toFixed(1), r: +dot.rc.toFixed(2) });
+    }
+    // Dark samples: a point in the disk at least 4 device px (world units via the coarsest pixel scale)
+    // from every dot of its ring and neighbours, at the ambient.
+    const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
+    const upp = REF_DIST * Math.tan(camera.fov * Math.PI / 360) / (0.5 * size.y) / Math.sin(EL); // the worst (vertical) foreshortening
+    // Every dot's screen place once (the twin's forward projection), bucketed by ring.
+    const byRing = []; for (const d of DOTS) { const q = dotScreen(d, t); (byRing[d.i] ??= []).push(q.x, q.y); }
+    const dark = { tested: 0, pass: 0, fail: [] };
+    for (let n = 0; n < nDark * 400 && dark.tested < nDark; n++) {
+      const r = 7.5 + rnd() * 4.0, phi = rnd() * TAU; // the outer half, where the field is sparse enough to have gaps
+      const i = Math.floor((r - R_IN) / DR);
+      // The sample as it is NOW (no unwinding): a fake dot with no rotation at t = 0.
+      const s = dotScreen({ ri: 1e9, rc: r, phi0: phi, bright: 1, size: 1 }, 0);
+      if (s.ok < 0.5) continue;
+      // Screen-space distance to every dot of the three nearest rings.
+      let minPx = Infinity;
+      for (let di = -1; di <= 1; di++) { const a = byRing[i + di] ?? []; for (let k = 0; k < a.length; k += 2) { const dd = Math.hypot(a[k] - s.x, a[k + 1] - s.y); if (dd < minPx) minPx = dd; } }
+      if (minPx < 1.6 * DPR + 1.5) continue; // past the largest disc's edge (1.45 DPR + 0.25 px)
+      const v = pixelAt(img, s.x, s.y); if (v === null) continue;
+      dark.tested++;
+      if (v <= 3) dark.pass++; else if (dark.fail.length < 8) dark.fail.push({ x: +s.x.toFixed(1), y: +s.y.toFixed(1), v, r: +r.toFixed(2) });
+    }
+    mesh1.visible = was1; renderOnce();
+    return { lit, dark };
+  },
+};
+renderOnce();
+window.__fieldReady = true;
+</script>
+</body>
+</html>

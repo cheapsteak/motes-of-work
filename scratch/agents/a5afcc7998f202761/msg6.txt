@@ -1,0 +1,23 @@
+e2e: the drawing is ink on paper, redrawn and lifted without a jump
+
+drawing.spec.ts, at both sizes, canvas only, with regions projected
+through the page's own camera:
+- no gl.POINTS draws, the ink and the sheet on and the dotted ghost
+  off, no blue-dominant pixel on the page, and the ink-dark pixels on
+  the page rising through the pen's draw-in;
+- the paper's margin within dE 6 of #E7D9B9, the ring's pixels ochre,
+  and the lifted lines warm and pale on the stage colour;
+- over 24 samples of the redraw, no more than 2.5% of the frame changes
+  between samples, the ink never falls below 70% of what it was, and
+  nothing changes more than 8 px from a moving stroke or the ring;
+- the lift continuous (at most 4% between samples 0.002 apart, from
+  where the camera's turn comes to rest).
+
+The visible machine (e2e/machine.ts) counts the ink's visible strokes,
+posed and pressed as the shader does, and the sheet's edge, so the
+clearance test keeps the drawing and the page under the text. The
+purity test gains four spec-section samples; the app test reads the
+built bike at spec@0.95; the screenshot run names the spec section's
+frames (shots/sp-*.png).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

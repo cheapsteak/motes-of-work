@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blueprint mock</title>
+<style>
+  html, body { margin: 0; background: #0b0d12; width: 1440px; height: 900px; overflow: hidden; }
+  svg { display: block; }
+  .copy { position: absolute; left: 432px; top: 63px; width: 576px; font: 19px/1.55 Literata, Georgia, "Times New Roman", serif;
+          color: #e8e6ee; text-shadow: 0 1px 2px #0b0d12, 0 0 14px #0b0d12, 0 0 30px #0b0d12; }
+  .copy p { margin: 0 0 .85em; }
+  .copy .dim { color: #9f9dab; }
+  #scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11,13,18,.72) 0, rgba(11,13,18,.45) 22vh, transparent 42vh); pointer-events: none; }
+</style>
+</head>
+<body>
+<svg id="stage" width="1440" height="900" viewBox="0 0 1440 900"></svg>
+<div id="scrim"></div>
+<div class="copy" id="copy"></div>
+<script>
+// ---- Mock of the spec section, drawing phase: ink on parchment. Geometry from kinematics.ts constants (metres).
+const params = new URLSearchParams(location.search);
+const FRAME = Number(params.get('frame') || 1); // 1 = sp-2 twin drawing, 2 = sp-4 mid-redraw, 3 = sp-5 approved
+const PX = 366; // px per bike metre at S11 (1440x900, d 3.9 m, fov 35)
+const TARGET = [0.55, 0.72]; // bike point at (50%, 66%) of the screen
+const sx = (x) => 720 + (x - TARGET[0]) * PX;
+const sy = (y) => 594 - (y - TARGET[1]) * PX;
+const DEG = Math.PI / 180;
+const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
+const SEAT_DIR = [-Math.cos(73 * DEG), Math.sin(73 * DEG)];
+const STEER = [-Math.cos(71 * DEG), Math.sin(71 * DEG)];
+const REAR = [0, 0.34], FRONT = [1.05, 0.34], BB = [0.42, 0.27];
+const HEAD_TOP = [0.83, 0.85];
+const HEAD_BOTTOM = add(HEAD_TOP, STEER, -0.15);
+const CROWN = add(HEAD_BOTTOM, STEER, -0.02);
+const STEER_MOUNT = add(HEAD_TOP, STEER, 0.06);
+const MAST_MOUNT = add(HEAD_TOP, STEER, 0.15);
+const MAST_TOP = add(HEAD_TOP, STEER, 0.25);
+const SEAT_LUG = add(BB, SEAT_DIR, 0.5);
+const SEAT_CLAMP = add(BB, SEAT_DIR, 0.55);
+const STUB_TOP = add(BB, SEAT_DIR, 0.53);
+const SADDLE_OFF = [SEAT_DIR[0] * 0.18, SEAT_DIR[1] * 0.18];
+
+const INK = '#2e2117', CONSTR = '#6b5436', GOLD = '#9c6a14';
+const svg = document.getElementById('stage');
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs, parent = svg) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+
+// ---- defs: paper grain, wobble, hatch pattern
+const defs = el('defs', {});
+defs.innerHTML = `
+  <filter id="grain" x="0" y="0" width="1" height="1">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.47  0 0 0 0 0.33  0 0 0 0.16 0" result="g"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.08" numOctaves="2" seed="3" result="f"/>
+    <feColorMatrix in="f" type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.10 0" result="fib"/>
+    <feFlood flood-color="#e7d9b9" result="base"/>
+    <feMerge><feMergeNode in="base"/><feMergeNode in="fib"/><feMergeNode in="g"/></feMerge>
+  </filter>
+  <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="w"/>
+    <feDisplacementMap in="SourceGraphic" in2="w" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <pattern id="hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(-50)">
+    <line x1="0" y1="0" x2="0" y2="5" stroke="${INK}" stroke-width="0.9" stroke-opacity="0.55"/>
+  </pattern>
+  <radialGradient id="vig" cx="50%" cy="50%" r="70%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.16"/></radialGradient>
+`;
+
+// ---- stars: the dimmed mote cloud (stage.motes 0.1)
+let seed = 1;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const stars = el('g', { opacity: 0.1 });
+for (let i = 0; i < 1800; i++) {
+  const blue = rnd() < 0.8;
+  el('circle', { cx: rnd() * 1440, cy: rnd() * 900, r: 0.6 + rnd() * 0.9, fill: blue ? '#4da3ff' : '#ffb347' }, stars);
+}
+
+// ---- the sheet: 1.9 x 1.3 m centred at (0.55, 0.50)
+const sheet = { x: sx(0.55 - 0.95), y: sy(0.55 + 0.725), w: 1.9 * PX, h: 1.45 * PX };
+el('rect', { ...sheet, width: sheet.w, height: sheet.h, fill: '#e7d9b9', filter: 'url(#grain)' });
+el('rect', { ...sheet, width: sheet.w, height: sheet.h, fill: 'url(#vig)' });
+el('rect', { ...sheet, width: sheet.w, height: sheet.h, fill: 'none', stroke: '#b9a77f', 'stroke-width': 1.2 });
+
+// ---- ink
+const ink = el('g', { filter: 'url(#wobble)', fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+const stroke = (d, { w = 1.6, c = INK, a = 0.9, g = ink, dash = null, extra = {} } = {}) => {
+  const attrs = { d, stroke: c, 'stroke-width': w, 'stroke-opacity': a, ...extra };
+  if (dash !== null) { attrs.pathLength = 1; attrs['stroke-dasharray'] = 1; attrs['stroke-dashoffset'] = 1 - dash; }
+  return el('path', attrs, g);
+};
+const M = (p) => `M${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`;
+const L = (p) => `L${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`;
+const seg = (a, b, o) => stroke(M(a) + L(b), o);
+const poly = (pts, o) => stroke(M(pts[0]) + pts.slice(1).map(L).join(''), o);
+const circ = (c, r, o) => stroke(`M${sx(c[0] + r)} ${sy(c[1])} A${r * PX} ${r * PX} 0 1 0 ${sx(c[0] - r)} ${sy(c[1])} A${r * PX} ${r * PX} 0 1 0 ${sx(c[0] + r)} ${sy(c[1])}`, o);
+// a tube: two contour lines offset +-r from the axis
+const tube = (a, b, r, o) => {
+  const d = [b[0] - a[0], b[1] - a[1]]; const len = Math.hypot(...d); const n = [-d[1] / len * r, d[0] / len * r];
+  seg(add(a, n), add(b, n), o); seg(add(a, n, -1), add(b, n, -1), o);
+};
+const C = { w: 0.8, c: CONSTR, a: 0.5 };
+
+// construction lines
+seg([-0.5, 0], [1.55, 0], C);
+seg(add(HEAD_TOP, STEER, -0.75), add(HEAD_TOP, STEER, 0.45), C);
+seg(add(BB, SEAT_DIR, -0.12), add(BB, SEAT_DIR, 0.95), C);
+seg([-0.1, 0.34], [1.2, 0.34], C);
+for (const c of [REAR, FRONT, BB]) { seg([c[0] - 0.03, c[1]], [c[0] + 0.03, c[1]], C); seg([c[0], c[1] - 0.03], [c[0], c[1] + 0.03], C); }
+
+// wheels
+for (const c of [REAR, FRONT]) {
+  circ(c, 0.34, {}); circ(c, 0.31, { w: 1.2 }); circ(c, 0.294, { w: 0.9, a: 0.7 }); circ(c, 0.036, { w: 1.2 }); circ(c, 0.012, { w: 0.9 });
+  for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2 + 0.2; seg(add(c, [Math.cos(a), Math.sin(a)], 0.034), add(c, [Math.cos(a), Math.sin(a)], 0.292), { w: 0.9, a: 0.75 }); }
+  // tyre shading: hatched crescent, lower right
+  const hp = `M${sx(c[0] + 0.34 * Math.cos(-0.2))} ${sy(c[1] + 0.34 * Math.sin(-0.2))} A${0.34 * PX} ${0.34 * PX} 0 0 1 ${sx(c[0] + 0.34 * Math.cos(-1.9))} ${sy(c[1] + 0.34 * Math.sin(-1.9))} L${sx(c[0] + 0.31 * Math.cos(-1.9))} ${sy(c[1] + 0.31 * Math.sin(-1.9))} A${0.31 * PX} ${0.31 * PX} 0 0 0 ${sx(c[0] + 0.31 * Math.cos(-0.2))} ${sy(c[1] + 0.31 * Math.sin(-0.2))} Z`;
+  el('path', { d: hp, fill: 'url(#hatch)', stroke: 'none' }, ink);
+}
+// mudguards + rack + reflector
+const arc = (c, r, a0, a1, o) => stroke(`M${sx(c[0] + r * Math.cos(a0))} ${sy(c[1] + r * Math.sin(a0))} A${r * PX} ${r * PX} 0 ${a1 - a0 > Math.PI ? 1 : 0} 0 ${sx(c[0] + r * Math.cos(a1))} ${sy(c[1] + r * Math.sin(a1))}`, o);
+arc(FRONT, 0.352, 25 * DEG, 195 * DEG, {}); arc(FRONT, 0.36, 25 * DEG, 195 * DEG, {});
+arc(REAR, 0.352, 35 * DEG, 200 * DEG, {}); arc(REAR, 0.36, 35 * DEG, 200 * DEG, {});
+poly([[-0.27, 0.74], [0.17, 0.74]], {}); seg([-0.23, 0.74], [0, 0.34], { w: 1.1 }); seg([0.16, 0.74], add(REAR, [-0.555, 0.83], 0.3), { w: 1.1 });
+poly([[-0.33, 0.33], [-0.33, 0.29], [-0.31, 0.29], [-0.31, 0.33], [-0.33, 0.33]], { w: 1.1 });
+
+// chain, cranks, sprocket, chainring
+circ(REAR, 0.0323, { w: 1.1 }); circ(REAR, 0.026, { w: 0.8, a: 0.6 });
+circ(BB, 0.0889, { w: 1.3 }); circ(BB, 0.08, { w: 0.9, a: 0.7 }); circ(BB, 0.021, { w: 1.1 });
+for (let k = 0; k < 5; k++) { const a = (k * 2 * Math.PI) / 5 + Math.PI / 5; seg(add(BB, [Math.cos(a), Math.sin(a)], 0.024), add(BB, [Math.cos(a), Math.sin(a)], 0.07), { w: 1.3 }); }
+seg([BB[0], 0.359], [0, 0.372], { w: 1.4, extra: { 'stroke-dasharray': '4 2.5' } });
+seg([BB[0], 0.181], [0, 0.308], { w: 1.4, extra: { 'stroke-dasharray': '4 2.5' } });
+tube(BB, [BB[0] + 0.17, BB[1]], 0.007, { w: 1.3 }); tube(BB, [BB[0] - 0.17, BB[1]], 0.007, { w: 1.1, a: 0.6 });
+poly([[0.54, 0.26], [0.64, 0.26], [0.64, 0.28], [0.54, 0.28], [0.54, 0.26]], { w: 1.4 });
+poly([[0.20, 0.26], [0.30, 0.26], [0.30, 0.28], [0.20, 0.28], [0.20, 0.26]], { w: 1.1, a: 0.6 });
+
+// frame (shared tubes)
+tube(BB, REAR, 0.008, { w: 1.3 }); tube(SEAT_LUG, REAR, 0.008, { w: 1.3 });
+tube(BB, add(HEAD_BOTTOM, STEER, 0.03), 0.018, {}); tube(HEAD_BOTTOM, HEAD_TOP, 0.019, {});
+// fork, basket, lamp
+tube(CROWN, FRONT, 0.011, { w: 1.3 }); tube(add(HEAD_BOTTOM, STEER, -0.03), STEER_MOUNT, 0.012, { w: 1.1 });
+poly([[0.9, 0.97], [0.9, 0.76], [1.2, 0.76], [1.2, 0.97]], {}); seg([0.88, 0.97], [1.22, 0.97], { w: 1.8 });
+el('path', { d: `M${sx(0.905)} ${sy(0.965)} L${sx(1.195)} ${sy(0.965)} L${sx(1.195)} ${sy(0.765)} L${sx(0.905)} ${sy(0.765)} Z`, fill: 'url(#hatch)', stroke: 'none' }, ink);
+seg([0.9, 0.76], CROWN, { w: 1 }); seg([1.18, 0.76], FRONT, { w: 1 });
+circ([1.25, 0.715], 0.05, { w: 1.3 }); seg([1.18, 0.76], [1.23, 0.745], { w: 1 });
+// brakes (sketchy): front at crown, rear at the stay bridge
+poly([[0.86, 0.70], [0.93, 0.62], [0.96, 0.66]], { w: 1.1 }); poly([[0.22, 0.66], [0.18, 0.62], [0.25, 0.60]], { w: 1.1 });
+
+// ---- the parts that move: twin (wrong) vs correct
+const saddle = (top, o) => { // side profile about its top point
+  const n = [Math.cos(4 * DEG), -Math.sin(4 * DEG)];
+  const p = (t, d) => add(add(top, n, t), [-n[1], n[0]], -d);
+  poly([p(-0.115, 0), p(-0.1, -0.01), p(0.05, -0.005), p(0.155, 0.012), p(0.14, 0.026), p(0.0, 0.03), p(-0.1, 0.024), p(-0.115, 0)], o);
+  el('path', { d: M(p(-0.1, 0.002)) + L(p(0.14, 0.014)) + L(p(0.13, 0.024)) + L(p(-0.09, 0.022)) + 'Z', fill: 'url(#hatch)', stroke: 'none' }, ink);
+};
+const bars = (mount, dir, rise, o) => {
+  const top = add(mount, dir, rise); const centre = add(top, [0.07, 0]);
+  tube(add(mount, dir, -0.04), top, 0.011, o); circ(top, 0.014, o); tube(top, centre, 0.012, o);
+  poly([add(centre, [0.0, 0]), add(centre, [-0.13, 0.03]), add(centre, [-0.23, 0.04])], { ...o, w: (o.w || 1.6) + 0.6 });
+  circ(add(centre, [-0.02, 0.03]), 0.022, o); // bell
+  poly([add(centre, [-0.12, 0.01]), add(centre, [-0.16, -0.03])], o); // lever
+};
+const twin = (o) => {
+  tube(BB, STUB_TOP, 0.016, o); tube(SEAT_LUG, add(HEAD_TOP, STEER, 0.22), 0.015, o); tube(HEAD_TOP, MAST_TOP, 0.019, o);
+  tube(MAST_TOP, add(MAST_MOUNT, SADDLE_OFF, 0.78), 0.016, o);
+  saddle(add(MAST_MOUNT, SADDLE_OFF), o); bars(STUB_TOP, SEAT_DIR, 0.035, o);
+  // cables on the twin: from the low bars up the top tube
+  poly([add(STUB_TOP, [0.06, 0.05]), add(SEAT_LUG, [0.12, 0.08]), add(HEAD_TOP, STEER, 0.2), add(HEAD_BOTTOM, [0.03, 0])], { ...o, w: 0.8 });
+};
+const correct = (o) => {
+  tube(BB, SEAT_CLAMP, 0.016, o); tube(SEAT_LUG, add(HEAD_TOP, STEER, -0.03), 0.015, o);
+  tube(SEAT_CLAMP, add(SEAT_CLAMP, SADDLE_OFF, 0.8), 0.0135, o);
+  saddle(add(SEAT_CLAMP, SADDLE_OFF), o); bars(STEER_MOUNT, STEER, 0.1, o);
+  poly([add(STEER_MOUNT, [0.0, 0.08]), add(HEAD_TOP, [0.04, 0.02]), add(HEAD_BOTTOM, [0.03, 0])], { ...o, w: 0.8 });
+  poly([add(STEER_MOUNT, [0.0, 0.08]), add(HEAD_TOP, [0.0, 0.0]), add(SEAT_LUG, [0.0, 0.0]), [0.05, 0.64]], { ...o, w: 0.8 });
+};
+
+if (FRAME === 1) twin({});
+if (FRAME === 2) {
+  twin({ a: 0.15 }); // pentimento: the old lines left faint
+  // the person's ring round the wrong seat (gold), fully drawn
+  circ(add(MAST_MOUNT, SADDLE_OFF, 1.0), 0.2, { w: 2.2, c: GOLD, a: 0.85, dash: 1 });
+  // the new lines, part way drawn (dash reveal)
+  const g = el('g', { 'stroke-dasharray': 1, pathLength: 1 }, ink);
+  const o = { dash: 0.72 };
+  tube(BB, SEAT_CLAMP, 0.016, o); tube(SEAT_LUG, add(HEAD_TOP, STEER, -0.03), 0.015, o);
+  tube(SEAT_CLAMP, add(SEAT_CLAMP, SADDLE_OFF, 0.8), 0.0135, o);
+  saddle(add(SEAT_CLAMP, SADDLE_OFF), o); bars(STEER_MOUNT, STEER, 0.1, { dash: 0.35 });
+}
+if (FRAME === 3) {
+  twin({ a: 0.12 }); correct({});
+  // the person's tick, bottom right of the sheet
+  poly([[1.25, 0.08], [1.31, 0.02], [1.45, 0.2]], { w: 2.4, c: GOLD, a: 0.85 });
+}
+
+// notes: mirror-script-like scribbles, texture only (two blocks)
+const notes = el('g', { 'stroke-width': 0.85, stroke: INK, 'stroke-opacity': 0.5, fill: 'none', filter: 'url(#wobble)' });
+let ns = 5;
+const nr = () => (ns = (ns * 48271) % 2147483647) / 2147483647;
+function noteBlock(x0, y0, rows, width) {
+  for (let r = 0; r < rows; r++) {
+    let x = x0 + width; const y = y0 - r * 0.036; let d = '';
+    while (x > x0) { // right to left
+      const wlen = 0.03 + nr() * 0.07; let dd = `M${sx(x)} ${sy(y)}`;
+      for (let t = 0.004; t <= wlen; t += 0.004) dd += `L${sx(x - t).toFixed(1)} ${sy(y + 0.006 * Math.sin(t * 900 + nr() * 2) + (nr() < 0.12 ? 0.012 : 0)).toFixed(1)}`;
+      d += dd; x -= wlen + 0.02 + nr() * 0.02;
+    }
+    el('path', { d }, notes);
+  }
+}
+noteBlock(-0.38, 1.2, 3, 0.42); noteBlock(1.05, 1.22, 2, 0.4); noteBlock(1.12, 0.62, 3, 0.36);
+
+// ---- copy
+const copy = document.getElementById('copy');
+const lines = {
+  1: ['<p class="dim">Start again. This time, ask for a drawing first.</p>', '<p>The agent draws the bike in ink, on a sheet of paper. Nothing is built yet.</p>'],
+  2: ['<p>You point it out, and the agent redraws it: seat at the back, handlebars at the front. No new frame this time. Just new lines.</p>'],
+  3: ['<p>Now it looks like a bike a person could ride. You say yes.</p>'],
+};
+copy.innerHTML = lines[FRAME].join('');
+</script>
+</body>
+</html>

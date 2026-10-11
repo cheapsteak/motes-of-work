@@ -1,0 +1,11 @@
+test: one shot list for every mechanism, in shots.spec.ts
+
+The watch, steam and strandbeest each had a near-copy shot spec that
+overlapped the three-quarter shots in shots.spec.ts (gears had none, and
+npm run shots ran none of them). Their states and the strandbeest's
+per-fault list are folded into shots.spec.ts, one test per registered
+mechanism, writing shots/mech-<mech>-<look>.png; still gated on SHOTS=1.
+(The three copies were deleted in the previous commit by mistake: they
+were already staged when it was made.)
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

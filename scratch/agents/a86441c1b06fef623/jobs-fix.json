@@ -1,0 +1,5 @@
+[["s6-fix-landing", {"local": 0.395, "ambient": 4.0, "compare": false, "before": false, "still": true}],
+ ["s6b-fix-landed", {"local": 0.40, "ambient": 4.0, "still": true}],
+ ["s7-release", {"local": 0.413, "ambient": 4.0, "still": true}],
+ ["s8-mended-rest", {"local": 0.437, "ambient": 4.0, "still": true}],
+ ["compare-fix-landed", {"compare": true, "cmpFixed": true, "ambient": 4.0, "still": true}]]

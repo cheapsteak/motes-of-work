@@ -1,0 +1,226 @@
+        Digital Human Modeling and Applied Optimization, Vol. 76, 2023, 57–62
+                                              https://doi.org/10.54941/ahfe1003354
+
+
+
+
+A Simplified Human Body Model for
+Assisting in Electric Bicycle Design
+Xuguang Wang1 and Junfeng Peng2
+1 Univ Eiffel, Univ Lyon1, LBMC UMR_T 9406, F-69622 Lyon, France
+2 Digital Human Modelling Laboratory, Decathlon Sportslab, Decathlon SE, Lille, France
+
+
+
+
+ABSTRACT
+Compared to non-electric bicycles, power-assistance ones could be designed for more
+postural comfort with less consideration of power production when pedalling. The
+present work aimed to develop a simplified human body model to assist in the design
+of power-assisted bicycles to better accommodate a target user population. To cha-
+racterize body posture in bicycle use, the inter-segmental angles corresponding to a
+reference posture were measured from a sample of 63 males and females testing 4
+existing bicycle models for comfort and long distance use. As a first approximation,
+only upper body was modelled as a 2D linkage composed of trunk (hip to shoulder)
+and arm (shoulder to grip) segments. To better account for postural effect, functio-
+nal segment lengths were measured in a reference posture, and used to build the
+regression equations with body height. For a given bicycle characterized by saddle
+and handlebar position, the hip and shoulder angles could be fully determined for a
+rider using the proposed model. To validate the model, we compared the measured
+and predicted inter-segmental angles and showed that the proposed human model
+could account for the effects of both body height and bicycle’s geometry. To show the
+usefulness of the proposed model, a comfortable range of hip and shoulder angles
+was defined from the experimental data and was used to predict the fit area of hand-
+lebar and saddle position for both short and tall persons. Simulation results show that
+a more reclined seat tube could better accommodate both short and tall users.
+
+Keywords: Electric bicycle, Postural comfort, Anthropometry, Kinematic model
+
+
+
+INTRODUCTION
+Bicycling is not only a popular recreational activity, but also becoming an
+alternative means of transport for many people. For ecological, economical
+and health reasons, there is an increasing demand on electric bicycles. Com-
+pared to non-electric bicycles, power-assistance ones could be designed for
+more postural comfort with less consideration of power production when
+pedalling. Saddle height, saddle tube angle and handlebar position are the
+design parameters, which affect cycling posture the most. To optimize pedal
+power, it is generally recommended that the saddle should be positioned so
+that the knee is directly above the pedal spindle with the cranks at 3 o’clock
+position (Burt, 2014), thus limiting the choice of saddle tube angle. Price and
+Donne (1997) showed that a steeper tube angle lowered oxygen consum-
+ption at a fixed power output. With lower demand in power production for
+
+
+© 2023. Published by AHFE Open Access. All rights reserved.                              57
+58                                                                Wang and Peng
+
+
+electric bicycles, it is possible to choose a larger range of tube angle inclu-
+ding more reclined saddle tube, and to reduce number of model sizes (thus
+design and production time and cost) for a product to fit a target population.
+However, few studies have been carried out to look at the effects of tube angle
+and rider’s anthropometrics on comfortable bicycle design. The present work
+aimed to develop a simplified human body model to assist in the design of
+power-assisted bicycles to better accommodate a target user population.
+
+Experimental Observations
+To characterize body posture in bicycle use, the inter-segmental angles corre-
+sponding to a reference posture were measured from a sample of 63 male and
+female adult riders, who tested four existing bicycle models for comfort and
+long distance use. The participants, aged from 21 to 64 years old, were sele-
+cted to cover a large range of anthropometrics with body height ranging from
+1m52 to 1m96. Prior to experiment, their main anthropometric dimensions
+were measured including body height (H), weight, crotch height, acromion to
+wrist length. The selected test bicycles covered a large range of city bicycles
+with the saddle tube angle being from 17◦ to 26◦ (with respect to the vertical).
+For all models except one, participants tested either the large or medium size
+depending on body height for 10 minutes in an outdoor tour during which
+they could adjust saddle height. They were then asked to adopt a reference
+riding posture inside a room with the arms being fully extended and two
+pedals on their vertical positions (Figure 1). A photo was taken to measure
+the corresponding trunk (A1) and trunk to arm (A2) angles as well as the
+hip to shoulder (HS) and shoulder to wrist (SW) lengths. Markers were atta-
+ched on the surface positions of wrist, acromion, greater trochanter, knee and
+ankle to help locate joint position from photos. The adopted saddle height
+L was measured with a tape. At the end, participants were asked to answer
+a questionnaire about their feeling on handlebar and saddle position and its
+
+
+
+
+Figure 1: Main bicycle design parameters and postural angles.
+A Simplified Human Body Model for Assisting in Electric Bicycle Design               59
+
+
+acceptability for everyday use. For the 4th test bicycle, only the indoor test
+was performed without outdoor testing.
+
+Upper Body Kinematic Model
+For the reference posture, body posture was mainly characterized by trunk
+(A1) and trunk to arm (A2) angles (Figure 1). We made the following
+simplification hypotheses:
+•   Saddle position is only dependent on its tube orientation (α) and body
+    height (or inside leg length/crotch height).
+•   Upper body is simplified as a 2D linkage of hip, shoulder and grip points.
+    The lengths of these two segments (hip to shoulder and shoulder to grip)
+    are only dependent on body height, and the wrist to grip length lWG is a
+    constant to be determined.
+•   The offset 1 between saddle and hip joint center H is a constant along the
+    saddle tube axis to be determined.
+  To better account the effects of riding posture, the hip to shoulder and
+shoulder to wrist lengths measured from the photos of reference posture
+were used to establish the regression equations from the experimental data
+(Table 1).
+
+Table 1. Coefficients of regression equations without constant for the simplified kine-
+         matic model. H, Se and R2adj are body (or crotch) height, standard error of
+          estimate and adjusted R-squared value.
+
+Variable                                  Height (H)             Se (cm)      R2adj (%)
+
+Saddle height (L)                         0.412                  2.79         99.8
+Saddle height (L)*                        0.898*                 3.15         99.8
+Hip to shoulder length lSH                0.313                  3.43         99.6
+Shoulder to wrist length lSW              0.318                  2.58         99.8
+*coefficient of crotch height
+
+
+   For a given bicycle with known saddle and handlebar positions, the trunk
+(A1) and trunk to arm (A2) angles are fully determined for a rider assuming
+that two constants 1 and lWG are known. 1 and lWG of 2.8 and 4 cm were
+found by trial and error using the experimental data. To validate the pro-
+posed model, the predicted trunk (A1) and trunk to arm (A2) angles were
+compared with experimental ones using the regression equations in Table 1
+(Figure 2). The mean errors were −0.38 (±4.82) and −0.27 (±4.0) degrees
+for A1 and A2.
+
+APPLICATION
+One of important design problem is to find an appropriate saddle tube
+angle α and handlebar position G to fit a target population with a large
+variation in body height. From the collected data, we observed that trunk
+(A1) and trunk to arm (A2) angles were significantly correlated, as shown in
+Figure 3. A contour curve of the bivariate Gaussian distribution of A1 and A2
+60                                                                      Wang and Peng
+
+
+
+
+Figure 2: Comparison between experimental and predicted trunk (A1) and trunk to arm
+(A2) angles in degrees.
+
+
+
+
+Figure 3: 90% confidence ellipse of the distribution of the trunk to arm (A2) and trunk
+(A1) angles observed from the trials for which the test bicycles were considered as
+‘acceptable’ by participants.
+
+
+
+was thus used to define the acceptable postural region. Figure 4 shows the
+‘acceptable’ saddle and handlebar positions for two 155cm and195cm tall
+persons and two tube angles (15◦ and 25◦ ) when applying the 90% confide-
+nce ellipse of acceptable postural angles. One can see that a design with an
+adjustable saddle and a fixed handlebar position could fit both short and tall
+riders for the two saddle tube angles. A more inclined saddle tube increases
+A Simplified Human Body Model for Assisting in Electric Bicycle Design               61
+
+
+
+
+Figure 4: Simulated saddle and handlebar positions for a short (155 cm, bleu) and a
+tall (195 cm, green) rider corresponding to the ‘acceptable’ ellipse of the trunk to arm
+(A2) and trunk (A1) angles defined in Figure 3 for saddle tube angles of 15◦ and 25◦ .
+‘+’ is the barycentre of the common area of the simulated handlebar positions of both
+extreme persons.
+
+
+
+the superimposed area of acceptable handlebar positions between the two
+extreme riders. This suggests a more reclined saddle tube is preferred for a
+better accommodation of a target population.
+
+DISCUSSION
+In the present work, we proposed a simplified upper body geometric model
+to assist bicycle design. The segment lengths were determined from a refere-
+nce riding posture for city use as well as corresponding regression equations
+with respect to body height. Applying the ‘acceptable’ range of trunk and
+trunk to arm angles observed from 63 volunteers testing 4 bicycle models,
+we found that a more reclined saddle tube could provide a larger common
+area of acceptable handlebar positions for both short and tall users.
+   Compared to a similar study by Hsiao et al (2015), the handlebar position
+predicted by the proposed model to fit both short and tall persons is closer
+and higher with respect to the saddle. For the city bicycle type, Hsiao et al pro-
+posed a handlebar position at (38.3cm, 66.0cm) with the tube angle varying
+62                                                                    Wang and Peng
+
+
+from 23.6◦ to 19◦ . For a tube angle of 22◦ , our model predicts a position of
+(31.2cm, 78.8cm) for two 155 and 185cm tall persons, the same height range
+as tested in Hsiao et al. This implies that the comfortable range of riding
+posture defined in the present study corresponds a more upright trunk and
+smaller trunk to arm angle. This could be explained at least partly by differe-
+nce in body size between two studies (participants from France and Taiwan)
+as well as in experimental protocol. The comfortable riding postural range
+used in the present study was based on the ‘acceptable’ ellipse of trunk and
+trunk to arm angles obtained by testing only 4 existing bicycle models. Fur-
+ther investigations are needed to define comfortable postural range for riding
+electrical bicycles especially by testing a larger number of existing models
+and/or through a parametric study with an adjustable experimental bicycle
+setup allowing larger range of adjustment of bicycle design parameters.
+
+ACKNOWLEDGEMENT
+We would like to thank Maxence Yard and Corentin Deribreux who partici-
+pated in the collection of experimental data.
+
+REFERENCES
+Burt, P. (2014). Bike Fit 1st Edition: Optimise Your Bike Position for High Perfor-
+   mance and Injury Avoidance. Bloomsbury Publishing.
+Hsiao, S. W., Chen, R. Q., Leng, W. L. (2015). Applying Riding-Posture Optimization
+   on Bicycle Frame Design. Applied Ergonomics 51: 69–79.
+Price, D., Donne, B. (1997) Effect of Variation in Seat Tube Angle at Different Seat
+   Heights on Submaximal Cycling Performance in Man. Journal of Sports Sciences
+   15: 395–402.
+

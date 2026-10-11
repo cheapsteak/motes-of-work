@@ -1,0 +1,6 @@
+     × steam says in its blurb what its wrong twin does 5ms
+     × strandbeest says in its blurb what its wrong twin does 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'A horizontal mill engine whose flybal…' to match /\bwrong twin\b/
+AssertionError: expected 'A Theo Jansen walking machine whose g…' to match /\bwrong twin\b/
+      Tests  2 failed | 7 passed (9)

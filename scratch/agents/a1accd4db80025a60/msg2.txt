@@ -1,0 +1,14 @@
+fix: hold the strandbeest ratio fault inside the linkage's reach
+
+At RATIO_GAIN 0.6 a ratio fault above about 0.2 ran the lower rocker
+through its dead point, and the steep solve there teleported knees and
+feet by up to 49 Jansen units in one step, the Faults 0.6 preset included.
+Measured: clamping starts at a gain of 0.0703 (Jansen lengths) and 0.0795
+(twin), and the foot path stops halving its largest step at 0.08. The
+gain is now 0.06: no joint clamps over the whole dial at any variant.
+
+Adds a foot-path continuity test across ratio 0..1 and drive at three
+variants, and a no-clamp test over the dial; the NaN guard now exercises
+the clamp beyond the dial (ratio 4).
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

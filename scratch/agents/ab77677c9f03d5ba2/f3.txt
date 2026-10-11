@@ -1,0 +1,9 @@
+fix: widen the pallet fork arms outward only, clear of the escape wheel
+
+Doubled symmetric arms reached 0.379 from the escape arbor, inside the
+stone inner end (0.405) and the tooth tips (0.42). The arms keep their
+0.034 inner half-width and widen to 0.102 on the outer side; lever and
+depth stay doubled. A test checks the arms stay outside the stone inner
+end at rest and at either banking.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

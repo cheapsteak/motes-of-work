@@ -1,0 +1,12 @@
+fix: ghost drawn on top, alpha as a LIGHTING uniform; required pixel ratio
+
+- The ghost mesh shared the motes' sort depth and drew first (id order),
+  under the screen-blended motes; renderOrder 1 puts it on top.
+- LIGHTING.ghostAlpha (0.4) reaches the ghost as uGhostAlpha, so the
+  comparison page's dev Lighting group gets a Ghost alpha slider.
+  Re-measured with the ghost on top: stride 4 and 0.4 stay (the review's
+  0.18 at stride 6 adds 2.3M against 7.5M on the steam spec close-up).
+- blendEquation AddEquation set explicitly for screen blending.
+- moteSystem.update requires pixelRatio.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

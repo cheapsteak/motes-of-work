@@ -1,0 +1,7 @@
+docs: point the design spec's Act I and text rules at the storyboard
+
+Act I rows, the brief, purity, folder layout, content rules and fallbacks
+now describe the page model and refer to the storyboard document instead of
+the 80-word panel.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

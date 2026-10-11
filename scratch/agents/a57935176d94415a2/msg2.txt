@@ -1,0 +1,25 @@
+story: every storyboard shot, keyed from bike terms
+
+src/timeline/shots.ts holds the storyboard's shots S0 to S10 (with S1',
+S5', S6g, S9' and S10') in bike terms: a target in metres, a bearing from
+the front toward the drive side, an elevation, a distance, a fov, a frame
+and a coreFocus. The camera tracks are converted from them once into the
+rig's machine-relative keys, and every hold is read back into bike terms
+and pinned by a test.
+
+The doc's numbers were starting values. Tuned by looking at the frames and
+by the text band: on a wide screen every close shot keeps the whole twin
+below the text (its mast and saddle stand over the front wheel), so they
+are medium-close; the close framing lands its target at 78% of the height,
+not 72%; the reveal's wide shot pulls back to 4.8 m so the whole twin and
+its ground sit under the band; the rewind pulls back from the drive side,
+as the existing pull-back did. The reveal bounds and the top-tube climb
+still hold.
+
+The keyframes test that framed the reveal against the old left-hand text
+column, and the spec core framing against it, are retired; the reveal's
+wide shots are now checked whole, on screen and under the 42% band at
+desktop and phone sizes. The comparison bench's cold open follows the
+story's new cold open.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

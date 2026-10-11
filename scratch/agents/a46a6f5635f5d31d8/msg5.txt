@@ -1,0 +1,15 @@
+galaxy: lay out every system so no two pieces ever touch
+
+For neighbouring planets i < j the generator now keeps a_j(1 - e_j) - a_i(1 + e_i) at least
+max(R_i + R_j + max(ms_i, ms_j), reach_i + reach_j) + 0.15, and the first piece clears its star
+the same way, so no two planets or moon systems can meet at any precession or tilt. Round a planet
+the moons of a track share one ellipse at evenly spaced phases, and each track sits at its designed
+radius or just far enough out that its periapsis clears the planet or the track inside it by the
+largest moons plus 0.05 R.
+
+A system that does not fit within 9.6 gives way as little as it must: its eccentricities ease
+toward the band's floor, then its outermost filler slots are dropped, and a system of only the
+story's planets lets its spacing go and its orbits fall toward circles, dropping unpinned moons
+only if even circles do not fit. A unit test holds the inequalities over 300 seeds.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,12 @@
+fix: comparison page minors (build failure notice, disabled twin rows, ARIA)
+
+- buildThenDraw catches a failing build, shows the notice and does not
+  request another frame, so it cannot retry the same failure in a loop.
+- Twin pair disables (not only dims) the Wrong twin and Vibed sliders it
+  overrides per pane; e2e checks they are disabled there and back after.
+- The View radiogroup sets role and aria-label as attributes.
+- Pass the renderer pixel ratio to motes.update.
+- Comments: the system cache keeps one budget for every view; Spec (core)
+  orbits its target, which sits beside the core centre.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

@@ -1,0 +1,13 @@
+docs: the blueprint and the build as built
+
+The design gains a section on where the build differs from it and why:
+the lift runs over 0.61-0.69 so nothing lifts through an opaque page;
+the ink draws under the motes so the lines lie beneath the built bike;
+all twelve spokes are drawn; a stroke moves when its builds stand apart
+once posed; the saddle's hatching rides with the saddle; strokes on one
+build only and strokes straight across the side view; the lamp's
+silhouette; the notes clear of the tyre; S11c a little lower; Act I is
+21 screens; and how tests 10 and 11 are measured. The mechanism guide
+says what the optional ink and sheet are.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

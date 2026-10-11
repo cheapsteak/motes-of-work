@@ -1,0 +1,17 @@
+galaxy: orbits on Kepler ellipses that precess and tilt, the rigid turn, and the bodies texture
+
+The galaxy packs into two float textures six texels wide: a row per body (its spot or its orbital
+elements, host, radius, clocks, defect and membership rows) and a row per stream, the feed last.
+orbit.ts and its GLSL mirror place every body from them at any ambient time: a planet round its
+star and a moon round its planet on a Kepler ellipse (three Newton steps), its periapsis turning
+once a precession and its plane tilted about a seeded axis; the core and the stars at their spots;
+and the whole galaxy turned rigidly once in twenty minutes, anchored so N0 is the origin. Angles
+are reduced to one turn before they become radians, and the shader takes its sines from the mote
+library's precise moteSinCos, so the two mirrors agree to under 2e-4 an hour in.
+
+The parity page gains ?lib=orbit (N0, C1 and its six moons, P1, R0, R1 and 32 hashed bodies at
+five times), with an e2e test. The turn's period is spliced from birth.ts. Tests hold every body
+between periapsis and apoapsis, e = 0 to the circle, N0 at the origin, the turn rigid, no two
+bodies of a system meeting over a whole turn, and every lift inside its bound.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

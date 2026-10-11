@@ -1,0 +1,16 @@
+flywheel     front    806 back    594 ratio 1.36
+cylinder     front   1602 back   1294 ratio 1.24
+bed          front    599 back    525 ratio 1.14
+belt         front    333 back    312 ratio 1.07
+gov-drive    front   1221 back   1003 ratio 1.22
+gov-stand    front    823 back    648 ratio 1.27
+gov-spindle  front   1498 back   1079 ratio 1.39
+gov-arm-a    front   1603 back   1117 ratio 1.44
+gov-arm-b    front   1556 back   1132 ratio 1.37
+gov-link-a   front    407 back    265 ratio 1.53
+gov-link-b   front    384 back    245 ratio 1.57
+gov-sleeve   front    813 back    697 ratio 1.17
+gov-lever    front   1415 back    922 ratio 1.54
+valve-stem   front    228 back    150 ratio 1.52
+fittings     front     56 back     43 ratio 1.32
+TOTAL front 13344 back 10023 ratio 1.331

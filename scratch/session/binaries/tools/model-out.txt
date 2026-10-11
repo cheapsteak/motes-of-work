@@ -1,0 +1,17 @@
+build ms 64
+close pairs 14-28 d17.5 k1.06, 22-27 d18.7 k1.08, 10-15 d14.2 k1.12
+kept 14-28, 22-27, 10-15 hero 10-15
+a R 75.1 systems 30 planets 107 moons 128 budget {"stars":7680,"shells":25575,"moons":2349,"tracks":14030,"plan":0,"total":49634} overLimit 29 / 30 worst 2.31
+b R 103.1 systems 30 planets 107 moons 128 budget {"stars":7680,"shells":25575,"moons":2349,"tracks":14030,"plan":0,"total":49634} overLimit 22 / 30 worst 1.69
+c R 104.0 systems 27 planets 95 moons 100 budget {"stars":7680,"shells":22349,"moons":1842,"tracks":12030,"plan":882,"total":44783} overLimit 13 / 30 worst 1.69
+    S 15+10 a 16.00 e 0.22 P 623 ac 3.90/2.53 planets 1.79e0.16 3.59e0.16 | 2.20e0.19 dropped 2 outer 15.4 at 0.0 0.0
+    S 14+28 a 17.53 e 0.34 P 714 ac 2.92/2.91 planets 2.20e0.12 | 2.20e0.25 dropped 4 outer 14.1 at 41.0 -26.9
+    S 27+22 a 18.67 e 0.28 P 785 ac 3.58/3.30 planets 2.46e0.21 | 2.20e0.13 dropped 6 outer 15.5 at 87.7 -20.5
+d R 104.0 systems 27 planets 94 moons 100 budget {"stars":7680,"shells":22142,"moons":1842,"tracks":11940,"plan":822,"total":44426} overLimit 13 / 30 worst 1.69
+    P 15+10 a 2.08 e 0.11 P 29 ac 5.80 planets 7.55e0.07 9.60e0.07 dropped 3 outer 9.8 at 0.0 0.0
+    S 14+28 a 17.53 e 0.34 P 714 ac 2.92/2.91 planets 2.20e0.12 | 2.20e0.25 dropped 4 outer 14.1 at 41.0 -26.9
+    S 27+22 a 18.67 e 0.28 P 785 ac 3.58/3.30 planets 2.46e0.21 | 2.20e0.13 dropped 6 outer 15.5 at 87.7 -20.5
+hero in a [ '10 at -4.8,-8.1 outer 6.1', '15 at 2.4,4.1 outer 6.6' ]
+hero in b [ '10 at 2.4,-14.8 outer 6.1', '15 at -1.2,7.4 outer 6.6' ]
+outer radii min/mean/max 5.6 8.7 10.6
+hwS(.5,0) 0.274 hwP(.5,0) 2.388 hwP K16 2.880 x0.2243 = 0.646 hwS aCen 0.116

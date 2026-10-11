@@ -1,0 +1,8 @@
+e2e: the visible machine includes the network where it is on screen
+
+visibleNetwork() runs node.ts over the essay's network and keeps the born motes that have mostly
+landed while it shows; machineOnScreen counts them with the bike's, but only those on the screen,
+so a stack born high above the frame is out of the picture rather than over the text. The test
+camera's far plane follows the essay's.
+
+Claude-Session: https://claude.ai/code/session_01NeUYkcE3BstKfMUyx32g8w

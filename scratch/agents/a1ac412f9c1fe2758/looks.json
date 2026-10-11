@@ -1,0 +1,288 @@
+{
+  "config": {
+    "configFile": "/home/user/motes-of-work/playwright.config.ts",
+    "rootDir": "/home/user/motes-of-work/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/user/motes-of-work/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/user/motes-of-work/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 2,
+    "webServer": {
+      "command": "npm run build && npm run preview -- --port 4173 --strictPort",
+      "port": 4173,
+      "reuseExistingServer": true
+    }
+  },
+  "suites": [
+    {
+      "title": "looks.spec.ts",
+      "file": "looks.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "gears",
+          "file": "looks.spec.ts",
+          "line": 119,
+          "column": 8,
+          "specs": [
+            {
+              "title": "specced machine: warm core, cool body",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3386,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T06:17:35.649Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-4f602a8ce5e4b59811e6",
+              "file": "looks.spec.ts",
+              "line": 120,
+              "column": 5
+            },
+            {
+              "title": "vibed machine: no warm motes anywhere",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3503,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T06:17:39.116Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-bb8a2223ecad71e68684",
+              "file": "looks.spec.ts",
+              "line": 126,
+              "column": 5
+            },
+            {
+              "title": "ghost of intent adds near-white dots",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7796,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T06:17:42.632Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-5cd24555955ea3696114",
+              "file": "looks.spec.ts",
+              "line": 136,
+              "column": 5
+            },
+            {
+              "title": "lit faces: the machine seen from the key-light side is brighter than from behind",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "core brightness front / back",
+                      "description": "20130124 / 14131211"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 6470,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n    at /home/user/motes-of-work/e2e/looks.spec.ts:153:19",
+                        "location": {
+                          "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                          "column": 19,
+                          "line": 153
+                        },
+                        "snippet": "  151 |       const away = light(back, around(back, anchors.core));\n  152 |       test.info().annotations.push({ type: 'core brightness front / back', description: `${lit} / ${away}` });\n> 153 |       expect(lit).toBeGreaterThan(1.5 * away);\n      |                   ^\n  154 |     });\n  155 |\n  156 |     test('misallocated machine with invisible motes renders without errors', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                            "column": 19,
+                            "line": 153
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n\n  151 |       const away = light(back, around(back, anchors.core));\n  152 |       test.info().annotations.push({ type: 'core brightness front / back', description: `${lit} / ${away}` });\n> 153 |       expect(lit).toBeGreaterThan(1.5 * away);\n      |                   ^\n  154 |     });\n  155 |\n  156 |     test('misallocated machine with invisible motes renders without errors', async ({ page }) => {\n    at /home/user/motes-of-work/e2e/looks.spec.ts:153:19"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T06:17:50.447Z",
+                      "annotations": [
+                        {
+                          "type": "core brightness front / back",
+                          "description": "20130124 / 14131211"
+                        }
+                      ],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                        "column": 19,
+                        "line": 153
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-b36673472cb79e807cf5",
+              "file": "looks.spec.ts",
+              "line": 143,
+              "column": 5
+            },
+            {
+              "title": "misallocated machine with invisible motes renders without errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3548,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T06:17:57.928Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a568b3b0af7d65bf4d07-82763de72f9d2d043de2",
+              "file": "looks.spec.ts",
+              "line": 156,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-03T06:17:32.765Z",
+    "duration": 28880.625,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}
