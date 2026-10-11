@@ -18,7 +18,7 @@ import { mechanisms } from '../src/mechanisms';
 import { composeEssayCamera } from '../src/timeline/netTrack';
 import { ZERO_FAULTS, type SceneState } from '../src/timeline/sceneState';
 import { freezeTicks, galaxyOf, galaxyPointTop, held, visibleGalaxy, visibleTracks } from '../src/scene/node/galaxyOnScreen';
-import { holeDots } from '../src/scene/hole/holeOnScreen';
+import { holeDots, holeTopBound } from '../src/scene/hole/holeOnScreen';
 
 // Test-only: where the machine the reader can make out is drawn on screen, computed with the
 // renderer's own reference algorithm (src/scene/mote/mote.ts, the TypeScript twin of mote.glsl).
@@ -182,13 +182,6 @@ export function machineOnScreen(
     xs.push(at.x);
     ys.push(at.top);
   }
-  // The black hole drawn at the centre (re-skin Task 5; holeOnScreen.ts, the twin holeTop reads): each
-  // drawn dot's top, half its size above its centre.
-  const hole = mech.id === 'bike' ? holeDots(s, ambient, camera, width, height) : [];
-  for (const d of hole) {
-    xs.push(d.x);
-    ys.push(d.y - d.px / 2);
-  }
   // The freeze frame's bursts are drawn motes too, in the view plane round their sources: each mote's
   // top is half its dot higher (FREEZE_TICK_PX). Only while the dressing shows them.
   const ticks = mech.id === 'bike' && s.freeze.dress * s.net.focus > 0 ? freezeTicks(s, ambient, camera, width, height).ticks : [];
@@ -203,6 +196,16 @@ export function machineOnScreen(
   for (const d of streams) {
     xs.push(d.x);
     ys.push(d.y);
+  }
+  // The black hole drawn at the centre (re-skin Task 5; holeOnScreen.ts, the twin holeTop reads): each
+  // drawn dot's top, half its size above its centre. Its dots are taken only where they could stand
+  // highest: where its bound (holeTopBound, no dot higher) is above everything else's top. Elsewhere
+  // they cannot move the top, the one extent a galaxy frame is held to.
+  const bound = mech.id === 'bike' ? holeTopBound(s, ambient, camera, width, height) : null;
+  const hole = bound !== null && (ys.length === 0 || bound < Math.min(...ys)) ? holeDots(s, ambient, camera, width, height) : [];
+  for (const d of hole) {
+    xs.push(d.x);
+    ys.push(d.y - d.px / 2);
   }
   return {
     top: Math.min(...ys),

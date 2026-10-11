@@ -65,19 +65,29 @@ export function holePartCount(key: HoleMockPart): number {
   return counts[key];
 }
 
+/** The largest a gaussian draw can be in holeAttrs.ts (Box–Muller from a draw floored at 1e-9): its knots' and disk's offsets. */
+const GAUSS_MAX = Math.sqrt(-2 * Math.log(1e-9));
+
 /**
- * How far from its centre (world units, × scale) anything the hole draws can stand once lensed: the
- * lens keeps every image within its view edge in the view plane, and its depth within the point's own
- * distance from the centre, which is at most a knot's at the jet's tip (6 σ of its halo's lift) or the
- * in-fall's start.
+ * How far from its centre (world units, × scale) anything the hole draws can stand once lensed, on each
+ * view axis: the lens keeps every image within its view edge in the view plane, and its depth within
+ * the point's own distance from the centre, which is at most a knot's at the jet's tip (its halo's
+ * largest draw), the in-fall's start or the disk's rim. The off-screen skip and holeTopBound read it.
  */
 export const HOLE_REACH =
   HOLE_LOOK.scale *
   Math.max(
     HOLE_LENS.edge + HOLE_LENS.rimGap + 1,
-    HOLE_JET.base + HOLE_LOOK.jetLength + 6 * (HOLE_KNOT.lift[0] + HOLE_KNOT.lift[1] * HOLE_LOOK.jetLength) + jetRho(HOLE_LOOK.jetLength),
+    Math.hypot(
+      HOLE_JET.base + HOLE_LOOK.jetLength + GAUSS_MAX * (HOLE_KNOT.lift[0] + HOLE_KNOT.lift[1] * HOLE_LOOK.jetLength),
+      GAUSS_MAX * HOLE_KNOT.spread * jetRho(HOLE_LOOK.jetLength),
+      GAUSS_MAX * HOLE_KNOT.spread * jetRho(HOLE_LOOK.jetLength),
+    ),
     HOLE_INFALL.from[1],
-    HOLE_DISK.fade[1] + HOLE_DISK.height * 6 * (HOLE_DISK.fade[1] / HOLE_DISK.radialRef),
+    Math.hypot(
+      HOLE_DISK.inner + HOLE_DISK.streak.span * (1 + HOLE_DISK.motion.lifeJitter) + GAUSS_MAX * HOLE_DISK.streak.jitter,
+      GAUSS_MAX * HOLE_DISK.height * 5,
+    ),
   );
 
 /** The largest dot the hole draws, CSS px: the largest size any part takes (a hot disk dot lifted to the most), × its compensation, at the nearest clamp. */
@@ -112,6 +122,8 @@ export interface HoleFrame {
   present: number;
   /** The hole's gain on every part, before each part's compensation (re-skin Task 5's formula). */
   gain: number;
+  /** How far from its centre on screen (CSS px) any of its dots can reach, on each axis: HOLE_REACH projected (lod.ts offScreenReachPx) and half the largest dot. */
+  reachPx: number;
   /** Off the screen by more than its reach (lod.ts offScreenSkip): every part skips it whole, jets included. */
   skip: boolean;
   /** The side of the screen (−1 left, 1 right) on which the disk's matter approaches the camera. */
@@ -183,6 +195,7 @@ export function holeFrame(
     diskPx,
     present,
     gain,
+    reachPx: reach,
     skip,
     approach: sideX < 0 ? -1 : 1,
   };

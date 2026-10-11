@@ -74,3 +74,14 @@ export function holeTop(s: SceneState, ambient: number, camera: PerspectiveCamer
   for (const d of holeDots(s, ambient, camera, width, height)) top = Math.min(top, d.y - d.px / 2);
   return Number.isFinite(top) ? top : null;
 }
+
+/**
+ * A bound on holeTop that needs no dot (CSS px from the top): the hole's centre less its reach on
+ * screen (holeFrame's reachPx), so no drawn dot's top is higher; null where none is drawn. A sweep that
+ * already has a top at or above it need not take the hole's dots.
+ */
+export function holeTopBound(s: SceneState, ambient: number, camera: PerspectiveCamera, width: number, height: number): number | null {
+  const { g, data } = galaxyOf();
+  const f = holeFrame(s, g, data, camera, { width, height }, ambient);
+  return f.gain > 0 && f.front && !f.skip ? f.y - f.reachPx : null;
+}

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AMBIENT_POSE } from '../../galaxy/ambient';
 import { HOLE_DOTS } from '../../galaxy/hole';
 import type { Vec3 } from '../../math/vec';
-import { essayCamera, galaxyShotKeys, galaxyShotLampAt, HOLE_CLOSE } from '../../timeline/netShots';
+import { essayCamera, GALAXY_SHOTS, galaxyShotKeys, galaxyShotLampAt, HOLE_CLOSE } from '../../timeline/netShots';
 import { Lamp } from '../../timeline/netTrack';
 import { defaultSceneState, type SceneState } from '../../timeline/sceneState';
 import { galaxyOf } from '../node/galaxyOnScreen';
@@ -12,7 +12,7 @@ import { diskDot, holeDotPx, holeLens, infallDot, jetDot, knotDot, ringDot, stra
 import { buildHoleAttrs, DISK_STRIDE, PART_STRIDE } from './holeAttrs';
 import { holeAlpha, holeFrame, type HoleMockPart } from './holeFrame';
 import { HOLE_DOT, HOLE_JET, HOLE_LOOK, holeComp } from './holeLook';
-import { holeDots, holeTop } from './holeOnScreen';
+import { holeDots, holeTop, holeTopBound } from './holeOnScreen';
 
 const { g, data } = galaxyOf();
 const A = buildHoleAttrs(g.seed);
@@ -90,6 +90,8 @@ describe('holeTop (the hole’s clearance twin)', () => {
         expect(top).toBeLessThanOrEqual(jetTipY(s, t, size));
         const brute = bruteTop(s, t, size);
         expect(Math.abs(top - brute), `holeTop ${top}, brute force ${brute}`).toBeLessThanOrEqual(1);
+        // The bound the sweeps skip the dots by is never lower than the top.
+        expect(holeTopBound(s, t, camera, size.width, size.height)!).toBeLessThanOrEqual(top);
         // Every dot of the ring, the jets, the knots and the strands, and a tenth of the disk and the arch.
         expect(holeDots(s, t, camera, size.width, size.height).length).toBeGreaterThan(HOLE_DOTS.ring);
       });
@@ -99,5 +101,26 @@ describe('holeTop (the hole’s clearance twin)', () => {
     const camera = essayCamera(s.camera, g, data, { width: 390, height: 844 }, AMBIENT_POSE);
     expect(holeDots(s, AMBIENT_POSE, camera, 390, 844)).toEqual([]);
     expect(holeTop(s, AMBIENT_POSE, camera, 390, 844)).toBeNull();
+    expect(holeTopBound(s, AMBIENT_POSE, camera, 390, 844)).toBeNull();
+  });
+
+  it('holeTopBound is never lower than holeTop, at the galaxy wide and the overhead shots, over the hour', () => {
+    let checked = 0;
+    for (const shot of [GALAXY_SHOTS.galaxyWide, GALAXY_SHOTS.hood, GALAXY_SHOTS.core])
+      for (const size of [
+        { width: 390, height: 844 },
+        { width: 1440, height: 900 },
+      ])
+        for (const t of [0, AMBIENT_POSE, 487, 1061, 3599.9]) {
+          const s = defaultSceneState();
+          s.camera = galaxyShotKeys(shot, g);
+          s.net = { ...s.net, show: 1, growth: 1, lamp: Lamp.Off, lampAt: galaxyShotLampAt(shot) };
+          const camera = essayCamera(s.camera, g, data, size, t);
+          const top = holeTop(s, t, camera, size.width, size.height);
+          if (top === null) continue;
+          checked++;
+          expect(holeTopBound(s, t, camera, size.width, size.height)!, `${size.width} ${t}`).toBeLessThanOrEqual(top);
+        }
+    expect(checked).toBeGreaterThan(20);
   });
 });

@@ -100,7 +100,7 @@ import { Lamp, lampFocusRow, targetWorld, TRACK_TARGETS, trackIndex, trackPoint,
 import { defaultSceneState, type SceneState } from './sceneState';
 import { freezeTicks, galaxyPointTop, held, visibleGalaxy, visibleTracks } from '../scene/node/galaxyOnScreen';
 import { streamPixels } from '../scene/node/streamOnScreen';
-import { holeTop } from '../scene/hole/holeOnScreen';
+import { holeTop, holeTopBound } from '../scene/hole/holeOnScreen';
 import { holeFrame } from '../scene/hole/holeFrame';
 import { galacticToWorld } from '../scene/node/orbit';
 import { jetRho } from '../scene/hole/hole';
@@ -152,7 +152,9 @@ function visibleClearance(s: SceneState, size: { width: number; height: number }
   }
   for (const d of streamPixels(s.net, g, data, camera, size, t)) top = Math.min(top, d.y);
   // The black hole drawn at the centre (re-skin Task 5): its twin's top, every part's dots.
-  const hole = holeTop(s, t, camera, size.width, size.height);
+  // Its dots only where they could stand highest (holeTopBound: no dot is higher than it).
+  const bound = holeTopBound(s, t, camera, size.width, size.height);
+  const hole = bound !== null && bound < top ? holeTop(s, t, camera, size.width, size.height) : null;
   if (hole !== null) top = Math.min(top, hole);
   // The freeze frame's bursts are drawn motes too (Task 12): each dot's top.
   if (s.freeze.dress * s.net.focus > 0)
