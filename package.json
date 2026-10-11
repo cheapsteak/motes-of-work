@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:task": "playwright test --grep-invert @full-only",
+    "e2e:full": "playwright test",
     "shots": "SHOTS=1 playwright test e2e/shots.spec.ts",
     "stills": "SHOTS=1 playwright test e2e/stills.spec.ts"
   },
