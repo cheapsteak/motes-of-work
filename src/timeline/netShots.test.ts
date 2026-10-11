@@ -1233,7 +1233,8 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     }
     expect(checked).toBe(2001);
     expect(worst).toBeGreaterThanOrEqual(0);
-  }, 300_000);
+    // 900 s (300 before): the hole's stretches are held to what is drawn, the hole's twin among it (re-skin Task 5).
+  }, 900_000);
 
   it('keeps it under the band from each lamp step of layers and far (and each via) to its move’s end, at every ten-thousandth for a hundredth after the step and every thousandth after that', () => {
     // The steps clear by fractions of a px (0.25-0.64 when fitted), and the sweep above samples every
@@ -1265,7 +1266,8 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     // 954 measured since Task 1d took ly-4's and ly-5's vias away (each step's own samples went with
     // them; over 1000 before).
     expect(checked).toBeGreaterThan(900);
-  });
+    // 900 s: the steps into and out of the hole close are measured by what is drawn (re-skin Task 5).
+  }, 900_000);
 
   it('passes through a narrower set (a star’s system, a piece) only where no one step clears', () => {
     const vias = ACT_TWO_MOVES.filter((m) => m.via);
