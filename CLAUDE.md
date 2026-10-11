@@ -5,7 +5,8 @@
   screenshots you look at. A frame that only works on desktop is not done.
 - Every frame is a pure function of scroll progress (design spec §6.1); `mote.glsl` and `mote.ts` change only together
   (`e2e/parity.spec.ts`).
-- A test that times out is a defect to fix (make it faster, or give it a measured timeout) and report, never just re-run.
+- Anything wrong with the pipeline (tests, CI, tooling) is fixed, not worked around: a test that times out is a defect
+  to fix (make it faster, or give it a measured timeout) and report, never just re-run.
 - Essay copy is publication-safe: no company, product, service, person or issue names. Act I's voice is a picture book a
   developer reads to their kid, and its narration uses no colour or "dots" vocabulary.
 - Designs live in `docs/specs/`, the scripts in `docs/script/`; the act scripts are what the author reviews.
