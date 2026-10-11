@@ -8,8 +8,8 @@ import { LEAK, NODE_DERP_PERIOD, SCATTER_HOLD, SCATTER_SWEEP } from '../src/scen
 import { bodyCentre, bodyDerp, type BodyClocks } from '../src/scene/node/bodyMote';
 import { derpEvent } from '../src/scene/node/derp';
 import { dropoutEvent } from '../src/scene/node/dropout';
-import { FLASH_PLAN, FLASH_SWINGS } from '../src/scene/node/flashChunks';
-import { flashGuard, SWING } from '../src/scene/node/flashGuard';
+import { FLASH_PLAN, FLASH_REFERENCE, FLASH_SWINGS, FLASH_TOLERANCE, readChunk } from '../src/scene/node/flashChunks';
+import { SWING } from '../src/scene/node/flashGuard';
 import { galaxyOf } from '../src/scene/node/galaxyOnScreen';
 import { leakDotTiming, leakWounds } from '../src/scene/node/leak';
 import { latticeLL, llUnit, shellSeed } from '../src/scene/node/shell';
@@ -127,13 +127,11 @@ const C1 = () => {
   return { b, seed: b.derpSeed, phase: Math.fround(b.derpPhase) };
 };
 
-// The flash guard chunks come first, a chunk of each size in turn: tests are dealt to the CI shards in
-// file order (tools/shard-list.mjs), so the eight sit together here to go to eight different shards.
-for (const [k, chunk] of FLASH_PLAN.entries())
-  for (const size of SIZES)
-    test.describe(`the defect at df-1, ${size.width}x${size.height}`, () => {
-      test.use({ viewport: { width: size.width, height: size.height } });
+for (const size of SIZES) {
+  test.describe(`the defect at df-1, ${size.width}x${size.height}`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } });
 
+    for (const [k, chunk] of FLASH_PLAN.entries()) {
       test(`the flash guard, on the drawn frames, part ${k + 1} of ${FLASH_PLAN.length} (${size.label})`, async ({ page }) => {
         // 10 s of df-1 at 30 fps from ambient 101 (C1's forced slot 46 starts 0.23 s in): the summed
         // luminance of C1's 3 r box as drawn (after the dropout), frame to frame. A change above 10 % of
@@ -147,9 +145,11 @@ for (const [k, chunk] of FLASH_PLAN.entries())
         // spread them (the whole run took 8 min a size there, 1.6 s a frame, and held one shard 4 min
         // past the rest). A chunk draws its frames at the whole run's ambients, t0 + f / 30 for its
         // frame numbers f, and neighbours share 30 frames, so every 1 s window of the whole run is
-        // judged whole in some chunk (flashChunks.test.ts proves it). The bound holds per chunk, so per
-        // window. The median a swing is a share of is the chunk's own: 0.99 to 1.01 of the whole run's
-        // here (the calm level, which the scatters' short rises barely move).
+        // judged whole in some chunk (flashChunks.test.ts proves it). A swing is a share of the median
+        // of the whole run, not of the chunk: every chunk is judged against FLASH_REFERENCE, the whole
+        // run's median, at a line moved the strict way by FLASH_TOLERANCE, and asserts that its part of
+        // the run has a median within that tolerance. The header of flashChunks.ts argues why chunks
+        // that all pass hold the whole run's check, and flashChunks.test.ts tests it on marginal swings.
         //
         // Timeout: a chunk of 98 frames took 2.3 to 3.7 min on CI (1.4 to 2.1 s a frame, the slower ones
         // beside another heavy test on the shard's second worker; the whole run before took 8.0 and 8.2
@@ -175,7 +175,11 @@ for (const [k, chunk] of FLASH_PLAN.entries())
           );
         expect(sums.length).toBe(chunk.count);
         expect(sums.every((x) => x !== null), 'C1 focused in every frame').toBe(true);
-        const guard = flashGuard(sums as number[], LEAK.fps);
+        const reference = FLASH_REFERENCE[size.label];
+        const reading = readChunk(sums as number[], chunk, reference);
+        note('flash guard', `${reading.flashes} flashes in the worst second, ${reading.swings} swings owned, the part's median ${reading.partMedian.toFixed(0)} = ${reading.medianRatio.toFixed(4)} of the reference ${reference}, brightest ${reading.rise.toFixed(3)} of it; ${((Date.now() - started) / sums.length).toFixed(0)} ms a frame`);
+        // The render is the one the reference was measured on: a median that has moved moves the line.
+        expect(Math.abs(reading.medianRatio - 1), 'the part of the run keeps the reference median').toBeLessThanOrEqual(FLASH_TOLERANCE);
         // Not vacuous. The whole run's check was more than 4 swings over 10 s (8 phone, 10 desktop, fresh
         // and on CI). A chunk counts the swings it owns (the changes up to the next chunk's first frame,
         // so none twice) against FLASH_SWINGS, whose sum over a size's chunks is over 4: the chunks
@@ -183,17 +187,11 @@ for (const [k, chunk] of FLASH_PLAN.entries())
         // measured there. And the piece must rise above its calm by more than a swing's share somewhere in
         // the chunk (the scatter's slower rises, which the swing count misses): a chunk that draws nothing
         // passes the flash bound for nothing.
-        const owned = flashGuard((sums as number[]).slice(0, chunk.ownedTo - chunk.from + 1), LEAK.fps);
-        note('flash guard', `${guard.flashes} flashes in the worst second, ${owned.swings} swings over 10 % owned (${guard.swings} in the chunk), luminance ${guard.range.map((x) => x.toFixed(3)).join('-')} of the median; ${((Date.now() - started) / sums.length).toFixed(0)} ms a frame`);
-        expect(owned.swings, 'not vacuous: the scatter swings').toBeGreaterThanOrEqual(FLASH_SWINGS[size.label][k]);
-        expect(guard.range[1], 'not vacuous: the scatter lifts the piece').toBeGreaterThan(1 + SWING);
-        expect(guard.flashes).toBeLessThanOrEqual(3);
+        expect(reading.swings, 'not vacuous: the scatter swings').toBeGreaterThanOrEqual(FLASH_SWINGS[size.label][k]);
+        expect(reading.rise, 'not vacuous: the scatter lifts the piece').toBeGreaterThan(1 + SWING);
+        expect(reading.flashes).toBeLessThanOrEqual(3);
       });
-    });
-
-for (const size of SIZES) {
-  test.describe(`the defect at df-1, ${size.width}x${size.height}`, () => {
-    test.use({ viewport: { width: size.width, height: size.height } });
+    }
 
     test(`a scatter lands within 4 s of the derp beat (${size.label})`, async ({ page }) => {
       // Arriving at df-1 with the ambient at 25 values spread over the hour: the next scatter's onset (C1's

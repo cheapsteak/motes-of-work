@@ -10,9 +10,17 @@
 /** A swing is a change of more than this share of the median between two frames. */
 export const SWING = 0.1;
 
-/** The guard's reading of `series` (one value a frame, `perSecond` frames a second): its most flashes in any second, its swings and its range over the median. */
-export function flashGuard(series: readonly number[], perSecond: number): { flashes: number; swings: number; range: [number, number] } {
-  const median = [...series].sort((a, b) => a - b)[Math.floor(series.length / 2)];
+/** The median of `series` (the upper one for an even length): what a swing is a share of. */
+export function medianOf(series: readonly number[]): number {
+  return [...series].sort((a, b) => a - b)[Math.floor(series.length / 2)];
+}
+
+/**
+ * The guard's reading of `series` (one value a frame, `perSecond` frames a second): its most flashes in any
+ * second, its swings and its range over the median. The median is the series' own unless `median` gives
+ * one (a chunk of a longer run is judged against a reference: flashChunks.ts).
+ */
+export function flashGuard(series: readonly number[], perSecond: number, median: number = medianOf(series)): { flashes: number; swings: number; range: [number, number] } {
   const signs: number[] = [];
   for (let f = 1; f < series.length; f++) {
     const d = series[f] - series[f - 1];
