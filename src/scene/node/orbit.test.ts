@@ -7,6 +7,7 @@ import { BODY_TEXELS, bodyTexel, LIGHT_MODE, packBodyData } from './bodyData';
 import { starTint } from './star';
 import { bodyGalactic, bodyWorld, elementsAt, GALAXY_TURN_PERIOD, galaxyTurn, keplerE, orbitLocal, orbitTurns } from './orbit';
 import { orbitLibraryGlsl, withOrbitLibrary } from './shaderSource';
+import { Fails } from '../../testing/fails';
 import orbitGlsl from './orbit.glsl?raw';
 
 const TAU = 2 * Math.PI;
@@ -102,14 +103,18 @@ describe('orbit', () => {
   });
 
   it('a body stays between periapsis and apoapsis', () => {
+    // Every sample out of its bounds, listed and held to none at the end: an expect per sample was
+    // nine tenths of this test (4.3 s on CI, past 5 s under load; now about 0.3 s).
+    const fails = new Fails();
     for (const b of orbiting) {
       const o = elements(b);
+      const [lo, hi] = [o.a * (1 - o.e) - 1e-9, o.a * (1 + o.e) + 1e-9];
       for (const t of grid(0, 1200, 1000)) {
         const r = len(orbitLocal(o, t));
-        expect(r, b.id).toBeGreaterThanOrEqual(o.a * (1 - o.e) - 1e-9);
-        expect(r, b.id).toBeLessThanOrEqual(o.a * (1 + o.e) + 1e-9);
+        if (!(r >= lo && r <= hi)) fails.add(`${b.id} at ${t}: ${r} outside [${lo}, ${hi}]`);
       }
     }
+    expect(fails.count, String(fails)).toBe(0);
   });
 
   it("e = 0 is revision 3's circle", () => {
@@ -243,15 +248,19 @@ describe('orbit', () => {
     // the track inside (up to about 4 Rp on MOTE_SEED).
     const outerTrack = (p: Body) => Math.max(...g.bodies.filter((m) => m.host === p.index).map((m) => m.orbit!.a * (1 + m.orbit!.e)));
     const at = grid(0, 1200, 720);
+    // Every sample over its bound, listed and held to none at the end (an expect per sample was most
+    // of this test: 1.2 s on CI, past 5 s under load).
+    const fails = new Fails();
     for (const b of orbiting) {
       const host = g.bodies[b.host];
       // A binary's star goes round in the galaxy's plane.
       const bound = b.kind === 'star' ? 0 : b.kind === 'planet' ? 9.6 * Math.sin(0.25) : Math.max(2.5 * host.R, outerTrack(host)) * Math.sin(0.2);
       for (const t of at) {
         const lift = Math.abs(bodyGalactic(data, b.index, t)[1] - bodyGalactic(data, host.index, t)[1]);
-        expect(lift, `${b.id} at ${t}`).toBeLessThanOrEqual(bound);
+        if (!(lift <= bound)) fails.add(`${b.id} at ${t}: lift ${lift} over ${bound}`);
       }
     }
+    expect(fails.count, String(fails)).toBe(0);
   });
 });
 

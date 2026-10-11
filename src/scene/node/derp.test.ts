@@ -3,6 +3,7 @@ import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import type { BodyKind } from '../../galaxy/body';
 import { generateGalaxy, galaxyBudget, type Body } from '../../galaxy/generate';
 import { hash01 } from '../../math/hash';
+import { Fails } from '../../testing/fails';
 import {
   BURST_GHOST_P,
   BURST_JITTER,
@@ -176,14 +177,16 @@ describe('the kinds', () => {
       const peak = at('planet', e.at(0.6));
       expect(peak.dR).toBeCloseTo(0.55 * r, 9);
       expect(peak.lift).toBeCloseTo(0.2 * r, 9);
+      // Each sample tested plainly and the failures held to none once (Fails): an expect per sample
+      // was half of this test (2.4 s on CI, past 5 s under load).
+      const fails = new Fails();
       for (const s of grid(0, 1, 2000)) {
         const d = at('planet', e.at(s));
-        expect(d.dR).toBeLessThanOrEqual(0.55 * r + 1e-12);
-        expect(d.dR).toBeGreaterThanOrEqual(-0.25 * 0.55 * r);
-        expect(d.lift).toBeLessThanOrEqual(0.2 * r + 1e-12);
-        expect(d.lift).toBeGreaterThanOrEqual(-0.25 * 0.2 * r);
-        expect([d.dNu, d.ghost, d.orbitT]).toEqual([0, 0, 0]);
+        if (!(d.dR <= 0.55 * r + 1e-12 && d.dR >= -0.25 * 0.55 * r)) fails.add(`s ${s}: dR ${d.dR}`);
+        if (!(d.lift <= 0.2 * r + 1e-12 && d.lift >= -0.25 * 0.2 * r)) fails.add(`s ${s}: lift ${d.lift}`);
+        if (![d.dNu, d.ghost, d.orbitT].every((x) => Object.is(x, 0))) fails.add(`s ${s}: dNu, ghost, orbitT ${[d.dNu, d.ghost, d.orbitT]}`);
       }
+      expect(fails.count, String(fails)).toBe(0);
       expect(Math.abs(at('planet', e.at(0.72)).dR)).toBeLessThan(1e-9);
     }
     // Burst: the snap within ±0.225 rad, the jump within ±0.45 r, the lift within ±0.15 r, and each reached.
@@ -379,15 +382,17 @@ describe('the burst', () => {
   });
 
   it('ghost is 0 outside a burst', () => {
+    // Each sample tested plainly and the failures held to none once (Fails): an expect per sample was
+    // four tenths of this test (2.1 s on CI, past 5 s under load).
+    const fails = new Fails();
     for (const phase of PHASES.slice(0, 6))
       for (const t of grid(0, 200, 20_000)) {
         const ev = derpEvent(SEED, phase, t);
         const d = derp(SEED, phase, t, 'moon', r, R, 1, 1);
-        if (!ev.active || ev.kind !== DerpKind.Burst) {
-          expect(d.ghost).toBe(0);
-          expect(d.ghostNu).toBe(0);
-        }
+        if ((!ev.active || ev.kind !== DerpKind.Burst) && !(Object.is(d.ghost, 0) && Object.is(d.ghostNu, 0)))
+          fails.add(`phase ${phase} at ${t}: ghost ${d.ghost}, ghostNu ${d.ghostNu}`);
       }
+    expect(fails.count, String(fails)).toBe(0);
   });
 
   it('the ghost sits along the orbit from the snapped body', () => {
