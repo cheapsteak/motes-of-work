@@ -106,9 +106,10 @@ function inFrame(s: SceneState, size: { width: number; height: number }, t: numb
     }
     const c = project(bodyWorld(data, b.index, t));
     if (!inside(c)) continue;
-    if (b.kind !== 'moon') frame.pieces++;
-    if (b.kind === 'planet') frame.planets.push(b.id);
-    else if ((2 * b.R * focal) / c.d >= MOON_POINT_PX[0]) frame.spheres++;
+    if (b.kind !== 'moon') {
+      frame.pieces++;
+      if (b.kind === 'planet') frame.planets.push(b.id);
+    } else if ((2 * b.R * focal) / c.d >= MOON_POINT_PX[0]) frame.spheres++;
   }
   for (const [set, points] of [
     ['star', g.background.stars],

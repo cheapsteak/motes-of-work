@@ -12,7 +12,7 @@ import { streamCurve, streamDot } from '../src/scene/node/stream';
 import { bodyWorld, galacticToWorld } from '../src/scene/node/orbit';
 import { readFileSync } from 'node:fs';
 import { KeyframeSampler, type KeyframeFile } from '../src/timeline/keyframeSampler';
-import { essayCamera, GALAXY_SHOTS, galaxyShotCamera, STREAM_BEATS } from '../src/timeline/netShots';
+import { essayCamera, GALAXY_SHOTS, galaxyShotCamera, galaxyShotKeys, STREAM_BEATS } from '../src/timeline/netShots';
 import { streamPixels } from '../src/scene/node/streamOnScreen';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
 import { BODY_LOOK, buildTrackAttrs, systemIndexOf, unitIndexOf } from '../src/scene/node/bodyAttrs';
@@ -1742,29 +1742,47 @@ for (const size of SIZES) {
       expect(errors).toEqual([]);
     });
 
-    test('a binary star goes round its barycentre: at the hood probe 300 s apart its place moves about its barycentre, and a single star sits at its spot', async ({ page }) => {
-      // Re-skin Task 1e. The probe tracks the neighbourhood's middle and the galaxy turns under it, so
-      // every spot moves on screen with the turn; a binary's star also moves about its barycentre.
+    test('a binary star goes round its barycentre: at the hood probe riding the turn, 60 s apart, each star moves about its barycentre as the twin has it, and a single star sits at its spot', async ({ page }) => {
+      // Re-skin Task 1e. The probe tracks the neighbourhood's middle and rides the galaxy's turn, as every
+      // Act II shot does, so the galaxy stands still on screen and only an orbit moves a star off its spot.
+      // (Not riding, every off-spot star swings with the turn: a pair frozen in the galaxy's frame moved
+      // 19 px in 60 s on a phone, more than the real pair, since its orbit and the galaxy's counter-turn
+      // nearly cancel. Riding, the frozen pair moves 0.)
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
+      const data = dataOf(g);
+      const shot = { ...GALAXY_SHOTS.hood, ridesTurn: true };
+      const net = { show: 1, growth: 1, lamp: shot.lamp, lampAt: trackIndex(shot.target) };
+      const state = encodeURIComponent(JSON.stringify({ camera: galaxyShotKeys(shot, g), net }));
       const at = async (ambient: number) => {
-        await openStage(page, `&mech=bike&shot=hood&state=${GROWN}&ambient=${ambient}`);
+        await openStage(page, `&mech=bike&state=${state}&ambient=${ambient}`);
         await page.waitForFunction(() => (window as unknown as { __motes: Hook }).__motes.lod() !== null);
         await settle(page);
-        return hoodLod(page);
+        // The TS twin: each star where the page's camera at this ambient projects it.
+        const camera = galaxyShotCamera(shot, g, data, size, ambient);
+        const twin = g.systems.map((row) => {
+          const w = bodyWorld(data, row, ambient);
+          const v = new Vector3(w[0], w[1], w[2]).project(camera);
+          return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height];
+        });
+        return { hood: await hoodLod(page), twin };
       };
-      // 300 s is about a quarter of seed 1's pair's period (1,290 s). On a phone, at the hood probe's
-      // distance, its slower star moves about 4 px in it; a single moves 0.
-      const [a, b] = [await at(0), await at(300)];
-      const rel = (s: (typeof a)[number]) => [s.x - s.sx, s.y - s.sy];
+      const [a, b] = [await at(0), await at(60)];
       let binaries = 0;
-      a.forEach((s, k) => {
-        const [p, q] = [rel(s), rel(b[k])];
-        const moved = Math.hypot(p[0] - q[0], p[1] - q[1]);
-        const pair = a.filter((o) => o.unit === s.unit).length === 2;
-        if (pair) {
+      a.hood.forEach((s, k) => {
+        const e = b.hood[k];
+        // The page draws each star where the twin puts it, at both ambients.
+        for (const [h, t] of [
+          [s, a.twin[k]],
+          [e, b.twin[k]],
+        ] as const)
+          expect(Math.hypot(h.x - t[0], h.y - t[1]), `star ${k}: page against twin`).toBeLessThan(1);
+        const moved = Math.hypot(s.x - s.sx - (e.x - e.sx), s.y - s.sy - (e.y - e.sy));
+        if (a.hood.filter((o) => o.unit === s.unit).length === 2) {
           binaries++;
-          expect(moved, `star ${k}: about its barycentre`).toBeGreaterThan(2);
+          // About a twentieth of seed 1's pair's 1,290 s period: each star moves well over 5 px on either screen.
+          expect(moved, `star ${k}: about its barycentre`).toBeGreaterThan(5);
         } else expect(moved, `star ${k}: a single star is its system's spot`).toBe(0);
       });
       expect(binaries).toBeGreaterThanOrEqual(2);
