@@ -587,10 +587,13 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
           lastDropout = { lines: dropoutMuted ? [] : at.lines, box: at.box, cx: c.x, cy: c.y, r };
         }
       }
+      // Every entry and the box set each frame (0 where unused): a frame's uniforms never carry an
+      // earlier frame's lines, so they are a pure function of (scroll, ambient) as a whole.
       const drop = lastDropout?.lines ?? [];
       uniforms.uDropN.value = drop.length;
-      drop.forEach(([y0, y1], j) => (uniforms.uDrop.value as Vector2[])[j].set(y0, y1));
-      if (lastDropout) (uniforms.uDropBox.value as Vector4).set(...lastDropout.box);
+      (uniforms.uDrop.value as Vector2[]).forEach((v, j) => v.set(drop[j]?.[0] ?? 0, drop[j]?.[1] ?? 0));
+      const box: readonly [number, number, number, number] = drop.length > 0 && lastDropout ? lastDropout.box : [0, 0, 0, 0];
+      (uniforms.uDropBox.value as Vector4).set(...box);
       const sprites = glowBodies.map((b) => {
         const sys = sysOf[b.index];
         const forced = force[LodElement.Derp];

@@ -69,6 +69,23 @@ interface MotesTestHook {
    * disk approaches on (−1 left, 1 right); null before the galaxy is built or while it has no shadow.
    */
   hole(): { x: number; y: number; r: number; approach: -1 | 1 } | null;
+  /** The defect's dropout at the last frame (BodySystem.dropout: its lines, box and the piece's disc, CSS px); null where none is drawn. */
+  dropout(): ReturnType<BodySystem['dropout']> | null;
+  /** Draw no dropout (true) or let it run (false), and redraw: a frame with and without its lines. */
+  muteDropout(mute: boolean): void;
+  /**
+   * Hold the galaxy's ambient clock at `t` seconds (as `?ambient=t` does, without a reload), or (null)
+   * let it go back to its own, and redraw: the defect's e2e steps a strip of frames on one page.
+   */
+  holdAmbient(t: number | null): void;
+  /**
+   * Draw the frame at ambient `t` now (as holdAmbient(t) and a redraw, in this task), and sum the
+   * luminance over `background` (rgb, 0-255) of what it drew in the focused defective piece's box
+   * (BodySystem.dropout's), read back from the drawing buffer before it is composited: the defect's
+   * flash guard on the drawn frames, a few hundred of them, without a screenshot each. Null where no
+   * focused defective piece is drawn.
+   */
+  defectLuminance(t: number, background: readonly [number, number, number]): number | null;
 }
 
 declare global {
@@ -191,6 +208,8 @@ if (shotName !== null) {
 // A frame that draws the galaxy (or carries the bike onto it, or tracks it) draws nothing before it
 // has loaded. The clock counts from the first frame drawn.
 let clockModule: typeof import('./scene/ambientClock') | null = null;
+/** The test hook's hold on the ambient clock (MotesTestHook.holdAmbient): null, the clock's own. */
+let heldAmbient: number | null = null;
 let ambientClock: AmbientClock | null = null;
 let firstFrameMs: number | null = null;
 void import('./scene/ambientClock').then((m) => {
@@ -263,7 +282,7 @@ function draw(now: number): void {
   if (clockModule !== null && ambientClock === null) {
     ambientClock = clockModule.createAmbientClock({ override: ambientOverride, test: testMode, reduced: () => reducedMotion.matches, startMs: firstFrameMs });
   }
-  const live = ambientClock?.at(now) ?? 0;
+  const live = heldAmbient ?? ambientClock?.at(now) ?? 0;
   // The freeze frame's hold (freeze-frame §1.2): while it is up every draw and the tracked camera read
   // the freeze pin in place of the clock, so the held frame is pure of wall time.
   const ambient = clockModule?.shown(live, state.freeze.hold) ?? live;
@@ -279,7 +298,7 @@ function draw(now: number): void {
     shot,
     ambient,
     // The live ambient the freeze's twos tick on: none where it is not live (test mode, reduced motion, `?ambient=`).
-    liveAmbient: ambientClock?.live() === true ? live : null,
+    liveAmbient: heldAmbient === null && ambientClock?.live() === true ? live : null,
     pins: clockModule?.FREEZE_PINS ?? null,
     flashOn: shimmerOn(),
     viewport,
@@ -309,7 +328,7 @@ function frame(now: number): void {
   // shown; without either (test mode, reduced motion, ?ambient=) a frame only changes when
   // something requests it. Today live() implies shimmerOn() (both need no test mode and no reduced
   // motion), so the galaxy's clause adds no frame; it keeps the galaxy running should the shimmer stop.
-  if (shimmerOn() || (galaxyShown && ambientClock?.live() === true)) requestFrame();
+  if (shimmerOn() || (galaxyShown && heldAmbient === null && ambientClock?.live() === true)) requestFrame();
 }
 
 function requestFrame(): void {
@@ -399,6 +418,35 @@ if (testMode) {
       if (s.z <= 0) return null;
       const ratio = renderer.getPixelRatio();
       return { x: s.x / ratio, y: (drawingBuffer.y - s.y) / ratio, r: s.z / ratio, approach: hole.approach() };
+    },
+    dropout: () => bodiesOf()?.dropout() ?? null,
+    defectLuminance: (t, background) => {
+      heldAmbient = t;
+      bump();
+      draw(performance.now());
+      const d = bodiesOf()?.dropout() ?? null;
+      if (!renderer || d === null) return null;
+      const gl = renderer.getContext();
+      const ratio = renderer.getPixelRatio();
+      const [x0, y0] = [Math.max(0, Math.floor(d.box[0] * ratio)), Math.max(0, Math.floor(d.box[1] * ratio))];
+      const [x1, y1] = [Math.min(drawingBuffer.x, Math.ceil(d.box[2] * ratio)), Math.min(drawingBuffer.y, Math.ceil(d.box[3] * ratio))];
+      if (!(x1 > x0 && y1 > y0)) return 0;
+      const px = new Uint8Array((x1 - x0) * (y1 - y0) * 4);
+      // The drawing buffer's rows run up from the bottom.
+      gl.readPixels(x0, drawingBuffer.y - y1, x1 - x0, y1 - y0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += 0.2126 * (px[i] - background[0]) + 0.7152 * (px[i + 1] - background[1]) + 0.0722 * (px[i + 2] - background[2]);
+      return sum;
+    },
+    holdAmbient: (t) => {
+      heldAmbient = t;
+      bump();
+      requestFrame();
+    },
+    muteDropout: (mute) => {
+      bodiesOf()?.muteDropout(mute);
+      bump();
+      requestFrame();
     },
     isolate: (names) => {
       isolated = names === null ? null : new Set(names);

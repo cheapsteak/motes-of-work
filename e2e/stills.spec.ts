@@ -7,6 +7,8 @@ import { galaxyBudget, generateGalaxy, systemOuter } from '../src/galaxy/generat
 import { mechanisms } from '../src/mechanisms';
 import { mechanismAnchors } from '../src/mechanisms/anchors';
 import { packBodyData } from '../src/scene/node/bodyData';
+import { LEAK } from '../src/scene/node/birth';
+import { dropoutEvent } from '../src/scene/node/dropout';
 import { bodyGalactic, galacticToWorld } from '../src/scene/node/orbit';
 import { galaxyShotKeys } from '../src/timeline/netShots';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
@@ -66,6 +68,9 @@ function pairClose(t: number): string {
   const net = { show: 1, growth: 1, lamp: Lamp.Hood, lampAt: trackIndex({ hood: true }), streams: 0, feed: 0, haze: 0 };
   return `&mech=bike&ambient=${t}&state=${encodeURIComponent(JSON.stringify({ camera, net }))}`;
 }
+
+/** R8b's dropout frame: the first from 101 s (re-skin Task 8b). */
+const DROPOUT_AT = firstDropout(101);
 
 /** Every named still, by task. */
 const STILLS: Still[] = [
@@ -296,7 +301,24 @@ const STILLS: Still[] = [
       ['fr-1', 'far', 0.53125],
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R5', name, query: '&mech=bike', at: { section, local } })),
+  // The re-skin's Task 8b (the defect inspector's variant 18): df-1's close shot before the cut, at a
+  // wound's peak (C1's forced slot 45: its wounds open at 98.60 and 98.90 s) and at a dropout frame (the
+  // first from 101 s); and df-2 held, which the leak and the dropout leave as the freeze has it.
+  ...(
+    [
+      ['df-1-wound-peak', 0.22, 99.45],
+      ['df-1-dropout', 0.22, DROPOUT_AT],
+      ['df-2-held', 0.31, undefined],
+    ] as const
+  ).map(([name, local, ambient]) => ({ tag: 'R8b', name, query: `&mech=bike${ambient === undefined ? '' : `&ambient=${ambient}`}`, at: { section: 'defect', local } })),
 ];
+
+/** The first frame from 101 s with the dropout's lines up (re-skin Task 8b), on a whole frame of the ambient. */
+function firstDropout(from: number): number {
+  let f = Math.ceil(from * LEAK.fps);
+  while (dropoutEvent(f / LEAK.fps) === null) f++;
+  return f / LEAK.fps;
+}
 
 /** Phone first (the essay's first reader), then the desktop. */
 const SIZES = [
@@ -326,6 +348,21 @@ for (const tag of [...new Set(STILLS.map((s) => s.tag))]) {
     if (errors.length > 0) throw new Error(`page errors: ${errors.join('; ')}`);
   });
 }
+
+// The re-skin's Task 8b: 10 s of df-1 (defect 0.22) at 30 fps from 101 s, on a phone, one still per frame
+// (R8b-strip/f000.png ...): the scatter in every slot, its wounds leaking and snapping home, the lines.
+test('R8b df-1 strip, phone', async ({ page }) => {
+  await page.setViewportSize(SIZES[0]);
+  mkdirSync(`${DIR}/R8b-strip`, { recursive: true });
+  await openStage(page, '&mech=bike&n=500');
+  const span = (await readSpans(page)).find((x) => x.id === 'defect')!;
+  await openStage(page, `&mech=bike&p=${span.start + 0.22 * (span.end - span.start)}`);
+  for (let f = 0; f < 10 * LEAK.fps; f++) {
+    await page.evaluate((t) => (window as unknown as { __motes: { holdAmbient(t: number): void } }).__motes.holdAmbient(t), 101 + f / LEAK.fps);
+    await settle(page);
+    await canvasShot(page, `${DIR}/R8b-strip/f${String(f).padStart(3, '0')}.png`);
+  }
+});
 
 /** The first of Act II's sections: from here on, every beat is the galaxy's. */
 const ACT_TWO_FROM = 'zoom-out';

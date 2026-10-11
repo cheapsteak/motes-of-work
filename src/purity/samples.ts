@@ -113,6 +113,11 @@ export const PURITY_SAMPLES: PuritySample[] = [
   // the fix landing on the held piece, and the release mid-peel (0.33, held, is above). The hold shows
   // the pin whatever the clock; the release runs on it again.
   ...[0.265, 0.395, 0.413].flatMap((l) => [AMBIENT_POSE, 101].map((ambient) => at('defect', l, ambient, MIN_LIT_PIXELS, l === 0.413 && ambient === 101 ? FENCE : undefined))),
+  // The defect's motion (re-skin Task 8b), df-1's close shot before the cut, at the pose and at 101 s:
+  // the forced scatter, the leak's wounds (packed per frame into the shell texture) and the dropout's
+  // lines (uniforms set per frame) all run on the ambient. A fence at 101 s, where the browser proves
+  // the page draws the wounds and the lines the twin computes.
+  ...[AMBIENT_POSE, 101].map((ambient) => at('defect', 0.22, ambient, MIN_LIT_PIXELS, ambient === 101 ? FENCE : undefined)),
   // Reviewer, trace and fix keyed (Task 11), each at the pose and at 101 s: the ring moving over P5's
   // planets under re-2, the surge running out along R0's lineage, and the sweep from the neighbourhood.
   ...(
