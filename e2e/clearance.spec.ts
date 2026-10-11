@@ -242,7 +242,8 @@ for (const viewport of [
           }
         }
       }
-      // C1, R0, R1 and the sweep: every fix that lands under a line (C5's is wordless).
+      // C1, R0, R1 and the sweep: every fix that lands under a line (C5's is wordless). R0's and R1's
+      // rows draw nothing since the re-skin's Task 5 (no warm motes): their frames, the hole's, are held all the same.
       expect(checked, 'not vacuous').toBeGreaterThan(40);
       for (const id of ['C1', 'R0', 'R1']) expect(ids.has(id), `${id}'s fix checked`).toBe(true);
       expect(errors).toEqual([]);

@@ -18,6 +18,7 @@ import { mechanisms } from '../src/mechanisms';
 import { composeEssayCamera } from '../src/timeline/netTrack';
 import { ZERO_FAULTS, type SceneState } from '../src/timeline/sceneState';
 import { freezeTicks, galaxyOf, galaxyPointTop, held, visibleGalaxy, visibleTracks } from '../src/scene/node/galaxyOnScreen';
+import { holeDots } from '../src/scene/hole/holeOnScreen';
 
 // Test-only: where the machine the reader can make out is drawn on screen, computed with the
 // renderer's own reference algorithm (src/scene/mote/mote.ts, the TypeScript twin of mote.glsl).
@@ -143,7 +144,7 @@ export function visibleMachine(mech: Mechanism, s: SceneState, ambient = AMBIENT
  * inside the screen's width count: a close shot may run off a side, and what is off a side covers
  * nothing. For the bike (the essay's machine) the galaxy of Act II counts too (visibleGalaxy), its
  * dotted orbits and moon tracks (visibleTracks) and its stream and feed dots (streamPixels, after the
- * text band's mask) among it.
+ * text band's mask) and the black hole's drawn dots (holeDots) among it.
  * `count` is how many points counted, `total` how many there are.
  */
 export function machineOnScreen(
@@ -181,6 +182,13 @@ export function machineOnScreen(
     xs.push(at.x);
     ys.push(at.top);
   }
+  // The black hole drawn at the centre (re-skin Task 5; holeOnScreen.ts, the twin holeTop reads): each
+  // drawn dot's top, half its size above its centre.
+  const hole = mech.id === 'bike' ? holeDots(s, ambient, camera, width, height) : [];
+  for (const d of hole) {
+    xs.push(d.x);
+    ys.push(d.y - d.px / 2);
+  }
   // The freeze frame's bursts are drawn motes too, in the view plane round their sources: each mote's
   // top is half its dot higher (FREEZE_TICK_PX). Only while the dressing shows them.
   const ticks = mech.id === 'bike' && s.freeze.dress * s.net.focus > 0 ? freezeTicks(s, ambient, camera, width, height).ticks : [];
@@ -202,7 +210,7 @@ export function machineOnScreen(
     left: Math.min(...xs),
     right: Math.max(...xs),
     count: xs.length,
-    total: machine.length + galaxy.length + tracks.length + ticks.length + streams.length,
+    total: machine.length + galaxy.length + tracks.length + hole.length + ticks.length + streams.length,
   };
 }
 

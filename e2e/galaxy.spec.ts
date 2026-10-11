@@ -190,9 +190,10 @@ for (const size of SIZES) {
       for (const shot of SHOTS) {
         await openShot(page, shot);
         const all = await glows(page);
-        // At the galaxy wide the neighbourhood's stars are their far form (real 0: no glow drawn), so the
-        // glows there are the core's six alone. The hood and system shots are as they were.
-        if (shot === 'galaxyWide') expect(all, shot).toHaveLength(6);
+        // At the galaxy wide the neighbourhood's stars are their far form (real 0: no glow drawn), and the
+        // core's six glows went with its bodies (re-skin Task 5): none is drawn there. The hood and system
+        // shots are as they were.
+        if (shot === 'galaxyWide') expect(all, shot).toHaveLength(0);
         const on = all.filter((s) => s.x > -s.r && s.x < size.width + s.r && s.y > -s.r && s.y < size.height + s.r);
         for (let i = 0; i < on.length; i++)
           for (let j = i + 1; j < on.length; j++) {
@@ -309,6 +310,7 @@ for (const size of SIZES) {
       const g = generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));
       const { instances } = await drawStats(page);
       const net = Object.entries(instances).filter(([name]) => name.startsWith('net-'));
+      const hole = Object.entries(instances).filter(([name]) => name.startsWith('hole-'));
       expect(Object.fromEntries(net)).toEqual({
         'net-shells': g.instances.shells,
         'net-persons': g.instances.persons,
@@ -319,11 +321,23 @@ for (const size of SIZES) {
         'net-streams': g.instances.streams - STREAM_DOTS[1],
         'net-feed': STREAM_DOTS[1],
       });
-      // Every instance the galaxy draws, the ghosts, the person motes, the spikes and the stream dots
-      // too, is one Galaxy.instances counts (the ring is one quad, not instanced), within the budget;
-      // the hole's room is counted but reserved, not drawn, until the hole is.
-      const drawn = net.reduce((n, [, k]) => n + k, 0);
-      expect(drawn).toBe(g.instances.total - g.instances.reserved);
+      // The black hole's parts (re-skin Task 5), every one drawn at the galaxy wide.
+      expect(Object.fromEntries(hole)).toEqual({
+        'hole-disk': 18_000,
+        'hole-arch': 2_400,
+        'hole-ring': 320,
+        'hole-jets': 4_800,
+        'hole-knots': 768,
+        'hole-infall': 72,
+        'hole-strand-r0': 750,
+        'hole-strand-r1': 500,
+      });
+      // Every instance the galaxy draws, the ghosts, the person motes, the spikes, the stream dots and
+      // the hole's dots too, is one Galaxy.instances counts (the ring is one quad, not instanced), within
+      // the budget: Σ net-* + Σ hole-*, nothing reserved since the hole is drawn.
+      const drawn = [...net, ...hole].reduce((n, [, k]) => n + k, 0);
+      expect(g.instances.reserved).toBe(0);
+      expect(drawn).toBe(g.instances.total);
       expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
       // The neighbourhood's far form moves one star per unit (a binary's on its barycentre, re-skin Task
       // 1e: 29) to the far sets: the background's count is unchanged.
@@ -1675,7 +1689,7 @@ for (const size of SIZES) {
       }
       sums(wide, 'galaxyWide');
       // The stars' own draws light nothing at the spots (the planets', moons' and tracks' held off, so
-      // only the stars and the core's bodies are left in these meshes; the core is far from every spot)...
+      // only the stars are left in these meshes: the core's bodies draw nothing since the re-skin's Task 5)...
       for (const el of [LodElement.PlanetPoint, LodElement.PlanetShell, LodElement.Moon, LodElement.Track]) await call(page, 'forceLod', el, 0);
       await call(page, 'isolate', ['net-glow', 'net-shells', 'net-spikes']);
       let png = PNG.sync.read(await canvasShot(page));

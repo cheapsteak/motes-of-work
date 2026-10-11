@@ -10,6 +10,11 @@ const MIN_LIT_PIXELS = 5000; // measured: 38980 (p=0.12), 54636 (p=0.41), 163339
 // more pixels compared byte for byte, and a frame that lost half its lit set fails. Measured on Act II's
 // look before its re-skin, which re-measures them.
 const halfOf = (measured: number): number => Math.floor(measured / 2);
+/**
+ * The hole close’s lit px on this screen (re-skin Task 5): half the least measured at the pose and at
+ * 101 s over ly-2, trace 0.52 and fix 0.08 (9,477, ly-2 at the pose; the rest 9,509 to 10,288).
+ */
+const HOLE_MIN_LIT = halfOf(9477);
 
 // The essay's three points were chosen as fractions of the essay when it ended on the zoom-out.
 // Each is that fraction of the way to the zoom-out's end, read from the page's spans, so it lands
@@ -153,6 +158,16 @@ const SAMPLES: { name: string; p: (context: BrowserContext) => Promise<number>; 
       ['reviewer', 0.5, halfOf(1929)],
       ['trace', 0.8, halfOf(4547)],
       ['fix', 0.82, halfOf(4944)],
+    ] as const
+  ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit))),
+  // The black hole (re-skin Task 5), each at the pose and at 101 s: ly-2's midpoint on the hole close,
+  // tr-2's hold on it (trace 0.52) and fx-1's (fix 0.08). Its disk, jets, knots and in-fall all run on
+  // the ambient, so a jump, a scroll and a detour must land on the same dots.
+  ...(
+    [
+      ['layers', 1.35 / 4.3, HOLE_MIN_LIT],
+      ['trace', 0.52, HOLE_MIN_LIT],
+      ['fix', 0.08, HOLE_MIN_LIT],
     ] as const
   ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit))),
 ];

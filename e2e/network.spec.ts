@@ -35,8 +35,25 @@ const progressAt = (spans: SectionSpan[], section: string, local: number): numbe
   return span.start + local * (span.end - span.start);
 };
 
-/** The galaxy's instanced meshes (bodySystem.ts), every set it draws. */
-const GALAXY_MESHES = ['net-shells', 'net-persons', 'net-bodies', 'net-glow', 'net-spikes', 'net-tracks', 'net-streams', 'net-feed'];
+/** The galaxy's instanced meshes (bodySystem.ts), every set it draws, and the black hole's (holeSystem.ts, re-skin Task 5). */
+const GALAXY_MESHES = [
+  'net-shells',
+  'net-persons',
+  'net-bodies',
+  'net-glow',
+  'net-spikes',
+  'net-tracks',
+  'net-streams',
+  'net-feed',
+  'hole-disk',
+  'hole-arch',
+  'hole-ring',
+  'hole-jets',
+  'hole-knots',
+  'hole-infall',
+  'hole-strand-r0',
+  'hole-strand-r1',
+];
 
 for (const size of SIZES) {
   test.describe(`${size.width}x${size.height}`, () => {
@@ -51,9 +68,10 @@ for (const size of SIZES) {
       const stats = await page.evaluate(() => (window as unknown as { __motes: { drawStats(): { instances: Record<string, number> } } }).__motes.drawStats());
       for (const name of GALAXY_MESHES) expect(stats.instances[name], name).toBeGreaterThan(0);
       const drawn = GALAXY_MESHES.reduce((n, name) => n + stats.instances[name], 0);
-      // Every set drawn is the galaxy's count but the hole's room, reserved until the hole is drawn.
+      // Every set drawn, the hole's among them, is the galaxy's count: nothing is reserved once the hole is drawn.
       const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
-      expect(drawn).toBe(g.instances.total - g.instances.reserved);
+      expect(g.instances.reserved).toBe(0);
+      expect(drawn).toBe(g.instances.total);
       expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
       expect(stats.instances.motes).toBe(MOTE_BUDGET_DESKTOP);
     });

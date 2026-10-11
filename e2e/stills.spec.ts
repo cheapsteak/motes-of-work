@@ -279,6 +279,23 @@ const STILLS: Still[] = [
       ['ly-5-settled', 'layers', 3.55 / 4.3],
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R1e', name, query: '&mech=bike', at: { section, local } })),
+  // The re-skin's Task 5 (re-skin §4.2, §8): the black hole drawn at the centre in place of the core's six
+  // bodies: its close shots (ly-2, up-1, tr-2, fx-2: HOLE_CLOSE), the beats that see it small among the
+  // stars (ly-3, up-2, re-3, tr-1, ls-1) and the galaxy wide (fr-1), each at its earlier still's place.
+  ...(
+    [
+      ['ly-2', 'layers', 1.35 / 4.3],
+      ['ly-3', 'layers', 2.35 / 4.3],
+      ['up-1', 'spread', 0.756 / 2.808],
+      ['up-2', 'spread', 2.124 / 2.808],
+      ['re-3', 'reviewer', 0.88],
+      ['tr-1', 'trace', 0.21],
+      ['tr-2', 'trace', 0.53],
+      ['fx-2', 'fix', 0.33],
+      ['ls-1', 'lesson', 0.5],
+      ['fr-1', 'far', 0.53125],
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R5', name, query: '&mech=bike', at: { section, local } })),
 ];
 
 /** Phone first (the essay's first reader), then the desktop. */

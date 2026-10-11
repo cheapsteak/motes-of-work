@@ -4,7 +4,7 @@ import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { galaxyTier } from '../src/galaxy/background';
 import { galaxyBudget, generateGalaxy } from '../src/galaxy/generate';
 import { GALAXY_SHOTS, galaxyShotKeys } from '../src/timeline/netShots';
-import { CANVAS_ONLY_CSS, countNonBackground, readSpans } from './helpers';
+import { beatMiddles, CANVAS_ONLY_CSS, countNonBackground, readSpans } from './helpers';
 
 // Spec 6.1: the idle shimmer is the only thing that moves a frame without a scroll, and it is off
 // under prefers-reduced-motion. These pages run WITHOUT ?test=1, so shimmer is governed by the
@@ -154,6 +154,61 @@ test.describe('the galaxy on a live page, on a phone', () => {
     const a = await grab(page);
     await page.waitForTimeout(1000);
     expect((await grab(page)) === a, 'the galaxy did not run again').toBe(false);
+    expect([...errors, ...posed]).toEqual([]);
+  });
+});
+
+// The re-skin's Task 5 (Review Focus 5): the black hole runs on the ambient clock too (the disk's shear,
+// the jets, the knots, the in-fall), so reduced motion switched on at its beat stops it at the pose on
+// the next frame, and switched off lets it run again. A live page (no ?test=1) at ly-2's midpoint.
+
+test.describe('the black hole on a live page, on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  /** ly-2's midpoint, as global progress, read from the live page's own story. */
+  async function ly2(page: Page): Promise<number> {
+    await page.goto(`/?mech=bike&auto=0&n=${SMALL_BUDGET}`);
+    const spans = await readSpans(page);
+    const middles = await beatMiddles(page);
+    const i = middles.findIndex((section) => section.some((b) => b.id === 'ly-2'));
+    const local = middles[i].find((b) => b.id === 'ly-2')!.local;
+    return spans[i].start + local * (spans[i].end - spans[i].start);
+  }
+
+  async function openHole(page: Page, reducedMotion: 'reduce' | 'no-preference', p: number, extra = ''): Promise<string[]> {
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(`/?mech=bike&auto=0&n=${SMALL_BUDGET}&p=${p}${extra}`);
+    await page.waitForFunction(() => document.getElementById('stage') !== null);
+    await page.addStyleTag({ content: CANVAS_ONLY_CSS });
+    await page.waitForTimeout(GAP_MS);
+    return errors;
+  }
+
+  test('reduced motion toggled at ly-2: the hole stops at the pose on the next frame, then runs again', async ({ page, browser }) => {
+    const p = await ly2(page);
+    const errors = await openHole(page, 'no-preference', p);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(1000);
+    const held = await page.locator('#stage').screenshot();
+
+    // The same place opened at ?ambient=<the pose>: the frame reduced motion stops at.
+    const other = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const posed = await openHole(other, 'reduce', p, `&ambient=${AMBIENT_POSE}`);
+    const pose = await other.locator('#stage').screenshot();
+    await other.close();
+    expect(countNonBackground(pose), 'the hole draws').toBeGreaterThan(2000);
+    expect(held.equals(pose), 'under reduced motion the hole is not at the pose').toBe(true);
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForTimeout(500);
+    const a = await grab(page);
+    await page.waitForTimeout(1000);
+    expect((await grab(page)) === a, 'the hole did not run again').toBe(false);
     expect([...errors, ...posed]).toEqual([]);
   });
 });
