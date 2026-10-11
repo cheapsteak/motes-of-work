@@ -183,7 +183,11 @@ export function holeOmega(r: number): number {
 function toView(v: HoleView, p: Vec3): Vec3 {
   const m = v.viewRot;
   const s = HOLE_LOOK.scale;
-  return [0, 1, 2].map((r) => v.hv[r] + (m[r] * p[0] + m[3 + r] * p[1] + m[6 + r] * p[2]) * s) as Vec3;
+  return [
+    v.hv[0] + (m[0] * p[0] + m[3] * p[1] + m[6] * p[2]) * s,
+    v.hv[1] + (m[1] * p[0] + m[4] * p[1] + m[7] * p[2]) * s,
+    v.hv[2] + (m[2] * p[0] + m[5] * p[1] + m[8] * p[2]) * s,
+  ];
 }
 
 /** The inspector's emit(): alpha I × min(ok, 1), clamped, and none at all under ok HOLE_DOT.hidden. */
@@ -304,10 +308,13 @@ export function diskPlace(a: Float32Array, i: number, t: number, lag = 0): DiskP
   };
 }
 
-/** Disk dot `i` (§4.2) through `image` (1: the underside arc, arcDelay s behind, at underGain). */
-export function diskDot(a: Float32Array, i: number, v: HoleView, image: 0 | 1): HoleDot {
+/**
+ * Disk dot `i` (§4.2) through `image` (1: the underside arc, arcDelay s behind, at underGain). `d` is its
+ * place (diskPlace at v.t, arcDelay behind for the arc): a twin that draws many views at one ambient
+ * passes it once computed (holeOnScreen.ts); the dot is the same.
+ */
+export function diskDot(a: Float32Array, i: number, v: HoleView, image: 0 | 1, d: DiskPlace = diskPlace(a, i, v.t, image === 1 ? HOLE_DISK.motion.arcDelay : 0)): HoleDot {
   const D = HOLE_DISK;
-  const d = diskPlace(a, i, v.t, image === 1 ? D.motion.arcDelay : 0);
   const sn = Math.sin(d.phi);
   const cs = Math.cos(d.phi);
   const p: Vec3 = [d.r * cs, d.h, d.r * sn];
@@ -364,11 +371,11 @@ export function jetPlace(a: Float32Array, i: number, t: number): { p: Vec3; s: n
   };
 }
 
-/** Jet dot `i` (§4.2). */
-export function jetDot(a: Float32Array, i: number, v: HoleView): HoleDot {
+/** Jet dot `i` (§4.2); `place` its jetPlace at v.t (as diskDot's). */
+export function jetDot(a: Float32Array, i: number, v: HoleView, place: { p: Vec3; s: number } = jetPlace(a, i, v.t)): HoleDot {
   const J = HOLE_JET;
   const L = HOLE_LOOK.jetLength;
-  const { p, s } = jetPlace(a, i, v.t);
+  const { p, s } = place;
   const fade = smoothstep(0, J.fadeIn, s) * (1 - smoothstep(J.fadeOut * L, L, s));
   const I = a[i * PART_STRIDE + 4] * fade * (J.gain / (1 + s / J.falloff)) * v.gain;
   return holeEmit(v, p, 0, mix3(J.baseRgb, J.tipRgb, smoothstep(0, 1, s / L)), I, J.size, 1);
@@ -398,11 +405,16 @@ export function knotPlace(a: Float32Array, i: number, t: number): { p: Vec3; s: 
   return { p, s, n, ok, emberDraw: hash01(id, SALT.knotEmber) };
 }
 
-/** Knot dot `i` (§4.2) under the fronts: ember iff its draw < emberShare and fronts.clean L ≤ s ≤ fronts.ember L. */
-export function knotDot(a: Float32Array, i: number, v: HoleView, fronts: { ember: number; clean: number }): HoleDot & { ember: number } {
+/** Knot dot `i` (§4.2) under the fronts: ember iff its draw < emberShare and fronts.clean L ≤ s ≤ fronts.ember L. `k` its knotPlace at v.t (as diskDot's). */
+export function knotDot(
+  a: Float32Array,
+  i: number,
+  v: HoleView,
+  fronts: { ember: number; clean: number },
+  k: ReturnType<typeof knotPlace> = knotPlace(a, i, v.t),
+): HoleDot & { ember: number } {
   const K = HOLE_KNOT;
   const L = HOLE_LOOK.jetLength;
-  const k = knotPlace(a, i, v.t);
   const ember = k.emberDraw < K.emberShare && k.s <= fronts.ember * L && k.s >= fronts.clean * L ? 1 : 0;
   const fade = smoothstep(0, K.fade[0], k.s) * (1 - smoothstep(K.fade[1] * L, L, k.s));
   const I = a[i * PART_STRIDE + 2] * fade * v.gain;
@@ -438,10 +450,9 @@ export function infallPlace(a: Float32Array, i: number, t: number): { p: Vec3; u
   return { p: [rho * Math.cos(phi), y, rho * Math.sin(phi)], u, ok };
 }
 
-/** In-fall dot `i` (§4.2). */
-export function infallDot(a: Float32Array, i: number, v: HoleView): HoleDot {
+/** In-fall dot `i` (§4.2); `f` its infallPlace at v.t (as diskDot's). */
+export function infallDot(a: Float32Array, i: number, v: HoleView, f: ReturnType<typeof infallPlace> = infallPlace(a, i, v.t)): HoleDot {
   const F = HOLE_INFALL;
-  const f = infallPlace(a, i, v.t);
   const fade = smoothstep(0, F.fade[0], f.u) * (1 - smoothstep(F.fade[1], 1, f.u));
   const I = (F.bright - F.trailDim * a[i * PART_STRIDE + 1]) * fade * v.gain;
   return holeEmit(v, f.p, 0, [...F.rgb], I, F.size, f.ok);
@@ -482,10 +493,15 @@ export function strandPlace(a: Float32Array, i: number, t: number): { p: Vec3; r
   };
 }
 
-/** Strand dot `i` (§4.2): its strand (aB.x) inside the window [0, s.head], clean to HOLE_EMBER by `s.heat`. */
-export function strandDot(a: Float32Array, i: number, v: HoleView, s: { head: number; heat: number }): HoleDot {
+/** Strand dot `i` (§4.2): its strand (aB.x) inside the window [0, s.head], clean to HOLE_EMBER by `s.heat`. `d` its strandPlace at v.t (as diskDot's). */
+export function strandDot(
+  a: Float32Array,
+  i: number,
+  v: HoleView,
+  s: { head: number; heat: number },
+  d: ReturnType<typeof strandPlace> = strandPlace(a, i, v.t),
+): HoleDot {
   const T = HOLE_STRAND;
-  const d = strandPlace(a, i, v.t);
   const tail = 0;
   const vis = d.q >= tail && d.q <= s.head ? 1 : 0;
   const rv = Math.sqrt(d.p[0] * d.p[0] + d.p[2] * d.p[2]);

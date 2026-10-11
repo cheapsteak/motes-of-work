@@ -301,13 +301,17 @@ const OUR_DOTS: Record<keyof typeof HOLE_MOCK_DOTS, number> = {
   strand1: HOLE_DOTS.strand1,
 };
 
+/** Each part's compensation (holeComp's), computed once: the twins ask for it at every dot. */
+const HOLE_COMP = Object.fromEntries(
+  (Object.keys(HOLE_MOCK_DOTS) as (keyof typeof HOLE_MOCK_DOTS)[]).map((part) => {
+    const m = HOLE_MOCK_DOTS[part] / OUR_DOTS[part];
+    return [part, Object.freeze({ gain: Math.sqrt(m), size: m ** 0.25 })];
+  }),
+) as Record<keyof typeof HOLE_MOCK_DOTS, Readonly<{ gain: number; size: number }>>;
+
 /** A part's compensation for its fewer dots: gain √(mock/ours) and size (mock/ours)^¼, so gain · size² = mock/ours. */
-export function holeComp(part: keyof typeof HOLE_MOCK_DOTS): {
-  gain: number;
-  size: number;
-} {
-  const m = HOLE_MOCK_DOTS[part] / OUR_DOTS[part];
-  return { gain: Math.sqrt(m), size: m ** 0.25 };
+export function holeComp(part: keyof typeof HOLE_MOCK_DOTS): Readonly<{ gain: number; size: number }> {
+  return HOLE_COMP[part];
 }
 
 /**

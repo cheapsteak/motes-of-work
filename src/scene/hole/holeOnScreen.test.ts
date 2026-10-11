@@ -96,6 +96,53 @@ describe('holeTop (the hole’s clearance twin)', () => {
         expect(holeDots(s, t, camera, size.width, size.height).length).toBeGreaterThan(HOLE_DOTS.ring);
       });
 
+  it('is the same list, to the bit, from its caches as computed afresh by the dot functions, whatever came before', () => {
+    // holeDots keeps each ambient's dot places and the last few views' lists (the sweeps repeat them).
+    // Each call here is computed afresh through the plain dot functions (each places its own dot) and
+    // held equal with Object.is, between calls that fill the caches with other views and ambients.
+    const fresh = (s: SceneState, t: number, size: { width: number; height: number }) => {
+      const camera = essayCamera(s.camera, g, data, size, t);
+      const v = holeFrame(s, g, data, camera, size, t).view;
+      const out: number[] = [];
+      const take = (d: HoleDot, key: HoleMockPart) => {
+        const depth = -d.view[2];
+        if (!(holeAlpha(d.alpha, key) > 0) || !(depth > 0)) return;
+        const q = new Vector3(...d.view).applyMatrix4(camera.projectionMatrix);
+        const x = ((q.x + 1) / 2) * size.width;
+        if (x < 0 || x > size.width) return;
+        out.push(x, ((1 - q.y) / 2) * size.height, holeDotPx(d.sizeCss * holeComp(key).size, depth, 1));
+      };
+      for (let i = 0; i < HOLE_DOTS.disk; i += 10) take(diskDot(A.disk, i, v, 0), 'disk');
+      for (let i = 0; i < HOLE_DOTS.arch; i += 10) take(diskDot(A.disk, i, v, 1), 'arch');
+      for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v), 'ring');
+      for (let i = 0; i < A.jets.length / PART_STRIDE; i++) take(jetDot(A.jets, i, v), 'jets');
+      for (let i = 0; i < A.knots.length / PART_STRIDE; i++) take(knotDot(A.knots, i, v, { ember: 0, clean: 0 }), 'knot');
+      for (let i = 0; i < A.infall.length / PART_STRIDE; i++) take(infallDot(A.infall, i, v), 'infall');
+      for (let i = 0; i < A.strand0.length / PART_STRIDE; i++) take(strandDot(A.strand0, i, v, { head: strandWindow(0, 0).head, heat: 0 }), 'strand0');
+      for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v, { head: strandWindow(1, 0).head, heat: 0 }), 'strand1');
+      return out;
+    };
+    const s = closeState();
+    const sizes = [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ];
+    let compared = 0;
+    for (const round of [0, 1])
+      for (const t of [AMBIENT_POSE, 101, 3599.9])
+        for (const size of round === 0 ? sizes : [...sizes].reverse()) {
+          const camera = essayCamera(s.camera, g, data, size, t);
+          const got = holeDots(s, t, camera, size.width, size.height).flatMap((d) => [d.x, d.y, d.px]);
+          const want = fresh(s, t, size);
+          expect(got.length, `${size.width} at ${t}`).toBe(want.length);
+          got.forEach((x, i) => {
+            if (!Object.is(x, want[i])) expect(x, `${size.width} at ${t}, value ${i}`).toBe(want[i]);
+          });
+          compared += got.length;
+        }
+    expect(compared).toBeGreaterThan(12 * 3 * HOLE_DOTS.ring);
+  });
+
   it('is null under lamp Arms: the hole is dark', () => {
     const s = closeState(Lamp.Arms);
     const camera = essayCamera(s.camera, g, data, { width: 390, height: 844 }, AMBIENT_POSE);
