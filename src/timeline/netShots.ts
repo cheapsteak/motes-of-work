@@ -1049,9 +1049,10 @@ export function spreadAt(screens: number): SectionAt {
 /**
  * The lamp steps of the moves that touch spread, on the thousandths of its section (the moves' band
  * test samples every thousandth): the first from which the new level clears the band to the move's
- * end, the old one clearing up to there, as fitted.
+ * end, the old one clearing up to there, as fitted. toHood's: the hood's lit set (cylinderTop) first clears
+ * from 0.523 as the camera leaves the hole close (re-skin Task 5's fix round 1; 0.5 before Task 5).
  */
-const SPREAD_LAMPS = { toHood: 0.518, toReview: 0.965 } as const;
+const SPREAD_LAMPS = { toHood: 0.523, toReview: 0.965 } as const;
 
 // ---- Reviewer, trace, fix and lesson (galaxy §14.5; the plan's Task 11, its shot pass) ----
 
@@ -1269,9 +1270,10 @@ export const LATE_MOVES = {
   // Task 5) the lineage's stars stand behind the hole, low over it, until the camera has risen: 0.642.
   fanOut: { shot: 'tr-2 surge', from: ['trace', 0.58], until: ['trace', 0.68], lamp: ['trace', 0.642] },
   toFix: { shot: 'fx-1', from: ['trace', 0.97058824], until: ['fix', 0.02173913], lamp: ['trace', 0.971] },
-  // Its lamp step at 0.467, the first thousandth from which fx-3's lit set clears as the camera leaves the hole
-  // close (re-skin Task 5; 0.464 before, 0.463 before re-skin Task 1e's re-fit of fx-3, 0.458 before Task 1d's).
-  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.467] },
+  // Its lamp step at 0.472, the first thousandth from which fx-3's lit set clears (cylinderTop) as the camera leaves
+  // the hole close (re-skin Task 5's fix round 1; 0.464 before Task 5, 0.463 before re-skin Task 1e's re-fit of fx-3,
+  // 0.458 before Task 1d's).
+  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.472] },
   toLesson: {
     shot: 'ls-1',
     from: ['fix', 0.97826087],

@@ -837,22 +837,30 @@ const placesBetween = (a: SectionAt, b: SectionAt, n: number): SectionAt[] => {
 const HOLDS = ACT_TWO_MOVES.map((move, i) => ({ shot: move.shot, from: move.until, until: ACT_TWO_MOVES[i + 1]?.from ?? (['lesson', 1] as SectionAt) }));
 /**
  * The hole close's stretches (re-skin Task 5): from the start of each move onto a HOLE_CLOSE beat to the
- * end of the move that leaves it. As the late close shots were (Task 11's clearance ruling), their lit
- * set is held to what is drawn (visibleClearance, the hole's twin holeTop among it): the camera stands
- * 75 units off the hole, inside the lineage's and the neighbourhood's discs, whose cylinder stands far
- * higher on screen than anything drawn.
+ * end of the move that leaves it. As on the late close shots (Task 11's clearance ruling), a frame there
+ * under the core lamp is held to what is drawn (visibleClearance, the hole's twin holeTop among it): the
+ * camera stands inside the core's lit disc, whose cylinder stands far higher on screen than anything drawn.
+ * Under every other lamp, the hood's among them, it is held to cylinderTop (spec §8): drawnJudged.
  */
 const HOLE_SPANS: [number, number][] = ACT_TWO_MOVES.flatMap((m, i) =>
   (HOLE_CLOSE_BEATS as readonly string[]).includes(m.shot) && ACT_TWO_MOVES[i + 1] ? [[screensOf(m.from), screensOf(ACT_TWO_MOVES[i + 1].until)] as [number, number]] : [],
 );
 const inHole = (at: SectionAt): boolean =>
   MOVE_SECTIONS.some(([id]) => id === at[0]) && HOLE_SPANS.some(([a, b]) => screensOf(at) >= a - 1e-9 && screensOf(at) <= b + 1e-9);
-/** A keyed place's margin under the band, both screens and every AMBIENT_GRID pose: through the hole's stretches by what is drawn, elsewhere by cylinderTop (margin). */
+/**
+ * Whether a frame is held to what is drawn for the hole close: only under the core lamp, in the hole's
+ * stretches (Task 11's ruling allowed drawn pixels under the core lamp alone; Task 5's fix round 1).
+ */
+const drawnJudged = (at: SectionAt, lamp: Lamp): boolean => lamp === Lamp.Core && inHole(at);
+/** A keyed place's margin under the band, both screens and every AMBIENT_GRID pose: by what is drawn where drawnJudged, elsewhere by cylinderTop (margin). */
 const keyedMargin = (at: SectionAt, level?: Pick<KeyedFrame, 'lamp' | 'lampAt'>): number => {
-  if (!inHole(at)) return margin(level ? { ...keyedAt(at), ...level } : keyedAt(at));
+  const f = level ? { ...keyedAt(at), ...level } : keyedAt(at);
+  if (!drawnJudged(at, f.lamp as Lamp)) return margin(f);
   const x = sampler.sample(placeProgress(at));
   return stateMarginVisible(level ? { ...x, net: { ...x.net, lamp: level.lamp, lampAt: level.lampAt } } : x);
 };
+/** A sampled state's margin at a place: by what is drawn where drawnJudged, elsewhere by stateClearance's measure (stateMargin). */
+const placeMargin = (at: SectionAt, x: SceneState): number => (drawnJudged(at, Math.round(x.net.lamp) as Lamp) ? stateMarginVisible(x) : stateMargin(x));
 
 /** The shot a hold holds. */
 const heldShot = (name: (typeof HOLDS)[number]['shot']): GalaxyShot =>
@@ -1235,7 +1243,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     }
     expect(checked).toBe(2001);
     expect(worst).toBeGreaterThanOrEqual(0);
-    // 900 s (300 before): the hole's stretches are held to what is drawn, the hole's twin among it (re-skin Task 5).
+    // 900 s (300 before): the hole's core-lit stretches are held to what is drawn, the hole's twin among it (re-skin Task 5).
   }, 900_000);
 
   it('keeps it under the band from each lamp step of layers and far (and each via) to its move’s end, at every ten-thousandth for a hundredth after the step and every thousandth after that', () => {
@@ -1268,7 +1276,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     // 954 measured since Task 1d took ly-4's and ly-5's vias away (each step's own samples went with
     // them; over 1000 before).
     expect(checked).toBeGreaterThan(900);
-    // 900 s: the steps into and out of the hole close are measured by what is drawn (re-skin Task 5).
+    // 900 s: the hole close's core-lit frames are measured by what is drawn (re-skin Task 5).
   }, 900_000);
 
   it('passes through a narrower set (a star’s system, a piece) only where no one step clears', () => {
@@ -1286,7 +1294,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
       places.push(move.until);
       const fails = (at: SectionAt, lamp: { lamp: Lamp; lampAt: number }): boolean => {
         const x = sampler.sample(placeProgress(at));
-        return (inHole(at) ? stateMarginVisible : stateMargin)({ ...x, net: { ...x.net, lamp: lamp.lamp, lampAt: lamp.lampAt } }) < 0;
+        return placeMargin(at, { ...x, net: { ...x.net, lamp: lamp.lamp, lampAt: lamp.lampAt } }) < 0;
       };
       // No one step clears: a step at any of these places up to the lamp has the old level fail at or
       // before it, or the new one fail at or after it (each lit set by its own measure, stateClearance).
@@ -1513,7 +1521,7 @@ describe('defect and spread, as keyed (test 8; freeze-frame §1.1; galaxy §15.1
     let worst = { margin: Infinity, at: '' };
     for (const at of places) {
       const x = sampler.sample(placeProgress(at));
-      const m = inHole(at) ? stateMarginVisible(x) : stateMargin(x);
+      const m = placeMargin(at, x);
       if (m < worst.margin) worst = { margin: m, at: at.join('@') };
     }
     // Not vacuous: every lamp step, and the follow's via, is on the grid.
@@ -1587,7 +1595,7 @@ const inClose = (at: SectionAt): boolean => CLOSE_SPANS.some(([a, b]) => screens
 function lateMargin(at: SectionAt): number {
   const x = sampler.sample(placeProgress(at));
   const lamp = Math.round(x.net.lamp) as Lamp;
-  if (VISIBLE_LAMPS.includes(lamp) || (inClose(at) && lamp === Lamp.Core) || inHole(at)) return stateMarginVisible(x);
+  if (VISIBLE_LAMPS.includes(lamp) || (inClose(at) && lamp === Lamp.Core) || drawnJudged(at, lamp)) return stateMarginVisible(x);
   return margin(keyedAt(at));
 }
 /** visibleClearance's least over both screens and every AMBIENT_GRID pose, whatever the lamp. */
@@ -2070,4 +2078,35 @@ describe('the hole close (HOLE_CLOSE)', () => {
     expect(fx2).toBeGreaterThan(LATE_MOVES.toFix.until[1]);
     expect(fx2).toBeLessThan(LATE_MOVES.toNew.from[1]);
   });
+
+  it('holds a frame of the hole’s stretches to what is drawn only under the core lamp: every other lamp, the hood’s among them, to cylinderTop (Task 11’s ruling, spec §8)', () => {
+    const LAMPS = [Lamp.Off, Lamp.Planet, Lamp.Star, Lamp.Hood, Lamp.Core, Lamp.Lineage, Lamp.Arms];
+    let checked = 0;
+    for (const [a, b] of HOLE_SPANS)
+      for (let i = 0; i < 9; i++) {
+        // (Inside the stretch: placeOf rounds to 1e-8 of a section, which can step an end out of it.)
+        const at = placeOf(a + ((b - a) * (i + 0.5)) / 9);
+        // Not vacuous: every sample is in the hole's stretches, where the core lamp is held to what is drawn.
+        expect(inHole(at), at.join('@')).toBe(true);
+        for (const lamp of LAMPS) expect(drawnJudged(at, lamp), `${at.join('@')} under lamp ${lamp}`).toBe(lamp === Lamp.Core);
+        // And each measure the sweeps take there: under the hood lamp and the arms lamp, cylinderTop's own
+        // value (margin; stateMargin, stateClearance's, for the sampled states), never what is drawn.
+        const keyedFrame = keyedAt(at);
+        const x = sampler.sample(placeProgress(at));
+        for (const lamp of [Lamp.Hood, Lamp.Arms]) {
+          const level = { lamp, lampAt: keyedFrame.lampAt };
+          expect(keyedMargin(at, level), `keyedMargin at ${at.join('@')} under lamp ${lamp}`).toBe(margin({ ...keyedFrame, ...level }));
+          const y = { ...x, net: { ...x.net, lamp, lampAt: keyedFrame.lampAt } };
+          expect(placeMargin(at, y), `placeMargin at ${at.join('@')} under lamp ${lamp}`).toBe(stateMargin(y));
+        }
+        // The keyed frame itself, wherever its lamp is neither the core's nor one Task 10 holds to its visible bodies.
+        if (keyedFrame.lamp !== Lamp.Core && !VISIBLE_LAMPS.includes(keyedFrame.lamp as Lamp)) {
+          expect(keyedMargin(at), `keyedMargin at ${at.join('@')}`).toBe(margin(keyedFrame));
+          expect(lateMargin(at), `lateMargin at ${at.join('@')}`).toBe(margin(keyedFrame));
+          checked++;
+        }
+      }
+    // Some keyed frames there are lit by another lamp than the core's (the hood's, on the moves out).
+    expect(checked).toBeGreaterThan(0);
+  }, 300_000);
 });
