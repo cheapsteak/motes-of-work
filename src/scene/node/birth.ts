@@ -450,6 +450,14 @@ export const STREAM_BOW = 0.1;
 export const FEED_CAP = 0.9;
 
 /**
+ * The in-fall (re-skin §4.2): the C7 → R1 `in` stream is C7's notes falling into the black hole, the
+ * visible ember stream of up-1, not ambient lineage. It is drawn at IN_STREAM_CAP of a star glow's core,
+ * unfaded along its length as the feed is, and ends at R1's strand join (stream.ts inFallEnd), not at
+ * R1's spot. stream.ts splices it in with the others.
+ */
+export const IN_STREAM_CAP = 0.9;
+
+/**
  * The text band (galaxy §8): the text panel's bottom is never lower than TEXT_BAND of the screen's
  * height, and every lit thing keeps BAND_MARGIN_PX CSS px under it. The clearance twins hold the
  * picture to it (src/timeline/netShots.ts re-exports both), and the streams and the feed are masked to

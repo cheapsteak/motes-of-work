@@ -58,7 +58,29 @@ describe('defaults', () => {
     expect(s.ink).toEqual({ opacity: 0, drawn: 0, redraw: 0, flat: 0, ring: 0, tick: 0 });
     expect(s.stage).toEqual({ motes: 1 });
     // Act II's leaves default to nothing of it: the bike unreflowed, no network, every clock at 0.
-    expect(s.net).toEqual({ show: 0, growth: 0, fix: 0, highlight: 0, review: 0, focus: 0, lamp: 0, lampAt: 0, streams: 0, feed: 0, haze: 0, hoodHold: 0 });
+    expect(s.net).toEqual({
+      show: 0,
+      growth: 0,
+      fix: 0,
+      highlight: 0,
+      review: 0,
+      focus: 0,
+      lamp: 0,
+      lampAt: 0,
+      streams: 0,
+      feed: 0,
+      haze: 0,
+      hoodHold: 0,
+      // The story on the black hole (re-skin §5).
+      holeLamp: 0,
+      inEmber: 0,
+      strand1: 0,
+      heat0: 0,
+      cool1: 0,
+      knots: 0,
+      knotsOff: 0,
+      single: 0,
+    });
     // The freeze frame's leaves default to no cut, no dressing and no flash: every frame as it was.
     expect(s.freeze).toEqual({ hold: 0, dress: 0, flash: 0 });
   });

@@ -36,6 +36,25 @@ export function emberComponents(png: PNG, minArea = 30): number[] {
   return areas;
 }
 
+/** rg-chromaticity of a colour: (r, g) / (r + g + b), its hue and saturation without its light (the background's for black). */
+export function rgChroma(r: number, g: number, b: number): [number, number] {
+  const s = r + g + b;
+  return s > 0 ? [r / s, g / s] : [1 / 3, 1 / 3];
+}
+
+/**
+ * The black hole's ember (re-skin §4.2, §9: HOLE_EMBER, the strands' and the in-fall's), at the pixel at
+ * `i` of RGBA data: lit (its brightest channel at least 60) and red in rg-chromaticity (r ≥ 0.60, g ≤
+ * 0.26). The network's ember rule (emberComponents: r > 200, r > b + 90, r > g + 70) counts the disk's
+ * warm, receding side (255, 163, 92) as ember; this does not: that is (0.50, 0.32).
+ */
+export function isHoleEmber(d: ArrayLike<number>, i = 0): boolean {
+  const [r, g, b] = [d[i], d[i + 1], d[i + 2]];
+  if (Math.max(r, g, b) < 60) return false;
+  const [rc, gc] = rgChroma(r, g, b);
+  return rc >= 0.6 && gc <= 0.26;
+}
+
 /** A point on the canvas, px of the PNG. */
 export type Point = [number, number];
 

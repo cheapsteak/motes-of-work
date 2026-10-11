@@ -88,6 +88,7 @@ import { BODY_TEXELS, packBodyData } from './bodyData';
 import { shellSkips, spikeSkips, streamSkips, trackSkips, type EarlyOutFrame } from './earlyOut';
 import { detailPx, glowCaps, glowPx, hoodGlowPx, hoodHold, hoodReal, LOD_COUNT, LOD_VISIBLE, LodElement, lodLevel, onScreen, systemPx, type Viewport } from './lod';
 import { bodyWorld } from './orbit';
+import { inFallEmber, inFallEnd } from './stream';
 import { withDropoutConstants, withGalaxyLibrary } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
 import bodyFrag from './shaders/body.frag.glsl?raw';
@@ -312,6 +313,9 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
     uRingAlpha: { value: 0 },
     uFeed: { value: 0 },
     uFeedOn: { value: 0 },
+    // The in-fall (re-skin §4.2): R1's strand join in the world (stream.ts inFallEnd), and how far it is ember (inFallEmber).
+    uInFallEnd: { value: new Vector3() },
+    uInEmber: { value: 0 },
     // The freeze frame (freeze.glsl, bodyMote.glsl freezeLook): the dressing, the flash and whether it
     // shows, which copy a draw is (0 here; each copy's own material says 1 or 2), the held moon's and
     // planet's rows, the roll (radians) and the copies' offset direction (the rolled screen x), the twos.
@@ -505,6 +509,8 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       uniforms.uLampRow.value = lampFocusRow(lampAt, g);
       uniforms.uStreams.value = streams;
       uniforms.uFeedOn.value = feed;
+      (uniforms.uInFallEnd.value as Vector3).set(...inFallEnd(data, ambient));
+      uniforms.uInEmber.value = inFallEmber(state.net);
       uniforms.uHoodHold.value = hoodHold(state.net.hoodHold);
       uniforms.uAmbient.value = ambient;
       // The focused defective planet scatters in every slot (re-skin Task 8b): its sweep, shapes and

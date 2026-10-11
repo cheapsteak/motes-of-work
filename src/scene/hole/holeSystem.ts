@@ -4,10 +4,11 @@
 //   hole-arch       the disk's first HOLE_DOTS.arch dots again, through the lens's underside image
 //   hole-ring       the photon ring, a circle in the view plane at the shadow's edge
 //   hole-jets       the two jets' sheaths of dots, drifting out and twisting
-//   hole-knots      the clumps riding the jets, clean until the story's fronts say ember (Task 6)
+//   hole-knots      the clumps riding the jets, ember between the story's fronts (net.knots, net.knotsOff)
 //   hole-infall     the specks falling in (the prompts, never named)
-//   hole-strand-r0  R0's strand in the outer disk: whole and clean until Task 6 keys its heat
-//   hole-strand-r1  R1's strand in the inner disk: its window closed until Task 6 keys it
+//   hole-strand-r0  R0's strand in the outer disk: whole, clean until the trace heats it (net.heat0)
+//   hole-strand-r1  R1's strand in the inner disk: growing from up-1 (net.strand1), ember until fx-2 (net.cool1)
+// The story's lamp and single (net.holeLamp, net.single) scale each part's gain (holeFrame.ts holeStory).
 // Every dot's place, colour and light come from hole.glsl in the vertex shader (hole.vert.glsl); the CPU
 // computes once a frame only what the hole shares (holeFrame.ts): its view, its gain, the small hole,
 // the shadow's disc (shadow.ts), which it writes into the one uniform every galaxy material reads. The
@@ -38,9 +39,8 @@ import { splice } from '../mote/shaderSource';
 import type { BodyData } from '../node/bodyData';
 import type { Viewport } from '../node/lod';
 import { withHoleLibrary } from '../node/shaderSource';
-import { strandWindow } from './hole';
 import { buildHoleAttrs, DISK_STRIDE, PART_STRIDE } from './holeAttrs';
-import { HOLE_PARTS, holeFrame, holePartCount } from './holeFrame';
+import { HOLE_PARTS, holeFrame, holePartCount, holeStory } from './holeFrame';
 import { HOLE_DOT, holeComp } from './holeLook';
 import { NO_SHADOW, shadowDisc } from './shadow';
 import holeFragSource from './shaders/hole.frag.glsl?raw';
@@ -97,7 +97,6 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
     uHoleCam: { value: [0, 0, 0] },
     uHoleViewRot: { value: new Matrix3() },
     uHoleHv: { value: [0, 0, 0] },
-    uGain: { value: 0 },
     uFronts: { value: new Vector2(0, 0) },
     uViewport: viewportPx,
     uPixelRatio: { value: 1 },
@@ -146,7 +145,6 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
     if (c) geometry.setAttribute('aHoleC', c);
     geometry.instanceCount = holePartCount(p.key);
     const comp = holeComp(p.key);
-    const strand = p.name === 'hole-strand-r0' ? strandWindow(0, 0) : strandWindow(1, 0);
     const material = new RawShaderMaterial({
       glslVersion: GLSL3,
       vertexShader: HOLE_VERTEX,
@@ -154,9 +152,11 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
       uniforms: {
         ...common,
         uPart: { value: p.part },
+        // The hole's gain times the part's story gain (holeFrame.ts holeStory: the lamp and the single).
+        uGain: { value: 0 },
         uComp: { value: new Vector2(comp.gain, comp.size) },
-        // Until the re-skin's Task 6 keys them: R0's strand whole and clean, R1's window closed.
-        uStrand: { value: new Vector2(strand.head, 0) },
+        // A strand's window head and heat (holeStory); the other parts read none.
+        uStrand: { value: new Vector2(0, 0) },
       },
       blending: CustomBlending,
       blendEquation: AddEquation,
@@ -169,7 +169,7 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
     mesh.name = p.name;
     mesh.frustumCulled = false; // positions are computed in the vertex shader
     group.add(mesh);
-    return { mesh, geometry, material };
+    return { mesh, geometry, material, key: p.key, strand: p.name === 'hole-strand-r0' ? 0 : p.name === 'hole-strand-r1' ? 1 : -1 };
   });
   group.visible = false;
   const counts = Object.fromEntries(HOLE_PARTS.map((p) => [COUNT_KEYS[p.key], holePartCount(p.key)])) as HoleSystem['counts'];
@@ -196,7 +196,12 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
       common.uHoleCam.value = f.view.cam;
       (common.uHoleViewRot.value as Matrix3).fromArray(f.view.viewRot);
       common.uHoleHv.value = f.view.hv;
-      common.uGain.value = f.gain;
+      const story = holeStory(state.net);
+      (common.uFronts.value as Vector2).set(story.fronts.ember, story.fronts.clean);
+      for (const p of parts) {
+        p.material.uniforms.uGain.value = f.gain * story.gain[p.key];
+        if (p.strand >= 0) (p.material.uniforms.uStrand.value as Vector2).set(story.strands[p.strand].head, story.strands[p.strand].heat);
+      }
     },
 
     approach: () => lastApproach,

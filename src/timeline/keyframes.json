@@ -11921,6 +11921,52 @@
       { "at": "fix@0.42173913", "value": 0 },
       { "at": "fix@0.5", "value": 1, "ease": "inOutCubic" }
     ],
+    "net.holeLamp": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "layers@0.20930233", "value": 0 },
+      { "at": "layers@0.26744186", "value": 1, "ease": "inOutCubic" },
+      { "at": "layers@0.39534884", "value": 1 },
+      { "at": "layers@0.44186047", "value": 0, "ease": "inOutCubic" }
+    ],
+    "net.inEmber": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "spread@0", "value": 0 },
+      { "at": "spread@0.0534188", "value": 1, "ease": "inOutCubic" }
+    ],
+    "net.strand1": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "spread@0.077", "value": 0 },
+      { "at": "spread@0.32051282", "value": 1, "ease": "inOutCubic" }
+    ],
+    "net.heat0": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "trace@0.48", "value": 0 },
+      { "at": "trace@0.56", "value": 1, "ease": "inOutCubic" },
+      { "at": "fix@0.03", "value": 1 },
+      { "at": "fix@0.12", "value": 0, "ease": "inOutCubic" }
+    ],
+    "net.cool1": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "fix@0.17", "value": 0 },
+      { "at": "fix@0.3", "value": 1, "ease": "inOutCubic" }
+    ],
+    "net.knots": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "spread@0.32051282", "value": 0 },
+      { "at": "spread@0.46296296", "value": 1, "ease": "inOutCubic" }
+    ],
+    "net.knotsOff": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "fix@0.4", "value": 0 },
+      { "at": "fix@0.46", "value": 1, "ease": "inOutCubic" }
+    ],
+    "net.single": [
+      { "at": "zoom-out@0", "value": 0 },
+      { "at": "trace@0.48", "value": 0 },
+      { "at": "trace@0.56", "value": 1, "ease": "inOutCubic" },
+      { "at": "trace@0.58", "value": 1 },
+      { "at": "trace@0.68", "value": 0, "ease": "inOutCubic" }
+    ],
     "freeze.hold": [
       { "at": "defect@0.26", "value": 0 },
       { "at": "defect@0.2605", "value": 1, "ease": "step" },

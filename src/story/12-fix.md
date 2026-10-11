@@ -1,7 +1,7 @@
 ---
 id: fix
 length: 4.6
-alt: Warm gold dots land on the shivering body in the core and it settles; the same for the second body beside it. New streams leave both, and new stars and planets form, none of them lit. Then, from the core outward, each lit star and planet is mended in turn and its light goes out.
+alt: The thread that turned red-orange in the black hole's disk cools to the disk's own blue; then the thread that fell in from the planet cools too. The red-orange clumps stop rising up its jets, the last of them riding out. New streams leave it, and new stars and planets form, none of them lit. Then, from the core outward, each lit star and planet is mended in turn and its light goes out.
 draft: true
 ---
 

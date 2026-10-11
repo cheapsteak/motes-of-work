@@ -9,7 +9,7 @@ import { mechanismAnchors, type MechanismAnchors } from '../mechanisms/anchors';
 import { mechanisms } from '../mechanisms';
 import type { Vec3 } from '../math/vec';
 import type { SectionSpan } from '../scroll/progress';
-import type { BodyData } from '../scene/node/bodyData';
+import { bodyTexel, packBodyData, STREAM_KIND, type BodyData } from '../scene/node/bodyData';
 import { createEssayCamera, FRAMING } from '../scene/cameraRig';
 import { BAND_MARGIN_PX, FREEZE_ROLL, NODE_BIRTH_WINDOW, TEXT_BAND } from '../scene/node/birth';
 import { BODY_LOOK, shellMoteDiameter } from '../scene/node/bodyAttrs';
@@ -17,10 +17,12 @@ import { lampGain } from '../scene/node/bodyMote';
 import { MOON_POINT_PX, motePx } from '../scene/node/lod';
 import { starTopPx } from '../scene/node/star';
 import { bodyWorld } from '../scene/node/orbit';
+import { streamPresence } from '../scene/node/stream';
 import { streamPixels, type StreamLeaves } from '../scene/node/streamOnScreen';
 import { cameraChannels, cameraSpline, channelShot, lookFromBearing } from './cameraSpline';
 import { EASINGS } from './easing';
-import { progressOfSectionAt, type Keyframe } from './keyframeSampler';
+import { progressOfSectionAt, splitSectionAt, type Keyframe, type KeyframeFile } from './keyframeSampler';
+import keyframes from './keyframes.json' with { type: 'json' };
 import { composeEssayCamera, Lamp, lampFocusRow, targetWorld, trackIndex, trackTurn, type TrackTarget } from './netTrack';
 import { defaultSceneState, mergeState, type SceneState } from './sceneState';
 import { SHOTS, shotKeys } from './shots';
@@ -1440,6 +1442,123 @@ export const HOOD_HOLD_KEYS: readonly { at: SectionAt; value: number; ease?: 'in
   return keys;
 })();
 
+// ---- The story on the black hole (re-skin §5; the plan's Task 6) ----
+
+/**
+ * net.growth's hand keys from the zoom-out's end on (keyframes.json: actTwoKeys generates only the
+ * zoom-out's), in screens of MOVE_SECTIONS, the zoom-out's last key at 0, where layers starts.
+ */
+function growthKeys(): readonly { s: number; value: number; ease: (t: number) => number }[] {
+  return (keyframes as unknown as KeyframeFile).tracks['net.growth'].flatMap((k) => {
+    const at = typeof k.at === 'string' ? splitSectionAt(k.at) : null;
+    if (at === null) return [];
+    const s = at.id === 'zoom-out' && at.local === 1 ? 0 : MOVE_SECTIONS.some(([id]) => id === at.id) ? screensOf([at.id, at.local]) : null;
+    return s === null ? [] : [{ s, value: k.value as number, ease: EASINGS[k.ease ?? 'linear'] }];
+  });
+}
+let growthKeysCache: ReturnType<typeof growthKeys> | null = null;
+
+/**
+ * `net.growth` at a place, sampled from keyframes.json's hand keys as the sampler takes them (eased into
+ * each key by its own ease, linear in scroll between keys). actTwoKeys does not generate them past the
+ * zoom-out, so a key derived from them (inFallArrival) makes no cycle.
+ */
+export function keyedGrowth(at: SectionAt): number {
+  const s = screensOf(at);
+  const k = (growthKeysCache ??= growthKeys());
+  if (s <= k[0].s) return k[0].value;
+  for (let i = 1; i < k.length; i++) {
+    if (s < k[i].s) return k[i - 1].value + (k[i].value - k[i - 1].value) * k[i].ease((s - k[i - 1].s) / (k[i].s - k[i - 1].s));
+  }
+  return k[k.length - 1].value;
+}
+
+/**
+ * Where the in-fall's first dots reach the hole: the first thousandth of spread at which the C7 → R1
+ * stream (the one `in` stream) is present on `growthAt` (keyedGrowth: the essay's own keys), by the
+ * stream model's own presence (stream.ts streamPresence, what stream.vert.glsl shows it by). From there
+ * its dots run the whole chord to R1's strand join (re-skin §4.2), so R1's strand starts there
+ * (holeKeys). On today's keys about 0.216 screens into spread, at growth 0.378.
+ */
+export function inFallArrival(g: Galaxy, growthAt: (at: SectionAt) => number = keyedGrowth): SectionAt {
+  const data = packBodyData(g);
+  const rows = Array.from({ length: data.streamCount }, (_, row) => row).filter((row) => bodyTexel(data.streams, 0, row)[2] === STREAM_KIND.in);
+  if (rows.length !== 1) throw new Error(`${rows.length} in streams, not one`);
+  for (let k = 0; k <= 1000; k++) {
+    const at: SectionAt = ['spread', k / 1000];
+    if (streamPresence(data, rows[0], growthAt(at)) > 0) return at;
+  }
+  throw new Error('the in-fall never arrives in spread');
+}
+
+/** A leaf of the story on the hole (holeKeys). */
+export type HoleLeaf = 'net.holeLamp' | 'net.inEmber' | 'net.strand1' | 'net.heat0' | 'net.cool1' | 'net.knots' | 'net.knotsOff' | 'net.single';
+
+/**
+ * The story on the black hole (re-skin §2.1, §5), section-local, each leaf 0 → 1 (inOutCubic), 0
+ * before its first key; actTwoKeys emits them:
+ *  - `net.holeLamp`, the inspector's lamp (the hole × 1.3, the background × 0.3): up from the end of the
+ *    move into ly-2 to layersAt(1.15), down over the move into ly-3;
+ *  - `net.inEmber`, the in-fall ember as it leaves C7: up over spread 0 to 0.15 screens, before the
+ *    stream's first dots (inFallArrival), held to the end (fx-2's net.cool1 cools it with R1's strand);
+ *  - `net.strand1`, R1's strand's head: from where the in-fall's first dots arrive (inFallArrival on
+ *    `growthAt`, derived, not a literal) to spreadAt(0.9), under up-1's line;
+ *  - `net.knots`, the ember front up the jets: spreadAt(0.9) to (1.3), once R1's strand is whole and
+ *    before toHood leaves;
+ *  - `net.heat0` and `net.single`: R0's strand heats and is singled out over tr-2's hold after toSource
+ *    (trace 0.48 to 0.56); the single runs out over fanOut (0.58 to 0.68), the heat cools over fx-1's
+ *    hold (fix 0.03 to 0.12);
+ *  - `net.cool1`, R1's strand (and the in-fall) cooling: over fx-2's hold (fix 0.17 to 0.30);
+ *  - `net.knotsOff`, the clean front up the jets: fix 0.40 to 0.46, fx-3 coming up and toNew's pull-back
+ *    before it pans.
+ */
+export function holeKeys(
+  g: Galaxy,
+  growthAt: (at: SectionAt) => number = keyedGrowth,
+): Readonly<Record<HoleLeaf, readonly { at: SectionAt; value: number; ease?: 'inOutCubic' }[]>> {
+  const io = 'inOutCubic' as const;
+  return {
+    'net.holeLamp': [
+      { at: layersAt(0.9), value: 0 },
+      { at: layersAt(1.15), value: 1, ease: io },
+      { at: layersAt(1.7), value: 1 },
+      { at: layersAt(1.9), value: 0, ease: io },
+    ],
+    'net.inEmber': [
+      { at: spreadAt(0), value: 0 },
+      { at: spreadAt(0.15), value: 1, ease: io },
+    ],
+    'net.strand1': [
+      { at: inFallArrival(g, growthAt), value: 0 },
+      { at: spreadAt(0.9), value: 1, ease: io },
+    ],
+    'net.knots': [
+      { at: spreadAt(0.9), value: 0 },
+      { at: spreadAt(1.3), value: 1, ease: io },
+    ],
+    'net.heat0': [
+      { at: ['trace', 0.48], value: 0 },
+      { at: ['trace', 0.56], value: 1, ease: io },
+      { at: ['fix', 0.03], value: 1 },
+      { at: ['fix', 0.12], value: 0, ease: io },
+    ],
+    'net.single': [
+      { at: ['trace', 0.48], value: 0 },
+      { at: ['trace', 0.56], value: 1, ease: io },
+      { at: ['trace', 0.58], value: 1 },
+      { at: ['trace', 0.68], value: 0, ease: io },
+    ],
+    'net.cool1': [
+      { at: ['fix', 0.17], value: 0 },
+      { at: ['fix', 0.3], value: 1, ease: io },
+    ],
+    'net.knotsOff': [
+      { at: ['fix', 0.4], value: 0 },
+      { at: ['fix', 0.46], value: 1, ease: io },
+    ],
+  };
+}
+
 /**
  * `net.focus` (galaxy §14.5: the lamp's focus dims all but its subject to LAMP_FLOOR), up only on the
  * close shots: 0 → 1 over the push-in (freeze-frame §1.1) and 1 → 0 over the pull-out before its lamp
@@ -1752,7 +1871,7 @@ const at = (section: string, local: number): string => `${section}@${Math.round(
  * The keys Act II's camera, ride, lamp, focus and streams take from the zoom-out to the end of the
  * act, as keyframes.json carries them (camera keys rounded to 1e-3, as every camera key is): the
  * zoom-out's, then layers to the lesson (ACT_TWO_MOVES, FAR_ORBIT, LAYERS_STREAMS, SPREAD_STREAMS,
- * LATE_STREAMS, FEED_KEYS, HAZE_KEYS, HOOD_HOLD_KEYS, FOCUS_KEYS) out to ls-1, which lesson holds to the end. Every shot after the zoom-out
+ * LATE_STREAMS, FEED_KEYS, HAZE_KEYS, HOOD_HOLD_KEYS, FOCUS_KEYS, holeKeys) out to ls-1, which lesson holds to the end. Every shot after the zoom-out
  * rides the galaxy's turn (`camera.track.turn` 1: the close shots too, DEFECT_SHOTS). A step leaf (`camera.track.a` and `.b`, `net.lamp`, `net.lampAt`,
  * `camera.landscape.mix`) changes only where it does not show: `a` while `mix` is 1, `b` while it is 0
  * (each move turns the mix round, so the target it leaves for is the hidden one, stepped before it),
@@ -1850,6 +1969,8 @@ export function actTwoKeys(g: Galaxy, anchors: MechanismAnchors = mechanismAncho
   out['net.haze'] = [key(z(0), 0), ...HAZE_KEYS.map((k) => key(at(...k.at), k.value))];
   out['net.hoodHold'] = [key(z(0), 0), ...HOOD_HOLD_KEYS.map((k) => key(at(...k.at), k.value, k.ease))];
   out['net.focus'] = FOCUS_KEYS.map((k) => key(at(...k.at), k.value, k.ease));
+  // The story on the black hole (re-skin §5), R1's strand's start derived from the in-fall's arrival.
+  for (const [path, keys] of Object.entries(holeKeys(g))) out[path] = [key(z(0), 0), ...keys.map((k) => key(at(...k.at), k.value, k.ease))];
   // The freeze frame's leaves on the defect's close-up.
   for (const [path, keys] of Object.entries(FREEZE_KEYS)) out[path] = keys.map((k) => (k.ease === 'step' ? step(at(...k.at), k.value) : key(at(...k.at), k.value, k.ease)));
   // The zoom-out's clocks, from ZOOM_OUT: the one source zoomOutShot also reads.

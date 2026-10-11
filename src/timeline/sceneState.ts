@@ -90,8 +90,33 @@ export interface SceneState {
    * the galaxy wides; a look gate, so no stop waits for it), and how far a beat holds the
    * neighbourhood's real form whole against its dissolve (`hoodHold`, 0..1, 1 only on the beats whose
    * shots name its systems, netShots.ts HOOD_HOLD_SHOTS; lod.ts HOOD_LOD.beatsHold switches it; a look gate too).
+   * The story on the black hole (re-skin §5, netShots.ts holeKeys), each 0..1: the hole's lamp (`holeLamp`:
+   * the hole up, the background down, ly-2); the in-fall ember as it leaves C7 (`inEmber`); R1's strand's
+   * head (`strand1`); R0's strand's heat (`heat0`) and R1's cooling (`cool1`); the ember front up the jets
+   * (`knots`) and the clean one behind it (`knotsOff`); and R0's strand singled out (`single`, tr-2).
    */
-  net: { show: number; growth: number; fix: number; highlight: number; review: number; focus: number; lamp: number; lampAt: number; streams: number; feed: number; haze: number; hoodHold: number };
+  net: {
+    show: number;
+    growth: number;
+    fix: number;
+    highlight: number;
+    review: number;
+    focus: number;
+    lamp: number;
+    lampAt: number;
+    streams: number;
+    feed: number;
+    haze: number;
+    hoodHold: number;
+    holeLamp: number;
+    inEmber: number;
+    strand1: number;
+    heat0: number;
+    cool1: number;
+    knots: number;
+    knotsOff: number;
+    single: number;
+  };
   /**
    * The freeze frame (docs/specs/2026-10-07-freeze-frame.md §1, §3.2), each 0..1: the cut (`hold`, read
    * as hold >= 0.5: the ambient clock is held at the freeze pin, src/scene/ambientClock.ts shown), the
@@ -146,7 +171,28 @@ export function defaultSceneState(): SceneState {
     sheet: { opacity: 0 },
     ink: { opacity: 0, drawn: 0, redraw: 0, flat: 0, ring: 0, tick: 0 },
     stage: { motes: 1 },
-    net: { show: 0, growth: 0, fix: 0, highlight: 0, review: 0, focus: 0, lamp: 0, lampAt: 0, streams: 0, feed: 0, haze: 0, hoodHold: 0 },
+    net: {
+      show: 0,
+      growth: 0,
+      fix: 0,
+      highlight: 0,
+      review: 0,
+      focus: 0,
+      lamp: 0,
+      lampAt: 0,
+      streams: 0,
+      feed: 0,
+      haze: 0,
+      hoodHold: 0,
+      holeLamp: 0,
+      inEmber: 0,
+      strand1: 0,
+      heat0: 0,
+      cool1: 0,
+      knots: 0,
+      knotsOff: 0,
+      single: 0,
+    },
     freeze: { hold: 0, dress: 0, flash: 0 },
   };
 }
@@ -222,6 +268,14 @@ export const SCENE_STATE_PATHS: Record<string, 'number' | 'vec3'> = {
   'net.feed': 'number',
   'net.haze': 'number',
   'net.hoodHold': 'number',
+  'net.holeLamp': 'number',
+  'net.inEmber': 'number',
+  'net.strand1': 'number',
+  'net.heat0': 'number',
+  'net.cool1': 'number',
+  'net.knots': 'number',
+  'net.knotsOff': 'number',
+  'net.single': 'number',
   'freeze.hold': 'number',
   'freeze.dress': 'number',
   'freeze.flash': 'number',

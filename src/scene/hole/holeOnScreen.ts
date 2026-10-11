@@ -20,12 +20,12 @@ import {
   ringDot,
   strandDot,
   strandPlace,
-  strandWindow,
   type DiskPlace,
   type HoleDot,
+  type HoleView,
 } from './hole';
 import { buildHoleAttrs, PART_STRIDE, type HoleAttrs } from './holeAttrs';
-import { holeAlpha, holeFrame, type HoleMockPart } from './holeFrame';
+import { HOLE_PARTS, holeAlpha, holeFrame, holeStory, type HoleMockPart } from './holeFrame';
 import { HOLE_DOTS } from '../../galaxy/hole';
 import { HOLE_DISK, holeComp } from './holeLook';
 
@@ -104,10 +104,11 @@ const q = new Vector3();
  * screen: its centre (CSS px from the top left) and its size (CSS px). A dot is drawn while its alpha
  * (its part's compensation after the clamp: holeAlpha) is above 0 and it is in front of the camera; one
  * whose centre is off a side covers nothing and is left out. None while the hole is unlit, not up, not
- * shown or off the screen by more than its reach. Until the re-skin's Task 6 keys them: R0's strand
- * whole and clean, R1's window closed, the knots' fronts at (0, 0).
+ * shown or off the screen by more than its reach. Each part under the story's keys (holeFrame.ts
+ * holeStory): its gain (the lamp and the single), the knots' fronts and the strands' windows and heat.
  *
- * The list is a pure function of the frame's view (holeFrame), the projection and the screen, so it is
+ * The list is a pure function of the frame's view (holeFrame), the story's keys, the projection and the
+ * screen, so it is
  * kept for the last few of them (a hold's samples repeat them), with each ambient's dot places
  * (placesAt): the same list, shared, so a caller must not change it.
  */
@@ -116,12 +117,30 @@ export function holeDots(s: SceneState, ambient: number, camera: PerspectiveCame
   const f = holeFrame(s, g, data, camera, { width, height }, ambient);
   if (!(f.gain > 0) || !f.front || f.skip) return [];
   const v = f.view;
-  const key = [v.t, v.gain, ...v.cam, ...v.viewRot, ...v.hv, ...camera.projectionMatrix.elements, width, height].map((x) => (Object.is(x, -0) ? '-0' : String(x))).join(',');
+  const story = holeStory(s.net);
+  const key = [
+    v.t,
+    v.gain,
+    ...v.cam,
+    ...v.viewRot,
+    ...v.hv,
+    ...HOLE_PARTS.map((p) => story.gain[p.key]),
+    story.fronts.ember,
+    story.fronts.clean,
+    ...story.strands.flatMap((x) => [x.head, x.heat]),
+    ...camera.projectionMatrix.elements,
+    width,
+    height,
+  ]
+    .map((x) => (Object.is(x, -0) ? '-0' : String(x)))
+    .join(',');
   return dotsCache(key, () => {
     const A = holeAttrsOf();
     const P = placesAt(v.t);
     const m = camera.projectionMatrix;
     const out: HoleScreenDot[] = [];
+    // Each part's view: the hole's, at its story gain.
+    const vp = Object.fromEntries(HOLE_PARTS.map((p) => [p.key, { ...v, gain: v.gain * story.gain[p.key] }])) as Record<HoleMockPart, HoleView>;
     const take = (d: HoleDot, key: HoleMockPart) => {
       const depth = -d.view[2];
       if (!(holeAlpha(d.alpha, key) > 0) || !(depth > 0)) return;
@@ -130,14 +149,14 @@ export function holeDots(s: SceneState, ambient: number, camera: PerspectiveCame
       if (x < 0 || x > width) return;
       out.push({ x, y: ((1 - q.y) / 2) * height, px: holeDotPx(d.sizeCss * holeComp(key).size, depth, 1) });
     };
-    P.disk.forEach((d, k) => take(diskDot(A.disk, k * HOLE_DISK_STRIDE, v, 0, d), 'disk'));
-    P.arch.forEach((d, k) => take(diskDot(A.disk, k * HOLE_DISK_STRIDE, v, 1, d), 'arch'));
-    for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v), 'ring');
-    P.jets.forEach((p, i) => take(jetDot(A.jets, i, v, p), 'jets'));
-    P.knots.forEach((p, i) => take(knotDot(A.knots, i, v, { ember: 0, clean: 0 }, p), 'knot'));
-    P.infall.forEach((p, i) => take(infallDot(A.infall, i, v, p), 'infall'));
-    P.strand0.forEach((p, i) => take(strandDot(A.strand0, i, v, { head: strandWindow(0, 0).head, heat: 0 }, p), 'strand0'));
-    P.strand1.forEach((p, i) => take(strandDot(A.strand1, i, v, { head: strandWindow(1, 0).head, heat: 0 }, p), 'strand1'));
+    P.disk.forEach((d, k) => take(diskDot(A.disk, k * HOLE_DISK_STRIDE, vp.disk, 0, d), 'disk'));
+    P.arch.forEach((d, k) => take(diskDot(A.disk, k * HOLE_DISK_STRIDE, vp.arch, 1, d), 'arch'));
+    for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, vp.ring), 'ring');
+    P.jets.forEach((p, i) => take(jetDot(A.jets, i, vp.jets, p), 'jets'));
+    P.knots.forEach((p, i) => take(knotDot(A.knots, i, vp.knot, story.fronts, p), 'knot'));
+    P.infall.forEach((p, i) => take(infallDot(A.infall, i, vp.infall, p), 'infall'));
+    P.strand0.forEach((p, i) => take(strandDot(A.strand0, i, vp.strand0, story.strands[0], p), 'strand0'));
+    P.strand1.forEach((p, i) => take(strandDot(A.strand1, i, vp.strand1, story.strands[1], p), 'strand1'));
     return out;
   });
 }

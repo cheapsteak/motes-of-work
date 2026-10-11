@@ -277,6 +277,19 @@ export const HOLE_DOT = { near: [0.4, 2.2], floor: 1, hidden: 0.01, edge: [0.75,
 export const HOLE_LAMP = { hole: 0.3, rest: 0.7 } as const;
 /** Single (scene 5): R0's strand × (1 + `strand` s); everything else in the hole, R1's strand too, × (1 − `rest` s). */
 export const HOLE_SINGLE = { rest: 0.72, strand: 0.9 } as const;
+
+/**
+ * What the story's lamp (`net.holeLamp`) and single (`net.single`) multiply a light by (§4.2, the
+ * inspector's scenes 2 and 5): `strand0`, R0's strand, × (1 + 0.3 lamp)(1 + 0.9 single); `hole`, every
+ * other part of the hole, R1's strand among them, × (1 + 0.3 lamp)(1 − 0.72 single); `background`, the
+ * background galaxy, × (1 − 0.7 lamp)(1 − 0.72 single). The bodies keep the membership lamp.
+ */
+export function holeStoryGain(net: { holeLamp: number; single: number }, what: 'hole' | 'strand0' | 'background'): number {
+  const L = HOLE_LAMP;
+  const S = HOLE_SINGLE;
+  if (what === 'background') return (1 - L.rest * net.holeLamp) * (1 - S.rest * net.single);
+  return (1 + L.hole * net.holeLamp) * (what === 'strand0' ? 1 + S.strand * net.single : 1 - S.rest * net.single);
+}
 /** The inspector's dots per part (§7's fewer dots): each of ours carries mock/ours of the light. */
 export const HOLE_MOCK_DOTS = {
   disk: 26000,

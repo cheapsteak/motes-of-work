@@ -21,7 +21,7 @@ uniform float uAmbient;
 uniform vec3 uHoleCam;
 uniform mat3 uHoleViewRot;
 uniform vec3 uHoleHv;
-uniform float uGain; // the hole's gain before the per-dot clamp (holeFrame.ts)
+uniform float uGain; // the hole's gain times the part's story gain, before the per-dot clamp (holeFrame.ts holeStory)
 uniform vec2 uComp; // the part's compensation (holeComp): its gain, after the clamp, and its size
 uniform vec2 uFronts; // the knots' fronts (ember, clean)
 uniform vec2 uStrand; // a strand's window head and heat

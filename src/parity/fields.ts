@@ -165,15 +165,16 @@ export const BODY_PARITY_FIELDS: readonly ParityField<BodyMoteOut>[] = [
 
 /**
  * What the body parity mode's stream case computes per dot: bodyMote.glsl's streamDot() (where, how far
- * along, how much of it is drawn), streamGain() of its `u`, feedGain(), the feed's own, and
- * streamBandMask() at a pixel row about the text band's edge (stream.ts streamDot, streamGain, feedGain,
- * streamBandMask).
+ * along, how much of it is drawn), streamGain() of its `u`, inFallGain(), the in-fall's own, feedGain(),
+ * the feed's own, and streamBandMask() at a pixel row about the text band's edge (stream.ts streamDot,
+ * streamGain, inFallGain, feedGain, streamBandMask).
  */
 export interface StreamOut {
   pos: Vec3;
   u: number;
   presence: number;
   gain: number;
+  inFallGain: number;
   feedGain: number;
   bandMask: number;
 }
@@ -184,6 +185,7 @@ export const STREAM_PARITY_FIELDS: readonly ParityField<StreamOut>[] = [
   { name: 'u', size: 1 },
   { name: 'presence', size: 1 },
   { name: 'gain', size: 1 },
+  { name: 'inFallGain', size: 1 },
   { name: 'feedGain', size: 1 },
   { name: 'bandMask', size: 1 },
 ];

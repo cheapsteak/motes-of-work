@@ -388,7 +388,8 @@ ${PLACE_ON_TEXEL}
 
 /**
  * The galaxy's stream dots (`?lib=body`'s stream case): bodyMote.glsl's streamDot(), streamGain(),
- * feedGain() and streamBandMask() per instance, as stream.vert.glsl calls them. Carries the galaxy's include marker: build with
+ * inFallGain(), feedGain() and streamBandMask() per instance, as stream.vert.glsl calls them (the
+ * in-fall's end, uInFallEnd, R1's strand join). Carries the galaxy's include marker: build with
  * withGalaxyLibrary().
  */
 export const STREAM_DOT_VERTEX = /* glsl */ `
@@ -403,16 +404,18 @@ in vec3 position; // the single non-instanced vertex, at the origin
 in vec4 aDotIn; // row in the streams texture, the dot's index, net.streams, the lamp's gain
 in vec2 aBandIn; // the top of the dot's pixel in CSS px from the screen's top, the screen's height
 uniform vec3 uRing; // the feed's far end
+uniform vec3 uInFallEnd; // the in-fall's end (stream.ts inFallEnd)
 uniform int uPass;
 flat out vec4 vOut;
 
 void main() {
-  StreamDot sd = streamDot(int(round(aDotIn.x)), aDotIn.y, uAmbient, uRing);
+  StreamDot sd = streamDot(int(round(aDotIn.x)), aDotIn.y, uAmbient, uRing, uInFallEnd);
   StreamOut o;
   o.pos = sd.pos;
   o.u = sd.u;
   o.presence = sd.presence;
   o.gain = streamGain(sd.u, aDotIn.z, aDotIn.w);
+  o.inFallGain = inFallGain(aDotIn.z, aDotIn.w);
   o.feedGain = feedGain(aDotIn.z, aDotIn.w); // the third input read as net.feed
   o.bandMask = streamBandMask(aBandIn.x, aBandIn.y);
   ${passSelect(parityPasses(STREAM_PARITY_FIELDS))}

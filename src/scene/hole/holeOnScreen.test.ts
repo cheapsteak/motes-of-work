@@ -8,9 +8,9 @@ import { Lamp } from '../../timeline/netTrack';
 import { defaultSceneState, type SceneState } from '../../timeline/sceneState';
 import { galaxyOf } from '../node/galaxyOnScreen';
 import { LOD_VISIBLE } from '../node/lod';
-import { diskDot, holeDotPx, holeLens, infallDot, jetDot, knotDot, ringDot, strandDot, strandWindow, type HoleDot } from './hole';
+import { diskDot, holeDotPx, holeLens, infallDot, jetDot, knotDot, ringDot, strandDot, type HoleDot } from './hole';
 import { buildHoleAttrs, DISK_STRIDE, PART_STRIDE } from './holeAttrs';
-import { holeAlpha, holeFrame, type HoleMockPart } from './holeFrame';
+import { holeAlpha, holeFrame, holeStory, type HoleMockPart } from './holeFrame';
 import { HOLE_DOT, HOLE_JET, HOLE_LOOK, holeComp } from './holeLook';
 import { holeDots, holeTop, holeTopBound } from './holeOnScreen';
 
@@ -29,7 +29,8 @@ function closeState(lamp = HOLE_CLOSE.lamp): SceneState {
 function bruteTop(s: SceneState, t: number, size: { width: number; height: number }): number {
   const camera = essayCamera(s.camera, g, data, size, t);
   const f = holeFrame(s, g, data, camera, size, t);
-  const v = f.view;
+  const story = holeStory(s.net);
+  const v = (key: HoleMockPart) => ({ ...f.view, gain: f.view.gain * story.gain[key] });
   let top = Infinity;
   const take = (d: HoleDot, key: HoleMockPart) => {
     if (!(holeAlpha(d.alpha, key) > 0) || !(-d.view[2] > camera.near)) return;
@@ -39,14 +40,14 @@ function bruteTop(s: SceneState, t: number, size: { width: number; height: numbe
     const y = ((1 - q.y) / 2) * size.height;
     top = Math.min(top, y - holeDotPx(d.sizeCss * holeComp(key).size, -d.view[2], 1) / 2);
   };
-  for (let i = 0; i < HOLE_DOTS.disk; i++) take(diskDot(A.disk, i, v, 0), 'disk');
-  for (let i = 0; i < HOLE_DOTS.arch; i++) take(diskDot(A.disk, i, v, 1), 'arch');
-  for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v), 'ring');
-  for (let i = 0; i < A.jets.length / PART_STRIDE; i++) take(jetDot(A.jets, i, v), 'jets');
-  for (let i = 0; i < A.knots.length / PART_STRIDE; i++) take(knotDot(A.knots, i, v, { ember: 0, clean: 0 }), 'knot');
-  for (let i = 0; i < A.infall.length / PART_STRIDE; i++) take(infallDot(A.infall, i, v), 'infall');
-  for (let i = 0; i < A.strand0.length / PART_STRIDE; i++) take(strandDot(A.strand0, i, v, { head: strandWindow(0, 0).head, heat: 0 }), 'strand0');
-  for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v, { head: strandWindow(1, 0).head, heat: 0 }), 'strand1');
+  for (let i = 0; i < HOLE_DOTS.disk; i++) take(diskDot(A.disk, i, v('disk'), 0), 'disk');
+  for (let i = 0; i < HOLE_DOTS.arch; i++) take(diskDot(A.disk, i, v('arch'), 1), 'arch');
+  for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v('ring')), 'ring');
+  for (let i = 0; i < A.jets.length / PART_STRIDE; i++) take(jetDot(A.jets, i, v('jets')), 'jets');
+  for (let i = 0; i < A.knots.length / PART_STRIDE; i++) take(knotDot(A.knots, i, v('knot'), story.fronts), 'knot');
+  for (let i = 0; i < A.infall.length / PART_STRIDE; i++) take(infallDot(A.infall, i, v('infall')), 'infall');
+  for (let i = 0; i < A.strand0.length / PART_STRIDE; i++) take(strandDot(A.strand0, i, v('strand0'), story.strands[0]), 'strand0');
+  for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v('strand1'), story.strands[1]), 'strand1');
   expect(A.disk.length / DISK_STRIDE).toBe(HOLE_DOTS.disk);
   return top;
 }
@@ -83,7 +84,9 @@ describe('holeTop (the hole’s clearance twin)', () => {
   ])
     for (const t of [AMBIENT_POSE, 101])
       it(`at HOLE_CLOSE on ${size.width}×${size.height} at ${t} s: as high as the upper jet’s drawn tip, and within 1 px of every dot’s top`, () => {
+        // As tr-2 keys it: both strands whole, R0's ember and singled out, the knots ember (the lamp's lift at ly-2 is less).
         const s = closeState();
+        s.net = { ...s.net, strand1: 1, heat0: 1, single: 1, knots: 1 };
         const camera = essayCamera(s.camera, g, data, size, t);
         const top = holeTop(s, t, camera, size.width, size.height)!;
         expect(top).not.toBeNull();
@@ -102,7 +105,9 @@ describe('holeTop (the hole’s clearance twin)', () => {
     // held equal with Object.is, between calls that fill the caches with other views and ambients.
     const fresh = (s: SceneState, t: number, size: { width: number; height: number }) => {
       const camera = essayCamera(s.camera, g, data, size, t);
-      const v = holeFrame(s, g, data, camera, size, t).view;
+      const v0 = holeFrame(s, g, data, camera, size, t).view;
+      const story = holeStory(s.net);
+      const v = (key: HoleMockPart) => ({ ...v0, gain: v0.gain * story.gain[key] });
       const out: number[] = [];
       const take = (d: HoleDot, key: HoleMockPart) => {
         const depth = -d.view[2];
@@ -112,17 +117,19 @@ describe('holeTop (the hole’s clearance twin)', () => {
         if (x < 0 || x > size.width) return;
         out.push(x, ((1 - q.y) / 2) * size.height, holeDotPx(d.sizeCss * holeComp(key).size, depth, 1));
       };
-      for (let i = 0; i < HOLE_DOTS.disk; i += 10) take(diskDot(A.disk, i, v, 0), 'disk');
-      for (let i = 0; i < HOLE_DOTS.arch; i += 10) take(diskDot(A.disk, i, v, 1), 'arch');
-      for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v), 'ring');
-      for (let i = 0; i < A.jets.length / PART_STRIDE; i++) take(jetDot(A.jets, i, v), 'jets');
-      for (let i = 0; i < A.knots.length / PART_STRIDE; i++) take(knotDot(A.knots, i, v, { ember: 0, clean: 0 }), 'knot');
-      for (let i = 0; i < A.infall.length / PART_STRIDE; i++) take(infallDot(A.infall, i, v), 'infall');
-      for (let i = 0; i < A.strand0.length / PART_STRIDE; i++) take(strandDot(A.strand0, i, v, { head: strandWindow(0, 0).head, heat: 0 }), 'strand0');
-      for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v, { head: strandWindow(1, 0).head, heat: 0 }), 'strand1');
+      for (let i = 0; i < HOLE_DOTS.disk; i += 10) take(diskDot(A.disk, i, v('disk'), 0), 'disk');
+      for (let i = 0; i < HOLE_DOTS.arch; i += 10) take(diskDot(A.disk, i, v('arch'), 1), 'arch');
+      for (let i = 0; i < A.ring.length / PART_STRIDE; i++) take(ringDot(A.ring, i, v('ring')), 'ring');
+      for (let i = 0; i < A.jets.length / PART_STRIDE; i++) take(jetDot(A.jets, i, v('jets')), 'jets');
+      for (let i = 0; i < A.knots.length / PART_STRIDE; i++) take(knotDot(A.knots, i, v('knot'), story.fronts), 'knot');
+      for (let i = 0; i < A.infall.length / PART_STRIDE; i++) take(infallDot(A.infall, i, v('infall')), 'infall');
+      for (let i = 0; i < A.strand0.length / PART_STRIDE; i++) take(strandDot(A.strand0, i, v('strand0'), story.strands[0]), 'strand0');
+      for (let i = 0; i < A.strand1.length / PART_STRIDE; i++) take(strandDot(A.strand1, i, v('strand1'), story.strands[1]), 'strand1');
       return out;
     };
+    // Mid-story: every leaf the hole reads part way, so each part's gain, the fronts and the windows count.
     const s = closeState();
+    s.net = { ...s.net, holeLamp: 0.6, single: 0.3, strand1: 0.7, heat0: 0.4, cool1: 0.2, knots: 0.8, knotsOff: 0.25 };
     const sizes = [
       { width: 390, height: 844 },
       { width: 1440, height: 900 },

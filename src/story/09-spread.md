@@ -1,7 +1,7 @@
 ---
 id: spread
 length: 2.808
-alt: A thin stream of dots runs inward from a lit planet, past its star, to the galaxy's core, where a new large body forms, lit red-orange and shivering. From far away the lit stars and planets have grown and keep growing, the one mended planet dark among many lit ones.
+alt: A thin stream of red-orange dots falls inward from a lit planet, past its star, into the black hole at the centre, and winds into its blue disk as a red-orange thread; red-orange clumps start to shoot up its jets. From far away the lit stars and planets have grown and keep growing, the one mended planet dark among many lit ones.
 draft: true
 ---
 

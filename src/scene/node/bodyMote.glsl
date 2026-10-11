@@ -331,12 +331,13 @@ struct StreamDot {
 };
 
 // Dot i of the streams texture's row `row` at ambient t, from its parent's place to its child's (the
-// feed's far end is `end`), on the stream's Bezier at offset i / n, n one per STREAM_PITCH of chord.
-StreamDot streamDot(int row, float i, float t, vec3 end) {
+// feed's far end is `end`; the in-fall's, the C7 -> R1 `in` stream's, is `inEnd`, R1's strand join:
+// stream.ts inFallEnd), on the stream's Bezier at offset i / n, n one per STREAM_PITCH of chord.
+StreamDot streamDot(int row, float i, float t, vec3 end, vec3 inEnd) {
   vec4 s0 = streamTexel(0, row);
   int to = int(round(s0.y));
   vec3 a = bodyWorld(int(round(s0.x)), t);
-  vec3 b = to >= 0 ? bodyWorld(to, t) : end;
+  vec3 b = int(round(s0.z)) == STREAM_KIND_IN ? inEnd : to >= 0 ? bodyWorld(to, t) : end;
   vec3 c = streamControl(a, b, streamTexel(1, row).z);
   float n = clamp(length(b - a) / STREAM_PITCH, STREAM_DOTS[0], STREAM_DOTS[1]);
   float k = i / n;
@@ -351,6 +352,12 @@ StreamDot streamDot(int row, float i, float t, vec3 end) {
 // A stream dot's brightness as a share of a star glow's core: streams · lamp · STREAM_CAP · mix(1, 0.15, u).
 float streamGain(float u, float streams, float lamp) {
   return streams * lamp * STREAM_CAP * (STREAM_FADE[0] + (STREAM_FADE[1] - STREAM_FADE[0]) * u);
+}
+
+// An in-fall dot's brightness as a share of a star glow's core: streams · lamp · IN_STREAM_CAP, unfaded
+// along it (stream.ts inFallGain: re-skin §4.2, drawn as the feed is).
+float inFallGain(float streams, float lamp) {
+  return streams * lamp * IN_STREAM_CAP;
 }
 
 // A feed dot's brightness as a share of a star glow's core: feed · lamp · FEED_CAP, unfaded along it

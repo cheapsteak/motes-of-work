@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Vector3, type Mesh, type RawShaderMaterial } from 'three';
+import { PerspectiveCamera, Vector3, type Mesh, type RawShaderMaterial, type Vector2 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { AMBIENT_POSE } from '../../galaxy/ambient';
@@ -11,7 +11,7 @@ import { packBodyData } from '../node/bodyData';
 import { bodyPresence } from '../node/bodyMote';
 import { galacticToWorld } from '../node/orbit';
 import { HOLE_PARTS, holeFrame } from './holeFrame';
-import { holeComp } from './holeLook';
+import { holeComp, STRANDS } from './holeLook';
 import { createHoleSystem } from './holeSystem';
 
 const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
@@ -75,6 +75,35 @@ describe('the hole drawn', () => {
       if (want > 0)
         for (const p of HOLE_PARTS)
           expect(((hole.object.getObjectByName(p.name) as Mesh).material as RawShaderMaterial).uniforms.uComp.value.x).toBe(holeComp(p.key).gain);
+    }
+  });
+
+  it('keys the story (re-skin §4.2, §5): each strand’s window, heat and gain, the knots’ fronts, the other parts’ gains', () => {
+    const uniform = (name: string, u: string) => ((hole.object.getObjectByName(name) as Mesh).material as RawShaderMaterial).uniforms[u].value;
+    const strandOf = (name: string) => (uniform(name, 'uStrand') as Vector2).toArray();
+    for (const [holeLamp, single, heat0, strand1, cool1, knots, knotsOff] of [
+      [0, 0, 0, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 0, 0],
+      [0.4, 0.7, 0.3, 0.6, 0.2, 0.9, 0.1],
+      [0, 1, 1, 1, 0, 1, 0],
+      [0, 0, 0, 1, 1, 1, 1],
+    ]) {
+      const s = lit(Lamp.Core, { core: true }, { holeLamp, single, heat0, strand1, cool1, knots, knotsOff });
+      hole.update(s, camera, viewport, AMBIENT_POSE);
+      const f = holeFrame(s, g, data, camera, PHONE, AMBIENT_POSE);
+      const where = JSON.stringify({ holeLamp, single, heat0, strand1, cool1, knots, knotsOff });
+      const lift = 1 + 0.3 * holeLamp;
+      // R0's strand: its whole window, heat net.heat0, × (1 + 0.3 lamp)(1 + 0.9 single).
+      expect(strandOf('hole-strand-r0'), where).toEqual([STRANDS[0].lstr, heat0]);
+      expect(gainOf('hole-strand-r0'), where).toBeCloseTo(f.gain * lift * (1 + 0.9 * single), 12);
+      // R1's strand: its window grown by net.strand1, heat 1 − net.cool1, × (1 + 0.3 lamp)(1 − 0.72 single).
+      expect(strandOf('hole-strand-r1')[0], where).toBeCloseTo(strand1 * STRANDS[1].lstr, 12);
+      expect(strandOf('hole-strand-r1')[1], where).toBeCloseTo(1 - cool1, 12);
+      expect(gainOf('hole-strand-r1'), where).toBeCloseTo(f.gain * lift * (1 - 0.72 * single), 12);
+      // Every other part × (1 + 0.3 lamp)(1 − 0.72 single); the knots' fronts are (net.knots, net.knotsOff).
+      for (const name of ['hole-disk', 'hole-arch', 'hole-ring', 'hole-jets', 'hole-knots', 'hole-infall'])
+        expect(gainOf(name), `${where} ${name}`).toBeCloseTo(f.gain * lift * (1 - 0.72 * single), 12);
+      expect((uniform('hole-knots', 'uFronts') as Vector2).toArray(), where).toEqual([knots, knotsOff]);
     }
   });
 

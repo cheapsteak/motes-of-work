@@ -130,6 +130,24 @@ describe.each(['phone', 'desktop'] as Tier[])('the background galaxy (%s)', (tie
       }
   });
 
+  it('dims with the black hole’s lamp and single (re-skin §4.2): × (1 − 0.7 net.holeLamp)(1 − 0.72 net.single), the haze too', () => {
+    const camera = new PerspectiveCamera(40, 390 / 844, 0.1, 4000);
+    for (const [holeLamp, single] of [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [0.5, 0.25],
+    ] as const) {
+      system.update(mergeState(defaultSceneState(), { net: { show: 1, haze: 1, holeLamp, single } }), camera, VIEWPORT, 0);
+      const want = (1 - 0.7 * holeLamp) * (1 - 0.72 * single);
+      for (const name of ['galaxy-haze', 'galaxy-dust', 'galaxy-stars', 'galaxy-bright', 'galaxy-far-stars', 'galaxy-far-bright'])
+        expect(material(system, name).uniforms.uGain.value, `${name} at lamp ${holeLamp}, single ${single}`).toBeCloseTo(want, 12);
+    }
+    // ly-2's lamp: the background to 0.3.
+    system.update(mergeState(defaultSceneState(), { net: { show: 1, holeLamp: 1 } }), camera, VIEWPORT, 0);
+    expect(material(system, 'galaxy-stars').uniforms.uGain.value).toBeCloseTo(0.3, 12);
+  });
+
   it('draws the haze as one warm sprite at HAZE: a negative brightness of hazeGain, mixed fully to the warm tint, hazePx across', () => {
     const haze = material(system, 'galaxy-haze');
     expect(Array.from(instanceData(system, 'galaxy-haze'))).toEqual([0, 0, 0, Math.fround(-HAZE.hazeGain)]);

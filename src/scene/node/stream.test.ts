@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { galaxyBudget, generateGalaxy, STREAM_DOTS as GENERATED_DOTS, STREAM_PITCH as GENERATED_PITCH } from '../../galaxy/generate';
+import { AMBIENT_POSE } from '../../galaxy/ambient';
+import { strandJoin } from '../hole/hole';
+import { HOLE_EMBER, HOLE_LOOK, STRANDS } from '../hole/holeLook';
 import { BAND_MARGIN_PX, NODE_STREAM_SPEED, TEXT_BAND } from './birth';
-import { packBodyData } from './bodyData';
+import { bodyTexel, packBodyData, STREAM_KIND } from './bodyData';
+import { bodyWorld, galacticToWorld } from './orbit';
 import { withGalaxyLibrary } from './shaderSource';
 import {
   FEED_CAP,
+  IN_EMBER,
+  IN_STREAM_CAP,
+  inFallEmber,
+  inFallEnd,
+  inFallGain,
   STREAM_BAND_SOFT_PX,
   streamBandMask,
   feedGain,
@@ -16,7 +25,9 @@ import {
   STREAM_PITCH,
   streamControl,
   streamCount,
+  streamCurve,
   streamDot,
+  streamDotOn,
   streamDotU,
   streamGain,
 } from './stream';
@@ -51,7 +62,7 @@ describe('streamGain', () => {
     // The shader draws a dot at the glow's core brightness times the gain, and its light only tints
     // it: no highlight gain multiplies a stream dot.
     expect(/vBrightness = (.*);/.exec(streamVert)?.[1]).toBe('LOOK_GLOW_BRIGHTNESS * shown');
-    expect(/float gain = (.*);/.exec(streamVert)?.[1]).toBe('to >= 0 ? streamGain(sd.u, uStreams, lamp) : feedGain(uFeedOn, lamp)');
+    expect(/float gain = (.*);/.exec(streamVert)?.[1]).toBe('inFall ? inFallGain(uStreams, lamp) : to >= 0 ? streamGain(sd.u, uStreams, lamp) : feedGain(uFeedOn, lamp)');
     expect(/float shown = (.*);/.exec(streamVert)?.[1]).toBe('gain * sd.presence * present * uShow');
     expect(streamVert).not.toMatch(/NODE_HI_GAIN/);
   });
@@ -84,11 +95,77 @@ describe('feedGain', () => {
   });
 });
 
+// The in-fall (re-skin §4.2): the C7 → R1 `in` stream is C7's notes falling into the black hole. It ends
+// at R1's strand join, is drawn at IN_STREAM_CAP, unfaded, and is ember (HOLE_EMBER) by net.inEmber ×
+// (1 − net.cool1). `?lib=body`'s stream case holds the GLSL to it (its row among every stream's).
+describe('the in-fall', () => {
+  const inRow = Array.from({ length: data.streamCount }, (_, row) => row).filter((row) => bodyTexel(data.streams, 0, row)[2] === STREAM_KIND.in);
+
+  it('is the one in stream, C7 to R1', () => {
+    expect(inRow).toHaveLength(1);
+    const [from, to] = bodyTexel(data.streams, 0, inRow[0]);
+    expect([g.bodies[from].id, g.bodies[to].id]).toEqual(['C7', 'R1']);
+  });
+
+  it('ends at R1’s strand join, strandJoin(1, t) carried into the world as the hole is, at every ambient', () => {
+    for (const t of [0, AMBIENT_POSE, 101, 1061, 3599.9]) {
+      const j = strandJoin(1, t);
+      const want = galacticToWorld(data, [j[0] * HOLE_LOOK.scale, j[1] * HOLE_LOOK.scale, j[2] * HOLE_LOOK.scale], t);
+      expect(inFallEnd(data, t)).toEqual(want);
+      // R1's join is in the disk's plane, 6.5 from the centre: not R1's spot.
+      const centre = galacticToWorld(data, [0, 0, 0], t);
+      expect(Math.hypot(want[0] - centre[0], want[1] - centre[1], want[2] - centre[2])).toBeCloseTo(STRANDS[1].rJoin * HOLE_LOOK.scale, 9);
+      const curve = streamCurve(data, inRow[0], t);
+      expect(curve.b).toEqual(want);
+      // Its last dot, as u runs to 1, lands on the join (the Bezier's end).
+      const n = curve.n;
+      let last = streamDotOn(curve, 0, t);
+      for (let i = 1; i < Math.ceil(n); i++) {
+        const d = streamDotOn(curve, i, t);
+        if (d.u > last.u) last = d;
+      }
+      const end = streamDotOn({ ...curve }, 0, (1 - 1e-9 - streamDotU(0, 0)) / NODE_STREAM_SPEED);
+      expect(Math.hypot(end.pos[0] - want[0], end.pos[1] - want[1], end.pos[2] - want[2])).toBeLessThan(1e-6);
+      expect(last.u).toBeGreaterThanOrEqual(1 - 1 / n - 1e-9);
+      // No other stream ends anywhere but its child.
+      for (let row = 0; row < data.feedRow; row++) {
+        if (row === inRow[0]) continue;
+        expect(streamCurve(data, row, t).b).toEqual(bodyWorld(data, Math.round(bodyTexel(data.streams, 0, row)[1]), t));
+      }
+    }
+  });
+
+  it('is drawn at IN_STREAM_CAP, unfaded, under net.streams and the lamp, spliced into the shaders', () => {
+    expect(IN_STREAM_CAP).toBe(0.9);
+    expect(withGalaxyLibrary(streamVert)).toContain('const float IN_STREAM_CAP = 0.9;');
+    expect(withGalaxyLibrary(streamVert)).toContain(`const int STREAM_KIND_IN = ${STREAM_KIND.in};`);
+    expect(inFallGain(1, 1)).toBe(IN_STREAM_CAP);
+    expect(inFallGain(0, 1)).toBe(0);
+    expect(inFallGain(1, 0)).toBe(0);
+    expect(inFallGain(0.5, 0.3)).toBeCloseTo(0.15 * IN_STREAM_CAP, 15);
+    // Unfaded: the shader reads no `u` for it.
+    expect(/float inFallGain\(float streams, float lamp\) \{\s*return (.*);/.exec(bodyMoteGlsl)?.[1]).toBe('streams * lamp * IN_STREAM_CAP');
+    expect(streamVert).toContain('bool inFall = int(round(s0.z)) == STREAM_KIND_IN;');
+  });
+
+  it('is ember by net.inEmber × (1 − net.cool1), in the strands’ HOLE_EMBER, and only the in-fall', () => {
+    expect(IN_EMBER).toEqual(HOLE_EMBER.rgb);
+    expect(withGalaxyLibrary(streamVert)).toContain('const vec3 IN_EMBER = vec3(1.0, 0.26, 0.18);');
+    expect(inFallEmber({ inEmber: 0, cool1: 0 })).toBe(0);
+    expect(inFallEmber({ inEmber: 1, cool1: 0 })).toBe(1);
+    expect(inFallEmber({ inEmber: 1, cool1: 1 })).toBe(0);
+    expect(inFallEmber({ inEmber: 0.5, cool1: 0.25 })).toBeCloseTo(0.375, 15);
+    // Its colour is its own ember, never the highlight's NODE_EMBER; every other stream keeps the highlight's.
+    expect(/vBase = (.*);/.exec(streamVert)?.[1]).toBe('inFall ? mix(NODE_AGENT, IN_EMBER, uInEmber) : NODE_AGENT');
+    expect(/vHi = (.*);/.exec(streamVert)?.[1]).toBe('inFall ? 0.0 : max(light.y, light.z)');
+  });
+});
+
 describe('the galaxy’s stream dots', () => {
   it('flow on the ambient clock, by the rule stream.ts has, and never on the scroll clock', () => {
     // stream.vert.glsl places each dot by bodyMote.glsl's streamDot at the ambient (?lib=body holds it to stream.ts).
     expect(/sd\.u = (.*);/.exec(bodyMoteGlsl)?.[1]).toBe('fract(k + NODE_STREAM_SPEED * t)');
-    expect(streamVert).toContain('StreamDot sd = streamDot(row, i, uAmbient, uRing);');
+    expect(streamVert).toContain('StreamDot sd = streamDot(row, i, uAmbient, uRing, uInFallEnd);');
     expect(streamVert).not.toMatch(/uClock/);
     expect(withGalaxyLibrary(streamVert)).not.toMatch(/uniform float uClock/);
     // The twin has no scroll clock to read: the same ambient gives the same dots, whatever the scroll.

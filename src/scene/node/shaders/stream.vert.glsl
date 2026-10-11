@@ -13,7 +13,9 @@ precision highp int;
 // STREAM_FADE along the stream (stream.ts streamGain, streamDot: the TypeScript twin), ember while the
 // stream carries the defect and capped the same; the feed at FEED_CAP, unfaded (feedGain: galaxy
 // §15.2's exception). A stream is lit by the lamp where either end is. Neither lights the text band:
-// each dot is masked to it on its pixel (streamBandMask, stream.ts: Task 11 review I1).
+// each dot is masked to it on its pixel (streamBandMask, stream.ts: Task 11 review I1). The C7 -> R1 `in`
+// stream is the in-fall (re-skin §4.2): it ends at R1's strand join (uInFallEnd), drawn at IN_STREAM_CAP,
+// unfaded (inFallGain), its colour mixed to IN_EMBER by uInEmber in place of the highlight's ember.
 
 in vec2 aCorner; // quad corner in [-1, 1]^2
 in vec2 aDot; // row in the streams texture, the dot's index
@@ -23,6 +25,8 @@ uniform vec3 uRing; // the ring's centre (review.ts ringAt), the feed's far end
 uniform float uFeed; // the feed's alpha (review.ts feedAlpha)
 uniform float uFeedOn; // net.feed
 uniform float uRingRow; // the body the ring is on: the feed's lamp
+uniform vec3 uInFallEnd; // R1's strand join in the world (stream.ts inFallEnd), the in-fall's end
+uniform float uInEmber; // how far the in-fall is ember (stream.ts inFallEmber: net.inEmber x (1 - net.cool1))
 
 out vec2 vUv;
 flat out float vType;
@@ -49,8 +53,9 @@ void main() {
     gl_Position = MOTE_HIDDEN;
     return;
   }
-  StreamDot sd = streamDot(row, i, uAmbient, uRing);
-  float gain = to >= 0 ? streamGain(sd.u, uStreams, lamp) : feedGain(uFeedOn, lamp);
+  StreamDot sd = streamDot(row, i, uAmbient, uRing, uInFallEnd);
+  bool inFall = int(round(s0.z)) == STREAM_KIND_IN;
+  float gain = inFall ? inFallGain(uStreams, lamp) : to >= 0 ? streamGain(sd.u, uStreams, lamp) : feedGain(uFeedOn, lamp);
   float shown = gain * sd.presence * present * uShow;
   if (!(shown > 0.0)) {
     gl_Position = MOTE_HIDDEN;
@@ -76,7 +81,7 @@ void main() {
   vForm = float(FORM_POINT);
   vBrightness = LOOK_GLOW_BRIGHTNESS * shown;
   vRadiusPx = 0.5 * px;
-  vHi = max(light.y, light.z);
+  vHi = inFall ? 0.0 : max(light.y, light.z);
   vTint = vec4(0.0);
-  vBase = NODE_AGENT;
+  vBase = inFall ? mix(NODE_AGENT, IN_EMBER, uInEmber) : NODE_AGENT;
 }

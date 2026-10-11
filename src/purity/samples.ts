@@ -16,6 +16,12 @@ const halfOf = (measured: number): number => Math.floor(measured / 2);
  * 101 s over ly-2, trace 0.52 and fix 0.08 (9,477, ly-2 at the pose; the rest 9,509 to 10,288).
  */
 const HOLE_MIN_LIT = halfOf(9477);
+/**
+ * The story on the hole's samples' lit px on this screen (re-skin Task 6): half the least measured at
+ * the pose and at 101 s. up-1 under the in-fall (spread 0.5 screens), on the hole close: 9,939 and
+ * 10,203; fx-3 coming up as toNew pulls back (fix 0.43): 9,440 and 9,628.
+ */
+const STORY_MIN_LIT = { up1: halfOf(9939), fx3: halfOf(9440) };
 
 // The essay's three points were chosen as fractions of the essay when it ended on the zoom-out.
 // Each is that fraction of the way to the zoom-out's end, read from the spans, so it lands on the
@@ -140,5 +146,19 @@ export const PURITY_SAMPLES: PuritySample[] = [
     ] as const
   ).flatMap(([id, l, minLit]) =>
     [AMBIENT_POSE, 101].map((ambient): PuritySample => ({ ...at(id, l, ambient, minLit, id === 'layers' && ambient === 101 ? FENCE : undefined), scene: 'hole' })),
+  ),
+  // The story on the hole (re-skin Task 6), each at the pose and at 101 s: up-1 under the in-fall
+  // (spreadAt(0.5): the C7 -> R1 stream ember and ending at R1's strand join, which turns on the ambient,
+  // R1's strand growing, the ember knots rising), tr-2 heated and singled out (trace 0.52, above) and fx-3's
+  // clean front overtaking the knots (fix 0.43). A fence: up-1 at 101 s, where the browser proves the
+  // in-fall's end (uInFallEnd) and its ember (uInEmber), and the strands' and knots' keys, draw what the
+  // twin computes.
+  ...(
+    [
+      ['spread', 0.5 / 2.808, STORY_MIN_LIT.up1],
+      ['fix', 0.43, STORY_MIN_LIT.fx3],
+    ] as const
+  ).flatMap(([id, l, minLit]) =>
+    [AMBIENT_POSE, 101].map((ambient): PuritySample => ({ ...at(id, l, ambient, minLit, id === 'spread' && ambient === 101 ? FENCE : undefined), scene: 'hole' })),
   ),
 ];

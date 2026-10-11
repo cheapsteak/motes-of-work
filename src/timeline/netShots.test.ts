@@ -16,7 +16,8 @@ import {
 import { mechanismAnchors } from '../mechanisms/anchors';
 import { mechanisms } from '../mechanisms';
 import { AMBIENT_WRAP } from '../scene/ambientClock';
-import { packBodyData, type BodyData } from '../scene/node/bodyData';
+import { bodyTexel, packBodyData, STREAM_KIND, type BodyData } from '../scene/node/bodyData';
+import { streamPresence } from '../scene/node/stream';
 import { bodyCentre, bodyDerp, bodyLight, lampGain, type BodyClocks } from '../scene/node/bodyMote';
 import { bodyWorld } from '../scene/node/orbit';
 import { GLOW_CAP, glowPx } from '../galaxy/body';
@@ -59,6 +60,9 @@ import {
   HAZE_KEYS,
   HOLE_CLOSE,
   HOLE_CLOSE_BEATS,
+  holeKeys,
+  inFallArrival,
+  keyedGrowth,
   HOOD_HOLD_KEYS,
   HOOD_HOLD_SHOTS,
   LATE_CLOSE,
@@ -2027,6 +2031,98 @@ function cameraAndHole(at: SectionAt, size: { width: number; height: number }, t
   camera.updateMatrixWorld();
   return { eye: camera.getWorldPosition(new Vector3()), hole: new Vector3(...galacticToWorld(data, [0, 0, 0], t)) };
 }
+
+describe('the story on the hole (re-skin §2.1, §5; the plan’s Task 6)', () => {
+  const inRow = Array.from({ length: data.streamCount }, (_, row) => row).filter((row) => bodyTexel(data.streams, 0, row)[2] === STREAM_KIND.in)[0];
+  const arrival = inFallArrival(g);
+
+  it('the hole is keyed as holeKeys, and nowhere else', () => {
+    // Every section at each 1/200 (places in section-local progress): each leaf up only where §5 has it.
+    const S = (at: SectionAt) => screensOf(at);
+    let [checked, up] = [0, 0];
+    for (const id of [...ACT_I, 'zoom-out', ...MOVE_SECTIONS.map(([x]) => x)])
+      for (let i = 0; i <= 200; i++) {
+        const at: SectionAt = [id, i / 200];
+        const n = sampler.sample(placeProgress(at)).net;
+        const where = at.join('@');
+        if (ACT_I.includes(id) || id === 'zoom-out') {
+          expect([n.holeLamp, n.inEmber, n.strand1, n.heat0, n.cool1, n.knots, n.knotsOff, n.single], where).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+          checked++;
+          continue;
+        }
+        const x = S(at);
+        const inside = (a: SectionAt, b: SectionAt) => x > S(a) + 1e-9 && x < S(b) - 1e-9;
+        const from = (a: SectionAt) => x >= S(a) - 1e-9;
+        // The hole's lamp: up only from the end of the move into ly-2 to the end of the move into ly-3.
+        if (!inside(layersAt(0.9), layersAt(1.9))) expect(n.holeLamp, `${where}: holeLamp`).toBe(0);
+        if (from(layersAt(1.15)) && x <= S(layersAt(1.7)) + 1e-9) expect(n.holeLamp, `${where}: holeLamp`).toBeCloseTo(1, 9);
+        // The in-fall's ember: 0 before spread, 1 from spreadAt(0.15) to the end.
+        if (x < S(spreadAt(0)) - 1e-9) expect(n.inEmber, `${where}: inEmber`).toBe(0);
+        if (from(spreadAt(0.15))) expect(n.inEmber, `${where}: inEmber`).toBeCloseTo(1, 9);
+        // R1's strand: 0 until the in-fall arrives, whole from spreadAt(0.9).
+        if (x <= S(arrival) + 1e-9) expect(n.strand1, `${where}: strand1`).toBe(0);
+        if (from(spreadAt(0.9))) expect(n.strand1, `${where}: strand1`).toBeCloseTo(1, 9);
+        // The ember front up the jets: 0 before spreadAt(0.9), 1 from spreadAt(1.3) to the end.
+        if (x <= S(spreadAt(0.9)) + 1e-9) expect(n.knots, `${where}: knots`).toBe(0);
+        if (from(spreadAt(1.3))) expect(n.knots, `${where}: knots`).toBeCloseTo(1, 9);
+        // R0's heat: up only over trace 0.48 – fix 0.12, and whole from trace 0.56 to fix 0.03.
+        if (!inside(['trace', 0.48], ['fix', 0.12])) expect(n.heat0, `${where}: heat0`).toBe(0);
+        if (from(['trace', 0.56]) && x <= S(['fix', 0.03]) + 1e-9) expect(n.heat0, `${where}: heat0`).toBeCloseTo(1, 9);
+        // The single: up only over trace 0.48 – 0.68.
+        if (!inside(['trace', 0.48], ['trace', 0.68])) expect(n.single, `${where}: single`).toBe(0);
+        if (from(['trace', 0.56]) && x <= S(['trace', 0.58]) + 1e-9) expect(n.single, `${where}: single`).toBeCloseTo(1, 9);
+        // R1's cooling: 0 before fix 0.17, 1 from 0.30; the clean front: 0 before fix 0.40, 1 from 0.46.
+        if (x <= S(['fix', 0.17]) + 1e-9) expect(n.cool1, `${where}: cool1`).toBe(0);
+        if (from(['fix', 0.3])) expect(n.cool1, `${where}: cool1`).toBeCloseTo(1, 9);
+        if (x <= S(['fix', 0.4]) + 1e-9) expect(n.knotsOff, `${where}: knotsOff`).toBe(0);
+        if (from(['fix', 0.46])) expect(n.knotsOff, `${where}: knotsOff`).toBeCloseTo(1, 9);
+        for (const v of [n.holeLamp, n.inEmber, n.strand1, n.heat0, n.cool1, n.knots, n.knotsOff, n.single]) {
+          expect(v, where).toBeGreaterThanOrEqual(0);
+          expect(v, where).toBeLessThanOrEqual(1);
+          if (v > 0) up++;
+        }
+        checked++;
+      }
+    expect(checked).toBe((ACT_I.length + 1 + MOVE_SECTIONS.length) * 201);
+    expect(up).toBeGreaterThan(1000);
+    // As actTwoKeys pastes them: holeKeys's, after a 0 at the zoom-out's start.
+    const keys = holeKeys(g);
+    for (const [path, ks] of Object.entries(keys)) {
+      expect(file.tracks[path].map((k) => [k.at, k.value, k.ease ?? 'linear']), path).toEqual([
+        ['zoom-out@0', 0, 'linear'],
+        ...ks.map((k) => [`${k.at[0]}@${Math.round(k.at[1] * 1e8) / 1e8}`, k.value, k.ease ?? 'linear']),
+      ]);
+    }
+  });
+
+  it('R1’s strand starts where the in-fall’s first dots reach the hole', () => {
+    // keyedGrowth is the sampler's net.growth, at every thousandth of defect and spread.
+    for (const id of ['defect', 'spread'])
+      for (let k = 0; k <= 1000; k++) expect(keyedGrowth([id, k / 1000]), `${id}@${k / 1000}`).toBeCloseTo(sampler.sample(local(id, k / 1000)).net.growth, 9);
+    // The stream's presence (the stream model's own, streamPresence) is 0 a thousandth of spread before
+    // the arrival and above 0 at it, on the essay's own sampled growth.
+    const presence = (at: SectionAt) => streamPresence(data, inRow, sampler.sample(placeProgress(at)).net.growth);
+    expect(arrival[0]).toBe('spread');
+    expect(presence(['spread', arrival[1] - 0.001])).toBe(0);
+    expect(presence(arrival)).toBeGreaterThan(0);
+    // net.strand1's first key sits at it, derived, not a literal.
+    expect(holeKeys(g)['net.strand1'][0]).toEqual({ at: arrival, value: 0 });
+    // A different growth moves it with the keys: that is the point.
+    const later = inFallArrival(g, (at) => keyedGrowth(at) - 0.01);
+    expect(screensOf(later)).toBeGreaterThan(screensOf(arrival));
+    expect(holeKeys(g, (at) => keyedGrowth(at) - 0.01)['net.strand1'][0].at).toEqual(later);
+    // On today's keys, 0.216 screens into spread, at growth 0.378.
+    const into = screensOf(arrival) - screensOf(spreadAt(0));
+    console.info(`the in-fall arrives ${into.toFixed(4)} screens into spread, at growth ${keyedGrowth(arrival).toFixed(4)}`);
+    expect(into).toBeGreaterThanOrEqual(0.216 - 0.01);
+    expect(into).toBeLessThanOrEqual(0.216 + 0.01);
+  });
+
+  it('the in-fall is ember before its first dots leave C7', () => {
+    expect(sampler.sample(placeProgress(arrival)).net.inEmber).toBeCloseTo(1, 9);
+    expect(screensOf(spreadAt(0.15))).toBeLessThan(screensOf(arrival));
+  });
+});
 
 describe('the hole close (HOLE_CLOSE)', () => {
   it('the close shots on the centre are HOLE_CLOSE', () => {

@@ -11,14 +11,39 @@
 // clock, never on scroll. The reviewer's feed is the one exception to the cap and the fade (feedGain):
 // it is shown by its own story leaf (`net.feed`) as re-3's subject, not as ambient lineage. Neither
 // lights the text band: every stream and feed dot is masked to it on screen (streamBandMask).
+//
+// The in-fall (re-skin §4.2) is the other exception: the C7 → R1 `in` stream (STREAM_KIND.in) ends at R1's
+// strand join in the black hole's disk (inFallEnd: strandJoin(1, t) carried into the world as the hole
+// is; the shaders take it as the uniform uInFallEnd), drawn at IN_STREAM_CAP, unfaded (inFallGain), and
+// ember as it leaves C7: its colour mixed to IN_EMBER (the hole's HOLE_EMBER) by inFallEmber.
 import type { Vec3 } from '../../math/vec';
 import { STREAM_DOTS, STREAM_PITCH } from '../../galaxy/generate';
-import { BAND_MARGIN_PX, FEED_CAP, NODE_STREAM_SPEED, STREAM_BAND_SOFT_PX, STREAM_BOW, STREAM_CAP, STREAM_FADE, TEXT_BAND } from './birth';
-import { bodyTexel, type BodyData } from './bodyData';
-import { smoothstep } from './light';
-import { bodyWorld } from './orbit';
+import { BAND_MARGIN_PX, FEED_CAP, IN_STREAM_CAP, NODE_BIRTH_WINDOW, NODE_STREAM_SPEED, STREAM_BAND_SOFT_PX, STREAM_BOW, STREAM_CAP, STREAM_FADE, TEXT_BAND } from './birth';
+import { bodyTexel, STREAM_KIND, type BodyData } from './bodyData';
+import { strandJoin } from '../hole/hole';
+import { HOLE_EMBER, HOLE_LOOK } from '../hole/holeLook';
+import { nodeArrival, smoothstep } from './light';
+import { bodyWorld, galacticToWorld } from './orbit';
 
-export { FEED_CAP, STREAM_BAND_SOFT_PX, STREAM_BOW, STREAM_CAP, STREAM_DOTS, STREAM_FADE, STREAM_PITCH };
+export { FEED_CAP, IN_STREAM_CAP, STREAM_BAND_SOFT_PX, STREAM_BOW, STREAM_CAP, STREAM_DOTS, STREAM_FADE, STREAM_PITCH };
+
+/** The in-fall's ember (re-skin §4.2): the strands' HOLE_EMBER, so the in-fall becomes R1's strand in one colour. The other streams keep NODE_EMBER. */
+export const IN_EMBER = HOLE_EMBER.rgb;
+
+/**
+ * Where the in-fall ends at ambient `t`: R1's strand join (hole.ts strandJoin(1, t)), carried into the
+ * world as the hole is (its frame is the galaxy's, turned with it, at the galactic centre: galacticToWorld
+ * of the point × HOLE_LOOK.scale). The CPU computes it once a frame for the shaders (uInFallEnd).
+ */
+export function inFallEnd(data: BodyData, t: number): Vec3 {
+  const j = strandJoin(1, t);
+  return galacticToWorld(data, [j[0] * HOLE_LOOK.scale, j[1] * HOLE_LOOK.scale, j[2] * HOLE_LOOK.scale], t);
+}
+
+/** How far the in-fall's colour is mixed toward IN_EMBER: ember as it leaves C7 (`net.inEmber`), cooled with R1's strand at fx-2 (`net.cool1`). */
+export function inFallEmber(net: { inEmber: number; cool1: number }): number {
+  return net.inEmber * (1 - net.cool1);
+}
 
 /**
  * The text band's mask on a stream or feed dot (Task 11 review I1, the ruling: the streams and the feed
@@ -43,12 +68,30 @@ export function streamDotU(k: number, t: number): number {
 }
 
 /**
+ * A lineage stream's presence at `growth` (row `row` of the streams texture, its child's arrival: 0 until
+ * the child's build reaches it, rising to 1 over NODE_BIRTH_WINDOW): what stream.vert.glsl shows it by
+ * (nodeArrival of the row's born), and streamPixels with it. Not the feed's, whose presence is its alpha.
+ */
+export function streamPresence(data: BodyData, row: number, growth: number): number {
+  return nodeArrival(bodyTexel(data.streams, 0, row)[3], growth, NODE_BIRTH_WINDOW);
+}
+
+/**
  * A galaxy stream dot's brightness, as a share of a star glow's core: `streams · lamp · STREAM_CAP ·
  * mix(1, 0.15, u)` (galaxy §15.2), 0 wherever the story does not show the streams. A lit (ember) dot
  * is capped the same.
  */
 export function streamGain(u: number, streams: number, lamp: number): number {
   return streams * lamp * STREAM_CAP * (STREAM_FADE[0] + (STREAM_FADE[1] - STREAM_FADE[0]) * u);
+}
+
+/**
+ * An in-fall dot's brightness, as a share of a star glow's core: `streams · lamp · IN_STREAM_CAP`, the
+ * same along its whole length (re-skin §4.2: drawn as the feed is, unfaded), 0 wherever the story does
+ * not show the streams.
+ */
+export function inFallGain(streams: number, lamp: number): number {
+  return streams * lamp * IN_STREAM_CAP;
 }
 
 /**
@@ -110,14 +153,14 @@ export interface StreamCurve {
 
 /**
  * Row `row` of the streams texture at ambient `t`: from its parent's place to its child's (bodyWorld;
- * the feed's far end is `end`, the ring), its Bezier's control point and its count. Every dot of the
- * row shares it (streamPixels reads it once a row).
+ * the feed's far end is `end`, the ring; the in-fall's is `inEnd`, R1's strand join, inFallEnd), its
+ * Bezier's control point and its count. Every dot of the row shares it (streamPixels reads it once a row).
  */
-export function streamCurve(data: BodyData, row: number, t: number, end?: Vec3): StreamCurve {
-  const [from, to] = bodyTexel(data.streams, 0, row);
+export function streamCurve(data: BodyData, row: number, t: number, end?: Vec3, inEnd?: Vec3): StreamCurve {
+  const [from, to, kind] = bodyTexel(data.streams, 0, row);
   const bearing = bodyTexel(data.streams, 1, row)[2];
   const a = bodyWorld(data, Math.round(from), t);
-  const b = to >= 0 ? bodyWorld(data, Math.round(to), t) : (end ?? a);
+  const b = kind === STREAM_KIND.in ? (inEnd ?? inFallEnd(data, t)) : to >= 0 ? bodyWorld(data, Math.round(to), t) : (end ?? a);
   return { a, b, c: streamControl(a, b, bearing), n: streamCount(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])) };
 }
 
@@ -131,10 +174,11 @@ export function streamDotOn({ a, b, c, n }: StreamCurve, i: number, t: number): 
 
 /**
  * Dot `i` of row `row` of the streams texture at ambient `t`: from its parent's place to its child's
- * (bodyWorld; the feed's far end is `end`, the ring), on the stream's Bezier, at offset i / n.
+ * (bodyWorld; the feed's far end is `end`, the ring; the in-fall's `inEnd`, R1's strand join), on the
+ * stream's Bezier, at offset i / n.
  */
-export function streamDot(data: BodyData, row: number, i: number, t: number, end?: Vec3): StreamDot {
-  return streamDotOn(streamCurve(data, row, t, end), i, t);
+export function streamDot(data: BodyData, row: number, i: number, t: number, end?: Vec3, inEnd?: Vec3): StreamDot {
+  return streamDotOn(streamCurve(data, row, t, end, inEnd), i, t);
 }
 
 /** A number as a GLSL float literal that parses back to it. */
@@ -149,6 +193,9 @@ export function glslStreamConstants(): string {
     '// The stream constants and the text band, generated from src/scene/node/stream.ts (birth.ts, src/galaxy/generate.ts).',
     `const float STREAM_CAP = ${lit(STREAM_CAP)};`,
     `const float FEED_CAP = ${lit(FEED_CAP)};`,
+    `const float IN_STREAM_CAP = ${lit(IN_STREAM_CAP)};`,
+    `const int STREAM_KIND_IN = ${STREAM_KIND.in};`,
+    `const vec3 IN_EMBER = vec3(${IN_EMBER.map(lit).join(', ')});`,
     `const float TEXT_BAND = ${lit(TEXT_BAND)};`,
     `const float BAND_MARGIN_PX = ${lit(BAND_MARGIN_PX)};`,
     `const float STREAM_BAND_SOFT_PX = ${lit(STREAM_BAND_SOFT_PX)};`,

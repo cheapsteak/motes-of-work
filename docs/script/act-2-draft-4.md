@@ -61,8 +61,11 @@ piece grows each time its stream arrives.*
 
 At the centre, the rules every agent reads before it starts. (11) `ly-2`
 
-*The camera flies in along the arm to the hub: a handful of large bodies, slow to change, with many
-streams leaving them outward.*
+*The camera flies in along the arm to the centre: a black hole, close, from a little above its disk. The
+disk turns, bright and blue-white on the side coming toward us, dimmer and amber on the other; its far side
+arches over a black shadow, with a thin ring at its edge. Thin jets carry clean clumps up from its poles,
+and specks fall in. A thread winds through the outer disk in the disk's own blue: nothing marks it. The
+hole brightens as the rest of the sky dims. Nothing is ember.*
 
 ### Page 3
 
@@ -130,8 +133,9 @@ Twelve new defects. You fixed one. (6) `df-5`
 
 One agent wrote down what it built, so the next agent would know. Now the defect is in the rules too. (21) `up-1`
 
-*A thin stream runs inward from a defective piece, through the ring, to the hub, where a new large body
-forms. Its satellites stutter too.*
+*The camera follows a defective piece, then goes in to the black hole. A thin ember stream runs inward
+from the piece, past its star, and falls into the disk; from where it lands it winds inward as a second
+thread, ember from birth, about three turns round the inner disk. Then ember clumps start up the jets.*
 
 ### Page 10
 
@@ -168,24 +172,29 @@ Branches merge as it goes.*
 
 They all lead to one place at the centre: one incorrect rule. (12) `tr-2`
 
-*The source: a large body in the hub. Up close, one of its satellites stutters. Every highlighted branch
-converges on it. Then, still under this line, the camera lifts a little and the source's streams fan
-out: into the ring, out along the arms, across to the reviewer's light, and over to the second defective
-body in the hub: one mistake, copied, with no words needed.*
+*The black hole, close, where every highlighted branch converges. The outer thread, blue until now,
+heats to ember and brightens, while everything else in the hole dims, the inner ember thread with it:
+that is the source. The clumps up the jets are ember. Then, still under this line, the camera lifts a
+little and the source's streams fan out: into the ring, out along the arms and across to the reviewer's
+light: one mistake, copied, with no words needed.*
 
 ### Page 13
 
 Fix the rule. (3) `fx-1`
 
-*The person's work lands on the source. Its satellites run smooth.*
+*The black hole, close: the outer thread, the source, cools to the disk's clean blue. The inner thread
+stays ember, and so do the clumps up the jets.*
 
 And fix the rule an agent wrote from it, or the defect will spread again. (15) `fx-2`
 
-*The camera pans across the hub to the second defective body; it is rebuilt too.*
+*The same shot (there is one hole): the inner thread, the one the piece's notes made, cools to clean
+blue too. The clumps up the jets are still ember.*
 
 Now new work built from them is correct. (8) `fx-3`
 
-*New streams leave both; new pieces form on the ring and along the arms, and none is marked.*
+*As the line comes up and the camera starts to pull back, a clean front rises up the jets and overtakes
+the ember clumps; the last of them ride out, and the clumps stop. Then the neighbourhood: new streams
+leave the centre, new pieces form on the ring and along the arms, and none is marked.*
 
 ### Page 14
 

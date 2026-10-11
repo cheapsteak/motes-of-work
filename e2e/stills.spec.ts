@@ -311,6 +311,27 @@ const STILLS: Still[] = [
       ['df-2-held', 0.31, undefined],
     ] as const
   ).map(([name, local, ambient]) => ({ tag: 'R8b', name, query: `&mech=bike${ambient === undefined ? '' : `&ambient=${ambient}`}`, at: { section: 'defect', local } })),
+  // The re-skin's Task 6, the story on the hole: ly-2 under the hole's lamp; up-1 as the in-fall falls in
+  // (0.4 and 0.7 screens into spread) and at its stop (R1's strand whole, the knots ember); up-2, re-3 and
+  // tr-1 seeing it small; tr-2 heated and singled out (the end of its hold on the hole, trace 0.57: its
+  // auto-advance stop is after the surge, 0.972); fx-1 cooling R0's strand, fx-2 R1's, fx-3 stopping the
+  // knots, and fx-4's sweep.
+  ...(
+    [
+      ['ly-2', 'layers', 1.35 / 4.3],
+      ['up-1-spread0.4', 'spread', 0.4 / 2.808],
+      ['up-1-spread0.7', 'spread', 0.7 / 2.808],
+      ['up-1-stop', 'spread', 0.4779],
+      ['up-2', 'spread', 2.124 / 2.808],
+      ['re-3', 'reviewer', 0.88],
+      ['tr-1', 'trace', 0.21],
+      ['tr-2-stop', 'trace', 0.57],
+      ['fx-1-0.13', 'fix', 0.13],
+      ['fx-2-0.31', 'fix', 0.31],
+      ['fx-3-0.43', 'fix', 0.43],
+      ['fx-4', 'fix', 0.82],
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R6', name, query: '&mech=bike', at: { section, local } })),
 ];
 
 /** The first frame from 101 s with the dropout's lines up (re-skin Task 8b), on a whole frame of the ambient. */

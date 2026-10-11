@@ -10,7 +10,8 @@
 //                      was, fading out as its spot's real star comes in (lod.ts hoodReal)
 // The group's model matrix turns the galaxy's frame with the galaxy and anchors it at N0, as
 // bodyWorld places the bodies (src/scene/node/orbit.ts), so the background and the neighbourhood
-// move as one. The whole group is hidden while `net.show` is 0.
+// move as one. The whole group is hidden while `net.show` is 0, and dimmed by the black hole's lamp and
+// single (re-skin §4.2: holeLook.ts holeStoryGain).
 import {
   AddEquation,
   BufferAttribute,
@@ -38,6 +39,7 @@ import { splice } from '../mote/shaderSource';
 import { withGalaxyLibrary } from '../node/shaderSource';
 import type { SceneState } from '../../timeline/sceneState';
 import { HAZE, STAR_TINT } from './spriteLook';
+import { holeStoryGain } from '../hole/holeLook';
 import starFrag from './shaders/star.frag.glsl?raw';
 import starVert from './shaders/star.vert.glsl?raw';
 
@@ -128,8 +130,9 @@ export function createGalaxySystem(
 ): GalaxySystem {
   const viewportPx: IUniform<Vector2> = { value: new Vector2(1, 1) };
   const pixelRatio: IUniform<number> = { value: 1 };
-  const show: IUniform<number> = { value: 0 };
-  // The haze's gain: net.show × net.haze.
+  // The background's gain: net.show × the hole's lamp and single on the rest of the frame (holeStoryGain).
+  const bgGain: IUniform<number> = { value: 0 };
+  // The haze's gain: net.show × net.haze, × the same.
   const hazeGain: IUniform<number> = { value: 0 };
   const freezeDress: IUniform<number> = { value: 0 };
   // The beats' hold on the neighbourhood's real form, which the far sets give way to (lod.ts hoodHold).
@@ -161,7 +164,7 @@ export function createGalaxySystem(
         uSizeWorld: { value: set.world },
         uMinPx: { value: set.px[0] },
         uMaxPx: { value: set.px[1] },
-        uGain: set.name === 'galaxy-haze' ? hazeGain : show,
+        uGain: set.name === 'galaxy-haze' ? hazeGain : bgGain,
         uFreezeDress: freezeDress,
         uProfile: { value: set.profile },
         uWarmMix: { value: set.warmMix },
@@ -198,9 +201,11 @@ export function createGalaxySystem(
     counts: { stars: bg.stars.length / 4, bright: bg.bright.length / 4, dust: bg.dust.length / 4, haze: 1 },
 
     update(state, camera, viewport, ambient) {
-      show.value = state.net.show;
+      // The hole's lamp dims the background to 0.3 at ly-2, and the single by 0.72 at tr-2 (re-skin §4.2).
+      const story = holeStoryGain(state.net, 'background');
+      bgGain.value = state.net.show * story;
       // The haze is a look gate, not a distance one: up only at the galaxy wides (netShots.ts HAZE_KEYS).
-      hazeGain.value = state.net.show * state.net.haze;
+      hazeGain.value = state.net.show * state.net.haze * story;
       haze.visible = state.net.haze > 0;
       // The freeze frame dims and greys everything but the held piece, the background with it (times
       // net.focus, as the bodies' dressing: it cannot show off a focused frame).

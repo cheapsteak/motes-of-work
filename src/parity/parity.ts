@@ -66,7 +66,7 @@ import { derp, derpEvent, DerpKind, type Derp } from '../scene/node/derp';
 import { BODY_KIND, BODY_TEXELS, packBodyData } from '../scene/node/bodyData';
 import { buildTrackAttrs, packShellData, SHELL_TEXELS } from '../scene/node/bodyAttrs';
 import { bodyMote, focusScatterRow, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyMote';
-import { feedGain, streamBandMask, streamDot, streamGain } from '../scene/node/stream';
+import { feedGain, inFallEnd, inFallGain, streamBandMask, streamDot, streamGain } from '../scene/node/stream';
 import { AMBIENT_POSE } from '../galaxy/ambient';
 import { bodyWorld } from '../scene/node/orbit';
 import {
@@ -1291,11 +1291,11 @@ const STREAM_FEED_END: [number, number, number] = [13.5, 0.2, -21.25];
 const STREAM_BAND_OFFSETS = [-6, -1, -0.25, 0, 0.5, 1, 1.75, 2, 2.5, 3.25, 4, 4.5, 9];
 const STREAM_BAND_HEIGHTS = [844, 900];
 
-/** The stream case of `?lib=body`: streamDot(), streamGain(), feedGain() and streamBandMask() over every stream, at the pose and at 101 s (the gains' first input read as net.streams and as net.feed; each dot's mask at a row about the band's edge). */
+/** The stream case of `?lib=body`: streamDot(), streamGain(), inFallGain(), feedGain() and streamBandMask() over every stream, the in-fall ending at R1's strand join (uInFallEnd, stream.ts inFallEnd), at the pose and at 101 s (the gains' first input read as net.streams and as net.feed; each dot's mask at a row about the band's edge). */
 function streamCases(draw: Draw, uniforms: Record<string, IUniform>): ParityCase[] {
   const g = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
   const data = packBodyData(g);
-  const u: Record<string, IUniform> = { ...uniforms, uRing: { value: STREAM_FEED_END }, uPass: { value: 0 } };
+  const u: Record<string, IUniform> = { ...uniforms, uRing: { value: STREAM_FEED_END }, uInFallEnd: { value: [0, 0, 0] }, uPass: { value: 0 } };
   const mat = material(withGalaxyLibrary(STREAM_DOT_VERTEX), PARITY_FRAGMENT, u);
   const passes = parityPasses(STREAM_PARITY_FIELDS);
   const samples = Array.from({ length: data.streamCount }, (_, row) =>
@@ -1310,6 +1310,9 @@ function streamCases(draw: Draw, uniforms: Record<string, IUniform>): ParityCase
   for (const ambient of BODY_AMBIENTS) {
     const t = Math.fround(ambient);
     u.uAmbient = { value: t };
+    // The in-fall's end as the CPU hands it over (bodySystem.ts), at float32.
+    const inEnd = inFallEnd(data, t).map(Math.fround) as [number, number, number];
+    u.uInFallEnd = { value: inEnd };
     let maxError = 0;
     for (let from = 0; from < samples.length; from += COUNT) {
       const chunk = samples.slice(from, from + COUNT);
@@ -1324,12 +1327,13 @@ function streamCases(draw: Draw, uniforms: Record<string, IUniform>): ParityCase
       });
       geometry.dispose();
       chunk.forEach((x, i) => {
-        const dot = streamDot(data, x.row, x.i, t, STREAM_FEED_END.map(Math.fround) as [number, number, number]);
+        const dot = streamDot(data, x.row, x.i, t, STREAM_FEED_END.map(Math.fround) as [number, number, number], inEnd);
         const want: StreamOut = {
           pos: dot.pos,
           u: dot.u,
           presence: dot.presence,
           gain: streamGain(dot.u, x.streams, x.lamp),
+          inFallGain: inFallGain(x.streams, x.lamp),
           feedGain: feedGain(x.streams, x.lamp),
           bandMask: streamBandMask(Math.fround(x.yTop), x.height),
         };

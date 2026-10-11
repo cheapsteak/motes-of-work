@@ -1,18 +1,17 @@
 // Where the galaxy's stream and feed dots light the screen (Task 11 review I1): stream.vert.glsl's
 // TypeScript twin as a whole, for the clearance twins (netShots.ts cylinderTop, e2e/machine.ts). Each dot
-// is placed by streamDot, shown by its gain (streamGain, or feedGain for the feed), its count's fade,
+// is placed by streamDot (the in-fall's ending at R1's strand join, inFallEnd), shown by its gain
+// (streamGain, inFallGain for the in-fall, feedGain for the feed), its count's fade,
 // its child's arrival (the feed's alpha for the feed) and the galaxy's presence, put on its pixel, and
 // masked to the text band there (streamBandMask): the dots it returns are the ones the page lights.
 import { Vector3, type PerspectiveCamera } from 'three';
 import { bodyIndex, pieceOuter, type Galaxy } from '../../galaxy/generate';
 import { feedAlpha, ringAt, type RingVisit } from '../../galaxy/review';
 import { lampFocusRow } from '../../timeline/netTrack';
-import { NODE_BIRTH_WINDOW } from './birth';
 import { buildStreamAttrs } from './bodyAttrs';
-import { bodyTexel, type BodyData } from './bodyData';
+import { bodyTexel, STREAM_KIND, type BodyData } from './bodyData';
 import { lampGain } from './bodyMote';
-import { nodeArrival } from './light';
-import { feedGain, streamBandMask, streamCurve, streamDotOn, streamGain, type StreamCurve } from './stream';
+import { feedGain, inFallEnd, inFallGain, streamBandMask, streamCurve, streamDotOn, streamGain, streamPresence, type StreamCurve } from './stream';
 
 /** The story leaves the streams' draw reads (SceneState's `net`). */
 export interface StreamLeaves {
@@ -80,20 +79,22 @@ export function streamPixels(
   // Each row's curve, arrival and lamp once (the dots of a row share them); streamDot is streamDotOn of its row's curve.
   let row0 = -1;
   let curve: StreamCurve | null = null;
-  let [to, present, lamp] = [0, 0, 0];
+  let [to, present, lamp, inFall] = [0, 0, 0, false];
+  const inEnd = inFallEnd(data, t);
   for (const set of sets)
     for (const [row, i] of set) {
       if (row !== row0) {
         row0 = row;
         const texel = bodyTexel(data.streams, 0, row);
         to = texel[1];
-        present = to >= 0 ? nodeArrival(texel[3], net.growth, NODE_BIRTH_WINDOW) : fa;
+        inFall = texel[2] === STREAM_KIND.in;
+        present = to >= 0 ? streamPresence(data, row, net.growth) : fa;
         lamp = Math.max(lampGain(Math.round(texel[0]), clocks, data), lampGain(to >= 0 ? Math.round(to) : ringRow, clocks, data));
-        curve = present * lamp > 0 ? streamCurve(data, row, t, ring.position) : null;
+        curve = present * lamp > 0 ? streamCurve(data, row, t, ring.position, inEnd) : null;
       }
       if (curve === null) continue;
       const sd = streamDotOn(curve, i, t);
-      const gain = to >= 0 ? streamGain(sd.u, net.streams, lamp) : feedGain(net.feed, lamp);
+      const gain = inFall ? inFallGain(net.streams, lamp) : to >= 0 ? streamGain(sd.u, net.streams, lamp) : feedGain(net.feed, lamp);
       const shown = gain * sd.presence * present * net.show;
       if (!(shown > 0)) continue;
       p.set(...sd.pos).project(camera);

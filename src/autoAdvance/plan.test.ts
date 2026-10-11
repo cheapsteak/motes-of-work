@@ -333,6 +333,15 @@ describe('sceneMotion', () => {
     'net.focus',
     'net.streams',
     'net.feed',
+    // The story on the black hole (re-skin §5).
+    'net.holeLamp',
+    'net.inEmber',
+    'net.strand1',
+    'net.heat0',
+    'net.cool1',
+    'net.knots',
+    'net.knotsOff',
+    'net.single',
     'camera.track.mix',
     'camera.track.turn',
     // The freeze frame (freeze-frame §1.3): a stop waits for the cut, the dressing and the roll.

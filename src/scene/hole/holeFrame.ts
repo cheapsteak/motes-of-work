@@ -14,7 +14,7 @@ import type { BodyData } from '../node/bodyData';
 import { bodyPresence, lampGain } from '../node/bodyMote';
 import { offScreenReachPx, offScreenSkip } from '../node/lod';
 import { galacticToWorld, galaxyTurn } from '../node/orbit';
-import { jetRho, type HoleView } from './hole';
+import { jetRho, strandWindow, type HoleView } from './hole';
 import { HOLE_DOTS } from '../../galaxy/hole';
 import {
   HOLE_DISK,
@@ -30,6 +30,7 @@ import {
   HOLE_STRAND,
   holeComp,
   holeSmallGain,
+  holeStoryGain,
 } from './holeLook';
 
 /** A part's key in HOLE_MOCK_DOTS (holeComp's). */
@@ -198,6 +199,30 @@ export function holeFrame(
     reachPx: reach,
     skip,
     approach: sideX < 0 ? -1 : 1,
+  };
+}
+
+/** What the story keys of each part (re-skin §5; holeSystem.ts draws it, holeOnScreen.ts counts it). */
+export interface HoleStory {
+  /** Each part's gain on the hole's (HoleView.gain × this, before the per-dot clamp): the lamp and the single (holeStoryGain). */
+  gain: Record<HoleMockPart, number>;
+  /** The knots' fronts: the ember one up the jets (`net.knots`) and the clean one behind it (`net.knotsOff`). */
+  fronts: { ember: number; clean: number };
+  /** Each strand's window head and heat: R0's whole, heating by `net.heat0`; R1's growing by `net.strand1`, cooling by `net.cool1`. */
+  strands: [{ head: number; heat: number }, { head: number; heat: number }];
+}
+
+/** The story's keys on the hole at `net` (§4.2, §5): each part's gain, the knots' fronts and the strands' windows and heat. */
+export function holeStory(net: SceneState['net']): HoleStory {
+  const hole = holeStoryGain(net, 'hole');
+  const gain = Object.fromEntries(HOLE_PARTS.map((p) => [p.key, p.key === 'strand0' ? holeStoryGain(net, 'strand0') : hole])) as Record<HoleMockPart, number>;
+  return {
+    gain,
+    fronts: { ember: net.knots, clean: net.knotsOff },
+    strands: [
+      { head: strandWindow(0, 0).head, heat: net.heat0 },
+      { head: strandWindow(1, net.strand1).head, heat: 1 - net.cool1 },
+    ],
   };
 }
 
