@@ -5,8 +5,10 @@ name: e2e
 # site once (the Playwright config's web server) and writes a blob report; the last job merges them
 # into one HTML report. The shards run in the Playwright image of this repo's pinned version
 # (package.json @playwright/test), so the Chromium build that draws the pages is the one the stills
-# were shot with. A shard's tests are dealt round-robin from the test list (tools/shard-list.mjs), not cut
-# in contiguous runs by Playwright's --shard, so the heavy tests of one file spread over the shards.
+# were shot with. A shard's tests are dealt by duration from the test list (tools/shard-list.mjs, longest
+# first onto the least loaded shard, by tools/shard-times.json), not cut in contiguous runs by Playwright's
+# --shard, so the heavy tests of one file spread over the shards. Refresh the table with
+# tools/shard-times.mjs <run id> when the slowest shard runs about 2 min over the mean.
 #
 # On demand it can run a selection instead: `specs` (space-separated e2e/*.spec.ts files) and/or `grep`
 # (a test-name filter for --grep). A selection runs the e2e only, on 1 shard when it holds at most
@@ -163,7 +165,7 @@ jobs:
           for s in $SPECS; do args+=("$s"); done
           if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
           if [[ "$TOTAL" -gt 1 ]]; then
-            # Dealt round-robin, not Playwright's --shard (contiguous runs of equal test count, which
+            # Dealt by duration, not Playwright's --shard (contiguous runs of equal test count, which
             # leave a file's heavy tests together on one shard): tools/shard-list.mjs.
             node tools/shard-list.mjs "$SHARD" "$TOTAL" "${args[@]}" > "${RUNNER_TEMP:-/tmp}/shard.txt"
             args+=("--test-list=${RUNNER_TEMP:-/tmp}/shard.txt")
