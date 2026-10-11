@@ -352,6 +352,8 @@ for (const tag of [...new Set(STILLS.map((s) => s.tag))]) {
 // The re-skin's Task 8b: 10 s of df-1 (defect 0.22) at 30 fps from 101 s, on a phone, one still per frame
 // (R8b-strip/f000.png ...): the scatter in every slot, its wounds leaking and snapping home, the lines.
 test('R8b df-1 strip, phone', async ({ page }) => {
+  // Measured: about 6 s a frame (the whole stage drawn and shot) on a loaded machine; 300 frames.
+  test.setTimeout(3 * 3_600_000);
   await page.setViewportSize(SIZES[0]);
   mkdirSync(`${DIR}/R8b-strip`, { recursive: true });
   await openStage(page, '&mech=bike&n=500');
