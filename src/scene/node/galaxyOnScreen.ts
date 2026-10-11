@@ -134,11 +134,53 @@ export function held(s: SceneState, ambient: number, g: Galaxy = galaxyOf().g): 
 }
 
 /**
+ * visibleGalaxy's inputs: every clock it hands bodyMote() but sysPx, which is fixed. The galaxy, its
+ * sampled motes and the shells at an ambient are fixed by these, so equal inputs are the same points.
+ */
+function galaxyInputs(c: BodyClocks): number[] {
+  return [c.growth, c.fix, c.highlight, c.show, c.ambient, c.focus, c.lamp, c.lampRow, c.forcedScatter ?? -1];
+}
+
+/**
+ * visibleGalaxy's most recent answers, by their inputs (compared with Object.is, so 0 and −0 and every
+ * NaN stay apart as the arithmetic may keep them apart). The clearance sweeps ask at thousands of
+ * places a camera move apart, where the clocks hold still, each at the AMBIENT_GRID poses on two
+ * screens: the bodies' motes are most of a margin's cost, and the camera moves none of them. The most
+ * recent GALAXY_MEMO only (each answer is a few thousand points).
+ */
+const GALAXY_MEMO = 32;
+const galaxyMemo: { inputs: number[]; points: GalaxyPoint[] }[] = [];
+function galaxyRecall(inputs: number[]): GalaxyPoint[] | null {
+  for (const m of galaxyMemo) if (m.inputs.every((x, i) => Object.is(x, inputs[i]))) return m.points;
+  return null;
+}
+function galaxyRemember(inputs: number[], points: GalaxyPoint[]): void {
+  if (galaxyMemo.length >= GALAXY_MEMO) galaxyMemo.shift();
+  galaxyMemo.push({ inputs, points });
+}
+
+/**
+ * The essay galaxy's shell texture at an ambient (packShellData), packed once per ambient: it depends
+ * on the ambient alone, and the clearance sweeps ask for the same few (AMBIENT_GRID) at thousands of
+ * states. The most recent 16 ambients only.
+ */
+const shellsCache = new Map<number, Float32Array>();
+function shellsAt(ambient: number): Float32Array {
+  let shells = shellsCache.get(ambient);
+  if (!shells) {
+    if (shellsCache.size >= 16) shellsCache.delete(shellsCache.keys().next().value as number);
+    shellsCache.set(ambient, (shells = packShellData(galaxyOf().g, ambient)));
+  }
+  return shells;
+}
+
+/**
  * The galaxy the reader can make out at `s` and ambient `ambient` (the ambient shown: the pin while
  * the hold is up, `held`), while it shows: every built body
  * the lamp lights (lampGain), its sampled shell, moon and person motes that have mostly landed,
  * through bodyMote() at full detail, each with its mote's size; and every lit star's glow sprite.
  * The core rows draw nothing (re-skin Task 5): the hole drawn in their place is holeOnScreen.ts's.
+ * Equal inputs answer the same array (galaxyRecall): read it, never change it.
  */
 export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
   if (s.net.show <= 0) return [];
@@ -155,8 +197,12 @@ export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
     sysPx: new Float32Array(32).fill(1e4),
     forcedScatter: held(s, ambient, g).forcedScatter,
   };
-  const shells = { ...data, shells: packShellData(g, ambient) };
+  const inputs = galaxyInputs(clocks);
+  const seen = galaxyRecall(inputs);
+  if (seen) return seen;
+  const shells = { ...data, shells: shellsAt(ambient) };
   const out: GalaxyPoint[] = [];
+  galaxyRemember(inputs, out);
   for (const b of g.bodies) {
     if (bodyPresence(b.index, s.net.growth, data) <= 0 || lampGain(b.index, clocks, data) <= 0) continue;
     const diameter = shellMoteDiameter(b);
@@ -286,8 +332,17 @@ export function visibleTracks(s: SceneState, ambient: number, camera: Perspectiv
   const clocks = { lamp: Math.round(s.net.lamp), lampRow: lampFocusRow(s.net.lampAt, g), focus: s.net.focus };
   const out: GalaxyPoint[] = [];
   const places = trackPlaces(ambient);
+  // Each factor is its system's or its row's, so each is taken once per system or row (a row has many
+  // dots), and multiplied in the same order as ever: the same gain to the bit.
+  const bySys: (number | undefined)[] = [];
+  const presence: (number | undefined)[] = [];
+  const lamp: (number | undefined)[] = [];
   trackCache.forEach((dot, k) => {
-    const gain = sysGain(LodElement.Track, dot.sys, sysPx) * bodyPresence(dot.row, s.net.growth, data) * trackLampGain(dot.row, clocks, data) * s.net.show;
+    const gain =
+      (bySys[dot.sys] ??= sysGain(LodElement.Track, dot.sys, sysPx)) *
+      (presence[dot.row] ??= bodyPresence(dot.row, s.net.growth, data)) *
+      (lamp[dot.row] ??= trackLampGain(dot.row, clocks, data)) *
+      s.net.show;
     if (gain >= LOD_VISIBLE) out.push({ pos: (places[k] ??= trackDot(dot.row, dot.turns, ambient, data)), track: true, row: dot.row });
   });
   return out;

@@ -229,16 +229,30 @@ export const SCENE_STATE_PATHS: Record<string, 'number' | 'vec3'> = {
 
 /** Write one leaf. Throws on an unknown path or a value of the wrong shape. */
 export function setPath(s: SceneState, path: string, value: number | Vec3): void {
-  const kind = Object.hasOwn(SCENE_STATE_PATHS, path) ? SCENE_STATE_PATHS[path] : undefined;
-  if (kind === undefined) throw new Error(`unknown scene state path "${path}"`);
+  const { kind, parents, last } = pathSteps(path);
   if (kind === 'number' ? typeof value !== 'number' : !isVec3(value)) {
     throw new Error(`scene state path "${path}" expects a ${kind}`);
   }
-  const parts = path.split('.');
-  const last = parts.pop() as string;
   let node = s as unknown as Record<string, unknown>;
-  for (const p of parts) node = node[p] as Record<string, unknown>;
+  for (const p of parents) node = node[p] as Record<string, unknown>;
   node[last] = kind === 'vec3' ? [...(value as Vec3)] : value;
+}
+
+/**
+ * A known path's kind and its steps, split once per path: a sampler writes every track's leaf at each
+ * sample, and splitting the path each time was most of a sample's cost. Throws on an unknown path.
+ */
+const PATH_STEPS = new Map<string, { kind: 'number' | 'vec3'; parents: readonly string[]; last: string }>();
+function pathSteps(path: string): { kind: 'number' | 'vec3'; parents: readonly string[]; last: string } {
+  let steps = PATH_STEPS.get(path);
+  if (!steps) {
+    const kind = Object.hasOwn(SCENE_STATE_PATHS, path) ? SCENE_STATE_PATHS[path] : undefined;
+    if (kind === undefined) throw new Error(`unknown scene state path "${path}"`);
+    const parts = path.split('.');
+    const last = parts.pop() as string;
+    PATH_STEPS.set(path, (steps = { kind, parents: parts, last }));
+  }
+  return steps;
 }
 
 function mergeInto(base: unknown, partial: unknown): unknown {
