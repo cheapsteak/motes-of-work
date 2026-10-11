@@ -13,7 +13,13 @@ uniform int uProfile;
 
 out vec4 outColor;
 
+// The black hole's shadow (src/scene/hole/shadow.ts): its centre in device px from the bottom left,
+// and its radius (0: none). Shared by every galaxy material.
+uniform vec3 uShadow;
+
 void main() {
+  // The shadow stays black (re-skin §4.2): nothing of the galaxy lights a pixel inside it.
+  if (uShadow.z > 0.0 && distance(gl_FragCoord.xy, uShadow.xy) < uShadow.z) discard;
   float r = length(vUv);
   if (r > 1.0) discard;
   float alpha;

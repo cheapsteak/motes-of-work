@@ -92,10 +92,11 @@ export interface Body {
   R: number;
   /**
    * Its shell's lattice, [rows, cols] (body.ts), thinned only when the budget is short; null for a
-   * star, whose shell is a cloud of dots (STAR_DOTS), not a lattice.
+   * star, whose shell is a cloud of dots (STAR_DOTS), not a lattice, and for a core row, which draws
+   * nothing (re-skin Task 5).
    */
   lattice: [number, number] | null;
-  /** Its shell's motes: `latticeCount(lattice)`, or a star's STAR_DOTS.core + STAR_DOTS.halo. */
+  /** Its shell's motes: `latticeCount(lattice)`, a star's STAR_DOTS.core + STAR_DOTS.halo, or 0 for a core row. */
   motes: number;
   /** A star's own look (re-skin §4.3), from its `starLook` stream; null for every other body. */
   look: StarLook | null;
@@ -191,10 +192,10 @@ export interface Galaxy {
  * the shells (`net-shells`: Σ `latticeCount`, and a star's 160 dots) and the person sets; the dotted
  * orbits and tracks (`net-tracks`: `TRACK_DOTS.planet` per planet, `TRACK_DOTS.moonTrack` per moon
  * track in use, the moons of a track sharing it); the bodies (`net-bodies`: the icospheres drawn, one
- * per planet, moon and core body, none for a star, and a ghost per planet or moon that carries the
- * defect); the glow sprites (`net-glow`: one per star and core body); the stream dots (`streamDots`
- * per stream, and the feed at `STREAM_DOTS[1]`); the stars' spikes (`net-spikes`: 96 dots a star);
- * and the black hole (re-skin §7: `holeInstances()`).
+ * per planet and moon, none for a star or a core row, and a ghost per planet or moon that carries the
+ * defect); the glow sprites (`net-glow`: one per star); the stream dots (`streamDots` per stream, and
+ * the feed at `STREAM_DOTS[1]`); the stars' spikes (`net-spikes`: 96 dots a star); and the black hole
+ * (re-skin §7: `holeInstances()`, its `hole-*` meshes). The core rows draw nothing (re-skin Task 5).
  */
 export interface GalaxyInstances {
   shells: number;
@@ -205,7 +206,7 @@ export interface GalaxyInstances {
   streams: number;
   spikes: number;
   hole: number;
-  /** The hole's count while nothing draws it (the re-skin's Tasks 2-4): every drawn-equals-counted check compares the drawn sets with `total − reserved`. */
+  /** The hole's count while nothing drew it (the re-skin's Tasks 2-4); 0 since Task 5 draws it, so the drawn sets are the total. */
   reserved: number;
   /** Every field above but `reserved`: at most the budget. */
   total: number;
@@ -1430,12 +1431,11 @@ function sweep(ds: Draft[]): void {
 }
 
 /**
- * A body's full lattice: the hero planet's, a core body's, or a planet's scaled with its radius; none
- * for a moon, whose lattice follows its planet's as fitted (fitBudget), nor for a star, whose shell is
- * its dots.
+ * A body's full lattice: the hero planet's, or a planet's scaled with its radius; none for a moon,
+ * whose lattice follows its planet's as fitted (fitBudget), nor for a star, whose shell is its dots,
+ * nor for a core row, which draws nothing (the black hole is drawn in its place, re-skin Task 5).
  */
 function baseLattice(b: Body): [number, number] | null {
-  if (b.kind === 'core') return [...LATTICE.core];
   if (b.kind === 'planet') return b.id === HERO_PLANET ? [...LATTICE.hero] : planetLattice(b.R);
   return null;
 }
@@ -1445,9 +1445,9 @@ export const STAR_MOTES = STAR_DOTS.core + STAR_DOTS.halo;
 /** A star's spike dots (`net-spikes`). */
 export const STAR_SPIKE_DOTS = STAR_DOTS.spikeRows * STAR_DOTS.spikeDots;
 
-/** A body's person set for a shell of `motes`. */
+/** A body's person set for a shell of `motes`: none for a core row, which draws nothing. */
 function personFor(b: Body, motes: number): number {
-  if (!b.cracked) return 0;
+  if (!b.cracked || b.kind === 'core') return 0;
   if (b.kind === 'moon') return b.id === HERO_MOON ? PERSON_HERO_MOON : PERSON_MOON;
   if (b.kind === 'planet' && b.hero) return PERSON_HERO_PLANET;
   return Math.max(PERSON_MIN, Math.round(PERSON_SHARE * motes));
@@ -1455,13 +1455,14 @@ function personFor(b: Body, motes: number): number {
 
 /**
  * Sets every body's lattice, motes and person set, and returns every instance the galaxy draws. The
- * orbits, tracks, bodies, glow, streams, the stars' dots and spikes, and the hole (reserved until it
- * is drawn) are fixed; the shells and person sets get the rest of the budget. A moon's lattice is its
+ * orbits, tracks, bodies, glow, streams, the stars' dots and spikes, and the hole are fixed; the
+ * shells and person sets get the rest of the budget. The core rows draw nothing (re-skin Task 5: no
+ * shell, person set, glow or icosphere), so they take none of it. A moon's lattice is its
  * planet's pitch (moonLattice), from its planet's lattice as fitted, so its motes are its planet's
  * grain however far the planet is thinned. At full detail if that fits. Else the shells the story does
  * not name are thinned first: every planet's rows and columns but the hero planet's and the
  * FULL_DENSITY planet's (N0), scaled by the largest factor that fits (never under 3 × 6), its moons
- * with it, so those planets and their moons and the core keep their lattices. Only if the thinnest of
+ * with it, so those planets and their moons keep their lattices. Only if the thinnest of
  * those still does not fit are the named lattices scaled too. A star's dots are never thinned.
  */
 function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): GalaxyInstances {
@@ -1473,30 +1474,30 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   const tracks = TRACK_DOTS.planet * planets.length + TRACK_DOTS.moonTrack * moonTracks;
   const ghosts = bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
   const stars = bodies.filter((b) => b.kind === 'star').length;
-  const glow = bodies.filter((b) => b.kind === 'star' || b.kind === 'core').length;
+  const glow = stars;
   const dots = streams.reduce<number>((n, st) => n + streamDots(bodies, st), STREAM_DOTS[1]);
-  // Icospheres: every body's but a star's and a barycentre's (which draws nothing), and the ghosts.
-  const icospheres = bodies.filter((b) => b.kind !== 'star' && b.kind !== 'bary').length + ghosts;
+  // Icospheres: every planet's and moon's (a star, a core row and a barycentre draw none), and the ghosts.
+  const icospheres = bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon').length + ghosts;
   const spikes = stars * STAR_SPIKE_DOTS;
   const hole = holeInstances();
   const fixed = tracks + icospheres + glow + dots + spikes + hole;
   const room = budget - fixed;
   const base = bodies.map(baseLattice);
-  const named = bodies.map((b) => b.kind === 'core' || b.id === HERO_PLANET || FULL_DENSITY.includes(b.id));
+  const named = bodies.map((b) => b.id === HERO_PLANET || FULL_DENSITY.includes(b.id));
   const scale = ([rows, cols]: [number, number], f: number): [number, number] =>
     f >= 1 ? [rows, cols] : [Math.max(3, Math.round(rows * f)), Math.max(6, Math.round(cols * f))];
   const apply = (fOther: number, fNamed: number): number => {
     let total = 0;
     const set = (b: Body, lattice: [number, number] | null): void => {
       b.lattice = lattice;
-      b.motes = lattice ? latticeCount(...lattice) : STAR_MOTES;
+      b.motes = lattice ? latticeCount(...lattice) : b.kind === 'star' ? STAR_MOTES : 0;
       b.personMotes = personFor(b, b.motes);
       total += b.motes + b.personMotes;
     };
     bodies.forEach((b, i) => {
       const own = base[i];
       if (own) set(b, scale(own, named[i] ? fNamed : fOther));
-      else if (b.kind === 'star') set(b, null);
+      else if (b.kind === 'star' || b.kind === 'core') set(b, null);
     });
     for (const b of bodies) if (b.kind === 'moon') set(b, moonLattice(b.R, bodies[b.host].R, bodies[b.host].lattice!));
     return total;
@@ -1515,6 +1516,6 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   }
   const shells = bodies.reduce((n, b) => n + b.motes, 0);
   const persons = bodies.reduce((n, b) => n + b.personMotes, 0);
-  // Nothing draws the hole until the re-skin's Task 5: its room is reserved, counted in the total.
-  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, reserved: hole, total: shells + persons + fixed };
+  // The hole is drawn (re-skin Task 5): nothing is reserved.
+  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, reserved: 0, total: shells + persons + fixed };
 }

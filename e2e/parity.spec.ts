@@ -172,9 +172,9 @@ test('GLSL freezeCopy(), freezeLimb() and freezeTick() match the TS reference', 
 
 // The galaxy's motes in motion, bodyMote() (`?lib=body`): C1 mid-build; C1 and its moons under the
 // close shot's lamp, lit, and with the fix landing (the person motes in flight); P1 lit under the lamp
-// at full focus; R0 at its fix in the surge; and 64 motes hashed from every shell and person mote of
-// the galaxy, each system at its own level of detail, and the same 64 under the planet, star, core and
-// lineage lamps (nearly all of them dark), and under the arms lamp half of them the core's (dark); and the stream dots (streamDot and streamGain:
+// at full focus; C7 at its fix in the sweep (R0 until the re-skin's Task 5: the core rows draw nothing);
+// and 64 motes hashed from every shell and person mote of the galaxy, each system at its own level of
+// detail, and the same 64 under the planet, star, core and lineage lamps (nearly all of them dark); and the stream dots (streamDot and streamGain:
 // every stream and the feed, four dots each, at four pairs of net.streams and the lamp; and streamBandMask, the
 // text band's mask, at a pixel row about its edge on a phone's and a desktop's height). Each at the
 // pose and at 101 s, every field. A sample a few float32 units of the ambient from a derp's cut may
@@ -189,13 +189,12 @@ const BODY_CASES = [
   'P_a, its dots in flight',
   'P_a, its dots landed',
   'P1 scattering',
-  'R0 at its fix',
+  'C7 at its fix',
   '64 hashed motes',
   '64 hashed motes, the planet lamp on C1',
   '64 hashed motes, the star lamp on C1',
   '64 hashed motes, the core lamp',
   '64 hashed motes, the lineage lamp on P1',
-  '64 hashed motes, the arms lamp',
   'stream dots',
 ].flatMap((c) => [`body: ${c} at the pose`, `body: ${c} at 101 s`]);
 // A star's look (`?lib=star`): starDot() over the 160 dot indices of four seeds, starSpike() over six

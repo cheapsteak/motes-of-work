@@ -1,4 +1,4 @@
-import { Color, Group, InstancedBufferGeometry, type Mesh, Scene, Vector2, WebGLRenderer } from 'three';
+import { Color, Group, InstancedBufferGeometry, type IUniform, type Mesh, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
 import { mountAutoAdvance, type AutoAdvance } from './autoAdvance/indicator';
 import { autoAdvanceSettings, autoStops, sceneMotion } from './autoAdvance/plan';
 import { ACTIVE_MECHANISM, AUTO_ADVANCE, MOTE_BUDGET_DESKTOP, MOTE_SEED } from './config';
@@ -13,6 +13,7 @@ import { createInkSystem, type InkSystem } from './scene/ink/inkSystem';
 import { reflowBodies } from './scene/mote/mote';
 import { createMoteSystem, type MoteSystem } from './scene/mote/moteSystem';
 import { createGalaxySystem, type GalaxySystem } from './scene/galaxy/galaxySystem';
+import { createHoleSystem, type HoleSystem } from './scene/hole/holeSystem';
 import { packBodyData, type BodyData } from './scene/node/bodyData';
 import { createBodySystem, type BodySystem, type FreezeFrame } from './scene/node/bodySystem';
 import type { LodElement } from './scene/node/lod';
@@ -72,6 +73,12 @@ interface MotesTestHook {
    * TS twin; every other mesh skips none) × that.
    */
   vertexStats(): Record<string, { instances: number; verticesPerDot: number; submitted: number; heavy: number }>;
+  /**
+   * The black hole at the last frame (re-skin §4.2), CSS px from the top left: its shadow's centre and
+   * radius (shadow.ts, the disc every galaxy fragment discards inside), and the side of the screen its
+   * disk approaches on (−1 left, 1 right); null before the galaxy is built or while it has no shadow.
+   */
+  hole(): { x: number; y: number; r: number; approach: -1 | 1 } | null;
 }
 
 declare global {
@@ -187,6 +194,9 @@ let galaxy: Galaxy | null = null;
 let galaxyData: BodyData | null = null;
 let galaxyBackground: GalaxySystem | null = null;
 let bodies: BodySystem | null = null;
+let hole: HoleSystem | null = null;
+/** The black hole's shadow on screen (shadow.ts): written by the hole each frame, read by every galaxy material. */
+const shadow: IUniform<Vector3> = { value: new Vector3() };
 // The probe shots load with the ambient poses they read (src/galaxy/ambient.ts searches the freeze
 // pin when it loads), so only a page that asks for a shot pays for them; it draws no frame before.
 let shots: typeof import('./timeline/netShots') | null = null;
@@ -242,9 +252,13 @@ if (renderer) {
       g.background,
       g.units.map((i) => g.bodies[i].spot!),
       (t) => bodyGalactic(data, data.n0Row, t),
+      shadow,
     );
-    bodies = createBodySystem(g);
-    slot.add(galaxyBackground.object, bodies.object);
+    // The black hole at the centre, in place of the core's bodies (re-skin Task 5), drawn over the
+    // background and under the bodies.
+    hole = createHoleSystem(g, data, shadow);
+    bodies = createBodySystem(g, shadow);
+    slot.add(galaxyBackground.object, hole.object, bodies.object);
     networkBuiltAt = frameCount;
   };
   // The drawing and its sheet (the spec section), for a mechanism that has one.
@@ -338,6 +352,7 @@ function draw(now: number): void {
     ink?.update(state, camera, viewport);
   }
   galaxyBackground?.update(state, camera, viewport, ambient);
+  hole?.update(state, camera, viewport, ambient);
   bodies?.update(state, camera, viewport, ambient, freezeFrame(live));
   galaxyShown = bodies !== null && state.net.show > 0;
   if (isolated !== null) {
@@ -454,6 +469,12 @@ if (testMode) {
     forceLod: (el, gain) => {
       bodies?.forceLod(el, gain);
       requestFrame();
+    },
+    hole: () => {
+      const s = shadow.value;
+      if (hole === null || !renderer || s.z <= 0) return null;
+      const ratio = renderer.getPixelRatio();
+      return { x: s.x / ratio, y: (drawingBuffer.y - s.y) / ratio, r: s.z / ratio, approach: hole.approach() };
     },
     isolate: (names) => {
       isolated = names === null ? null : new Set(names);

@@ -2,13 +2,15 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { AMBIENT_POSE, HERO_CLOSE } from '../galaxy/ambient';
 import { BG, GALAXY_WIDE } from '../galaxy/background';
 import { CORE_R, GLOW_CAP, glowPx, STAR_R } from '../galaxy/body';
+import { jetRho } from '../scene/hole/hole';
+import { HOLE_DISK, HOLE_JET, HOLE_LOOK, HOLE_VIEW } from '../scene/hole/holeLook';
 import { anchorOf, bodyIndex, systemOuter, type Body, type Galaxy } from '../galaxy/generate';
 import { mechanismAnchors, type MechanismAnchors } from '../mechanisms/anchors';
 import { mechanisms } from '../mechanisms';
 import type { Vec3 } from '../math/vec';
 import type { SectionSpan } from '../scroll/progress';
 import type { BodyData } from '../scene/node/bodyData';
-import { createEssayCamera } from '../scene/cameraRig';
+import { createEssayCamera, FRAMING } from '../scene/cameraRig';
 import { BAND_MARGIN_PX, FREEZE_ROLL, NODE_BIRTH_WINDOW, TEXT_BAND } from '../scene/node/birth';
 import { BODY_LOOK, shellMoteDiameter } from '../scene/node/bodyAttrs';
 import { lampGain } from '../scene/node/bodyMote';
@@ -361,11 +363,20 @@ function bornSystemOuter(g: Galaxy, star: number, growth: number): number {
   return outer;
 }
 
-/** The built core bodies, about the galactic centre; null if none is built. */
-function coreDisc(g: Galaxy, halfHeight: number, growth: number): LitDisc | null {
-  const core = g.bodies.filter((b) => b.kind === 'core' && upBy(b, growth));
-  if (core.length === 0) return null;
-  return { centre: { core: true }, radius: Math.max(...core.map((b) => Math.hypot(b.spot![0], b.spot![2]) + b.R)), halfHeight };
+/**
+ * The black hole's lit set (re-skin §8), about the galactic centre, once it is up with R0's build (the
+ * core rows draw nothing since the re-skin's Task 5): its disk, to where it has faded out
+ * (HOLE_DISK.fade's end), standing `halfHeight` above and below the plane as the core's bodies did;
+ * and its jets, a thin disc of their width at the tip (jetRho(jetLength)) standing as high as their
+ * tips (HOLE_JET.base + jetLength). None before R0 is built.
+ */
+function holeDiscs(g: Galaxy, halfHeight: number, growth: number): LitDisc[] {
+  if (!upBy(g.bodies[bodyIndex(g, 'R0')], growth)) return [];
+  const s = HOLE_LOOK.scale;
+  return [
+    { centre: { core: true }, radius: HOLE_DISK.fade[1] * s, halfHeight },
+    { centre: { core: true }, radius: jetRho(HOLE_LOOK.jetLength) * s, halfHeight: (HOLE_JET.base + HOLE_LOOK.jetLength) * s },
+  ];
 }
 
 /**
@@ -412,10 +423,10 @@ export function litDiscs(g: Galaxy, lamp: Lamp, row: number, growth = 1): LitDis
       break;
     }
     case Lamp.Hood:
-      discs.push(starsDisc(g, g.systems, halfHeight, growth, 'hood'), coreDisc(g, halfHeight, growth));
+      discs.push(starsDisc(g, g.systems, halfHeight, growth, 'hood'), ...holeDiscs(g, halfHeight, growth));
       break;
     case Lamp.Core:
-      discs.push(coreDisc(g, halfHeight, growth));
+      discs.push(...holeDiscs(g, halfHeight, growth));
       break;
     case Lamp.Arms:
       // Each built system about its own star, a binary's star where it is on its orbit (the core dark): the arms are no one disc.
@@ -427,11 +438,11 @@ export function litDiscs(g: Galaxy, lamp: Lamp, row: number, growth = 1): LitDis
     case Lamp.Lineage: {
       if (!focus) throw new Error('litDiscs: the lineage lamp needs a rule');
       const stars = g.systems.filter((s) => g.bodies[s].rule === focus.rule);
-      discs.push(starsDisc(g, stars, halfHeight, growth, 'hood'), coreDisc(g, halfHeight, growth));
+      discs.push(starsDisc(g, stars, halfHeight, growth, 'hood'), ...holeDiscs(g, halfHeight, growth));
       break;
     }
     default:
-      discs.push(starsDisc(g, g.systems, halfHeight, growth, 'core'), coreDisc(g, halfHeight, growth));
+      discs.push(starsDisc(g, g.systems, halfHeight, growth, 'core'), ...holeDiscs(g, halfHeight, growth));
   }
   return discs.filter((d): d is LitDisc => d !== null);
 }
@@ -519,15 +530,16 @@ export function cylinderTop(
       }
     }
   }
-  // The glow sprites: every star and core body the lamp lights that has begun to come up; a star's top
-  // is its glow's half or its highest spike tip, whichever stands higher (star.ts starTopPx).
+  // The glow sprites: every star the lamp lights that has begun to come up (the core rows have none since
+  // the re-skin's Task 5); its top is its glow's half or its highest spike tip, whichever stands higher
+  // (star.ts starTopPx).
   const clocks = { lamp: frame.lamp, lampRow: row, focus: 0 };
   for (const b of g.bodies) {
-    if ((b.kind !== 'star' && b.kind !== 'core') || !upBy(b, growth) || lampGain(b.index, clocks, data) <= 0) continue;
+    if (b.kind !== 'star' || !upBy(b, growth) || lampGain(b.index, clocks, data) <= 0) continue;
     const w = bodyWorld(data, b.index, t);
     const s = screen(w[0], w[1], w[2]);
     if (s === null) return -Infinity;
-    top = Math.min(top, s.y - spriteHalfTop(b, glowPx(b.R, s.d, focal, b.kind === 'core' ? GLOW_CAP.core : GLOW_CAP.star), glowPx(b.R, s.d, focal, Infinity)));
+    top = Math.min(top, s.y - spriteHalfTop(b, glowPx(b.R, s.d, focal, GLOW_CAP.star), glowPx(b.R, s.d, focal, Infinity)));
   }
   if (frame.streams) for (const d of streamPixels(frame.streams, g, data, camera, size, t)) top = Math.min(top, d.y);
   return top;
@@ -793,6 +805,45 @@ export function layersAt(screens: number): SectionAt {
 }
 
 /**
+ * The `frame` that puts a shot's target at `ndcY` (the NDC height it stands at) on a screen of
+ * `orientation` (cameraRig.ts targetOnScreen): the share of the way from the wide framing's height to the
+ * close one's, to a thousandth, as every camera key is rounded.
+ */
+function frameAtNdc(ndcY: number, orientation: keyof typeof FRAMING): number {
+  const { wide, close } = FRAMING[orientation];
+  return Math.round((((1 - ndcY) / 2 - wide.y) / (close.y - wide.y)) * 1e3) / 1e3;
+}
+
+/**
+ * The close shot on the black hole (re-skin §8): the inspector's essay framing, target the galactic
+ * centre at its elevation (HOLE_VIEW, 16°), the hole at NDC y −0.42 on both screens (frame 0.643 of the
+ * portrait framing, 0.417 of the landscape's: frameAtNdc; 0.71 of the screen's height down to 2e-5),
+ * riding the galaxy's turn, lamp Core.
+ *  - On a phone the portrait rig (cameraRig.ts portraitRig) stands the camera √m further off and opens
+ *    the field by √m (m 1.926 on 390 × 844), so the keyed 54 at 33° is the inspector's own camera there:
+ *    75 off through 45°, the disk's outer diameter on screen within 1 % of the inspector's (the dots,
+ *    sized by 75 / depth, at its size too).
+ *  - On a landscape screen it stands off 105 through the same 33°: the disk is the inspector's share of
+ *    the screen's height (362 px on 900), its dots 75 / 105 of their size.
+ *  - Bearing 165 (degrees round the centre from +z at ambient 0): the camera stands 72 units out and 21
+ *    up on a phone, about 101 out on a desktop, on the side of the centre where no system is (the
+ *    neighbourhood's stars lie between bearings −45 and 130); there C7, at about 45, lies to the side
+ *    of the hole, not behind it, so its in-fall does not come down through the text band.
+ * ly-2, up-1, tr-2, fx-1 and fx-2 are this shot (fx-1 to fx-2 one hold: there is one hole).
+ */
+export const HOLE_CLOSE: GalaxyShot = {
+  target: { core: true },
+  bearing: 165,
+  elevation: HOLE_VIEW.elevation,
+  distance: 54,
+  fov: 33,
+  frame: frameAtNdc(HOLE_VIEW.ndcY, 'portrait'),
+  lamp: Lamp.Core,
+  landscape: { distance: 105, frame: frameAtNdc(HOLE_VIEW.ndcY, 'landscape') },
+  ridesTurn: true,
+};
+
+/**
  * The layers shots (galaxy §14.5, lamps as ruling 9), one a page. Each keeps
  * §14.5's target, bearing, elevation, field and lamp. §14.5's distance and frame put every one of
  * their lit sets into the text band (cylinderTop) on both screens, so each shot takes the nearest
@@ -821,17 +872,8 @@ export const LAYERS_SHOTS = {
     landscape: { distance: 66, frame: 0 },
     ridesTurn: true,
   },
-  'ly-2': {
-    target: { core: true },
-    bearing: 30,
-    elevation: 64,
-    distance: 30,
-    fov: 40,
-    frame: 0.39,
-    lamp: Lamp.Core,
-    landscape: { distance: 62, frame: 0 },
-    ridesTurn: true,
-  },
+  // The hole close (re-skin §8, Task 5): §14.5's 30 at 64° on the core's bodies before.
+  'ly-2': HOLE_CLOSE,
   /**
    * On the core, overhead, from the side the arm's knot of stars lies on (bearing 42: the
    * neighbourhood's middle lies 42 degrees round from +z, seen from the core), so the core is in the
@@ -951,8 +993,7 @@ export const POSE_TURN_DEG = (trackTurn({ a: 0, b: 0, mix: 0, turn: 1 }, AMBIENT
  *  - `df-2`, N8: the close shot (HERO_CLOSE.C1), held through df-2 and df-2b; at the pose it is the
  *    freeze pin's camera (netShots.test.ts checks it on the keyed frame).
  *  - `df-3` (df-3 to df-5): the built twelve, lamp 5 (R0's lineage, through P1's rule).
- *  - `up-1`: R1 from §14.5's bearing, elevation and field, stood off (50, frame 0.8) so the other
- *    rules sit clear of the text with R1 low in the frame; 130 on a landscape screen. Lamp 4, the core.
+ *  - `up-1`: the hole close (HOLE_CLOSE, re-skin Task 5; R1 stood off at 50 before), lamp 4, the core.
  *  - `up-2`: the neighbourhood from §14.5's bearing and elevation, stood off (258, frame 0.85) so the
  *    healthy stars and the core keep under the text; 678 on a landscape screen (re-skin Task 1e's
  *    re-fit to the binary star-7 and star-14, whose stars swing about 13 units about their barycentre:
@@ -977,17 +1018,8 @@ export const DEFECT_SHOTS = {
   },
   'df-2': { ...GALAXY_SHOTS.close, bearing: close.bearing - POSE_TURN_DEG, ridesTurn: true },
   'df-3': GALAXY_SHOTS.twelve,
-  'up-1': {
-    target: { body: 'R1' },
-    bearing: 60,
-    elevation: 60,
-    distance: 50,
-    fov: 38,
-    frame: 0.8,
-    lamp: Lamp.Core,
-    landscape: { distance: 130, frame: 0 },
-    ridesTurn: true,
-  },
+  // The hole close (re-skin §8, Task 5): R1 from 60 at 60° before.
+  'up-1': HOLE_CLOSE,
   'up-2': {
     target: { hood: true },
     bearing: 0,
@@ -1019,7 +1051,7 @@ export function spreadAt(screens: number): SectionAt {
  * test samples every thousandth): the first from which the new level clears the band to the move's
  * end, the old one clearing up to there, as fitted.
  */
-const SPREAD_LAMPS = { follow: 0.027, toHood: 0.5, toReview: 0.965 } as const;
+const SPREAD_LAMPS = { toHood: 0.518, toReview: 0.965 } as const;
 
 // ---- Reviewer, trace, fix and lesson (galaxy §14.5; the plan's Task 11, its shot pass) ----
 
@@ -1038,13 +1070,9 @@ const SPREAD_LAMPS = { follow: 0.027, toHood: 0.5, toReview: 0.965 } as const;
  *    in to the core, the line's "back" as one picture. 210, so no star of the lineage is cut by a
  *    phone's edge; 340 on a landscape screen at bearing -10, so it is whole there too.
  *    tr-2's surge pulls back to it.
- *  - `tr-2`: R0 close, lamp 4, alone and ember on a phone; 15 on a landscape screen, composed close,
- *    from bearing 0.
- *  - `fx-1`: tr-2's close on R0 again, lamp 4: R0's warm motes land mid-hold (the hand keys of
- *    `net.fix` re-keyed to land them there). Framed as tr-2's (1), not §14.5's 0.75: at 0.75 the core
- *    bodies behind R0 dip into the band on a phone as the camera closes in over the page turn.
- *  - `fx-2`: R1 close from -60, framed 0.75 (at -15 a blue core body stood cut at the frame's edge
- *    in the band); R1 heals in the second half of its hold.
+ *  - `tr-2`, `fx-1` and `fx-2`: the hole close (HOLE_CLOSE, re-skin Task 5), lamp 4, held from the
+ *    move into fix to fx-3's: there is one hole, so no pan. (Before, tr-2 and fx-1 stood 8 units off R0
+ *    and fx-2 off R1, the camera standing back to pan across the hub between them.)
  *  - `fx-3` (fx-3 and fx-4): up-2's framing at 258, lamp 3: the two rules healed in the core, P7 and
  *    Q3 forming in plain blue (at §14.5's 60 both were out of the frame and the core in the band), then
  *    the sweep, hub to rim. 678 on a landscape screen (re-skin Task 1e's re-fit to the binary, the least
@@ -1094,39 +1122,10 @@ export const LATE_SHOTS = {
     landscape: { distance: 340, frame: 0, bearing: -10 },
     ridesTurn: true,
   },
-  'tr-2': {
-    target: { body: 'R0' },
-    bearing: -15,
-    elevation: 35,
-    distance: 8,
-    fov: 36,
-    frame: 1,
-    lamp: Lamp.Core,
-    landscape: { distance: 15, frame: 1, bearing: 0 },
-    ridesTurn: true,
-  },
-  'fx-1': {
-    target: { body: 'R0' },
-    bearing: -15,
-    elevation: 35,
-    distance: 8,
-    fov: 36,
-    frame: 1,
-    lamp: Lamp.Core,
-    landscape: { distance: 15, frame: 1, bearing: 0 },
-    ridesTurn: true,
-  },
-  'fx-2': {
-    target: { body: 'R1' },
-    bearing: -60,
-    elevation: 35,
-    distance: 8,
-    fov: 36,
-    frame: 0.75,
-    lamp: Lamp.Core,
-    landscape: { distance: 15, frame: 1 },
-    ridesTurn: true,
-  },
+  // The hole close (re-skin §8, Task 5): R0 at 8 units before (R1 for fx-2, after a pan across the hub).
+  'tr-2': HOLE_CLOSE,
+  'fx-1': HOLE_CLOSE,
+  'fx-2': HOLE_CLOSE,
   'fx-3': {
     target: { hood: true },
     bearing: 0,
@@ -1154,18 +1153,11 @@ export const LATE_SHOTS = {
 /** The close shots of the late sections: held to their visible bodies, not cylinderTop (LATE_SHOTS). */
 export const LATE_CLOSE: readonly (keyof typeof LATE_SHOTS)[] = ['tr-2', 'fx-1', 'fx-2'];
 
-/**
- * fx-2's shot stood off (`fx-2 pan`): the pan from R0 to R1 runs here. At fx-1's and fx-2's 8 units the
- * pan across the hub swings the other core bodies up through the text band on both screens (up to
- * 90 px in), so the camera stands back as it leaves R0, pans at this distance, and pushes in on R1
- * along fx-2's own bearing (LATE_MOVES.panToR1, inOnR1). At 30 (40 on a landscape screen) the pan
- * keeps about 50 px under the band on both screens, as fitted; netShots.test.ts checks every
- * thousandth of it.
- */
-export const FX2_PAN: GalaxyShot = { ...LATE_SHOTS['fx-2'], distance: 30, landscape: { distance: 40, frame: 1 } };
+/** The beats whose shot is HOLE_CLOSE (re-skin §8): their lit set is held to what is drawn, the hole's twin (holeTop) among it. */
+export const HOLE_CLOSE_BEATS = ['ly-2', 'up-1', 'tr-2', 'fx-1', 'fx-2'] as const;
 
-/** What a move lands on: a layers shot, the end of ly-4's ride, its push-in on star-4, fr-1 at the start of its turn, a defect, spread or later shot, tr-2's surge (tr-1's wide), or fx-2 stood off for the pan. */
-export type MoveShot = keyof typeof LAYERS_SHOTS | 'ly-4 ride' | 'ly-4 close' | 'fr-1' | keyof typeof DEFECT_SHOTS | keyof typeof LATE_SHOTS | 'tr-2 surge' | 'fx-2 pan';
+/** What a move lands on: a layers shot, the end of ly-4's ride, its push-in on star-4, fr-1 at the start of its turn, a defect, spread or later shot, or tr-2's surge (tr-1's wide). */
+export type MoveShot = keyof typeof LAYERS_SHOTS | 'ly-4 ride' | 'ly-4 close' | 'fr-1' | keyof typeof DEFECT_SHOTS | keyof typeof LATE_SHOTS | 'tr-2 surge';
 
 /**
  * Act II's moves after the zoom-out, each over a page turn (galaxy §14.5, "moves ride the page turns")
@@ -1232,7 +1224,9 @@ export const NET_MOVES = {
     shot: 'up-1',
     from: ['defect', 0.97916667],
     until: spreadAt(0.1),
-    lamp: ['spread', SPREAD_LAMPS.follow],
+    // Re-fitted by the re-skin's Task 5 (spread 0.027 before): the core is the hole now, and lit, it clears
+    // from defect 0.995, early in the pan from the twelve down to the hole close.
+    lamp: ['defect', 0.995],
     via: { at: ['defect', 0.983], lamp: Lamp.Planet, on: { body: 'C7' } },
   },
   toHood: { shot: 'up-2', from: spreadAt(1.34), until: spreadAt(1.54), lamp: ['spread', SPREAD_LAMPS.toHood] },
@@ -1253,10 +1247,8 @@ export const NET_MOVES = {
  *  - `fanOut`: tr-2 back out to tr-1's wide (`tr-2 surge`) while R0 holds lit, before the surge
  *    (`net.highlight` 0.92 -> 1 from trace 0.68) runs out along the lineage.
  *  - `toFix`: the surge back in to R0 over the page turn into fix (it ends nearer: it pans first).
- *  - `panToR1`, `inOnR1`: R0 to R1 under fx-2's line, from where it is full ink: the camera stands
- *    back from R0 and pans across the hub to R1 (FX2_PAN: a pan at the close shots' 8 units swings
- *    the other core bodies up through the band), then pushes in on R1 along fx-2's bearing (one
- *    motion), landing before R1's warm motes set out.
+ *  - fx-1 to fx-2 is one hold on the hole (re-skin §8: there is one hole). The pan from R0 to R1 and the
+ *    push-in on R1 that ran under fx-2's line (`panToR1`, `inOnR1`, FX2_PAN) went with the core's bodies.
  *  - `toNew`: R1 out to the neighbourhood under fx-3's line, from where it is full ink, as the new
  *    work forms. fx-4 holds the same shot: the page turn into it only brings the streams up.
  *  - `toLesson`: to ls-1 over the page turn into lesson. No one step from the neighbourhood's lamp
@@ -1273,14 +1265,13 @@ export const LATE_MOVES = {
   climb: { shot: 'tr-1', from: ['reviewer', 0.96875], until: ['trace', 0.02941176], lamp: ['trace', 0.013] },
   toSource: { shot: 'tr-2', from: ['trace', 0.38941176], until: ['trace', 0.48], lamp: ['trace', 0.39] },
   // Its lamp step was 0.615: the re-skin's stars (Task 2: spike tips, dot halos) stood the lineage's lit set 4.3 px
-  // into the band there under the lineage lamp, which first clears from 0.623 (the core lamp clears before it).
-  fanOut: { shot: 'tr-2 surge', from: ['trace', 0.58], until: ['trace', 0.68], lamp: ['trace', 0.623] },
+  // into the band there under the lineage lamp, which then first cleared from 0.623. From the hole close (re-skin
+  // Task 5) the lineage's stars stand behind the hole, low over it, until the camera has risen: 0.642.
+  fanOut: { shot: 'tr-2 surge', from: ['trace', 0.58], until: ['trace', 0.68], lamp: ['trace', 0.642] },
   toFix: { shot: 'fx-1', from: ['trace', 0.97058824], until: ['fix', 0.02173913], lamp: ['trace', 0.971] },
-  panToR1: { shot: 'fx-2 pan', from: ['fix', 0.16173913], until: ['fix', 0.21], lamp: ['fix', 0.162] },
-  inOnR1: { shot: 'fx-2', from: ['fix', 0.215], until: ['fix', 0.25], lamp: ['fix', 0.215], motion: 'push' },
-  // Its lamp step at 0.464, the first thousandth from which fx-3's lit set clears (0.463 before re-skin
-  // Task 1e's re-fit of fx-3, 0.458 before Task 1d's).
-  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.464] },
+  // Its lamp step at 0.467, the first thousandth from which fx-3's lit set clears as the camera leaves the hole
+  // close (re-skin Task 5; 0.464 before, 0.463 before re-skin Task 1e's re-fit of fx-3, 0.458 before Task 1d's).
+  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.467] },
   toLesson: {
     shot: 'ls-1',
     from: ['fix', 0.97826087],
@@ -1292,8 +1283,9 @@ export const LATE_MOVES = {
 
 export const ACT_TWO_MOVES: readonly Move[] = [
   { shot: 'ly-1', from: ['layers', 0.001], until: layersAt(0.1), lamp: ['layers', 0.001] },
-  { shot: 'ly-2', from: layersAt(0.7), until: layersAt(0.9), lamp: layersAt(0.81) },
-  { shot: 'ly-3', from: layersAt(1.7), until: layersAt(1.9), lamp: layersAt(1.76) },
+  // ly-2's and ly-3's steps re-fitted by the re-skin's Task 5 to the hole close (layersAt(0.81) and (1.76) before).
+  { shot: 'ly-2', from: layersAt(0.7), until: layersAt(0.9), lamp: ['layers', 0.193] },
+  { shot: 'ly-3', from: layersAt(1.7), until: layersAt(1.9), lamp: ['layers', 0.428] },
   { shot: 'ly-4', from: layersAt(2.7), until: layersAt(2.9), lamp: layersAt(2.7) },
   { shot: 'ly-4 ride', from: LY4_RIDE.from, until: LY4_RIDE.until, lamp: LY4_RIDE.from, motion: 'ride' },
   // The lamp steps on the push's first thousandth, as the other moves' do, so the ride's end keeps Arms.
@@ -1587,7 +1579,6 @@ export function movePose(shot: MoveShot, g: Galaxy): Pose {
   }
   if (shot === 'ly-4 close') return poseOf(LY4_CLOSE.shot, g);
   if (shot === 'tr-2 surge') return poseOf(LATE_SHOTS['tr-1'], g);
-  if (shot === 'fx-2 pan') return poseOf(FX2_PAN, g);
   if (shot in DEFECT_SHOTS) return poseOf(DEFECT_SHOTS[shot as keyof typeof DEFECT_SHOTS], g);
   if (shot in LATE_SHOTS) return poseOf(LATE_SHOTS[shot as keyof typeof LATE_SHOTS], g);
   return poseOf(LAYERS_SHOTS[shot as keyof typeof LAYERS_SHOTS], g);

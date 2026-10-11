@@ -65,11 +65,8 @@ describe('the three levels', () => {
 });
 
 describe('glowPx', () => {
-  it('clamps a star to [5, 18] and a core body to [5, 24]', () => {
-    for (const [cap, want] of [
-      [GLOW_CAP.star, 18],
-      [GLOW_CAP.core, 24],
-    ] as const) {
+  it('clamps a star to [5, 18]; a core body has no glow since the re-skin’s Task 5 (its cap was 24)', () => {
+    for (const [cap, want] of [[GLOW_CAP.star, 18]] as const) {
       expect(cap).toBe(want);
       expect(glowPx(0.9, 1e6, 800, cap)).toBe(5);
       expect(glowPx(1.4, 0.01, 800, cap)).toBe(want);
@@ -84,7 +81,8 @@ describe('glowPx', () => {
   });
 
   it('caps match PX', () => {
-    expect([PX.starGlow, PX.coreGlow]).toEqual([GLOW_CAP.star, GLOW_CAP.core]);
+    expect(PX.starGlow).toBe(GLOW_CAP.star);
+    expect('coreGlow' in PX).toBe(false);
   });
 });
 
@@ -237,7 +235,7 @@ const SCREENS = [
   { width: 390, height: 844 },
   { width: 1440, height: 900 },
 ];
-const esystem = createBodySystem(eg);
+const esystem = createBodySystem(eg, { value: new Vector3() });
 /** The body set drawn at `state` on `size` at ambient t, as the page draws it: its early-out frame and its camera. */
 function drawAt(state: SceneState, size: { width: number; height: number }, t: number): { f: EarlyOutFrame; camera: PerspectiveCamera } {
   const camera = essayCamera(state.camera, eg, edata, size, t);

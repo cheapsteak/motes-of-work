@@ -25,8 +25,13 @@ describe.each(['phone', 'desktop'] as Tier[])('the background galaxy (%s)', (tie
   const g = generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));
   const data = packBodyData(g);
   const spots = g.units.map((i) => g.bodies[i].spot!);
-  const system = createGalaxySystem(g.background, spots, (t) => bodyGalactic(data, data.n0Row, t));
+  const shadow = { value: new Vector3() };
+  const system = createGalaxySystem(g.background, spots, (t) => bodyGalactic(data, data.n0Row, t), shadow);
   const shown = mergeState(defaultSceneState(), { net: { show: 1 } });
+
+  it('reads the shadow’s one shared uniform in every set, so the background never lights the shadow (re-skin §4.2)', () => {
+    for (const m of system.object.children) expect(((m as Mesh).material as RawShaderMaterial).uniforms.uShadow, m.name).toBe(shadow);
+  });
 
   it('draws the tier’s counts exactly: its stars (the bright among them apart), its dust, one haze', () => {
     expect(system.counts.stars + system.counts.bright).toBe(BG.stars[tier]);

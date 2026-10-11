@@ -266,8 +266,12 @@ export const HOLE_STRAND = {
   betaFloor: 3,
 } as const;
 
-/** A dot (§4.2): its size × clamp(refDist / z, `near`), never under `floor` CSS px; hidden (alpha 0) under the lens's ok `hidden`, the inspector's emit(). */
-export const HOLE_DOT = { near: [0.4, 2.2], floor: 1, hidden: 0.01 } as const;
+/**
+ * A dot (§4.2): its size × clamp(refDist / z, `near`), never under `floor` CSS px; hidden (alpha 0)
+ * under the lens's ok `hidden`, the inspector's emit(). It is drawn a hard disc with a soft edge,
+ * 1 − smoothstep(r − edge[0], r + edge[1], d) in device px (hole.frag.glsl, the inspector's FRAG).
+ */
+export const HOLE_DOT = { near: [0.4, 2.2], floor: 1, hidden: 0.01, edge: [0.75, 0.25] } as const;
 
 /** The lamp (§4.2, the inspector's scene 2): the hole × (1 + `hole` x); the rest × (1 − `rest` x). */
 export const HOLE_LAMP = { hole: 0.3, rest: 0.7 } as const;

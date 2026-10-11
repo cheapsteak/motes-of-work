@@ -4,10 +4,10 @@
 // clock and the story's leaves. Every dot set draws with galaxyMote.frag.glsl, over its body's base
 // colour (a star's tint, the agents' blue for the rest):
 //   net-tracks   the dotted orbits and moon tracks (track.vert.glsl)
-//   net-bodies   one icosphere per body but a star, rim over fill, and a ghost per cracked planet or moon (body.vert.glsl, body.frag.glsl)
+//   net-bodies   one icosphere per planet and moon, rim over fill, and a ghost per cracked planet or moon (body.vert.glsl, body.frag.glsl)
 //   net-shells   every body's shell motes, built by flying in: a lattice's, a planet's point among them, or a star's dots (shell.vert.glsl)
 //   net-persons  the person's warm motes of every body that carries the defect (shell.vert.glsl)
-//   net-glow     one glow sprite per star and core body (shell.vert.glsl, the Glow role)
+//   net-glow     one glow sprite per star (shell.vert.glsl, the Glow role)
 //   net-spikes   each star's spikes, 1 px dots off its centre on screen (spike.vert.glsl)
 //   net-streams  the lineage streams' dots, only while `net.streams` > 0 (stream.vert.glsl)
 //   net-feed     the reviewer's feed, the same dots, only while `net.feed` and its alpha are up
@@ -15,6 +15,8 @@
 //   net-copy-*   the freeze frame's two copies of the held piece, cold (1) and warm (2): its shell motes,
 //                bodies and tracks again, only while the dressing is up (freeze-frame §3.1)
 //   net-ticks    the freeze frame's two bursts of dotted dashes, round the moon and the planet (tick.vert.glsl)
+// The core rows draw nothing (re-skin Task 5): the black hole is drawn in their place (src/scene/hole/
+// holeSystem.ts), and every fragment shader here discards inside its shadow (uShadow, shared with it).
 // Everything moves in the vertex shaders (bodyMote.glsl at uAmbient): growth, light, the lamp and the
 // defect, and the freeze frame's dressing (bodyMote.glsl freezeLook, freeze.glsl). The CPU computes per
 // frame only what a whole system, sprite or ring shares: each system's
@@ -247,7 +249,8 @@ function mesh(g: BufferGeometry, mat: RawShaderMaterial, name: string): Mesh {
   return m;
 }
 
-export function createBodySystem(g: Galaxy): BodySystem {
+/** The galaxy's body set for `g`, every material reading the hole's shadow from `shadow` (the one uniform the hole writes: shadow.ts). */
+export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySystem {
   const data = packBodyData(g);
   const bodiesTex = floatTexture(data.bodies, BODY_TEXELS, data.bodyCount);
   const streamsTex = floatTexture(data.streams, BODY_TEXELS, data.streamCount);
@@ -314,6 +317,7 @@ export function createBodySystem(g: Galaxy): BodySystem {
     uHoodHold: { value: 0 },
     uViewport: viewportPx,
     uPixelRatio: { value: 1 },
+    uShadow: shadow,
     ...lightingUniforms(),
   };
   // No depth cue across a galaxy: the near and far planes of the machine's dimming are set so wide
@@ -538,7 +542,7 @@ export function createBodySystem(g: Galaxy): BodySystem {
       sysPx.fill(0);
       sysPx.set(lastSys);
 
-      // A glow sits where its body is drawn: a shivering star's or core body's, its derp on (bodyMote.ts);
+      // A glow sits where its star is drawn: a shivering star's, its derp on (bodyMote.ts);
       // and it is drawn only once its body is up and while the lamp lights it, so only those keep their
       // halos apart and are reported.
       const clocks: BodyClocks = { growth, fix, highlight, show, ambient, focus, lamp: Math.round(lamp), lampRow: uniforms.uLampRow.value as number, sysPx, forcedScatter };
@@ -549,7 +553,7 @@ export function createBodySystem(g: Galaxy): BodySystem {
         const c = project(bodyCentre(b.index, d, ambient, data));
         const gain = bodyPresence(b.index, growth, data) * lampGain(b.index, clocks, data) * show * (realOf.get(b.index) ?? 1);
         const drawn = gain >= LOD_VISIBLE;
-        const cap = b.kind === 'core' ? GLOW_CAP.core : GLOW_CAP.star;
+        const cap = GLOW_CAP.star;
         return { x: c.x, y: c.y, front: c.front && drawn, cap, diam: glowPx(b.R, c.d, focal, cap), near: glowPx(b.R, c.d, focal, Infinity), gain, look: b.look };
       });
       // The bursts: the held planet's v, and its shell out (a scatter running or forced) by as much.

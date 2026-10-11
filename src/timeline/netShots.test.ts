@@ -55,9 +55,10 @@ import {
   DEFECT_SHOTS,
   FEED_KEYS,
   FOCUS_KEYS,
-  FX2_PAN,
   galaxyShotLampAt,
   HAZE_KEYS,
+  HOLE_CLOSE,
+  HOLE_CLOSE_BEATS,
   HOOD_HOLD_KEYS,
   HOOD_HOLD_SHOTS,
   LATE_CLOSE,
@@ -93,11 +94,16 @@ import {
   zoomOutShot,
   type GalaxyShot,
   type KeyedFrame,
+  type Move,
 } from './netShots';
 import { Lamp, lampFocusRow, targetWorld, TRACK_TARGETS, trackIndex, trackPoint, trackTargetWorld } from './netTrack';
 import { defaultSceneState, type SceneState } from './sceneState';
 import { freezeTicks, galaxyPointTop, held, visibleGalaxy, visibleTracks } from '../scene/node/galaxyOnScreen';
 import { streamPixels } from '../scene/node/streamOnScreen';
+import { holeTop } from '../scene/hole/holeOnScreen';
+import { holeFrame } from '../scene/hole/holeFrame';
+import { galacticToWorld } from '../scene/node/orbit';
+import { jetRho } from '../scene/hole/hole';
 
 const g = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
 const data = packBodyData(g);
@@ -129,7 +135,8 @@ function galaxyAt(s: SceneState, t: number): ReturnType<typeof visibleGalaxy> {
  * count too (visibleTracks, each dot its sprite's half higher; Task 10 review I2: C1's and C5's own
  * orbits stood in the band on a landscape screen while no twin had them). So do the stream and feed
  * dots the page lights, after the text band's mask (streamPixels; Task 11 review I1: core-lamp-lit
- * stream dots stood in the band on a desktop while no twin had them), each the top of its pixel.
+ * stream dots stood in the band on a desktop while no twin had them), each the top of its pixel. And
+ * the black hole's drawn dots (holeTop, re-skin Task 5): the close shots on the centre are held to it.
  */
 function visibleClearance(s: SceneState, size: { width: number; height: number }, t: number): number {
   // The freeze's hold shows the pin, whatever the clock (main.ts).
@@ -144,6 +151,9 @@ function visibleClearance(s: SceneState, size: { width: number; height: number }
     if (at) top = Math.min(top, at.top);
   }
   for (const d of streamPixels(s.net, g, data, camera, size, t)) top = Math.min(top, d.y);
+  // The black hole drawn at the centre (re-skin Task 5): its twin's top, every part's dots.
+  const hole = holeTop(s, t, camera, size.width, size.height);
+  if (hole !== null) top = Math.min(top, hole);
   // The freeze frame's bursts are drawn motes too (Task 12): each dot's top.
   if (s.freeze.dress * s.net.focus > 0)
     for (const tick of freezeTicks(s, t, camera, size.width, size.height).ticks) if (tick.x >= 0 && tick.x <= size.width) top = Math.min(top, tick.y - FREEZE_TICK_PX / 2);
@@ -669,10 +679,10 @@ describe('the text band (test 8): cylinderTop at least 8 px under it, at both si
     expect(bandClearance({ ...keyed('zoom-out', 0.45), lamp: Lamp.Hood }, g, data, PHONE)).toBeLessThan(0);
   });
 
-  it('counts each drawn sprite’s half-extent (review M6): every lit star’s and core body’s glow, a star’s spike tips, and the rim’s motes and points', () => {
+  it('counts each drawn sprite’s half-extent (review M6): every lit star’s glow, a star’s spike tips, and the rim’s motes and points', () => {
     // The glows: never higher than cylinderTop, at the zoom-out's lamp steps and its end and at the
     // later sections' wides. (Measured: the cylinder's lift, liftBound above and below each disc, always
-    // stands higher than a glow's half, at most GLOW_CAP.core / 2, so this half never binds today;
+    // stands higher than a glow's half, at most GLOW_CAP.star / 2, so this half never binds today;
     // it is held so that it cannot be dropped once a lit set's disc is flatter than its glow.)
     const frames = [...ZOOM_OUT.lamp.slice(1).map((s) => keyed('zoom-out', s.at)), keyed('zoom-out', 1), keyed('layers', 0.5), keyed('far', 0.5), keyed('spread', 0.82), keyed('reviewer', 0.5), keyed('fix', 0.81), keyed('lesson', 0.5)];
     // How many lit stars' spike tips stand above their glows: the spikes' term is not vacuous.
@@ -684,13 +694,14 @@ describe('the text band (test 8): cylinderTop at least 8 px under it, at both si
         const eye = camera.getWorldPosition(new Vector3());
         const focal = 0.5 * size.height * camera.projectionMatrix.elements[5];
         const top = cylinderTop(frame, g, data, size);
-        const lit = (b: Body) => (b.kind === 'star' || b.kind === 'core') && b.born - NODE_BIRTH_WINDOW <= (frame.growth ?? 1);
+        // The stars: the core rows have no glow since the re-skin's Task 5.
+        const lit = (b: Body) => b.kind === 'star' && b.born - NODE_BIRTH_WINDOW <= (frame.growth ?? 1);
         for (const b of g.bodies.filter(lit)) {
           if (lampGain(b.index, { lamp: frame.lamp, lampRow: lampFocusRow(frame.lampAt, g), focus: 0 }, data) <= 0) continue;
           const w = new Vector3(...bodyWorld(data, b.index, AMBIENT_POSE));
           const d = w.distanceTo(eye);
           const q = w.project(camera);
-          const glow = glowPx(b.R, d, focal, b.kind === 'core' ? GLOW_CAP.core : GLOW_CAP.star);
+          const glow = glowPx(b.R, d, focal, GLOW_CAP.star);
           // A star's top: its glow's half, or its highest drawn spike row's tip if that stands higher.
           const near = glowPx(b.R, d, focal, Infinity);
           let half = 0.5 * glow;
@@ -715,6 +726,30 @@ describe('the text band (test 8): cylinderTop at least 8 px under it, at both si
     // The rim's sprites: a lit set seen from afar still stands a lit planet's largest point higher than its rim.
     const far = keyed('zoom-out', 1);
     expect(cylinderTop(far, g, data, PHONE)).toBeLessThan(rimTop(far, g, PHONE) - BODY_LOOK.litPointMax / 2 + 1e-9);
+  });
+
+  it('bounds the black hole at the wides: its disk and jets discs stand at least as high as every drawn hole dot (holeTop)', () => {
+    // The hole's lit set (re-skin §8): its disk at 12.5 with the old half-height, its jets 16.4 high.
+    const discs = litDiscs(g, Lamp.Core, -1);
+    expect(discs.map((d) => [d.radius, d.halfHeight])).toEqual([
+      [12.5, liftBound(g)],
+      [jetRho(14), 16.4],
+    ]);
+    const frames = [keyed('zoom-out', 1), keyed('layers', 0.5), keyed('far', 0.5), keyed('reviewer', 0.88), keyed('trace', 0.21), keyed('lesson', 0.5)];
+    let bound = 0;
+    for (const frame of frames)
+      for (const size of SIZES)
+        for (const t of [AMBIENT_POSE, 101]) {
+          const s = defaultSceneState();
+          s.camera = frame.camera;
+          s.net = { ...s.net, show: frame.show ?? 1, growth: frame.growth ?? 1, lamp: frame.lamp, lampAt: frame.lampAt };
+          const camera = essayCamera(frame.camera, g, data, size, t);
+          const top = holeTop(s, t, camera, size.width, size.height);
+          if (top === null) continue;
+          bound++;
+          expect(cylinderTop(frame, g, data, size, t), `${size.width} ${t}`).toBeLessThanOrEqual(top + 1e-6);
+        }
+    expect(bound).toBeGreaterThan(4);
   });
 });
 
@@ -782,7 +817,7 @@ function firstClearing(from: SectionAt, until: SectionAt, level: Pick<KeyedFrame
   for (let at: SectionAt = from; screensOf(at) < screensOf(until) - 1e-9; at = placeOf(screensOf(at) + 0.001 * sectionLength(at[0]))) places.push(at);
   places.push(until);
   let i = places.length;
-  while (i > 0 && margin({ ...keyedAt(places[i - 1]), lamp: level.lamp, lampAt: level.lampAt }) >= 0) i--;
+  while (i > 0 && keyedMargin(places[i - 1], level) >= 0) i--;
   return i < places.length ? places[i] : null;
 }
 const placesBetween = (a: SectionAt, b: SectionAt, n: number): SectionAt[] => {
@@ -798,12 +833,29 @@ const placesBetween = (a: SectionAt, b: SectionAt, n: number): SectionAt[] => {
  * the last, ls-1, which lesson holds to the essay's end.
  */
 const HOLDS = ACT_TWO_MOVES.map((move, i) => ({ shot: move.shot, from: move.until, until: ACT_TWO_MOVES[i + 1]?.from ?? (['lesson', 1] as SectionAt) }));
+/**
+ * The hole close's stretches (re-skin Task 5): from the start of each move onto a HOLE_CLOSE beat to the
+ * end of the move that leaves it. As the late close shots were (Task 11's clearance ruling), their lit
+ * set is held to what is drawn (visibleClearance, the hole's twin holeTop among it): the camera stands
+ * 75 units off the hole, inside the lineage's and the neighbourhood's discs, whose cylinder stands far
+ * higher on screen than anything drawn.
+ */
+const HOLE_SPANS: [number, number][] = ACT_TWO_MOVES.flatMap((m, i) =>
+  (HOLE_CLOSE_BEATS as readonly string[]).includes(m.shot) && ACT_TWO_MOVES[i + 1] ? [[screensOf(m.from), screensOf(ACT_TWO_MOVES[i + 1].until)] as [number, number]] : [],
+);
+const inHole = (at: SectionAt): boolean =>
+  MOVE_SECTIONS.some(([id]) => id === at[0]) && HOLE_SPANS.some(([a, b]) => screensOf(at) >= a - 1e-9 && screensOf(at) <= b + 1e-9);
+/** A keyed place's margin under the band, both screens and every AMBIENT_GRID pose: through the hole's stretches by what is drawn, elsewhere by cylinderTop (margin). */
+const keyedMargin = (at: SectionAt, level?: Pick<KeyedFrame, 'lamp' | 'lampAt'>): number => {
+  if (!inHole(at)) return margin(level ? { ...keyedAt(at), ...level } : keyedAt(at));
+  const x = sampler.sample(placeProgress(at));
+  return stateMarginVisible(level ? { ...x, net: { ...x.net, lamp: level.lamp, lampAt: level.lampAt } } : x);
+};
+
 /** The shot a hold holds. */
 const heldShot = (name: (typeof HOLDS)[number]['shot']): GalaxyShot =>
   name === 'tr-2 surge'
       ? LATE_SHOTS['tr-1']
-      : name === 'fx-2 pan'
-        ? FX2_PAN
       : name in LATE_SHOTS
         ? LATE_SHOTS[name as keyof typeof LATE_SHOTS]
         : name === 'ly-4 ride'
@@ -851,7 +903,8 @@ describe('the layers and far shots (galaxy §14.5, Task 9)', () => {
     const tuple = (s: GalaxyShot) => [s.target, s.bearing, s.elevation, s.fov, s.lamp];
     expect(Object.fromEntries(Object.entries(LAYERS_SHOTS).map(([k, s]) => [k, tuple(s)]))).toEqual({
       'ly-1': [{ body: 'P_a' }, 20, 60, 38, Lamp.Star],
-      'ly-2': [{ core: true }, 30, 64, 40, Lamp.Core],
+      // The hole close (re-skin Task 5): bearing 30 at 64 through 40 before.
+      'ly-2': [{ core: true }, 165, 16, 33, Lamp.Core],
       // Re-framed (fix round 1): on the core, overhead, from the side the stars lie on.
       'ly-3': [{ core: true }, 42, 82, 40, Lamp.Hood],
       // Re-keyed (fix round 1): the ride out along N0's arm, from P_a, every system lit, the core dark.
@@ -874,13 +927,15 @@ describe('the layers and far shots (galaxy §14.5, Task 9)', () => {
       'ly-4': 9,
       'ly-5': { outerTimes: 2.7 },
     };
-    for (const [name, shot] of Object.entries(LAYERS_SHOTS).filter(([k]) => k !== 'ly-3' && k !== 'ly-4') as [keyof typeof LAYERS_SHOTS, GalaxyShot][]) {
+    // ly-2 is the hole close since the re-skin's Task 5 (HOLE_CLOSE, framed as the inspector frames it, not by the band).
+    for (const [name, shot] of Object.entries(LAYERS_SHOTS).filter(([k]) => k !== 'ly-2' && k !== 'ly-3' && k !== 'ly-4') as [keyof typeof LAYERS_SHOTS, GalaxyShot][]) {
       const asBrief: GalaxyShot = { ...shot, distance: brief[name], frame: 0, landscape: undefined };
       for (const size of SIZES) expect(shotMargin(asBrief, size, holdGrowth(name)), `${name} at §14.5's values, ${size.width}`).toBeLessThan(0);
     }
     expect(Object.fromEntries(Object.entries(LAYERS_SHOTS).map(([k, s]) => [k, [s.distance, s.frame, s.landscape]]))).toEqual({
       'ly-1': [{ outerTimes: 3.31 }, 0.28, { distance: 66, frame: 0 }],
-      'ly-2': [30, 0.39, { distance: 62, frame: 0 }],
+      // The hole close (re-skin Task 5): 30 framed 0.39 (62 landscape) before.
+      'ly-2': [54, 0.643, { distance: 105, frame: 0.417 }],
       // Task 1d re-fitted ly-3 (191 / 273 before) and ly-4 (108 at -126 before) to the wider neighbourhood.
       'ly-3': [234, 0, { distance: 486, frame: 0 }],
       'ly-4': [130, 0.29, { distance: 212, frame: 0 }],
@@ -1173,7 +1228,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
     let worst = Infinity;
     let checked = 0;
     for (const at of placesBetween(['layers', 0], NET_MOVES.dive.from, 2000)) {
-      worst = Math.min(worst, margin(keyedAt(at)));
+      worst = Math.min(worst, keyedMargin(at));
       checked++;
     }
     expect(checked).toBe(2001);
@@ -1192,7 +1247,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
         let worst = { margin: Infinity, at: '' };
         for (let s = screensOf(step), k = 0; s <= end + 1e-9; s += (k++ < 100 ? 0.0001 : 0.001) * len) {
           const at = placeOf(s);
-          const m = margin(keyedAt(at));
+          const m = keyedMargin(at);
           if (m < worst.margin) worst = { margin: m, at: at.join('@') };
           checked++;
         }
@@ -1227,7 +1282,7 @@ describe('layers and far, as keyed (test 8 for the new shots; galaxy §14.5, §1
       places.push(move.until);
       const fails = (at: SectionAt, lamp: { lamp: Lamp; lampAt: number }): boolean => {
         const x = sampler.sample(placeProgress(at));
-        return stateMargin({ ...x, net: { ...x.net, lamp: lamp.lamp, lampAt: lamp.lampAt } }) < 0;
+        return (inHole(at) ? stateMarginVisible : stateMargin)({ ...x, net: { ...x.net, lamp: lamp.lamp, lampAt: lamp.lampAt } }) < 0;
       };
       // No one step clears: a step at any of these places up to the lamp has the old level fail at or
       // before it, or the new one fail at or after it (each lit set by its own measure, stateClearance).
@@ -1280,7 +1335,7 @@ describe('the moves made as one motion (Move `motion`)', () => {
       ['ly-4 ride', 'ride'],
       ['ly-4 close', 'push'],
       ['df-2', 'push'],
-      ['fx-2', 'push'],
+      // (fx-2's push-in on R1 went with the pan across the hub, re-skin Task 5: fx-1 to fx-2 is one hold.)
     ]);
   });
 });
@@ -1295,7 +1350,8 @@ describe('the defect and spread shots (galaxy §14.5, Task 10’s shot pass)', (
       'df-1': [{ body: 'C1' }, c.bearing - POSE_TURN_DEG, c.elevation, 4.5, c.fov, c.frame, Lamp.Planet, { distance: 8.6, frame: 0 }, true],
       'df-2': [{ body: 'C1' }, c.bearing - POSE_TURN_DEG, c.elevation, c.distance, c.fov, c.frame, Lamp.Planet, { distance: 6.5, frame: 0 }, true],
       'df-3': [{ centroid: ['P1', 'P2', 'P3'] }, -10, 74, 132, 40, 0, Lamp.Lineage, { distance: 150, frame: 0, bearing: -115 }, true],
-      'up-1': [{ body: 'R1' }, 60, 60, 50, 38, 0.8, Lamp.Core, { distance: 130, frame: 0 }, true],
+      // The hole close (re-skin Task 5): R1 from 60 at 60, stood off 50, before.
+      'up-1': tuple(HOLE_CLOSE),
       // Task 1d re-fitted up-2 to the wider neighbourhood (169 / 442 before).
       'up-2': [{ hood: true }, 0, 82, 258, 40, 0.85, Lamp.Hood, { distance: 678, frame: 0 }, true],
     });
@@ -1452,7 +1508,8 @@ describe('defect and spread, as keyed (test 8; freeze-frame §1.1; galaxy §15.1
     ];
     let worst = { margin: Infinity, at: '' };
     for (const at of places) {
-      const m = stateMargin(sampler.sample(placeProgress(at)));
+      const x = sampler.sample(placeProgress(at));
+      const m = inHole(at) ? stateMarginVisible(x) : stateMargin(x);
       if (m < worst.margin) worst = { margin: m, at: at.join('@') };
     }
     // Not vacuous: every lamp step, and the follow's via, is on the grid.
@@ -1526,7 +1583,7 @@ const inClose = (at: SectionAt): boolean => CLOSE_SPANS.some(([a, b]) => screens
 function lateMargin(at: SectionAt): number {
   const x = sampler.sample(placeProgress(at));
   const lamp = Math.round(x.net.lamp) as Lamp;
-  if (VISIBLE_LAMPS.includes(lamp) || (inClose(at) && lamp === Lamp.Core)) return stateMarginVisible(x);
+  if (VISIBLE_LAMPS.includes(lamp) || (inClose(at) && lamp === Lamp.Core) || inHole(at)) return stateMarginVisible(x);
   return margin(keyedAt(at));
 }
 /** visibleClearance's least over both screens and every AMBIENT_GRID pose, whatever the lamp. */
@@ -1539,17 +1596,15 @@ describe('the reviewer, trace, fix and lesson shots (galaxy §14.5, Task 11’s 
       're-1': [{ body: 'P5' }, -127, 68, { outerTimes: 3.5 }, 38, 0.5, Lamp.Star, undefined, { distance: 70, frame: 0 }, true],
       're-3': [{ centroid: ['P5', 'R0'] }, 39, 75, 170, 38, 0.85, Lamp.Core, undefined, { distance: 300, frame: 0, bearing: -51 }, true],
       'tr-1': [{ core: true }, 42, 82, 210, 40, 0, Lamp.Lineage, { body: 'R0' }, { distance: 340, frame: 0, bearing: -10 }, true],
-      'tr-2': [{ body: 'R0' }, -15, 35, 8, 36, 1, Lamp.Core, undefined, { distance: 15, frame: 1, bearing: 0 }, true],
-      // tr-2's close again (framed 1, not 0.75: at 0.75 the core dips into the band on a phone as the camera closes in).
-      'fx-1': [{ body: 'R0' }, -15, 35, 8, 36, 1, Lamp.Core, undefined, { distance: 15, frame: 1, bearing: 0 }, true],
-      'fx-2': [{ body: 'R1' }, -60, 35, 8, 36, 0.75, Lamp.Core, undefined, { distance: 15, frame: 1 }, true],
+      // The hole close (re-skin Task 5): R0 at 8 (R1 for fx-2) before.
+      'tr-2': tuple(HOLE_CLOSE),
+      'fx-1': tuple(HOLE_CLOSE),
+      'fx-2': tuple(HOLE_CLOSE),
       // Task 1d re-fitted fx-3 (210 / 540 before) and ls-1's landscape (400 before) to the wider neighbourhood.
       'fx-3': [{ hood: true }, 0, 82, 258, 40, 0.85, Lamp.Hood, undefined, { distance: 678, frame: 0 }, true],
       'ls-1': [{ core: true }, 42, 82, 270, 40, 0, Lamp.Hood, undefined, { distance: 420, frame: 0 }, true],
     });
     expect(LATE_CLOSE).toEqual(['tr-2', 'fx-1', 'fx-2']);
-    // The pan from R0 to R1 runs stood off: fx-2's shot at 30 (40 landscape).
-    expect(FX2_PAN).toEqual({ ...LATE_SHOTS['fx-2'], distance: 30, landscape: { distance: 40, frame: 1 } });
     expect(g.bodies[lampFocusRow(galaxyShotLampAt(LATE_SHOTS['tr-1']), g)].id).toBe('R0');
     // re-3's target, appended so every index already keyed keeps its meaning.
     expect(TRACK_TARGETS.at(-1)).toEqual({ centroid: ['P5', 'R0'] });
@@ -1583,11 +1638,16 @@ describe('the reviewer, trace, fix and lesson shots (galaxy §14.5, Task 11’s 
     }, 300_000);
   }
 
-  it('cylinderTop cannot pass the close shots (the clearance ruling), though their visible bodies clear', () => {
-    for (const hold of LATE_HOLDS.filter((h) => (LATE_CLOSE as readonly string[]).includes(h.shot))) {
+  it('the close shots are the hole close, held to what is drawn there, the hole’s twin among it (re-skin Task 5; before it, cylinderTop stood over 100 px in the band at R0 and R1)', () => {
+    const holds = LATE_HOLDS.filter((h) => (LATE_CLOSE as readonly string[]).includes(h.shot));
+    // fx-1 to fx-2 is one hold: tr-2's and fx-1's.
+    expect(holds.map((h) => h.shot)).toEqual(['tr-2', 'fx-1']);
+    for (const hold of holds) {
       const mid = placesBetween(hold.from, hold.until, 2)[1];
-      expect(margin(keyedAt(mid)), `${hold.shot}: cylinderTop`).toBeLessThan(-100);
-      expect(stateMarginVisible(sampler.sample(placeProgress(mid))), `${hold.shot}: visible`).toBeGreaterThanOrEqual(0);
+      const x = sampler.sample(placeProgress(mid));
+      expect(stateMarginVisible(x), `${hold.shot}: visible`).toBeGreaterThanOrEqual(0);
+      const camera = essayCamera(x.camera, g, data, PHONE, AMBIENT_POSE);
+      expect(holeTop(x, AMBIENT_POSE, camera, PHONE.width, PHONE.height), `${hold.shot}: the hole drawn`).not.toBeNull();
     }
   }, 300_000);
 });
@@ -1625,15 +1685,8 @@ describe('reviewer, trace, fix and lesson, as keyed (test 8; galaxy §15.1)', ()
     const fx = fadeOf('fix');
     near(LATE_MOVES.toFix.from, ['trace', 1 - tr]);
     near(LATE_MOVES.toFix.until, ['fix', fx]);
-    // Across to R1 from where fx-2 is full ink (stood off, then in along fx-2's bearing as one motion),
-    // landed before R1's warm motes set out.
-    const fixAt = (at: SectionAt) => sampler.sample(placeProgress(at)).net.fix;
-    near(LATE_MOVES.panToR1.from, ['fix', beat('fix', 'fx-2') + fx]);
-    expect(LATE_MOVES.inOnR1.from[1]).toBeGreaterThan(LATE_MOVES.panToR1.until[1]);
-    expect(ACT_TWO_MOVES[ACT_TWO_MOVES.indexOf(LATE_MOVES.panToR1) + 1]).toBe(LATE_MOVES.inOnR1);
-    const push = moveShares(LATE_MOVES.inOnR1, poseOf(FX2_PAN, g), poseOf(LATE_SHOTS['fx-2'], g), 0.3);
-    expect(push.zoom, 'the push-in on R1 is one motion').toBe(push.pan);
-    expect(fixAt(LATE_MOVES.inOnR1.until)).toBeLessThan(g.bodies[bodyIndex(g, 'R1')].fixAt! - NODE_FIX_WINDOW);
+    // fx-1 to fx-2 is one hold on the hole (re-skin Task 5): no move between the move into fix and fx-3's.
+    expect(ACT_TWO_MOVES[ACT_TWO_MOVES.indexOf(LATE_MOVES.toFix) + 1]).toBe(LATE_MOVES.toNew);
     // Out to the neighbourhood from where fx-3 is full ink, at rest before its page fades; fx-4 holds it.
     near(LATE_MOVES.toNew.from, ['fix', beat('fix', 'fx-3') + fx]);
     expect(LATE_MOVES.toNew.until[1]).toBeLessThan(beat('fix', 'fx-4') - fx - 0.05);
@@ -1918,5 +1971,99 @@ describe('net.haze', () => {
   it('is up on the galaxy wide probe shots alone (the `?shot=` probe reads it)', () => {
     expect([GALAXY_SHOTS.galaxyWide.haze, FAR_SHOT.haze]).toEqual([1, 1]);
     for (const [name, shot] of Object.entries(GALAXY_SHOTS)) if (name !== 'galaxyWide') expect(shot.haze ?? 0, name).toBe(0);
+  });
+});
+
+// ---- The black hole's close shot (re-skin §8, Task 5) ----
+
+/** Every thousandth of a move's sections from its start to its end, and both ends. */
+function moveGrid(m: Pick<Move, 'from' | 'until'>): SectionAt[] {
+  const out: SectionAt[] = [m.from];
+  for (const [id] of MOVE_SECTIONS)
+    for (let k = 1; k < 1000; k++) {
+      const at: SectionAt = [id, k / 1000];
+      if (screensOf(at) > screensOf(m.from) + 1e-9 && screensOf(at) < screensOf(m.until) - 1e-9) out.push(at);
+    }
+  return [...out, m.until];
+}
+
+/** The essay camera's world position at a place, on a screen of `size` at ambient `t`, and the hole's. */
+function cameraAndHole(at: SectionAt, size: { width: number; height: number }, t: number): { eye: Vector3; hole: Vector3 } {
+  const camera = essayCamera(sampler.sample(placeProgress(at)).camera, g, data, size, t);
+  camera.updateMatrixWorld();
+  return { eye: camera.getWorldPosition(new Vector3()), hole: new Vector3(...galacticToWorld(data, [0, 0, 0], t)) };
+}
+
+describe('the hole close (HOLE_CLOSE)', () => {
+  it('the close shots on the centre are HOLE_CLOSE', () => {
+    // ly-2, up-1, tr-2, fx-1 and fx-2 target { core: true } at elevation 16, riding the turn.
+    expect(HOLE_CLOSE_BEATS).toEqual(['ly-2', 'up-1', 'tr-2', 'fx-1', 'fx-2']);
+    for (const shot of [LAYERS_SHOTS['ly-2'], DEFECT_SHOTS['up-1'], LATE_SHOTS['tr-2'], LATE_SHOTS['fx-1'], LATE_SHOTS['fx-2']]) expect(shot).toBe(HOLE_CLOSE);
+    expect([HOLE_CLOSE.target, HOLE_CLOSE.elevation, HOLE_CLOSE.lamp, HOLE_CLOSE.ridesTurn]).toEqual([{ core: true }, 16, Lamp.Core, true]);
+    // The hole at NDC y −0.42 on both screens (portrait frame ≈ 0.64, landscape ≈ 0.42).
+    expect(HOLE_CLOSE.frame).toBeCloseTo(0.643, 3);
+    expect(HOLE_CLOSE.landscape!.frame).toBeCloseTo(0.417, 3);
+    // (To 1e-4: the frames are keys, rounded to a thousandth.)
+    expect(targetOnScreen(390 / 844, HOLE_CLOSE.frame).y).toBeCloseTo(0.71, 4);
+    expect(targetOnScreen(1440 / 900, HOLE_CLOSE.landscape!.frame).y).toBeCloseTo(0.71, 4);
+  });
+
+  it('frames the hole as the inspector does: the disk’s outer diameter on 390×844 within ±10 % of the inspector camera’s', () => {
+    // The inspector (elevation 16, distance 75, fov 45, lifted to put the hole at NDC y −0.42): the hole
+    // 75 in front of it, so its disk (12.5 in radius) is 2 · 12.5 · focal / 75 across.
+    const inspector = (2 * 12.5 * (0.5 * PHONE.height)) / Math.tan((22.5 * Math.PI) / 180) / 75;
+    for (const t of AMBIENT_GRID) {
+      const s = defaultSceneState();
+      s.camera = galaxyShotKeys(HOLE_CLOSE, g);
+      s.net = { ...s.net, show: 1, growth: 1, lamp: Lamp.Core, lampAt: galaxyShotLampAt(HOLE_CLOSE) };
+      const camera = essayCamera(s.camera, g, data, PHONE, t);
+      const f = holeFrame(s, g, data, camera, PHONE, t);
+      expect(f.diskPx / inspector, `t ${t}`).toBeGreaterThan(0.9);
+      expect(f.diskPx / inspector, `t ${t}`).toBeLessThan(1.1);
+      // Where the inspector puts it: 0.71 of the screen's height down.
+      expect(f.y / PHONE.height).toBeCloseTo(0.71, 3);
+    }
+  });
+
+  it('no move passes within 20 units of the hole (Review Focus 1)', () => {
+    let least = { d: Infinity, at: '' };
+    for (const m of ACT_TWO_MOVES)
+      for (const at of moveGrid(m))
+        for (const size of SIZES)
+          for (const t of [AMBIENT_POSE, 487]) {
+            const { eye, hole } = cameraAndHole(at, size, t);
+            const d = eye.distanceTo(hole);
+            if (d < least.d) least = { d, at: `${m.shot} ${at.join('@')} ${size.width} ${t}` };
+          }
+    expect(least.d, least.at).toBeGreaterThanOrEqual(20);
+  }, 1_200_000);
+
+  it('HOLE_CLOSE and its moves pass through no lit system: the camera stays outside systemOuter + 2 of every star', () => {
+    const into = ACT_TWO_MOVES.flatMap((m, i) => ((HOLE_CLOSE_BEATS as readonly string[]).includes(m.shot) ? [m, ACT_TWO_MOVES[i + 1]].filter(Boolean) : []));
+    expect(into.length).toBeGreaterThanOrEqual(6);
+    let least = { margin: Infinity, at: '' };
+    for (const m of into)
+      for (const at of moveGrid(m))
+        for (const size of SIZES)
+          for (const t of AMBIENT_GRID) {
+            const { eye } = cameraAndHole(at, size, t);
+            for (const row of g.systems) {
+              const margin = eye.distanceTo(new Vector3(...bodyWorld(data, row, t))) - (systemOuter(g, row) + 2);
+              if (margin < least.margin) least = { margin, at: `${m.shot} ${at.join('@')} ${g.bodies[row].id} ${size.width} ${t}` };
+            }
+          }
+    expect(least.margin, least.at).toBeGreaterThan(0);
+  }, 1_200_000);
+
+  it('fx-1 to fx-2 is one hold', () => {
+    const i = ACT_TWO_MOVES.indexOf(LATE_MOVES.toFix);
+    expect(ACT_TWO_MOVES[i].shot).toBe('fx-1');
+    expect(ACT_TWO_MOVES[i + 1]).toBe(LATE_MOVES.toNew);
+    expect(Object.keys(LATE_MOVES)).not.toContain('panToR1');
+    expect(Object.keys(LATE_MOVES)).not.toContain('inOnR1');
+    // fx-2's line comes up inside the hold.
+    const fx2 = story.find((x) => x.id === 'fix')!.pages.flatMap((p) => p.beats).find((b) => b.id === 'fx-2')!.at;
+    expect(fx2).toBeGreaterThan(LATE_MOVES.toFix.until[1]);
+    expect(fx2).toBeLessThan(LATE_MOVES.toNew.from[1]);
   });
 });

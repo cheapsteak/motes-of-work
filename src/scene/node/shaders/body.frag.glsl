@@ -16,6 +16,10 @@ flat in vec4 vTint; // the freeze frame's colour (rgb) and how far toward it (a)
 
 out vec4 outColor;
 
+// The black hole's shadow (src/scene/hole/shadow.ts): its centre in device px from the bottom left,
+// and its radius (0: none). Shared by every galaxy material.
+uniform vec3 uShadow;
+
 const vec3 AGENT = vec3(0.3019608, 0.6392157, 1.0); // #4DA3FF
 const vec3 HUMAN = vec3(1.0, 0.7019608, 0.2784314); // #FFB347
 const vec3 EMBER = vec3(1.0, 0.4196078, 0.3411765); // #FF6B57
@@ -24,6 +28,8 @@ const float RIM = 0.55;
 const float RIM_POW = 2.6;
 
 void main() {
+  // The shadow stays black (re-skin §4.2): nothing of the galaxy lights a pixel inside it.
+  if (uShadow.z > 0.0 && distance(gl_FragCoord.xy, uShadow.xy) < uShadow.z) discard;
   float f = 1.0 - abs(dot(normalize(vNormal), normalize(vToEye)));
   float a = min(1.0, (vFill + RIM * pow(f, RIM_POW)) * vGain);
   vec3 colour = mix(mix(AGENT, HUMAN, vWarm), EMBER, EMBER_MIX * vHi);

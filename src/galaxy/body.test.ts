@@ -38,10 +38,9 @@ describe('body', () => {
   it("the lattice counts are the spec's", () => {
     expect(latticeCount(60, 160)).toBe(6116); // morph §7.2's hero shell
     expect(latticeCount(...LATTICE.hero)).toBe(6116);
-    expect(latticeCount(22, 64)).toBe(900); // a core body (§14.2)
-    expect(latticeCount(...LATTICE.core)).toBe(900);
-    // A star has no lattice (re-skin §4.3): its shell is a cloud of dots.
-    expect(Object.keys(LATTICE)).toEqual(['hero', 'core']);
+    // A star has no lattice (re-skin §4.3): its shell is a cloud of dots. Nor has a core row since the
+    // re-skin's Task 5 (it draws nothing: the hole is drawn in its place); its 22 × 64 (900) went.
+    expect(Object.keys(LATTICE)).toEqual(['hero']);
     expect(latticeCount(14, 36)).toBe(324); // a 0.30 planet (300)
     expect(planetLattice(PLANET_R_PIN)).toEqual([14, 36]);
     expect(latticeCount(...moonLattice(0.036, PLANET_R_PIN, planetLattice(PLANET_R_PIN)))).toBeGreaterThanOrEqual(12); // §13's floor
@@ -212,7 +211,8 @@ describe('glowPx', () => {
     expect(glowPx(0.9, 640, 1236.4, GLOW_CAP.star)).toBeCloseTo(8.69, 2);
     expect(glowPx(0.9, 1e6, 1000, GLOW_CAP.star)).toBe(5);
     expect(glowPx(0.9, 1, 1000, GLOW_CAP.star)).toBe(18);
-    expect(glowPx(1.4, 1, 1000, GLOW_CAP.core)).toBe(24);
+    // Only the stars have a glow since the re-skin's Task 5: the core body's (cap 24) went with its bodies.
+    expect(Object.keys(GLOW_CAP)).toEqual(['star']);
   });
 });
 

@@ -1,4 +1,4 @@
-import { Vector3, type Mesh, type ShaderMaterial } from 'three';
+import { Vector3, type IUniform, type Mesh, type ShaderMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { AMBIENT_POSE } from '../../galaxy/ambient';
@@ -39,9 +39,13 @@ import { bodyHoodReal, shellSkips, spikeSkips } from './earlyOut';
 import moteFrag from '../mote/shaders/mote.frag.glsl?raw';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
 import starFrag from '../galaxy/shaders/star.frag.glsl?raw';
+import ringFrag from './shaders/ring.frag.glsl?raw';
+import holeFrag from '../hole/shaders/hole.frag.glsl?raw';
+import { createHoleSystem } from '../hole/holeSystem';
 
 const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
-const system = createBodySystem(g);
+const shadow: IUniform<Vector3> = { value: new Vector3() };
+const system = createBodySystem(g, shadow);
 
 describe('the body set, counted', () => {
   const planets = g.bodies.filter((b) => b.kind === 'planet');
@@ -61,22 +65,27 @@ describe('the body set, counted', () => {
     expect(system.counts.tracks).toBe(g.instances.tracks);
   });
 
-  it('draws a glow per star and per core body: the stars and the six', () => {
+  it('draws a glow per star, and none for the core (re-skin Task 5: the six core rows draw nothing)', () => {
     const stars = g.bodies.filter((b) => b.kind === 'star').length;
     expect(g.bodies.filter((b) => b.kind === 'core')).toHaveLength(6);
-    expect(system.counts.glow).toBe(stars + 6);
+    expect(system.counts.glow).toBe(stars);
     expect(system.counts.glow).toBe(g.instances.glow);
   });
 
-  it('draws an icosphere per planet, moon and core body (none for a star or a barycentre) and a ghost per cracked planet or moon', () => {
-    const stars = g.bodies.filter((b) => b.kind === 'star').length;
-    const bary = g.bodies.filter((b) => b.kind === 'bary').length;
+  it('draws an icosphere per planet and moon (none for a star, a core row or a barycentre) and a ghost per cracked planet or moon', () => {
+    const planetsAndMoons = g.bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon').length;
     expect(system.counts.ghosts).toBe(ghosts);
-    expect(system.counts.bodies).toBe(g.bodies.length - stars - bary + ghosts);
+    expect(system.counts.bodies).toBe(planetsAndMoons + ghosts);
     expect(system.counts.bodies).toBe(g.instances.bodies);
     const drawn = buildBodyAttrs(g);
-    for (let k = 0; k < drawn.count; k++) expect(['star', 'bary']).not.toContain(g.bodies[drawn.body[k * 3]].kind);
-    expect(new Set(Array.from({ length: drawn.count - ghosts }, (_, k) => g.bodies[drawn.body[k * 3]].kind))).toEqual(new Set(['core', 'planet', 'moon']));
+    for (let k = 0; k < drawn.count; k++) expect(['star', 'bary', 'core']).not.toContain(g.bodies[drawn.body[k * 3]].kind);
+    expect(new Set(Array.from({ length: drawn.count - ghosts }, (_, k) => g.bodies[drawn.body[k * 3]].kind))).toEqual(new Set(['planet', 'moon']));
+  });
+
+  it('draws no core row’s shell, person or glow instance', () => {
+    const core = new Set(g.bodies.filter((b) => b.kind === 'core').map((b) => b.index));
+    for (const set of [buildShellAttrs(g), buildPersonAttrs(g), buildGlowAttrs(g)])
+      for (let k = 0; k < set.count; k++) expect(core.has(set.mote[k * 4]), `instance ${k}`).toBe(false);
   });
 
   it('draws 96 spike dots per star', () => {
@@ -95,11 +104,15 @@ describe('the body set, counted', () => {
     expect(system.counts.streams + system.counts.feed).toBe(g.instances.streams);
   });
 
-  it('draws every instance Galaxy.instances counts but the hole’s reserved room, and no more, within the budget', () => {
+  it('draws every instance Galaxy.instances counts with the hole’s, and no more, within the budget', () => {
     const { shells, persons, bodies, glow, spikes, tracks, streams, feed } = system.counts;
-    // Σ every net-* count: the hole is reserved, not drawn, until the re-skin's Task 5.
-    expect(shells + persons + bodies + glow + spikes + tracks + streams + feed).toBe(g.instances.total - g.instances.reserved);
-    expect(g.instances.reserved).toBe(27_610);
+    // Σ every net-* count and Σ the hole's (re-skin Task 5: it is drawn, so nothing is reserved).
+    const hole = createHoleSystem(g, packBodyData(g), shadow);
+    const holeDrawn = Object.values(hole.counts).reduce((n, c) => n + c, 0);
+    expect(holeDrawn).toBe(27_610);
+    expect(shells + persons + bodies + glow + spikes + tracks + streams + feed + holeDrawn).toBe(g.instances.total);
+    expect(g.instances.reserved).toBe(0);
+    hole.dispose();
     expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
     const sets = system.object.children.filter((o) => o.name.startsWith('net-') && !o.name.startsWith('net-copy') && o.name !== 'net-ring' && o.name !== 'net-ticks');
     expect(sets.map((o) => o.name).sort()).toEqual(['net-bodies', 'net-feed', 'net-glow', 'net-persons', 'net-shells', 'net-spikes', 'net-streams', 'net-tracks']);
@@ -201,9 +214,9 @@ describe('the shell attributes', () => {
     }
   });
 
-  it('give the glow sprites one slot each, star and core bodies only', () => {
+  it('give the glow sprites one slot each, the stars only', () => {
     const glow = buildGlowAttrs(g);
-    expect(glow.rows.map((r) => g.bodies[r].kind).every((k) => k === 'star' || k === 'core')).toBe(true);
+    expect(glow.rows.map((r) => g.bodies[r].kind).every((k) => k === 'star')).toBe(true);
     for (let k = 0; k < glow.count; k++) {
       expect(glow.mote[k * 4 + 1]).toBe(NodeRole.Glow);
       expect(glow.mote[k * 4 + 3]).toBe(k);
@@ -379,7 +392,7 @@ describe('the shaders’ copies', () => {
 });
 
 describe('the icospheres', () => {
-  it('are 320 triangles for a core body, a star and a planet, and 80 for a moon', () => {
+  it('are 320 triangles for a planet, and 80 for a moon', () => {
     const geo = icospheres();
     const part = geo.getAttribute('aPart').array as Float32Array;
     const triangles = [0, 1].map((k) => part.filter((p) => p === k).length / 3);
@@ -499,15 +512,15 @@ describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {
       expect(s.glowPx).toBe(5); // the phone's galaxy wide: every star at the glow's floor
       expect(s.real).toBe(0);
     }
-    // No star's glow is drawn, nor a spike: only the core's six glows are reported.
-    expect(system.glows()).toHaveLength(g.bodies.filter((b) => b.kind === 'core').length);
+    // No star's glow is drawn, nor a spike (and the core has no glow since the re-skin's Task 5).
+    expect(system.glows()).toHaveLength(0);
     expect(system.spikes()).toEqual([]);
     drawAt('hood', 0);
     for (const s of system.hood()) expect(s.real).toBe(1);
     // Under a beat's hold the real form is whole at the wide too (HOOD_LOD.beatsHold).
     drawAt('galaxyWide', 1);
     for (const s of system.hood()) expect(s.real).toBe(1);
-    expect(system.glows().length).toBeGreaterThan(g.bodies.filter((b) => b.kind === 'core').length);
+    expect(system.glows().length).toBeGreaterThan(0);
   });
 
   it("a binary's two stars dissolve as one, at their barycentre, where the pair's far star stands (re-skin Task 1e)", () => {
@@ -581,5 +594,29 @@ describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {
     // The early-out's hoodSkip comes before the heavy path (bodyMote()). A spike needs none of its own:
     // a star with no real form draws no glow, so its cap (uGlowCap) is 0 and its spikes skip on it.
     expect(shellVert.indexOf('hoodSkip(kind, real)')).toBeLessThan(shellVert.indexOf('bodyMote(a)'));
+  });
+});
+
+describe('the shadow stays black (re-skin §4.2)', () => {
+  const discard = 'if (uShadow.z > 0.0 && distance(gl_FragCoord.xy, uShadow.xy) < uShadow.z) discard;';
+
+  it('every galaxy fragment shader discards inside the shadow’s disc, before it draws anything', () => {
+    for (const [name, frag] of [
+      ['galaxyMote.frag', galaxyMoteFrag],
+      ['body.frag', bodyFrag],
+      ['ring.frag', ringFrag],
+      ['star.frag', starFrag],
+      ['hole.frag', holeFrag],
+    ] as const) {
+      expect(frag, name).toContain('uniform vec3 uShadow;');
+      expect(frag, name).toContain(discard);
+      expect(frag.indexOf(discard), name).toBeLessThan(frag.indexOf('outColor ='));
+    }
+  });
+
+  it('every material of the body set reads the one shared uniform', () => {
+    const materials = system.object.children.map((o) => (o as Mesh).material as ShaderMaterial);
+    expect(materials.length).toBeGreaterThan(10);
+    for (const m of materials) expect(m.uniforms.uShadow).toBe(shadow);
   });
 });

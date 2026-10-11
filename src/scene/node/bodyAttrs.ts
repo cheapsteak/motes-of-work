@@ -1,9 +1,9 @@
 // The galaxy's body set as instances (docs/specs/2026-10-07-galaxy-orbits.md §1.2-§1.3, §3, §4,
 // §12.2, §14.4, §15; the re-skin's §4.3): every body's shell motes (`net-shells`: a lattice's, or a
 // star's dots), the person's warm motes of every body that carries the defect (`net-persons`), one
-// glow sprite per star and core body (`net-glow`), each star's spike dots (`net-spikes`), the dotted
-// orbits and tracks (`net-tracks`), one icosphere per body but a star and a ghost per cracked planet
-// or moon (`net-bodies`), and the stream dots and the reviewer's feed (`net-streams`, `net-feed`),
+// glow sprite per star (`net-glow`), each star's spike dots (`net-spikes`), the dotted orbits and
+// tracks (`net-tracks`), one icosphere per planet and moon and a ghost per cracked planet or moon
+// (`net-bodies`); the core rows draw nothing (re-skin Task 5: the black hole in their place), and the stream dots and the reviewer's feed (`net-streams`, `net-feed`),
 // packed straight into the typed arrays the instanced attributes hold; the per-body shell texture the
 // shaders read (its shapes, spin axis, morph amplitude, mote size and seed, and its scatter's sweep);
 // and the constants every galaxy shader shares (glslGalaxyConstants, spliced in by shaderSource.ts).
@@ -17,7 +17,7 @@ import { STAR_LOOK } from './classLook';
 import { PLANET_POINT_PX, PX, TRACK_DOT_PX } from './lod';
 import { latticeLL, shapeAt, shapeUniforms, shellEvent, shellSeed, spinAxis } from './shell';
 
-/** At most this many glow sprites (the core's bodies and the stars), the length of `uGlowCap`. */
+/** At most this many glow sprites (the stars; the core's bodies had them until the re-skin's Task 5), the length of `uGlowCap`. */
 export const GLOW_MAX = SYS_MAX + 8;
 
 /**
@@ -160,9 +160,9 @@ export function buildPersonAttrs(g: Galaxy): QuadSet {
   return { count, ll, mote, flight };
 }
 
-/** One glow sprite per star and core body, in row order; its glow slot (its index into `uGlowCap`) as its index. */
+/** One glow sprite per star (none for a core row, re-skin Task 5), in row order; its glow slot (its index into `uGlowCap`) as its index. */
 export function buildGlowAttrs(g: Galaxy): QuadSet & { rows: number[] } {
-  const rows = g.bodies.filter((b) => b.kind === 'star' || b.kind === 'core').map((b) => b.index);
+  const rows = g.bodies.filter((b) => b.kind === 'star').map((b) => b.index);
   if (rows.length > GLOW_MAX) throw new Error(`${rows.length} glow sprites exceed GLOW_MAX ${GLOW_MAX}`);
   const sys = systemIndexOf(g);
   const mote = new Float32Array(rows.length * 4);
@@ -171,14 +171,13 @@ export function buildGlowAttrs(g: Galaxy): QuadSet & { rows: number[] } {
 }
 
 /**
- * The icospheres: one per body but a star (a star is its dots and its glow, re-skin §4.3) and a
- * barycentre (it draws nothing), then a
- * ghost per planet or moon that carries the defect (the burst's double, galaxy §12.3). Per instance:
- * (row, system, 1 for a ghost).
+ * The icospheres: one per planet and moon, none for a star (a star is its dots and its glow, re-skin
+ * §4.3), a core row (it draws nothing, re-skin Task 5) or a barycentre, then a ghost per planet or moon
+ * that carries the defect (the burst's double, galaxy §12.3). Per instance: (row, system, 1 for a ghost).
  */
 export function buildBodyAttrs(g: Galaxy): { count: number; ghosts: number; body: Float32Array } {
   const sys = systemIndexOf(g);
-  const drawn = g.bodies.filter((b) => b.kind !== 'star' && b.kind !== 'bary');
+  const drawn = g.bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon');
   const ghosts = g.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon'));
   const body = new Float32Array([...drawn.flatMap((b) => [b.index, sys[b.index], 0]), ...ghosts.flatMap((b) => [b.index, sys[b.index], 1])]);
   return { count: drawn.length + ghosts.length, ghosts: ghosts.length, body };

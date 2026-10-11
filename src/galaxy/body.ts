@@ -35,10 +35,11 @@ export const CORE_R = 1.4,
   PLANET_R_PIN = 0.3;
 
 /**
- * Lattice shells as [rows, cols]: the hero planet's (6,116 motes) and a core body's (900). A star has
- * no lattice: its shell motes are a cloud of dots (STAR_DOTS, src/scene/node/classLook.ts).
+ * Lattice shells as [rows, cols]: the hero planet's (6,116 motes). A star has no lattice: its shell
+ * motes are a cloud of dots (STAR_DOTS, src/scene/node/classLook.ts). Nor has a core row since the
+ * re-skin's Task 5: it draws nothing, the black hole in its place (its 22 × 64, 900 motes, went).
  */
-export const LATTICE = { hero: [60, 160], core: [22, 64] } as const;
+export const LATTICE = { hero: [60, 160] } as const;
 
 /**
  * A star's own look (re-skin §4.3), drawn per star: its `brightness` (it scales the star's light and
@@ -256,8 +257,8 @@ export function binaryPeriod(aB: number): number {
   return BIN.kep * aB ** 1.5;
 }
 
-/** The glow sprites' caps in CSS px (galaxy §4): a star's (a plan's) and a core body's (a rule's). */
-export const GLOW_CAP = { star: 18, core: 24 } as const;
+/** The glow sprites' caps in CSS px (galaxy §4): a star's (a plan's). A core body's (24) went with its bodies (re-skin Task 5). */
+export const GLOW_CAP = { star: 18 } as const;
 /** A glow sprite's diameter is GLOW_SCALE times its body's radius on screen, never under GLOW_MIN_PX (CSS px). */
 export const GLOW_SCALE = 5,
   GLOW_MIN_PX = 5;

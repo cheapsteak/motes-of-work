@@ -70,15 +70,16 @@ function leastSpacing(x: Galaxy): { margin: number; between: string } {
 /**
  * Every instance the galaxy counts (plan Task 5's budget test, and the re-skin's §7): shells and person
  * sets; 90 dots per planet orbit and 40 per moon track (a track's moons share it); an icosphere per
- * body but a star and a ghost per planet or moon that carries the defect; a glow per star and core
- * body; each stream's dots, one per 1.2 units of its longest chord between 6 and 40, plus the feed's
- * 40; 96 spike dots per star; and the hole's 27,610, reserved while nothing draws it.
+ * planet and moon (none for a star, a core row or a barycentre) and a ghost per planet or moon that
+ * carries the defect; a glow per star; each stream's dots, one per 1.2 units of its longest chord
+ * between 6 and 40, plus the feed's 40; 96 spike dots per star; and the hole's 27,610, drawn since the
+ * re-skin's Task 5 (the core rows draw nothing).
  */
 function drawnInstances(x: Galaxy): number {
   const planets = kinds(x, 'planet');
   const tracks = planets.reduce((n, p) => n + 90 + 40 * new Set(moonsOf(x, p.id).map((m) => m.orbit!.r)).size, 0);
   const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
-  const glow = kinds(x, 'star').length + kinds(x, 'core').length;
+  const glow = kinds(x, 'star').length;
   // A body's fixed spot up its host chain (a binary's star's is its barycentre's), and the apoapses on the way.
   const centre = (b: Body): readonly number[] => (b.spot ? b.spot : centre(x.bodies[b.host]));
   const reach = (b: Body): number => (b.spot ? 0 : reach(x.bodies[b.host]) + b.orbit!.r);
@@ -89,8 +90,8 @@ function drawnInstances(x: Galaxy): number {
   }, 40);
   const shells = x.bodies.reduce((n, b) => n + b.motes + b.personMotes, 0);
   const stars = kinds(x, 'star').length;
-  // An icosphere per body but a star and a barycentre (which draws nothing).
-  const icospheres = x.bodies.length - stars - kinds(x, 'bary').length;
+  // An icosphere per planet and moon: none for a star, a core row or a barycentre (which draw none).
+  const icospheres = kinds(x, 'planet').length + kinds(x, 'moon').length;
   return shells + tracks + icospheres + ghosts + glow + dots + 96 * stars + 27_610;
 }
 
@@ -182,7 +183,8 @@ describe('generateGalaxy', () => {
     expect(byId(g, 'R0').spot).toEqual([0, 0, 0]);
     for (const b of core) {
       expect(b.R).toBe(1.4);
-      expect(b.lattice).toEqual([...LATTICE.core]);
+      // The core rows stay in the model and draw nothing (re-skin §3, Task 5): the hole is drawn in their place.
+      expect([b.lattice, b.motes, b.personMotes]).toEqual([null, 0, 0]);
       expect(b.orbit).toBeNull();
       expect(Math.hypot(...b.spot!)).toBeLessThanOrEqual(CORE_SPREAD);
       for (const o of core) if (o !== b) expect(dist(b.spot!, o.spot!)).toBeGreaterThanOrEqual(CORE_MIN_GAP);
@@ -410,7 +412,7 @@ describe('generateGalaxy', () => {
       }
       // A moon's is its planet's pitch, from its planet's lattice as fitted: its planet's grain.
       if (b.kind === 'moon') expect(b.lattice).toEqual(moonLattice(b.R, g.bodies[b.host].R, g.bodies[b.host].lattice!));
-      if (b.kind === 'bary') expect([b.lattice, b.motes]).toEqual([null, 0]);
+      if (b.kind === 'bary' || b.kind === 'core') expect([b.lattice, b.motes]).toEqual([null, 0]);
       else expect(b.motes).toBe(b.kind === 'star' ? 160 : latticeCount(...b.lattice!));
     }
   });
@@ -654,13 +656,21 @@ describe('generateGalaxy', () => {
       expect(p.lattice, id).toEqual(planetLattice(p.R));
       for (const m of moonsOf(g, id)) expect(m.lattice, m.id).toEqual(moonLattice(m.R, p.R, planetLattice(p.R)));
     }
-    // ...and the filler pays: some unnamed planet is thinner than its radius's lattice.
-    expect(kinds(g, 'planet').some((p) => p.id !== HERO_PLANET && !FULL_DENSITY.includes(p.id) && latticeCount(...p.lattice!) < latticeCount(...planetLattice(p.R)))).toBe(true);
+    // Re-pinned by the re-skin's Task 5 (the design change: the core's 5,520 instances are freed): on the
+    // story's seed every planet now keeps its radius's lattice (91,895 of 93,500); until then the filler
+    // paid (some unnamed planet thinner than its lattice). Where a seed's galaxy does not fit, the filler
+    // still pays first (seed 2: 78 planets thinned, the named ones whole).
+    const thinned = (x: Galaxy) => kinds(x, 'planet').filter((p) => latticeCount(...p.lattice!) < latticeCount(...planetLattice(p.R)));
+    expect(thinned(g)).toEqual([]);
+    const tight = generateGalaxy(2, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
+    expect(thinned(tight).length).toBeGreaterThan(0);
+    for (const p of thinned(tight)) expect(p.id !== HERO_PLANET && !FULL_DENSITY.includes(p.id), p.id).toBe(true);
     for (const b of g.bodies) {
-      if (b.kind === 'core') expect(b.lattice).toEqual([...LATTICE.core]);
+      if (b.kind === 'core') expect([b.lattice, b.motes, b.personMotes]).toEqual([null, 0, 0]);
       if (b.kind === 'star') expect([b.lattice, b.motes]).toEqual([null, 160]);
     }
-    for (const b of g.bodies) expect(b.personMotes > 0).toBe(b.cracked);
+    // Every body that carries the defect has a person set, but a core row, which draws nothing.
+    for (const b of g.bodies) expect(b.personMotes > 0).toBe(b.cracked && b.kind !== 'core');
   });
 
   it('stars are dots and spikes, not lattices', () => {
@@ -675,9 +685,9 @@ describe('generateGalaxy', () => {
       expect(x.instances.spikes).toBe(2_880);
       expect(x.instances.hole).toBe(27_610);
       expect(x.motes).toBeLessThanOrEqual(93_500);
-      // The icospheres drawn: none for a star, none for a barycentre.
+      // The icospheres drawn: the planets', the moons' and the ghosts'; none for a star, a core row or a barycentre.
       const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
-      expect(x.instances.bodies).toBe(x.bodies.length - STAR_COUNT - kinds(x, 'bary').length + ghosts);
+      expect(x.instances.bodies).toBe(kinds(x, 'planet').length + kinds(x, 'moon').length + ghosts);
     }
     // Each star's look is its own stream's, so the stars do not all look alike.
     const looks = kinds(g, 'star').map((b) => b.look!);
@@ -700,20 +710,26 @@ describe('generateGalaxy', () => {
     expect(c5.personMotes).toBe(24);
   });
 
-  it('reserves the hole until it is drawn', () => {
+  it('draws the hole: nothing is reserved, and no core row has an instance', () => {
     for (const x of [g, generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP))]) {
       const i = x.instances;
-      expect(i.reserved).toBe(i.hole);
+      // Reserved while nothing drew the hole (Tasks 2-4); 0 from Task 5, which draws it.
+      expect(i.reserved).toBe(0);
       expect(i.hole).toBe(holeInstances());
-      expect(i.reserved).toBe(27_610);
-      expect(i.total - i.reserved).toBe(i.shells + i.persons + i.tracks + i.bodies + i.glow + i.streams + i.spikes);
+      expect(i.hole).toBe(27_610);
+      expect(i.total).toBe(i.shells + i.persons + i.tracks + i.bodies + i.glow + i.streams + i.spikes + i.hole);
+      expect(i.total).toBeLessThanOrEqual(93_500);
+      // The core rows: no shell, no person set, no lattice, no glow, no icosphere.
+      for (const b of kinds(x, 'core')) expect([b.motes, b.personMotes, b.lattice], b.id).toEqual([0, 0, null]);
+      expect(i.glow).toBe(30);
+      const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
+      expect(i.bodies).toBe(kinds(x, 'planet').length + kinds(x, 'moon').length + ghosts);
     }
   });
 
-  // Runs by itself once the core rows draw nothing (the re-skin's Task 5): until then the six core
-  // bodies keep their 5,520 instances and the planets and moons cannot have this room (measured at
-  // Task 2: 34,880 against the 35,620 this asks; 31,196 before the re-skin).
-  it.skipIf(kinds(g, 'core').some((b) => b.motes > 0))('the planets and moons keep their room', () => {
+  // From the re-skin's Task 5, which frees the core's 5,520 instances (measured at Task 2: 34,880,
+  // against the 35,620 this asks, while the core still drew; 31,196 before the re-skin).
+  it('the planets and moons keep their room', () => {
     const room = g.bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon').reduce((n, b) => n + b.motes + b.personMotes, 0);
     expect(room).toBeGreaterThanOrEqual(31_196 + 4_424);
   });
@@ -991,10 +1007,10 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
         const where = `${tier} seed ${seed}`;
         expect(x.motes, where).toBeLessThanOrEqual(93_500);
         expect(x.motes, where).toBe(drawnInstances(x));
-        // A barycentre adds no instance: no shell, no person, no icosphere, no glow, no spikes.
+        // A barycentre adds no instance (no shell, no person, no icosphere, no glow, no spikes), nor a core row.
         const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
-        expect(x.instances.bodies, where).toBe(x.bodies.length - STAR_COUNT - kinds(x, 'bary').length + ghosts);
-        expect(x.instances.glow, where).toBe(STAR_COUNT + kinds(x, 'core').length);
+        expect(x.instances.bodies, where).toBe(kinds(x, 'planet').length + kinds(x, 'moon').length + ghosts);
+        expect(x.instances.glow, where).toBe(STAR_COUNT);
         expect(x.instances.spikes, where).toBe(96 * STAR_COUNT);
       }
   }, 240_000);

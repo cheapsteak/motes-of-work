@@ -1,7 +1,7 @@
 ---
 id: reviewer
 length: 3.2
-alt: A small circle of pale light moves from one new planet to the next at the edge of a star's system, pausing on each, lit ones and unlit alike. A stream of dots runs out to the circle from a large body in the core.
+alt: A small circle of pale light moves from one new planet to the next at the edge of a star's system, pausing on each, lit ones and unlit alike. A stream of dots runs out to the circle from the black hole at the centre.
 draft: true
 ---
 

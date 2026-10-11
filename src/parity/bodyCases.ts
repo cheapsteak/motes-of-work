@@ -39,17 +39,13 @@ export const BODY_DARK_CASES: BodyCase[] = ([
   ['the planet lamp on C1', Lamp.Planet, 'C1', false],
   ['the star lamp on C1', Lamp.Star, 'C1', false],
   ['the core lamp', Lamp.Core, null, false],
-  ['the lineage lamp on P1', Lamp.Lineage, 'P1', false],
-  // The arms lamp darkens only the core, a few of all the motes: half its motes are the core's.
-  ['the arms lamp', Lamp.Arms, null, true],
+  ['the lineage lamp on P1', Lamp.Lineage, 'P1'],
+  // (The arms lamp darkened only the core's motes, half of its case's; the core rows draw nothing since
+  // the re-skin's Task 5, so no drawn mote is dark under it, and its case went.)
 ] as const).map(
-  ([label, lamp, focus, halfCore]): BodyCase => ({
+  ([label, lamp, focus]): BodyCase => ({
     name: `64 hashed motes, ${label}`,
-    motes: (g, all) => {
-      const core = all.filter((a) => g.bodies[a.row].kind === 'core');
-      const pick = (pool: typeof all, k: number) => pool[Math.floor(hash01(MOTE_SEED, 0x5000 + k) * pool.length)];
-      return Array.from({ length: BODY_HASHED }, (_, k) => pick(halfCore && k % 2 === 0 ? core : all, k));
-    },
+    motes: (_, all) => Array.from({ length: BODY_HASHED }, (_, k) => all[Math.floor(hash01(MOTE_SEED, 0x5000 + k) * all.length)]),
     clocks: (g) => ({ ...quiet, growth: 0.55, highlight: 0.95, fix: 0.6, lamp, lampRow: focus === null ? -1 : g.ids[focus], focus: 0.5, sysPx: sysPxSpread() }),
   }),
 );
@@ -130,9 +126,11 @@ export const BODY_CASES: BodyCase[] = [
     clocks: (g) => ({ ...quiet, highlight: 0.5, sysPx: sysPxAll(200), forcedScatter: g.ids.P1 }),
   },
   {
-    name: 'R0 at its fix',
-    motes: (g, all) => all.filter(ofBody(g, 'R0')).filter((a, i) => a.role === NodeRole.Person || i % 4 === 0),
-    clocks: (g) => ({ ...quiet, highlight: 1, fix: g.bodies[g.ids.R0].fixAt! - NODE_FIX_WINDOW / 2, lamp: Lamp.Lineage, lampRow: g.ids.R0, sysPx: sysPxAll(200) }),
+    // A body of R0's lineage at its fix under the lineage lamp in the sweep (R0 itself until the re-skin's
+    // Task 5, whose core rows draw nothing): C7, its warm motes landing.
+    name: 'C7 at its fix',
+    motes: (g, all) => all.filter(ofBody(g, 'C7')).filter((a, i) => a.role === NodeRole.Person || i % 4 === 0),
+    clocks: (g) => ({ ...quiet, highlight: 1, fix: g.bodies[g.ids.C7].fixAt! - NODE_FIX_WINDOW / 2, lamp: Lamp.Lineage, lampRow: g.ids.R0, sysPx: sysPxAll(200) }),
   },
   {
     name: '64 hashed motes',

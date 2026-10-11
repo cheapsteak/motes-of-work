@@ -38,7 +38,8 @@ export const LOD_VISIBLE = 0.02;
 /**
  * Pixel floors and caps in CSS px (§3.2, §4, plan-constraints' halo amendment): a mote (a moon's as
  * a planet's: one material), a moon's point and a lit planet's point never under their floor; a
- * background star 2 px and a bright one 3 px; and the glow sprites' caps (a star's, a core body's).
+ * background star 2 px and a bright one 3 px; and a star's glow sprite's cap (the core body's went
+ * with its bodies, re-skin Task 5).
  * The core's haze has its own look (src/scene/galaxy/galaxySystem.ts HAZE).
  */
 export const PX = {
@@ -48,7 +49,6 @@ export const PX = {
   bgStar: 2,
   brightStar: 3,
   starGlow: 18,
-  coreGlow: 24,
 } as const;
 
 /** A planet's point (its smallest form, §3.1): a 2 px dot. */

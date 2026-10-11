@@ -117,13 +117,14 @@ const SETS = [
 /**
  * The background galaxy, from the generated `bg` in the galaxy's own frame, with the background star
  * nearest each of the neighbourhood's `spots` pulled onto it as its far form (pullToHood). `origin`
- * gives N0's place in that frame at an ambient (the world's origin, bodyGalactic of N0); without it the
- * galaxy's centre is the origin.
+ * gives N0's place in that frame at an ambient (the world's origin, bodyGalactic of N0). Every set
+ * discards inside the black hole's shadow (`shadow`, the one uniform the hole writes: shadow.ts).
  */
 export function createGalaxySystem(
   bg: Background,
   spots: readonly (readonly [number, number, number])[],
-  origin: (ambient: number) => Vec3 = () => [0, 0, 0],
+  origin: (ambient: number) => Vec3,
+  shadow: IUniform<Vector3>,
 ): GalaxySystem {
   const viewportPx: IUniform<Vector2> = { value: new Vector2(1, 1) };
   const pixelRatio: IUniform<number> = { value: 1 };
@@ -168,6 +169,7 @@ export function createGalaxySystem(
         uHoodHold: hoodHoldU,
         uViewport: viewportPx,
         uPixelRatio: pixelRatio,
+        uShadow: shadow,
       },
       blending: CustomBlending,
       blendEquation: AddEquation,

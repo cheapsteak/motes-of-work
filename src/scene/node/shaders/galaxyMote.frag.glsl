@@ -15,6 +15,10 @@ flat in vec3 vBase; // the body's base colour (the bodies texture's T6)
 
 out vec4 outColor; // premultiplied: the material screen-blends (bodySystem.ts)
 
+// The black hole's shadow (src/scene/hole/shadow.ts): its centre in device px from the bottom left,
+// and its radius (0: none). Shared by every galaxy material.
+uniform vec3 uShadow;
+
 const vec3 HUMAN = vec3(1.0, 0.7019608, 0.2784314); // #FFB347
 // The highlight (Act II): what carries the defect, the camera's x-ray, nobody's colour. A lit dot's
 // colour is mixed this far toward it at full highlight.
@@ -24,6 +28,8 @@ const float EMBER_MIX = 0.8;
 const float LIT_CORE = 0.75;
 
 void main() {
+  // The shadow stays black (re-skin §4.2): nothing of the galaxy lights a pixel inside it.
+  if (uShadow.z > 0.0 && distance(gl_FragCoord.xy, uShadow.xy) < uShadow.z) discard;
   float r = length(vUv);
   if (r > 1.0) discard;
   // The person's amber at 0, the body's base colour at 1 (the galaxy's fixed shells mix the two).

@@ -16,7 +16,7 @@ const data = packBodyData(g);
 const all = allBodyMoteAttrs(g);
 
 describe('the dark ?lib=body parity cases', () => {
-  it('are the five lamps that light a set: the planet lamp on C1, the star lamp, the core lamp, the lineage lamp on P1 and the arms lamp', () => {
+  it('are the four lamps that light a set and darken drawn motes: the planet lamp on C1, the star lamp, the core lamp and the lineage lamp on P1 (the arms lamp darkens only the core rows, which draw nothing since the re-skin’s Task 5)', () => {
     const lamps = BODY_DARK_CASES.map((c) => {
       const k = c.clocks(g);
       return [k.lamp, k.lampRow === -1 ? null : g.bodies[k.lampRow].id];
@@ -26,7 +26,6 @@ describe('the dark ?lib=body parity cases', () => {
       [Lamp.Star, 'C1'],
       [Lamp.Core, null],
       [Lamp.Lineage, 'P1'],
-      [Lamp.Arms, null],
     ]);
     for (const c of BODY_DARK_CASES) expect(BODY_CASES).toContain(c);
   });

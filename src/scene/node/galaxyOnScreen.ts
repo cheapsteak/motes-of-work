@@ -2,7 +2,7 @@
 // unit clearance sweeps both read it, so it lives in src, beside streamOnScreen.ts). The lit, built
 // shell, moon and person motes that have mostly landed (bodyMote.ts, the twin of bodyMote.glsl, under
 // the lamp), every system at full detail (more than is drawn: a bound), each body's lattice sampled to
-// at most SHELL_SAMPLES motes across all its rows (a star's dots alike); the star and core glows, a
+// at most SHELL_SAMPLES motes across all its rows (a star's dots alike); the stars' glows, a
 // star's with its spikes' tips (star.ts starTopPx); the dotted orbits and moon tracks (track.vert.glsl's
 // twin); and the freeze frame's bursts (tick.vert.glsl's twin).
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -137,8 +137,8 @@ export function held(s: SceneState, ambient: number, g: Galaxy = galaxyOf().g): 
  * The galaxy the reader can make out at `s` and ambient `ambient` (the ambient shown: the pin while
  * the hold is up, `held`), while it shows: every built body
  * the lamp lights (lampGain), its sampled shell, moon and person motes that have mostly landed,
- * through bodyMote() at full detail, each with its mote's size; and every lit star's and core body's
- * glow sprite.
+ * through bodyMote() at full detail, each with its mote's size; and every lit star's glow sprite.
+ * The core rows draw nothing (re-skin Task 5): the hole drawn in their place is holeOnScreen.ts's.
  */
 export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
   if (s.net.show <= 0) return [];
@@ -164,7 +164,6 @@ export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
       const o = bodyMote(a, clocks, shells);
       if (o.visible && o.settled >= 0.5) out.push({ pos: o.pos, diameter, row: b.index });
     }
-    if (b.kind === 'core') out.push({ pos: bodyWorld(data, b.index, ambient), glow: { R: b.R, cap: GLOW_CAP.core } });
     if (b.kind === 'star') out.push({ pos: bodyWorld(data, b.index, ambient), glow: { R: b.R, cap: GLOW_CAP.star, look: b.look! } });
   }
   return out;
