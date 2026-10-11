@@ -15,7 +15,7 @@ import { KeyframeSampler, type KeyframeFile } from '../src/timeline/keyframeSamp
 import { essayCamera, GALAXY_SHOTS, galaxyShotCamera, STREAM_BEATS } from '../src/timeline/netShots';
 import { streamPixels } from '../src/scene/node/streamOnScreen';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
-import { BODY_LOOK, buildTrackAttrs } from '../src/scene/node/bodyAttrs';
+import { BODY_LOOK, buildTrackAttrs, systemIndexOf, unitIndexOf } from '../src/scene/node/bodyAttrs';
 import { STAR_LOOK } from '../src/scene/node/classLook';
 import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { FULL_DETAIL_MAX, HOOD_LOD, LOD_BANDS, LodElement, MOON_POINT_PX, systemPx } from '../src/scene/node/lod';
@@ -36,7 +36,7 @@ const keyframes = JSON.parse(readFileSync(new URL('../src/timeline/keyframes.jso
 interface Hook {
   lod(): { sysPx: number[]; levels: [number, number, number] } | null;
   glows(): { x: number; y: number; r: number }[] | null;
-  hoodLod(): { glowPx: number; real: number; far: number; x: number; y: number }[] | null;
+  hoodLod(): { glowPx: number; real: number; far: number; x: number; y: number; unit: number; sx: number; sy: number }[] | null;
   forceLod(el: number, gain: number | null): void;
   isolate(names: string[] | null): void;
   drawStats(): { visible: string[]; instances: Record<string, number> };
@@ -139,13 +139,15 @@ for (const size of SIZES) {
     // neighbourhood is its far form only (re-skin §4.1; the dissolve's own test below).
     test('three levels by projected size: galaxy wide is far form only, the neighbourhood star-and-planets, the system full', async ({ page }) => {
       const at: Partial<Record<Shot, [number, number, number]>> = {};
+      // A binary's two stars count as one for the at-most-two rule (re-skin Task 1e).
+      const unit = unitIndexOf(generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP)));
       for (const shot of SHOTS) {
         await openShot(page, shot);
         const { sysPx, levels } = await lod(page);
         expect(sysPx, shot).toHaveLength(30);
         expect(levels.reduce((a, b) => a + b, 0), shot).toBe(30);
         // At most two systems at full detail in any shot (galaxy §3.3).
-        expect(levels[2], shot).toBeLessThanOrEqual(FULL_DETAIL_MAX);
+        expect(new Set(sysPx.flatMap((s, i) => (s >= LOD_BANDS[LodElement.Moon][0] ? [unit[i]] : []))).size, shot).toBeLessThanOrEqual(FULL_DETAIL_MAX);
         at[shot] = levels;
       }
       if (size.label === 'phone') {
@@ -155,9 +157,11 @@ for (const size of SIZES) {
       } else {
         // A desktop reaches each level sooner (§3.1): its neighbourhood's systems about 100 px, held to
         // two at full detail. Its galaxy wide stands at 953 since Task 1d (GALAXY_WIDE's landscape
-        // distance), where 22 of the 30 systems are star and planets and 8 under the planets' 10 px
-        // (all 30 star and planets at 640 before).
-        expect(at.galaxyWide).toEqual([8, 22, 0]);
+        // distance), where 20 of the 30 systems are star and planets and 10 under the planets' 10 px
+        // (all 30 star and planets at 640 before; 22 and 8 in Task 1d). Task 1e's binary's two stars are
+        // the two more under it: each is sized by its own planets, those inside its limit, so its reach is
+        // smaller than the single it was.
+        expect(at.galaxyWide).toEqual([10, 20, 0]);
       }
       expect(at.hood![1]).toBeGreaterThanOrEqual(6);
       expect(at.system![2]).toBeGreaterThanOrEqual(1);
@@ -321,8 +325,9 @@ for (const size of SIZES) {
       const drawn = net.reduce((n, [, k]) => n + k, 0);
       expect(drawn).toBe(g.instances.total - g.instances.reserved);
       expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
-      // The neighbourhood's far form moves 30 stars to the far sets: the background's count is unchanged.
-      expect(instances['galaxy-far-stars'] + instances['galaxy-far-bright']).toBe(30);
+      // The neighbourhood's far form moves one star per unit (a binary's on its barycentre, re-skin Task
+      // 1e: 29) to the far sets: the background's count is unchanged.
+      expect(instances['galaxy-far-stars'] + instances['galaxy-far-bright']).toBe(g.units.length);
       expect({
         stars: instances['galaxy-stars'] + instances['galaxy-bright'] + instances['galaxy-far-stars'] + instances['galaxy-far-bright'],
         dust: instances['galaxy-dust'],
@@ -1170,6 +1175,8 @@ test.describe('Moons at 390x844', () => {
   const data = packBodyData(g);
   const c1 = g.bodies[bodyIndex(g, 'C1')];
   const sys = g.systems.indexOf(c1.star);
+  /** Each body's system (a binary's stars and their planets share their barycentre's). */
+  const sysOf = systemIndexOf(g);
   /** The furthest a shell mote sits from its body's centre, in its radius, healthy or cracked (morphTerm's bound). */
   const SHELL_REACH = 1 + EQ_A * (1 + EQ_SECOND);
 
@@ -1246,9 +1253,9 @@ test.describe('Moons at 390x844', () => {
     const c = twinClocks({}, 0, sysPx);
     const { focal, project } = twinCamera(g, 'system', 0, size);
     const all = g.bodies
-      .filter((b) => b.kind !== 'core' && (b.kind !== 'moon' || sysPx[g.systems.indexOf(b.star)] >= LOD_BANDS[LodElement.Moon][1]))
+      .filter((b) => b.kind !== 'core' && b.kind !== 'bary' && (b.kind !== 'moon' || sysPx[sysOf[b.index]] >= LOD_BANDS[LodElement.Moon][1]))
       .map((b) => {
-        const p = project(bodyCentre(b.index, bodyDerp(b.index, g.systems.indexOf(b.star), c, data), 0, data));
+        const p = project(bodyCentre(b.index, bodyDerp(b.index, sysOf[b.index], c, data), 0, data));
         return { b, x: p.x, y: p.y, front: p.front, across: (2 * b.R * focal) / p.d };
       });
     const small = all.filter((m) => {
@@ -1311,7 +1318,7 @@ test.describe('Moons at 390x844', () => {
       const { focal, project } = twinCamera(g, shot, AMBIENT_POSE, size);
       const at = (row: number) => {
         const b = g.bodies[row];
-        const p = project(bodyCentre(row, bodyDerp(row, g.systems.indexOf(b.star), c, data), AMBIENT_POSE, data));
+        const p = project(bodyCentre(row, bodyDerp(row, sysOf[b.index], c, data), AMBIENT_POSE, data));
         return { row, x: p.x, y: p.y, front: p.front, across: (2 * b.R * focal) / p.d };
       };
       return { png: PNG.sync.read(await canvasShot(page)), at };
@@ -1627,8 +1634,10 @@ for (const size of SIZES) {
 
 // The re-skin's Task 1c (docs/specs/2026-10-09-act-2-reskin.md §4.1): the neighbourhood from afar,
 // "Dissolve (late)". At the galaxy wides the 30 stars are not drawn as themselves: the background star
-// pulled onto each spot stands there (the far sets), and the real star comes in by its plain glow over
-// HOOD_LOD.glowPx. __motes.hoodLod() is each spot's glow, real share, far share and place on screen.
+// pulled onto each system's spot stands there (the far sets: one per system, a binary's on its
+// barycentre since Task 1e), and the real star comes in by its plain glow over HOOD_LOD.glowPx.
+// __motes.hoodLod() is each star's glow, real share, far share and place on screen, and its system's
+// spot on screen.
 
 const hoodLod = (page: Page) => page.evaluate(() => (window as unknown as { __motes: Hook }).__motes.hoodLod()!);
 
@@ -1650,6 +1659,8 @@ for (const size of SIZES) {
     test('the neighbourhood dissolves at the wides and is whole at the hood', async ({ page }) => {
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      // real + far is 1 for every star: a binary's two dissolve at their barycentre, where the pair's one
+      // far star stands (Task 1e), so they share its hand-over.
       const sums = (spots: { real: number; far: number }[], where: string) => {
         for (const [k, s] of spots.entries()) expect(Math.abs(s.real + s.far - 1), `${where} spot ${k}: real ${s.real}, far ${s.far}`).toBeLessThan(1e-6);
       };
@@ -1672,16 +1683,20 @@ for (const size of SIZES) {
       const onScreen = wide.filter((s) => s.x >= 0 && s.y >= 0 && s.x < size.width && s.y < size.height);
       expect(onScreen.length).toBeGreaterThanOrEqual(25);
       for (const s of onScreen) expect(litNear(png, mask, s.x, s.y, 8), `the real star at ${s.x.toFixed(1)}, ${s.y.toFixed(1)}`).toBe(0);
-      // ...and the far sets light every spot on screen, and nothing away from the spots.
+      // ...and the far sets light every system's spot on screen (a binary's barycentre: one star from
+      // afar, between its two), and nothing away from the spots.
+      const spots = [...new Map(wide.map((s) => [s.unit, s])).values()];
+      expect(spots.length).toBeLessThan(wide.length);
+      const spotsOnScreen = spots.filter((s) => s.sx >= 0 && s.sy >= 0 && s.sx < size.width && s.sy < size.height);
       await call(page, 'isolate', ['galaxy-far-stars', 'galaxy-far-bright']);
       png = PNG.sync.read(await canvasShot(page));
       mask = litMask(png, 0);
-      for (const s of onScreen) expect(litNear(png, mask, s.x, s.y, 2), `the far star at ${s.x.toFixed(1)}, ${s.y.toFixed(1)}`).toBeGreaterThan(0);
+      for (const s of spotsOnScreen) expect(litNear(png, mask, s.sx, s.sy, 2), `the far star at ${s.sx.toFixed(1)}, ${s.sy.toFixed(1)}`).toBeGreaterThan(0);
       let stray = 0;
       for (let i = 0; i < mask.length; i++) {
         if (!mask[i]) continue;
         const [x, y] = [(i % png.width) + 0.5, Math.floor(i / png.width) + 0.5];
-        if (!wide.some((s) => Math.hypot(x - s.x, y - s.y) <= 4)) stray++;
+        if (!spots.some((s) => Math.hypot(x - s.sx, y - s.sy) <= 4)) stray++;
       }
       expect(stray, 'far-set pixels away from every spot').toBe(0);
 
@@ -1696,6 +1711,11 @@ for (const size of SIZES) {
       const hood = await hoodLod(page);
       for (const [k, s] of hood.entries()) expect(s.real, `hood spot ${k}`).toBe(1);
       sums(hood, 'hood');
+      // A binary's stars are among them, each whole at its own place, off its barycentre.
+      const binary = hood.filter((s) => hood.filter((o) => o.unit === s.unit).length === 2);
+      expect(binary.length).toBeGreaterThanOrEqual(2);
+      for (const s of binary) expect(Math.hypot(s.x - s.sx, s.y - s.sy)).toBeGreaterThan(5);
+      for (const s of hood) if (!binary.includes(s)) expect([s.x, s.y]).toEqual([s.sx, s.sy]);
 
       // Along the zoom-out's pull (zoom-out 0.40 to 1, every 1/50 of the section), as the camera recedes:
       // no spot's real share ever rises, and real + far is 1 at every sample.
@@ -1719,6 +1739,35 @@ for (const size of SIZES) {
       // It does hand over on the way: whole near the start of the pull, the far form only by its end.
       expect(fell).toBeGreaterThan(0);
       expect(last!.every((r) => r === 0)).toBe(true);
+      expect(errors).toEqual([]);
+    });
+
+    test('a binary star goes round its barycentre: at the hood probe 300 s apart its place moves about its barycentre, and a single star sits at its spot', async ({ page }) => {
+      // Re-skin Task 1e. The probe tracks the neighbourhood's middle and the galaxy turns under it, so
+      // every spot moves on screen with the turn; a binary's star also moves about its barycentre.
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const at = async (ambient: number) => {
+        await openStage(page, `&mech=bike&shot=hood&state=${GROWN}&ambient=${ambient}`);
+        await page.waitForFunction(() => (window as unknown as { __motes: Hook }).__motes.lod() !== null);
+        await settle(page);
+        return hoodLod(page);
+      };
+      // 300 s is about a quarter of seed 1's pair's period (1,290 s). On a phone, at the hood probe's
+      // distance, its slower star moves about 4 px in it; a single moves 0.
+      const [a, b] = [await at(0), await at(300)];
+      const rel = (s: (typeof a)[number]) => [s.x - s.sx, s.y - s.sy];
+      let binaries = 0;
+      a.forEach((s, k) => {
+        const [p, q] = [rel(s), rel(b[k])];
+        const moved = Math.hypot(p[0] - q[0], p[1] - q[1]);
+        const pair = a.filter((o) => o.unit === s.unit).length === 2;
+        if (pair) {
+          binaries++;
+          expect(moved, `star ${k}: about its barycentre`).toBeGreaterThan(2);
+        } else expect(moved, `star ${k}: a single star is its system's spot`).toBe(0);
+      });
+      expect(binaries).toBeGreaterThanOrEqual(2);
       expect(errors).toEqual([]);
     });
 

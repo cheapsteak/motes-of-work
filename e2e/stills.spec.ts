@@ -1,6 +1,14 @@
 import { mkdirSync } from 'node:fs';
 import { test } from '@playwright/test';
+import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../src/config';
 import { AMBIENT_POSE } from '../src/galaxy/ambient';
+import { starMass } from '../src/galaxy/body';
+import { galaxyBudget, generateGalaxy, systemOuter } from '../src/galaxy/generate';
+import { mechanisms } from '../src/mechanisms';
+import { mechanismAnchors } from '../src/mechanisms/anchors';
+import { packBodyData } from '../src/scene/node/bodyData';
+import { bodyGalactic, galacticToWorld } from '../src/scene/node/orbit';
+import { galaxyShotKeys } from '../src/timeline/netShots';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
 import { defaultSceneState, mergeState } from '../src/timeline/sceneState';
 import { beatMiddles, canvasShot, openStage, readSpans, settle, targetScrollY } from './helpers';
@@ -32,6 +40,32 @@ const shot = (name: string, state = grown(), ambient?: number) =>
   `&mech=bike&shot=${name}&state=${state}${ambient === undefined ? '' : `&ambient=${ambient}`}`;
 /** Act I's bike, assembled, at shots.spec.ts's three-quarter view (its mech-bike-assembled). */
 const BIKE = mergeState(mergeState(defaultSceneState(), { camera: { pos: [1.6, 1.1, 2.4], target: [0, 0, 0], fov: 40, coreFocus: 0 } }), { mech: { assembly: 1, drive: 0.3 } });
+
+/**
+ * The binary nearest the neighbourhood's middle, close (re-skin Task 1e), at ambient `t`: P_a's system
+ * shot's bearing, elevation and field (2.7 × the pair's reach), on the barycentre, lamped on the
+ * neighbourhood, everything built. The probe shots frame no pair, so the camera keys ride the
+ * neighbourhood's middle, offset onto the barycentre at `t`; drawn at ls-1's place (the galaxy alone).
+ */
+function pairClose(t: number): string {
+  const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
+  const data = packBodyData(g);
+  const c = g.hoodCentroid;
+  const bary = g.bodies.filter((b) => b.kind === 'bary').sort((a, b) => Math.hypot(a.spot![0] - c[0], a.spot![2] - c[2]) - Math.hypot(b.spot![0] - c[0], b.spot![2] - c[2]))[0];
+  const stars = g.bodies.filter((b) => b.kind === 'star' && b.host === bary.index);
+  // The stars' mass-weighted middle at t: the barycentre (its spot).
+  const m = stars.map((b) => starMass(b.look!.brightness));
+  const at = stars.map((b) => bodyGalactic(data, b.index, t));
+  const mid = [0, 1, 2].map((k) => (m[0] * at[0][k] + m[1] * at[1][k]) / (m[0] + m[1]));
+  const [w, h] = [galacticToWorld(data, mid, t), galacticToWorld(data, c, t)];
+  const { radius } = mechanismAnchors(mechanisms.bike).whole;
+  const off = [0, 1, 2].map((k) => (w[k] - h[k]) / radius);
+  const keys = galaxyShotKeys({ target: { hood: true }, bearing: -10, elevation: 72, distance: Math.round(2.7 * systemOuter(g, bary.index)), fov: 40, frame: 0, lamp: Lamp.Hood }, g);
+  const shift = (v: readonly number[]) => v.map((x, k) => x + off[k]);
+  const camera = { ...keys, pos: shift(keys.pos), target: shift(keys.target), landscape: { ...keys.landscape, pos: shift(keys.landscape.pos), mix: 0 } };
+  const net = { show: 1, growth: 1, lamp: Lamp.Hood, lampAt: trackIndex({ hood: true }), streams: 0, feed: 0, haze: 0 };
+  return `&mech=bike&ambient=${t}&state=${encodeURIComponent(JSON.stringify({ camera, net }))}`;
+}
 
 /** Every named still, by task. */
 const STILLS: Still[] = [
@@ -219,6 +253,32 @@ const STILLS: Still[] = [
       ['ly-5-start', 'layers', 3.55 / 4.3],
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R1dfix', name, query: '&mech=bike', at: { section, local } })),
+  // The re-skin's Task 1e: the close pairs as S-type binaries, at the hood probe and the two beats that
+  // look down on the stars round the core; and the pair nearest the middle close, at the pose and 120 s
+  // on (its stars go round their barycentre, which stays put).
+  { tag: 'R1e', name: 'hood', query: shot('hood') },
+  ...(
+    [
+      ['ly-3', 'layers', 2.35 / 4.3],
+      ['ls-1', 'lesson', 0.5],
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R1e', name, query: '&mech=bike', at: { section, local } })),
+  // (Built only when the stills are shot: the pair's framing generates the galaxy.)
+  ...(process.env.SHOTS === '1'
+    ? (
+        [
+          ['pair-a0', AMBIENT_POSE],
+          ['pair-a120', AMBIENT_POSE + 120],
+        ] as const
+      ).map(([name, t]) => ({ tag: 'R1e', name, query: pairClose(t), at: { section: 'lesson', local: 0.5 } }))
+    : []),
+  // ly-5's opening swing (Move pan): P_a sliding in at 3.52, settled on it at 3.55.
+  ...(
+    [
+      ['ly-5-swing', 'layers', 3.52 / 4.3],
+      ['ly-5-settled', 'layers', 3.55 / 4.3],
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R1e', name, query: '&mech=bike', at: { section, local } })),
 ];
 
 /** Phone first (the essay's first reader), then the desktop. */

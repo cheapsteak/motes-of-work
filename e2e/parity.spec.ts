@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { MECHANISM_IDS } from '../src/mechanisms';
 
 interface ParityCase {
@@ -56,10 +57,12 @@ test('GLSL mote() matches the TS reference', async ({ page }) => {
   expect(byName.get('pcg goldens')).toBe(0);
 });
 
-// The galaxy's bodyWorld() (`?lib=orbit`): N0, C1 and its six moons, P1, R0, R1 and 32 hashed bodies,
-// at each sampled ambient time, up to a day in (the moons' 6 s periods run 14,400 turns by then, and
-// the galaxy's turn 72, swinging points a hundred units from N0: an unreduced angle shows there).
-const ORBIT_TIMES = [0, 37.3, 101, 953, 3599.9, 86_400];
+// The galaxy's bodyWorld() (`?lib=orbit`): N0, C1 and its six moons, P1, R0, R1, a binary (re-skin
+// Task 1e: a moon of a binary star's planet, three hops from its barycentre, that planet, that star
+// and the barycentre) and 32 hashed bodies, at each sampled ambient time (the pose among them), up to
+// a day in (the moons' 6 s periods run 14,400 turns by then, and the galaxy's turn 72, swinging points
+// a hundred units from N0: an unreduced angle shows there).
+const ORBIT_TIMES = [0, AMBIENT_POSE, 37.3, 101, 953, 3599.9, 86_400];
 
 test('GLSL bodyWorld() matches the TS reference', async ({ page }) => {
   const { errors, ...parity } = await runParity(page, '&lib=orbit');
