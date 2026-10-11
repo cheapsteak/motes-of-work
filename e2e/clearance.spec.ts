@@ -129,6 +129,11 @@ for (const viewport of [
     test.use({ viewport });
 
     test(`the visible machine stays below the text in every page (${size})`, async ({ page }) => {
+      // Measured: 2.2-2.5 min on CI on 1 shard (run 38158922552; 2.6-2.8 min before this branch's twin
+      // speedups, and 4.4 min beside a shard's other tests in run 38153043664); locally 5.8 min at load
+      // about 19, and over the file's 4 min at load 19-25 (both sizes, 4.5-4.7 min, this branch). 15 min is
+      // 6 times the CI time and 2.6 times the slowest local pass.
+      test.setTimeout(900_000);
       const errors = await open(page);
       const story = await sections(page);
       const spans = await readSpans(page);

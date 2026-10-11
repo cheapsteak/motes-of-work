@@ -41,6 +41,9 @@ async function runParity(page: Page, query: string): Promise<{ cases: ParityCase
 }
 
 test('GLSL mote() matches the TS reference', async ({ page }) => {
+  // Measured: 3.7 s alone (load 6), 15.7 s on CI beside a shard's other tests (run 38153043664); at
+  // load 14-19 it ran out of the default 30 s waiting for the page's cases. 2 min is over 7 times the CI time.
+  test.setTimeout(120_000);
   const { errors, ...parity } = await runParity(page, '');
 
   expect(errors).toEqual([]);
