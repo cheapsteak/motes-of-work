@@ -91,3 +91,15 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **The knots' `seed` (aA.w)** is drawn and never read (holeAttrs.ts:135). This is plan-mandated by    the brief's layout, and the inspector's KNOT_VERT doesn't read it either. Note it for Task 5 so    the attribute isn't mistaken for live data.
 - [x] **The floor wording:** spec and plan said 1 device px; the code, the inspector and the brief's test value are 1 CSS px. Words corrected by the controller.
 - [ ] **The life-index fence pins the GLSL half only by regex and parity on an exact-division GPU** (re-review of 9c4b109): the TS fence guards the TS index; a GLSL-side test that runs the shader under emulated reciprocal division would make it airtight.
+
+## Test speed (review of 12e9209..2a0d5f5: spec compliant; Important 1, the GPU reader ignoring unmodelled kinds, fixed in round 1)
+
+- [ ] **The browser fence is one sample deep in three of four scenes** (`src/purity/samples.ts`): none at the pose ambient, the freeze hold (defect 0.33), the reviewer's ring or the trace's surge. The shaders are pure, so the risk is low; the guard asks only for one per scene.
+- [ ] **The scroll and detour landing checks now run at the 6 fence samples only** (`e2e/purity.spec.ts`). They are page-level preconditions, but the report should name them under "what stayed in the browser".
+- [ ] **Texture format, type, filters, wrap, flipY, image size and material defines are read live**, not as of the last upload or compile (`gpuInputs.ts`). A change without `needsUpdate` that is later reverted would read as equal.
+- [ ] **The twin rebuilds the frame assembly of main.ts by hand** (`src/purity/twin.ts` against `src/main.ts`): the build rule, `shown`, the pins, the live ambient, flash and shimmer. A shared helper in `stage.ts` mapping clock and mode to a `StageFrame` would close the drift.
+- [ ] **CI e2e no longer runs on pull requests** (`ci.yml`, `e2e.yml`); the README's CI line should say so.
+- [ ] **The Playwright image and actions are pinned by tag**, not digest or SHA (hardening only; it matches the old `ci.yml`).
+- [ ] **`digestOf` hashes aligned views by word and unaligned by byte**, so equal bytes at different alignments differ (false positive only); its docstring overstates.
+- [x] **The reviewer instructions named port 4199 for reviews**; corrected to 4198 by the controller.
+- [ ] **Workers: re-measure 2, 3 and 4 on a quiet machine.** No setting met "no timeouts across two runs" on the shared machine; 2 workers kept.
