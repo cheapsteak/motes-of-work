@@ -8,7 +8,8 @@ import { LEAK, NODE_DERP_PERIOD, SCATTER_HOLD, SCATTER_SWEEP } from '../src/scen
 import { bodyCentre, bodyDerp, type BodyClocks } from '../src/scene/node/bodyMote';
 import { derpEvent } from '../src/scene/node/derp';
 import { dropoutEvent } from '../src/scene/node/dropout';
-import { flashGuard } from '../src/scene/node/flashGuard';
+import { FLASH_PLAN, FLASH_SWINGS } from '../src/scene/node/flashChunks';
+import { flashGuard, SWING } from '../src/scene/node/flashGuard';
 import { galaxyOf } from '../src/scene/node/galaxyOnScreen';
 import { leakDotTiming, leakWounds } from '../src/scene/node/leak';
 import { latticeLL, llUnit, shellSeed } from '../src/scene/node/shell';
@@ -126,43 +127,72 @@ const C1 = () => {
   return { b, seed: b.derpSeed, phase: Math.fround(b.derpPhase) };
 };
 
+// The flash guard chunks come first, a chunk of each size in turn: tests are dealt to the CI shards in
+// file order (tools/shard-list.mjs), so the eight sit together here to go to eight different shards.
+for (const [k, chunk] of FLASH_PLAN.entries())
+  for (const size of SIZES)
+    test.describe(`the defect at df-1, ${size.width}x${size.height}`, () => {
+      test.use({ viewport: { width: size.width, height: size.height } });
+
+      test(`the flash guard, on the drawn frames, part ${k + 1} of ${FLASH_PLAN.length} (${size.label})`, async ({ page }) => {
+        // 10 s of df-1 at 30 fps from ambient 101 (C1's forced slot 46 starts 0.23 s in): the summed
+        // luminance of C1's 3 r box as drawn (after the dropout), frame to frame. A change above 10 % of
+        // the median is a swing, a rise and a fall a flash (flashGuard.ts, the inspector's guard): at most 3
+        // in any 1 s window. (The inspector's measure() summed before its draw and missed what the draw
+        // changed: judge2.md; this sums the drawn pixels.) The piece's own meshes are drawn alone (its
+        // shell motes, its bodies, its tracks: what the scatter, the leak and the dropout change); the
+        // rest of the box is the still background behind it.
+        //
+        // The 300 frames of the 10 s are drawn as FLASH_PLAN's chunks, a test each, so CI's shards can
+        // spread them (the whole run took 8 min a size there, 1.6 s a frame, and held one shard 4 min
+        // past the rest). A chunk draws its frames at the whole run's ambients, t0 + f / 30 for its
+        // frame numbers f, and neighbours share 30 frames, so every 1 s window of the whole run is
+        // judged whole in some chunk (flashChunks.test.ts proves it). The bound holds per chunk, so per
+        // window. The median a swing is a share of is the chunk's own: 0.99 to 1.01 of the whole run's
+        // here (the calm level, which the scatters' short rises barely move).
+        //
+        // Timeout: a chunk of 98 frames takes about 2.8 min on CI by the whole run's 1.6 s a frame (8.0
+        // and 8.2 min before, run 38174324079) and took 4.1 min under a load of 12 here (2.4 s a frame:
+        // part 3, desktop). 15 min is 5.4 times CI's and 3.7 times the loaded time.
+        test.setTimeout(900_000);
+        await openDf1(page);
+        await hook(page, (h) => h.isolate(['net-shells', 'net-bodies', 'net-tracks']));
+        const t0 = 101;
+        const started = Date.now();
+        // Each frame drawn and summed in the page (__motes.defectLuminance: the drawing buffer, read back
+        // in the task that drew it), so the frames take seconds, not a screenshot each; a second at a time.
+        const sums: (number | null)[] = [];
+        for (let first = chunk.from; first < chunk.from + chunk.count; first += LEAK.fps)
+          sums.push(
+            ...(await page.evaluate(
+              ({ at, from, n, frame, bg }) => {
+                const m = (window as unknown as { __motes: { defectLuminance(t: number, b: readonly number[]): number | null } }).__motes;
+                return Array.from({ length: n }, (_, f) => m.defectLuminance(at + (from + f) * frame, bg));
+              },
+              { at: t0, from: first, n: Math.min(LEAK.fps, chunk.from + chunk.count - first), frame: FRAME, bg: BG },
+            )),
+          );
+        expect(sums.length).toBe(chunk.count);
+        expect(sums.every((x) => x !== null), 'C1 focused in every frame').toBe(true);
+        const guard = flashGuard(sums as number[], LEAK.fps);
+        // Not vacuous. The whole run's check was more than 4 swings over 10 s (8 phone, 10 desktop, fresh
+        // and on CI). A chunk counts the swings it owns (the changes up to the next chunk's first frame,
+        // so none twice) against FLASH_SWINGS, whose sum over a size's chunks is over 4: the chunks
+        // together hold the whole run's check, and each holds its own stretch of the run to what was
+        // measured there. And the piece must rise above its calm by more than a swing's share somewhere in
+        // the chunk (the scatter's slower rises, which the swing count misses): a chunk that draws nothing
+        // passes the flash bound for nothing.
+        const owned = flashGuard((sums as number[]).slice(0, chunk.ownedTo - chunk.from + 1), LEAK.fps);
+        note('flash guard', `${guard.flashes} flashes in the worst second, ${owned.swings} swings over 10 % owned (${guard.swings} in the chunk), luminance ${guard.range.map((x) => x.toFixed(3)).join('-')} of the median; ${((Date.now() - started) / sums.length).toFixed(0)} ms a frame`);
+        expect(owned.swings, 'not vacuous: the scatter swings').toBeGreaterThanOrEqual(FLASH_SWINGS[size.label][k]);
+        expect(guard.range[1], 'not vacuous: the scatter lifts the piece').toBeGreaterThan(1 + SWING);
+        expect(guard.flashes).toBeLessThanOrEqual(3);
+      });
+    });
+
 for (const size of SIZES) {
   test.describe(`the defect at df-1, ${size.width}x${size.height}`, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
-
-    test(`the flash guard, on the drawn frames (${size.label})`, async ({ page }) => {
-      // 10 s of df-1 at 30 fps from ambient 101 (C1's forced slot 46 starts 0.23 s in): the summed
-      // luminance of C1's 3 r box as drawn (after the dropout), frame to frame. A change above 10 % of
-      // the median is a swing, a rise and a fall a flash (flashGuard.ts, the inspector's guard): at most 3
-      // in any 1 s window. (The inspector's measure() summed before its draw and missed what the draw
-      // changed: judge2.md; this sums the drawn pixels.) The piece's own meshes are drawn alone (its
-      // shell motes, its bodies, its tracks: what the scatter, the leak and the dropout change); the
-      // rest of the box is the still background behind it. Measured under a loaded machine: 6.0 s a
-      // frame for the whole stage, 1.5 s for these three, so 300 frames fit a 15-minute timeout.
-      test.setTimeout(900_000);
-      await openDf1(page);
-      await hook(page, (h) => h.isolate(['net-shells', 'net-bodies', 'net-tracks']));
-      const t0 = 101;
-      const started = Date.now();
-      // Each frame drawn and summed in the page (__motes.defectLuminance: the drawing buffer, read back
-      // in the task that drew it), so 300 frames take seconds, not a screenshot each.
-      const sums: (number | null)[] = [];
-      for (let second = 0; second < 10; second++)
-        sums.push(
-          ...(await page.evaluate(
-            ({ from, n, frame, bg }) => {
-              const m = (window as unknown as { __motes: { defectLuminance(t: number, b: readonly number[]): number | null } }).__motes;
-              return Array.from({ length: n }, (_, f) => m.defectLuminance(from + f * frame, bg));
-            },
-            { from: t0 + second, n: LEAK.fps, frame: FRAME, bg: BG },
-          )),
-        );
-      expect(sums.every((x) => x !== null), 'C1 focused in every frame').toBe(true);
-      const guard = flashGuard(sums as number[], LEAK.fps);
-      note('flash guard', `${guard.flashes} flashes in the worst second, ${guard.swings} swings over 10 % in 10 s, luminance ${guard.range.map((x) => x.toFixed(3)).join('-')} of the median; ${((Date.now() - started) / sums.length).toFixed(0)} ms a frame`);
-      expect(guard.swings, 'not vacuous: the scatter swings').toBeGreaterThan(4);
-      expect(guard.flashes).toBeLessThanOrEqual(3);
-    });
 
     test(`a scatter lands within 4 s of the derp beat (${size.label})`, async ({ page }) => {
       // Arriving at df-1 with the ambient at 25 values spread over the hour: the next scatter's onset (C1's
