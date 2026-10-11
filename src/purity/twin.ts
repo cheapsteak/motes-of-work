@@ -17,7 +17,7 @@ import { galaxyBudget, generateGalaxy, type Galaxy } from '../galaxy/generate';
 import { mechanisms } from '../mechanisms';
 import { FREEZE_PINS, shown } from '../scene/ambientClock';
 import { moteInputs } from '../scene/mote/moteSystem';
-import { createStage, galaxyLead, needsGalaxy, type StageInputs } from '../scene/stage';
+import { createStage, galaxyLead, needsGalaxy, type Stage, type StageInputs } from '../scene/stage';
 import { sectionSpans } from '../scroll/progress';
 import { loadStory } from '../story/loader';
 import { KeyframeSampler, type KeyframeFile } from '../timeline/keyframeSampler';
@@ -35,7 +35,7 @@ const lead = galaxyLead(spans, (p) => sampler.sample(p));
 // stage only reads (the motes' per-mote inputs, the generated galaxy) is a pure function of the seed
 // and the budget, so it is built once per file and shared; `describeRewind` proves no path wrote it.
 const galaxies = new Map<Tier, Galaxy>();
-const shared: StageInputs = {
+export const SHARED_INPUTS: StageInputs = {
   motes: moteInputs(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED),
   galaxy: (tier) => {
     if (!galaxies.has(tier)) galaxies.set(tier, generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP)));
@@ -100,29 +100,42 @@ export interface Step {
  */
 export type Build = 'idle' | 'need';
 
-/** A fresh page that draws `path` in order, as main.ts does in test mode; what the last frame leaves for the GPU. */
-export function run(path: Step[], build: Build): Plain {
-  const stage = createStage(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED, shared);
+/** The galaxy's tier on SCREEN. */
+export const SCREEN_TIER: Tier = galaxyTier(SCREEN.width, SCREEN.height);
+
+/** A fresh page's stage on SCREEN: its own systems, built on the shared inputs. */
+export function freshStage(): Stage {
+  const stage = createStage(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED, SHARED_INPUTS);
   stage.camera.aspect = SCREEN.width / SCREEN.height;
   stage.camera.updateProjectionMatrix();
+  return stage;
+}
+
+/** One frame of `stage` at `step`, as main.ts draws it in test mode (the galaxy built if the frame needs it). */
+export function drawStep(stage: Stage, step: Step): void {
+  if (step.p >= lead) stage.buildGalaxy(SCREEN_TIER);
+  const state = sampler.sample(step.p);
+  if (needsGalaxy(state)) stage.buildGalaxy(SCREEN_TIER);
+  stage.draw({
+    state,
+    override: undefined,
+    shot: null,
+    ambient: shown(step.ambient, state.freeze.hold),
+    liveAmbient: null,
+    pins: FREEZE_PINS,
+    flashOn: false,
+    viewport: { ...SCREEN, pixelRatio: 1 },
+    shimmerTime: null,
+  });
+}
+
+/** A fresh page that draws `path` in order, as main.ts does in test mode; what the last frame leaves for the GPU. */
+export function run(path: Step[], build: Build): Plain {
+  const stage = freshStage();
   const uploads = new Uploads();
-  const tier = galaxyTier(SCREEN.width, SCREEN.height);
   path.forEach((step, i) => {
-    if (build === 'idle' && i === 1) stage.buildGalaxy(tier);
-    if (step.p >= lead) stage.buildGalaxy(tier);
-    const state = sampler.sample(step.p);
-    if (needsGalaxy(state)) stage.buildGalaxy(tier);
-    stage.draw({
-      state,
-      override: undefined,
-      shot: null,
-      ambient: shown(step.ambient, state.freeze.hold),
-      liveAmbient: null,
-      pins: FREEZE_PINS,
-      flashOn: false,
-      viewport: { ...SCREEN, pixelRatio: 1 },
-      shimmerTime: null,
-    });
+    if (build === 'idle' && i === 1) stage.buildGalaxy(SCREEN_TIER);
+    drawStep(stage, step);
     uploads.render(stage.scene);
   });
   return gpuInputs(stage.scene, stage.camera, uploads);
@@ -159,7 +172,7 @@ export const samplesOf = (scene: string): PuritySample[] =>
 export function describeRewind(scene: string): void {
   describe(`the rewind invariant in ${scene}, at every sample of the grid (the purity twin)`, () => {
     const jumps = new Map<string, Plain>();
-    const before = fingerprint({ motes: shared.motes, galaxy: shared.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) });
+    const before = fingerprint({ motes: SHARED_INPUTS.motes, galaxy: SHARED_INPUTS.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) });
     // Timeouts measured: a sample takes 0.3-0.7 s on CI, 0.4-1.1 s alone and up to 6.0 s locally at load
     // 12-22 beside the full suite, so 120 s is 20 times the loaded time; the last check takes 0.8-1.1 s on
     // CI, 1.3 s alone and 4.7-7.0 s loaded, so 60 s is over 8 times. Both ran out of the default 5 s.
@@ -221,7 +234,7 @@ export function describeRewind(scene: string): void {
 
     it('shares only what no stage writes: the motes’ inputs and the galaxy are as they were built', { timeout: 60_000 }, () => {
       expect(jumps.size, 'every sample was drawn').toBe(samplesOf(scene).length);
-      expect(fingerprint({ motes: shared.motes, galaxy: shared.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) })).toBe(before);
+      expect(fingerprint({ motes: SHARED_INPUTS.motes, galaxy: SHARED_INPUTS.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) })).toBe(before);
     });
   });
 }

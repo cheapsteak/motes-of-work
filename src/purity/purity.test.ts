@@ -34,9 +34,11 @@ import {
   Texture,
 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { differences, digestOf, gpuInputs, Uploads } from './gpuInputs';
+import { HOLE_PARTS, holePartCount } from '../scene/hole/holeFrame';
+import type { Stage } from '../scene/stage';
+import { differences, digestOf, gpuInputs, Uploads, type Plain } from './gpuInputs';
 import { PURITY_SAMPLES } from './samples';
-import { SCENES, samplesOf } from './twin';
+import { drawStep, freshStage, held, SCENES, SCREEN_TIER, SHARED_INPUTS, samplesOf, spans } from './twin';
 
 describe('the purity twin', () => {
   it('splits the grid over its scenes, every sample in exactly one, and the browser fences each scene', () => {
@@ -46,6 +48,88 @@ describe('the purity twin', () => {
     for (const scene of Object.keys(SCENES)) {
       const fenced = samplesOf(scene).filter((s) => s.fence).length;
       expect(fenced, scene).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe('the stages the twin drives', () => {
+  /** Every uniform (and its value), buffer and texture a stage's draws hold, its galaxy built. */
+  function heldBy(stage: Stage): Set<object> {
+    stage.buildGalaxy(SCREEN_TIER);
+    const out = new Set<object>();
+    stage.scene.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh && !(o as Points).isPoints && !(o as LineSegments).isLine) return;
+      for (const a of Object.values(m.geometry.attributes)) out.add(a);
+      if (m.geometry.index) out.add(m.geometry.index);
+      for (const material of [m.material].flat())
+        for (const u of Object.values((material as ShaderMaterial).uniforms ?? {})) {
+          out.add(u);
+          if (u.value !== null && typeof u.value === 'object') out.add(u.value as object);
+        }
+    });
+    return out;
+  }
+
+  // Measured: two stages and their galaxies, 1.5 s alone.
+  it('gives every stage its own uniforms, buffers and textures: two share none, the hole’s shadow among them, but the StageInputs the rewind files fingerprint and frozen constants', { timeout: 60_000 }, () => {
+    const a = freshStage();
+    const b = freshStage();
+    const [x, y] = [heldBy(a), heldBy(b)];
+    // Not vacuous: the shadow every galaxy material reads is among what each holds, and so are the inputs shared.
+    expect(x.has(a.shadow) && y.has(b.shadow)).toBe(true);
+    const inputs = new Set<object>(Object.values(SHARED_INPUTS.motes!.instanced));
+    expect([...x].filter((o) => inputs.has(o)).length).toBe(inputs.size);
+    const both = [...x].filter((o) => y.has(o) && !inputs.has(o) && !Object.isFrozen(o));
+    expect(both.map((o) => (o as { constructor: { name: string } }).constructor.name)).toEqual([]);
+  });
+
+  // Measured: one stage drawn once, 0.9 s alone.
+  it('reads the hole’s draws as three.js uploads them: each part’s instanced quads and count, and the shadow the background, the hole and the bodies share', { timeout: 60_000 }, () => {
+    const sample = PURITY_SAMPLES.find((s) => s.scene === 'hole' && s.fence)!;
+    const stage = freshStage();
+    const uploads = new Uploads();
+    drawStep(stage, { p: sample.p(spans), ambient: held(sample) });
+    uploads.render(stage.scene);
+    const read = gpuInputs(stage.scene, stage.camera, uploads) as { draws: Record<string, { name: string; geometry: Plain; material: { uniforms: Record<string, Plain> } }> };
+    const draws = Object.values(read.draws);
+    const galaxy = stage.galaxy()!;
+    // Every part is drawn at the hole close, in HOLE_PARTS's order.
+    const parts = draws.filter((d) => d.name.startsWith('hole-'));
+    expect(parts.map((d) => d.name)).toEqual(HOLE_PARTS.map((p) => p.name));
+    for (const p of HOLE_PARTS) {
+      const mesh = galaxy.hole.object.getObjectByName(p.name) as Mesh;
+      const attrs = mesh.geometry.attributes;
+      const instanced = (name: string) => ({ data: digestOf(attrs[name].array), itemSize: 4, normalized: false, offset: 0, meshPerAttribute: 1 });
+      expect(parts.find((d) => d.name === p.name)!.geometry, p.name).toEqual({
+        attributes: {
+          aCorner: { data: digestOf(attrs.aCorner.array), itemSize: 2, normalized: false, offset: 0, meshPerAttribute: null },
+          aHoleA: instanced('aHoleA'),
+          aHoleB: instanced('aHoleB'),
+          ...(attrs.aHoleC ? { aHoleC: instanced('aHoleC') } : {}),
+        },
+        index: digestOf(mesh.geometry.index!.array),
+        drawRange: [0, Infinity],
+        groups: [],
+        instanceCount: holePartCount(p.key),
+      });
+    }
+    // The shadow is up there, and every galaxy draw reads the stage's own: the hole's, the background's and the bodies'.
+    const s = stage.shadow.value;
+    expect(s.z).toBeGreaterThan(0);
+    const namesIn = (o: Object3D): Set<string> => {
+      const out = new Set<string>();
+      o.traverse((c) => c !== o && out.add(c.name));
+      return out;
+    };
+    for (const [system, names] of [
+      ['hole', namesIn(galaxy.hole.object)],
+      ['background', namesIn(galaxy.background.object)],
+      ['bodies', namesIn(galaxy.bodies.object)],
+    ] as const) {
+      const shading = draws.filter((d) => names.has(d.name));
+      expect(shading.length, system).toBeGreaterThan(0);
+      for (const d of shading) expect(d.material.uniforms.uShadow, `${system}: ${d.name}`).toEqual([s.x, s.y, s.z]);
     }
   });
 });
