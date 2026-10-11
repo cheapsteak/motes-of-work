@@ -12,7 +12,8 @@
 // computes once a frame only what the hole shares (holeFrame.ts): its view, its gain, the small hole,
 // the shadow's disc (shadow.ts), which it writes into the one uniform every galaxy material reads. The
 // parts skip whole (the group hidden) when the hole is unlit, not up, not shown, behind the camera or off
-// the screen by more than its reach. Blending is additive (One, One), as the inspector draws.
+// the screen by more than its reach, and then it writes no shadow: the shadow is only where the hole is
+// drawn. Blending is additive (One, One), as the inspector draws.
 import {
   BufferAttribute,
   CustomBlending,
@@ -182,11 +183,12 @@ export function createHoleSystem(g: Galaxy, data: BodyData, shadow: IUniform<Vec
       const ratio = Number.isFinite(viewport.pixelRatio) && viewport.pixelRatio > 0 ? viewport.pixelRatio : 1;
       const size = { width: viewport.width / ratio, height: viewport.height / ratio };
       const f = holeFrame(state, g, data, camera, size, ambient);
-      // The shadow is there wherever the hole is (up and shown, in front of the camera), lit or not.
-      const s = f.present > 0 && f.front ? shadowDisc(camera, viewport, f.world) : NO_SHADOW;
-      shadow.value.set(s.x, s.y, s.r);
       lastApproach = f.approach;
       group.visible = f.gain > 0 && f.front && !f.skip;
+      // The shadow is there only while the hole is drawn: a frame that hides it (unlit under lamps Arms,
+      // Planet and Star, not up, not shown, behind the camera or off the screen) discards nothing.
+      const s = group.visible ? shadowDisc(camera, viewport, f.world) : NO_SHADOW;
+      shadow.value.set(s.x, s.y, s.r);
       if (!group.visible) return;
       viewportPx.value.set(Math.max(1, viewport.width), Math.max(1, viewport.height));
       common.uPixelRatio.value = ratio;

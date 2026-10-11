@@ -109,6 +109,31 @@ describe('the hole drawn', () => {
     expect(hole.object.visible).toBe(false);
   });
 
+  it('writes the shadow only while it is drawn: none while its group is hidden, though the hole is up, shown and in front', () => {
+    // The pre-publish judge's find: desktop zo-2 and ly-4 had the shadow's mask with the hole unlit.
+    const centre = new Vector3(...galacticToWorld(data, [0, 0, 0], AMBIENT_POSE));
+    const away = new PerspectiveCamera(40, PHONE.width / PHONE.height, 0.1, 4000);
+    away.position.copy(centre).add(new Vector3(0, 0, 300));
+    away.lookAt(centre.clone().add(new Vector3(300 * Math.sin(Math.PI / 3), 0, 300 - 300 * Math.cos(Math.PI / 3))));
+    away.updateMatrixWorld();
+    const hidden: [string, SceneState, PerspectiveCamera][] = [
+      ['unlit under Arms', lit(Lamp.Arms), camera],
+      ['unlit under Planet', lit(Lamp.Planet, { body: 'C1' }), camera],
+      ['unlit under Star', lit(Lamp.Star, { body: 'P_a' }), camera],
+      ['off the screen', lit(Lamp.Off), away],
+    ];
+    for (const [name, s, cam] of hidden) {
+      const f = holeFrame(s, g, data, cam, PHONE, AMBIENT_POSE);
+      expect([f.present, f.front], `${name}: the hole is up, shown and in front`).toEqual([1, true]);
+      // A shadow written by the frame before must not survive into this one.
+      hole.update(lit(Lamp.Core), camera, viewport, AMBIENT_POSE);
+      expect(shadow.value.z, name).toBeGreaterThan(10);
+      hole.update(s, cam, viewport, AMBIENT_POSE);
+      expect(hole.object.visible, name).toBe(false);
+      expect(shadow.value.z, `${name}: the shadow's radius`).toBe(0);
+    }
+  });
+
   it('writes the shared shadow uniform, and says which side the disk approaches on', () => {
     hole.update(lit(Lamp.Core), camera, viewport, AMBIENT_POSE);
     const f = holeFrame(lit(Lamp.Core), g, data, camera, PHONE, AMBIENT_POSE);
