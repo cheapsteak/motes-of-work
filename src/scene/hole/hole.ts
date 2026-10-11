@@ -74,15 +74,16 @@ const mix = (a: number, b: number, h: number): number => a + (b - a) * h;
 const mixRange = (r: readonly number[], h: number): number => mix(r[0], r[1], h);
 const mix3 = (a: readonly number[], b: readonly number[], h: number): Vec3 => [mix(a[0], b[0], h), mix(a[1], b[1], h), mix(a[2], b[2], h)];
 const fract = (x: number): number => x - Math.floor(x);
-/** GLSL's mod(x, y) for y > 0. */
-const mod = (x: number, y: number): number => x - y * Math.floor(x / y);
-
 /**
- * A clock that runs `lives` (a whole number) times an hour, at `phase` lives ahead: x = t lives / 3600
- * + phase, as its whole part `n` and fraction `u`. Taken from the ambient's integer seconds, so the
- * life count is exact and t = 3600 is t = 0 (n by `lives` on); a t under 0 counts from the hour before.
+ * A clock that runs `lives` (a whole number) times an hour, at `phase` lives ahead (phase > −1): x = t
+ * lives / 3600 + phase, as its whole part `n`, its fraction `u` and the life's index in the hour, n mod
+ * lives. Taken from the ambient's integer seconds, so the life count is exact and t = 3600 is t = 0 (n
+ * by `lives` on, the same index); a t under 0 counts from the hour before. The index is integer
+ * arithmetic, as the GLSL's: a float mod(n, lives) is n − lives floor(n / lives), and a GPU that divides
+ * by the reciprocal gets floor(N / N) = 0 for 77 of the integers to 600, so the hour's last life would
+ * take the seed of life N, not 0, and jump at the wrap.
  */
-export function holeLives(t: number, lives: number, phase: number): { n: number; u: number } {
+export function holeLives(t: number, lives: number, phase: number): { n: number; u: number; index: number } {
   let ti = Math.floor(t);
   const tf = t - ti;
   if (ti < 0) ti += HOLE_HOUR;
@@ -90,7 +91,8 @@ export function holeLives(t: number, lives: number, phase: number): { n: number;
   const q = Math.floor(x / HOLE_HOUR);
   const y = (x - q * HOLE_HOUR + lives * tf) / HOLE_HOUR + phase;
   const f = Math.floor(y);
-  return { n: q + f, u: y - f };
+  // q + f + lives ≥ 0 for f ≥ −1, so the remainder is of whole non-negative numbers (GLSL's int %).
+  return { n: q + f, u: y - f, index: (q + f + lives) % lives };
 }
 
 /** A clock of period `period` s, `phase` turns ahead: (t / period + phase) as its whole part `n` and fraction `u`, the turns by orbitTurns. */
@@ -196,12 +198,11 @@ function holeEmit(v: HoleView, p: Vec3, image: 0 | 1, rgb: Vec3, I: number, size
   return holeFinish(lensed.pos, rgb, I, sizeCss, ok * lensed.ok);
 }
 
-/** A streak's life `n` (§4.2): its centre radius at the life's fraction `u` (drift), angle, length, brightness, pitch and hot flag, from the life seed (k, n mod lives). */
+/** A streak's life of index `index` in the hour (holeLives's) (§4.2): its centre radius at the life's fraction `u` (drift), angle, length, brightness, pitch and hot flag, from the life seed (k, index). */
 export function streakLife(
   k: number,
   rb: number,
-  lives: number,
-  n: number,
+  index: number,
   u = 0,
 ): {
   rc: number;
@@ -213,7 +214,7 @@ export function streakLife(
 } {
   const M = HOLE_DISK.motion;
   const S = HOLE_DISK.streak;
-  const seed = holeSeed(k, mod(n, lives));
+  const seed = holeSeed(k, index);
   const hot = hash01(seed, SALT.diskHot) < M.hotShare ? 1 : 0;
   const rc = rb * (1 - M.lifeJitter + 2 * M.lifeJitter * hash01(seed, SALT.diskLifeR)) - M.drift * u;
   const angle = TAU * hash01(seed, SALT.diskLifeAngle);
@@ -233,9 +234,10 @@ export interface DiskPlace {
   env: number;
   hot: number;
   sizeAdd: number;
-  /** The streak (−1 for haze), its life count, and the angle of its centre (a haze dot's own). */
+  /** The streak (−1 for haze), its life count and the life's index in the hour (holeLives), and the angle of its centre (a haze dot's own). */
   k: number;
   n: number;
+  index: number;
   centre: number;
 }
 
@@ -259,7 +261,7 @@ export function diskPlace(a: Float32Array, i: number, t: number, lag = 0): DiskP
     const rb = a[o + 5];
     const phaseSeed = holeSeed(k, -1);
     const c = holeLives(t, lives, hash01(phaseSeed, SALT.diskPhase) - back);
-    const s = streakLife(k, rb, lives, c.n, c.u);
+    const s = streakLife(k, rb, c.index, c.u);
     const tau = c.u * life;
     const offa = a[o + 9] * s.len;
     const r = Math.max(HOLE_DISK.inner, s.rc + a[o + 10] * HOLE_DISK.streak.jitter - offa * s.pitch);
@@ -277,13 +279,14 @@ export function diskPlace(a: Float32Array, i: number, t: number, lag = 0): DiskP
       sizeAdd: s.hot * M.hotSize,
       k,
       n: c.n,
+      index: c.index,
       centre: s.angle + wC * tau,
     };
   }
   const id = a[o + 6];
   const phaseSeed = holeSeed(id, -1);
   const c = holeLives(t, lives, hash01(phaseSeed, SALT.hazePhase) - back);
-  const lifeSeed = holeSeed(id, mod(c.n, lives));
+  const lifeSeed = holeSeed(id, c.index);
   const phi = TAU * hash01(lifeSeed, SALT.hazeAngle) + holeOmega(r0) * c.u * life;
   const env = smoothstep(0, M.hazeEnv[0], c.u) * (1 - smoothstep(M.hazeEnv[1], 1, c.u));
   return {
@@ -296,6 +299,7 @@ export function diskPlace(a: Float32Array, i: number, t: number, lag = 0): DiskP
     sizeAdd: 0,
     k,
     n: c.n,
+    index: c.index,
     centre: phi,
   };
 }

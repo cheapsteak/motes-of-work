@@ -168,7 +168,7 @@ function diskLifeSamples(disk: Float32Array, count: number): HoleSample[] {
     }
     if (hot < count) {
       for (let n = 0; n < lives; n++) {
-        if (!streakLife(k, disk[o + 5], lives, n).hot) continue;
+        if (!streakLife(k, disk[o + 5], n).hot) continue;
         const at = mod((n + 0.5) * life - offset, HOLE_HOUR);
         if (at > 1 && at < HOLE_HOUR - 3) {
           for (const image of [0, 1])

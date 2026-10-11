@@ -33,16 +33,19 @@ uint holeSeed(float a, float b) {
   return pcg(uint(round(a)) ^ pcg(uint(round(b + 1.0)))) >> 8u;
 }
 
-// A clock that runs `lives` times an hour, `phase` lives ahead: (n, u), from the integer seconds.
-vec2 holeLives(float t, float lives, float phase) {
+// A clock that runs `lives` times an hour, `phase` lives ahead (phase > -1): (n, u, the life's index
+// n mod lives), from the integer seconds. The index is int arithmetic, never a float mod: GLSL's
+// division may be by the reciprocal, and floor(N / N) is then 0 for some N (hole.ts holeLives).
+vec3 holeLives(float t, float lives, float phase) {
   float ti = floor(t);
   float tf = t - ti;
   int hour = int(HOLE_HOUR);
-  int x = (int(ti) + (ti < 0.0 ? hour : 0)) * int(round(lives));
+  int n = int(round(lives));
+  int x = (int(ti) + (ti < 0.0 ? hour : 0)) * n;
   int q = x / hour;
   float y = (float(x - q * hour) + lives * tf) / HOLE_HOUR + phase;
   float f = floor(y);
-  return vec2(float(q) + f, y - f);
+  return vec3(float(q) + f, y - f, float((q + int(f) + n) % n));
 }
 
 // A clock of `period` s, `phase` turns ahead: (n, u), the turns by orbitTurns.
@@ -123,7 +126,7 @@ HoleDot holeEmit(HoleView v, vec3 p, float image, vec3 rgb, float I, float sizeC
   return holeFinish(lensed.xyz, rgb, I, sizeCss, ok * lensed.w);
 }
 
-// A streak's life n, at the life's fraction u (hole.ts streakLife).
+// A streak's life of index `index` in the hour, at the life's fraction u (hole.ts streakLife).
 struct StreakLife {
   float rc;
   float angle;
@@ -133,8 +136,8 @@ struct StreakLife {
   float hot;
 };
 
-StreakLife streakLife(float k, float rb, float lives, float n, float u) {
-  uint seed = holeSeed(k, mod(n, lives));
+StreakLife streakLife(float k, float rb, float index, float u) {
+  uint seed = holeSeed(k, index);
   StreakLife s;
   s.hot = hash01(seed, SALT_DISK_HOT) < HOLE_DISK_MOTION_HOT_SHARE ? 1.0 : 0.0;
   s.rc = rb * (1.0 - HOLE_DISK_MOTION_LIFE_JITTER + 2.0 * HOLE_DISK_MOTION_LIFE_JITTER * hash01(seed, SALT_DISK_LIFE_R)) - HOLE_DISK_MOTION_DRIFT * u;
@@ -159,8 +162,8 @@ DiskPlace diskPlace(vec4 aA, vec4 aB, vec4 aC, float t, float lag) {
   float back = lag * lives / HOLE_HOUR;
   DiskPlace d;
   if (aC.x >= 0.0) {
-    vec2 c = holeLives(t, lives, hash01(holeSeed(aC.x, -1.0), SALT_DISK_PHASE) - back);
-    StreakLife s = streakLife(aC.x, aB.y, lives, c.x, c.y);
+    vec3 c = holeLives(t, lives, hash01(holeSeed(aC.x, -1.0), SALT_DISK_PHASE) - back);
+    StreakLife s = streakLife(aC.x, aB.y, c.z, c.y);
     float tau = c.y * life;
     float offa = aC.y * s.len;
     d.r = max(HOLE_DISK_INNER, s.rc + aC.z * HOLE_DISK_STREAK_JITTER - offa * s.pitch);
@@ -172,9 +175,9 @@ DiskPlace diskPlace(vec4 aA, vec4 aB, vec4 aC, float t, float lag) {
     d.sizeAdd = s.hot * HOLE_DISK_MOTION_HOT_SIZE;
     return d;
   }
-  vec2 c = holeLives(t, lives, hash01(holeSeed(aB.z, -1.0), SALT_HAZE_PHASE) - back);
+  vec3 c = holeLives(t, lives, hash01(holeSeed(aB.z, -1.0), SALT_HAZE_PHASE) - back);
   d.r = aA.x;
-  d.phi = MOTE_TAU * hash01(holeSeed(aB.z, mod(c.x, lives)), SALT_HAZE_ANGLE) + holeOmega(aA.x) * c.y * life;
+  d.phi = MOTE_TAU * hash01(holeSeed(aB.z, c.z), SALT_HAZE_ANGLE) + holeOmega(aA.x) * c.y * life;
   float env = smoothstep(0.0, HOLE_DISK_MOTION_HAZE_ENV.x, c.y) * (1.0 - smoothstep(HOLE_DISK_MOTION_HAZE_ENV.y, 1.0, c.y));
   d.bright = aA.w * env;
   d.sizeAdd = 0.0;

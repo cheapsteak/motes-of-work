@@ -154,7 +154,7 @@ describe('the disk', () => {
       const b = diskPlace(A.disk, i, t + dt);
       if (a.n !== b.n) continue; // a life boundary between
       if (a.k >= 0) {
-        const s = streakLife(a.k, A.disk[i * DISK_STRIDE + 5], A.disk[i * DISK_STRIDE + 7], a.n);
+        const s = streakLife(a.k, A.disk[i * DISK_STRIDE + 5], a.index);
         const wC = holeOmega(s.rc);
         expect(angleDiff(b.centre, a.centre)).toBeCloseTo(wC * dt, 9);
         expect(angleDiff(b.phi, a.phi)).toBeCloseTo(wC * dt + M.shear * (holeOmega(a.r) - wC) * dt, 9);
@@ -199,17 +199,19 @@ describe('the disk', () => {
     expect(at(0.09)).toBeLessThan(0.8);
     expect(at(0.86)).toBeGreaterThan(0.2);
     expect(at(0.86)).toBeLessThan(0.8);
-    // Per life the radius, angle, length, brightness, pitch and hot flag change, and repeat at n + N_k.
+    // Per life the radius, angle, length, brightness, pitch and hot flag change, and repeat at n + N_k
+    // (the clock's index wraps: the life an hour on has the same index).
     const lives = A.disk[i * DISK_STRIDE + 7];
     const seen = new Set<string>();
     for (let n = 0; n < Math.min(lives, 40); n++) {
-      const s = streakLife(k, rb, lives, n);
-      expect(streakLife(k, rb, lives, n + lives)).toEqual(s);
+      const s = streakLife(k, rb, n);
+      const at = 5 * life - offset + (n + 0.5) * life;
+      expect(diskPlace(A.disk, i, at).index).toBe(diskPlace(A.disk, i, at + 3600).index);
       seen.add(JSON.stringify([s.rc, s.angle, s.len, s.bright, s.pitch]));
     }
     expect(seen.size).toBe(Math.min(lives, 40));
     let hot = 0;
-    for (let n = 0; n < 2000; n++) hot += streakLife(n, 6, 2000, n).hot;
+    for (let n = 0; n < 2000; n++) hot += streakLife(n, 6, n).hot;
     expect(hot).toBeGreaterThan(0);
   });
 
@@ -296,7 +298,7 @@ describe('the disk', () => {
     let n = 0;
     for (let k = 0; k < 200; k++)
       for (let life = 0; life < 100; life++) {
-        const s = streakLife(k, 6, 100, life);
+        const s = streakLife(k, 6, life);
         hot += s.hot;
         n++;
         // Against the life's own draws: ×2.6 brightness and ×0.3 length when hot.
@@ -622,8 +624,38 @@ describe('the dots', () => {
         const x = (1234.5 * lives) / 3600 + phase;
         expect(c.n).toBe(Math.floor(x));
         expect(c.u).toBeCloseTo(x - Math.floor(x), 12);
+        expect(c.index).toBe(((Math.floor(x) % lives) + lives) % lives);
+        expect(b.index).toBe(a.index);
       }
     expect(HOLE_HOUR).toBe(AMBIENT_WRAP);
+  });
+
+  it("wraps the life index to 0 at the hour's last life for every N_k, as a GPU that divides by the reciprocal would too", () => {
+    // A float mod(n, N) is n − N floor(n / N). GLSL ES 3.00 allows `/` 2.5 ULP, and a GPU that divides
+    // by the reciprocal takes N / N as N × rcp(N), under 1 for some N: mod(N, N) is then N, and the
+    // hour's last life would take life N's seed, not life 0's, and jump at the wrap.
+    const f = Math.fround;
+    const rcpMod = (n: number, d: number): number => n - d * Math.floor(f(n * f(1 / d)));
+    const lives = new Set<number>();
+    for (let i = 0; i < diskCount; i++) lives.add(A.disk[i * DISK_STRIDE + 7]);
+    // The hazard is real for this seed: some of its N_k come out of a reciprocal float mod as N, not 0.
+    const hazard = [...lives].filter((N) => rcpMod(N, N) !== 0);
+    expect(hazard.length).toBeGreaterThan(0);
+    for (const N of lives) {
+      // n = N: the hour's last life, by the clock at t = 3600 and just before it, a phase ahead.
+      for (const [t, phase] of [
+        [3600, 0.25],
+        [3599.99, 0.999],
+      ]) {
+        const c = holeLives(t, N, phase);
+        expect(c.n, `N ${N} t ${t}`).toBe(N);
+        expect(c.index, `N ${N} t ${t}`).toBe(0);
+      }
+      expect(holeLives(0, N, 0.25).index).toBe(0);
+    }
+    // And the GLSL takes no float mod at all: its index is int arithmetic in holeLives.
+    expect(holeGlsl).not.toMatch(/(?<![A-Za-z_])mod\(/);
+    expect(holeGlsl).toMatch(/return vec3\(float\(q\) \+ f, y - f, float\(\(q \+ int\(f\) \+ n\) % n\)\);/);
   });
 });
 
