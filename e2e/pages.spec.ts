@@ -18,7 +18,10 @@ test.describe('the pages', { tag: FULL_ONLY }, () => {
   // galaxy's last sections (1-2.4 s a sample). That is what a deep link costs, so the check is split
   // rather than thinned: each part takes every third sample (so each its share of the costly ones), and
   // the parts run in parallel: 1.6-1.9 min each, three at once, 3.6 min for both screens' six.
-  test.setTimeout(240_000);
+  // Measured since: 1.7-1.9 min a part on CI (run 38153043664); at load 14-19 the three 1440x900 parts
+  // ran out of the old 4 min. 10 min is over 5 times the CI time and 2.5 times the 4 min they ran
+  // out of under load.
+  test.setTimeout(600_000);
   test.describe.configure({ mode: 'parallel' });
 
   /** The jump-and-scroll check's parts: each takes every PARTS-th of the samples, in their order. */

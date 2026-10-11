@@ -1664,6 +1664,10 @@ for (const size of SIZES) {
     });
 
     test('the neighbourhood dissolves at the wides and is whole at the hood', async ({ page }) => {
+      // Measured with the drain (afterEach): 3.4-3.5 min on CI (run 38158924920; 1.5-1.8 min before it,
+      // the queued work then the next test's), 5.7 min locally at load 13. 15 min is over 4 times the
+      // CI time and 2.6 times the loaded one; the file's 5 min ran out at load 17-19 even without the drain.
+      test.setTimeout(900_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       // real + far is 1 for every star: a binary's two dissolve at their barycentre, where the pair's one

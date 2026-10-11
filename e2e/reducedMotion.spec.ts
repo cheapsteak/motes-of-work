@@ -25,9 +25,11 @@ test.describe('reduced motion', { tag: FULL_ONLY }, () => {
   // queued drawing, whether it comes 3 s or 25 s after the load; the next read waits one frame. A test
   // mode page has no backlog to wait for (its first read: 0.1-0.5 s). So each live page a test reads
   // costs it about 20 s alone, and more beside another worker: the live-galaxy test (three pages, one a
-  // running galaxy) took 45-60 s alone and 1.7-2.5 min in a loaded run, hence 3 min. It is the price
-  // of checking the live clock, so it is bounded, not avoided.
-  test.setTimeout(180_000);
+  // running galaxy) took 45-60 s alone and 1.7-2.5 min in a loaded run. It is the price of checking
+  // the live clock, so it is bounded, not avoided. Measured since: 2.2 min on CI (run 38153043664),
+  // 2.5-3.0 min run alone at load 15-19, and 3 min (the old timeout) ran out at load 11-20. 10 min is
+  // 4.5 times the CI time and over 3 times the loaded one.
+  test.setTimeout(600_000);
 
   const GAP_MS = 3000;
   // `?n=` lowers the mote budget so frames are cheap under SwiftShader.

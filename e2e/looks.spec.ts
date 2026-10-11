@@ -46,6 +46,9 @@ const LIT_FLOOR: Record<MechanismId, number> = Object.fromEntries(
 const CAMERA = { pos: [0, 0, 3.1], target: [0, 0, 0], fov: 40, coreFocus: 0 };
 
 test.use({ viewport: VIEW });
+// Measured: 2.4-12.1 s a test on CI (run 38153043664); the bike's three that follow galaxy.spec.ts's
+// dissolve in a worker took 17-37 s at load 13 once the dissolve drained its own GPU work (1.6-1.9 min
+// before, which ran this out). 2 min is 10 times the CI time and over 3 times the loaded one.
 test.setTimeout(120_000);
 
 interface Image {
