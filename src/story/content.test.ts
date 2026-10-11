@@ -199,9 +199,15 @@ describe('the words and the parts arrive together', () => {
    * The first local at which assembly passes `a` (`strict`) or reaches it. Passing means by more
    * than the sampler's rounding: a hold keyed at a set-out value reads a hair above it.
    */
+  /**
+   * Assembly at each i / N, sampled once for all the tests below (each scans from 0, and a sample of
+   * every track to read one leaf was all of their time: 1.4-3.5 s each on CI, past 5 s under load).
+   */
+  const assemblyAt = new Float64Array(N + 1).fill(NaN);
   const first = (a: number, strict: boolean) => {
     for (let i = 0; i <= N; i++) {
-      const v = assembly(i / N);
+      let v = assemblyAt[i];
+      if (Number.isNaN(v)) v = assemblyAt[i] = assembly(i / N);
       if (strict ? v > a + 1e-12 : v >= a - 1e-12) return i / N;
     }
     return Infinity;

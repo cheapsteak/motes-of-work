@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sectionSpans } from '../scroll/progress';
 import { loadStory, type StorySection } from './loader';
 import { beatDim, beatReveal, fadeWidth, lineReveal, pageOpacity, pageOut, smoothstep, storyLooks, type StoryShape } from './reveal';
+import { Fails } from '../testing/fails';
 
 describe('smoothstep', () => {
   it('is 0 at and below the low edge, 1 at and above the high edge, and eased between', () => {
@@ -163,20 +164,24 @@ describe('the shipped story', () => {
   });
 
   it('brings the lines of a page up in reading order, and dims none while it is the newest', () => {
+    // Each sample tested plainly and the failures held to none once (Fails): an expect per line per
+    // sample was seven tenths of this test (3.2 s on CI, past 5 s under load).
+    const fails = new Fails();
     for (const p of samples) {
       for (const page of storyLooks(p, spans, story).flat()) {
         page.beats.forEach((b, i) => {
           const next = page.beats[i + 1];
-          if (next) expect(b.reveal, `p=${p} line ${i}`).toBeGreaterThanOrEqual(next.reveal);
-          if (!next || next.reveal === 0) expect(b.dim, `p=${p} line ${i}`).toBe(0);
+          if (next && !(b.reveal >= next.reveal)) fails.add(`p=${p} line ${i}: reveal ${b.reveal} under the next line's ${next.reveal}`);
+          if ((!next || next.reveal === 0) && !Object.is(b.dim, 0)) fails.add(`p=${p} line ${i}: dim ${b.dim}`);
           // A document's own lines come up in order too, never before the document itself.
           b.lines.forEach((r, k) => {
-            expect(r, `p=${p} document line ${k + 1}`).toBeLessThanOrEqual(b.reveal);
-            if (k > 0) expect(r, `p=${p} document line ${k + 1}`).toBeLessThanOrEqual(b.lines[k - 1]);
+            if (!(r <= b.reveal)) fails.add(`p=${p} document line ${k + 1}: ${r} over the document's ${b.reveal}`);
+            if (k > 0 && !(r <= b.lines[k - 1])) fails.add(`p=${p} document line ${k + 1}: ${r} over line ${k}'s ${b.lines[k - 1]}`);
           });
         });
       }
     }
+    expect(fails.count, String(fails)).toBe(0);
   });
 
   it("keeps each brief line absent until its own at, and up from at + fade (docs/specs/2026-10-05-act-1-build-and-orbit.md §2.5)", () => {

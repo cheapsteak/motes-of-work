@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyToPoint, rotate, type PartTransform } from '../../math/transform';
 import type { Vec3 } from '../../math/vec';
+import { Fails } from '../../testing/fails';
 import { FAULT_KEYS, ZERO_FAULTS, type Faults } from '../../timeline/sceneState';
 import { mechanismAnchors } from '../anchors';
 import { groundFlatness, JANSEN, triangleShapes, TWIN, type LegJoints, type P2 } from './kinematics';
@@ -166,6 +167,9 @@ describe('strandbeest pose', () => {
   });
 
   it('solves every joint without a clamp over the whole ratio dial, at every variant', () => {
+    // Each part's transform tested plainly and the failures held to none once (Fails): an expect per
+    // part per pose was six tenths of this test (4.0 s on CI, past 5 s under load).
+    const fails = new Fails();
     let clamped = 0;
     for (const variant of [0, 0.25, 0.5, 0.75, 1]) {
       for (const d of drives(720)) {
@@ -173,12 +177,13 @@ describe('strandbeest pose', () => {
         clamped += solveMachine(d, f, variant)
           .legs.flat()
           .reduce((n, leg) => n + leg.clamped, 0);
-        for (const t of strandbeest.pose(d, f, variant)) {
-          expect(t.position.every(Number.isFinite)).toBe(true);
-          expect(t.quaternion.every(Number.isFinite)).toBe(true);
-        }
+        strandbeest.pose(d, f, variant).forEach((t, i) => {
+          if (!t.position.every(Number.isFinite)) fails.add(`variant ${variant}, drive ${d}, part ${i}: position ${t.position}`);
+          if (!t.quaternion.every(Number.isFinite)) fails.add(`variant ${variant}, drive ${d}, part ${i}: quaternion ${t.quaternion}`);
+        });
       }
     }
+    expect(fails.count, String(fails)).toBe(0);
     expect(clamped).toBe(0);
   });
 

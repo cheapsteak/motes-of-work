@@ -3,6 +3,7 @@ import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { latticeCount, latticeRowCols } from '../../galaxy/body';
 import { galaxyBudget, generateGalaxy } from '../../galaxy/generate';
 import { mulberry32 } from '../../math/hash';
+import { Fails } from '../../testing/fails';
 import type { Vec3 } from '../../math/vec';
 import {
   AFTERSHOCK_AMP,
@@ -249,6 +250,9 @@ describe('shellWarp', () => {
   });
 
   it('the bounds hold', () => {
+    // Every sample's bounds tested plainly and the failures held to none once (Fails): an expect per
+    // sample was half of this test (3.5 s on CI, past 5 s under load).
+    const fails = new Fails();
     const rng = mulberry32(17);
     let leapTop = 0;
     let offTop = 0;
@@ -264,16 +268,18 @@ describe('shellWarp', () => {
       leapTop = Math.max(leapTop, leap);
       // A mote never leaves its place on the shell by more than 0.40 R + the jitter, and that place
       // is never further from the unit lattice point than the morph and the ring.
-      expect(leap).toBeLessThanOrEqual(LEAP_MAX + 1e-12);
-      expect(len(sub(p, llUnit(ll)))).toBeLessThanOrEqual(LEAP_MAX + EQ_A * (1 + EQ_SECOND) + RING_AMP);
+      if (!(leap <= LEAP_MAX + 1e-12)) fails.add(`${i}: leap ${leap}`);
+      const fromUnit = len(sub(p, llUnit(ll)));
+      if (!(fromUnit <= LEAP_MAX + EQ_A * (1 + EQ_SECOND) + RING_AMP)) fails.add(`${i}: ${fromUnit} from its lattice point`);
       if (shellK(ll, h, ev) === 0) {
         offSamples++;
-        expect(leap).toBe(0);
+        if (!Object.is(leap, 0)) fails.add(`${i}: leap ${leap} off the scatter`);
         const off = Math.abs(len(p) - 1);
         offTop = Math.max(offTop, off);
-        expect(off).toBeLessThanOrEqual(EQ_A * 1.45 + RING_AMP + 1e-12);
+        if (!(off <= EQ_A * 1.45 + RING_AMP + 1e-12)) fails.add(`${i}: ${off} off the shell`);
       }
     }
+    expect(fails.count, String(fails)).toBe(0);
     // The bounds are reached, not vacuous.
     expect(leapTop).toBeGreaterThan(0.38);
     expect(offTop).toBeGreaterThan(0.05);
@@ -283,8 +289,10 @@ describe('shellWarp', () => {
     for (let i = 0; i < 20_000; i++) {
       const ll = { lat: Math.asin(2 * rng2() - 1), lon: 2 * Math.PI * rng2() };
       const ev = scatterAt(rng2(), { sweep: [rng2() - 0.5, rng2() - 0.5, rng2() - 0.5], aftershock: true });
-      expect(len(sub(shellWarp(ll, moteHashes(SEED, i), 3, ev, 0, 1, PLANET_CAP), llUnit(ll)))).toBeLessThanOrEqual(LEAP_MAX);
+      const d = len(sub(shellWarp(ll, moteHashes(SEED, i), 3, ev, 0, 1, PLANET_CAP), llUnit(ll)));
+      if (!(d <= LEAP_MAX)) fails.add(`unmorphed ${i}: ${d}`);
     }
+    expect(fails.count, String(fails)).toBe(0);
   });
 
   it('the sweep crosses in 80 ms and all are home by 0.36 s', () => {
