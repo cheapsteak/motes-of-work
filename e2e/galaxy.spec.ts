@@ -5,8 +5,8 @@ import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../src/config';
 import { BG, galaxyTier } from '../src/galaxy/background';
 import { bodyIndex, galaxyBudget, generateGalaxy, pieceOuter, STREAM_DOTS, SYS_MAX, systemOuter, type Galaxy } from '../src/galaxy/generate';
 import { RING, ringAt, ringDrawnRadius, type RingVisit } from '../src/galaxy/review';
-import { EQ_A, EQ_SECOND, NODE_STREAM_SPEED, SCATTER_AMP, SCATTER_MOON_CAP } from '../src/scene/node/birth';
-import { packBodyData, type BodyData } from '../src/scene/node/bodyData';
+import { BODY_WARM_MOON, EQ_A, EQ_SECOND, hexToRgb, NODE_PALETTE, NODE_STREAM_SPEED, SCATTER_AMP, SCATTER_MOON_CAP } from '../src/scene/node/birth';
+import { bodyTexel, packBodyData, type BodyData } from '../src/scene/node/bodyData';
 import { bodyCentre, bodyDerp, bodyGhost, bodyLight, lampGain, trackDot, type BodyClocks } from '../src/scene/node/bodyMote';
 import { streamCurve, streamDot } from '../src/scene/node/stream';
 import { bodyWorld, galacticToWorld } from '../src/scene/node/orbit';
@@ -1314,9 +1314,18 @@ test.describe('Moons at 390x844', () => {
     // A moon's warmth is the red over the blue it lifts above the background, summed over its pixels.
     // Each fixed moon point clear of other tints is within WARMTH_SLACK of the warmth of C1's
     // moons up close (one tint, BODY_WARM_MOON; a point tinted the planet's BODY_WARM is about half as
-    // warm).
+    // warm). Each warmth is taken over the one its own colour gives (re-skin Task 7: every moon has its
+    // planet's colour, C1's the hero's cyan, so the same tint lifts the red over the blue by its base):
+    // the red over the blue of its base (T6) mixed BODY_WARM_MOON toward the person's amber.
     const errors: string[] = [];
     const fixed = (row: number) => g.bodies[row].kind === 'moon' && bodyLight(row, { fix: 1, highlight: 0 }, data).fix > 0.99;
+    const human = hexToRgb(NODE_PALETTE.NODE_HUMAN);
+    /** The red over the blue a fixed moon's colour has: its base (T6) mixed BODY_WARM_MOON toward the person's amber. */
+    const tinted = (row: number): number => {
+      const base = bodyTexel(data.bodies, 6, row);
+      const mix = (k: number) => base[k] * (1 - BODY_WARM_MOON) + human[k] * BODY_WARM_MOON;
+      return mix(0) / mix(2);
+    };
     const warmth = (png: PNG, x: number, y: number, r: number): { red: number; blue: number; n: number } => {
       let [red, blue, n] = [0, 0, 0];
       for (let yy = Math.floor(y - r); yy <= Math.ceil(y + r); yy++)
@@ -1355,7 +1364,9 @@ test.describe('Moons at 390x844', () => {
       [ref.red, ref.blue, ref.n] = [ref.red + w.red, ref.blue + w.blue, ref.n + w.n];
     }
     expect(ref.n, 'C1’s moons drawn up close').toBeGreaterThan(200);
-    const upClose = ref.red / ref.blue;
+    // C1's moons share C1's colour (the hero's), so one tint stands for them all.
+    const c1Moon = g.bodies.find((b) => b.kind === 'moon' && b.host === c1.index)!.index;
+    const upClose = ref.red / ref.blue / tinted(c1Moon);
 
     // As points: at the twelve, each fixed moon under 4 px, on screen, and its 2 px window clear of
     // every body of another tint (a star's shell, an unfixed moon's point): a fixed moon's point
@@ -1369,17 +1380,20 @@ test.describe('Moons at 390x844', () => {
     ]);
     const drawn = g.bodies.filter((b) => b.kind !== 'core' && b.kind !== 'planet').map((b) => far.at(b.index));
     let compared = 0;
+    const ratios: number[] = [];
     for (const pt of drawn) {
       if (!fixed(pt.row) || !pt.front || pt.across >= MOON_POINT_PX[0] || !onScreen(pt, 6)) continue;
       if (drawn.some((o) => o.row !== pt.row && !fixed(o.row) && o.front && Math.hypot(o.x - pt.x, o.y - pt.y) < 3.5 + o.across / 2)) continue;
       const w = warmth(far.png, pt.x, pt.y, 2);
       const id = g.bodies[pt.row].id;
       expect(w.n, `${id} drawn as a point`).toBeGreaterThan(0);
-      const asPoint = w.red / w.blue;
+      const asPoint = w.red / w.blue / tinted(pt.row);
       expect.soft(asPoint / upClose, `${id}: its warmth as a point (${asPoint.toFixed(2)}) over a fixed moon's up close (${upClose.toFixed(2)})`).toBeGreaterThanOrEqual(1 - WARMTH_SLACK);
       expect.soft(asPoint / upClose, `${id}: its warmth as a point over a fixed moon's up close`).toBeLessThanOrEqual(1 / (1 - WARMTH_SLACK));
+      ratios.push(asPoint / upClose);
       compared++;
     }
+    console.log(`fixed moon warmth as a point over up close, each over its own colour's: ${Math.min(...ratios).toFixed(3)} to ${Math.max(...ratios).toFixed(3)} (${compared} moons)`);
     expect(compared, 'fixed moon points compared').toBeGreaterThanOrEqual(3);
     expect(errors).toEqual([]);
   });
