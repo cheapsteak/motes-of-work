@@ -12,10 +12,12 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVE_MECHANISM, MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../config';
 import { AMBIENT_POSE } from '../galaxy/ambient';
-import { galaxyTier } from '../galaxy/background';
+import { galaxyTier, type Tier } from '../galaxy/background';
+import { galaxyBudget, generateGalaxy, type Galaxy } from '../galaxy/generate';
 import { mechanisms } from '../mechanisms';
 import { FREEZE_PINS, shown } from '../scene/ambientClock';
-import { createStage, galaxyLead, needsGalaxy } from '../scene/stage';
+import { moteInputs } from '../scene/mote/moteSystem';
+import { createStage, galaxyLead, needsGalaxy, type StageInputs } from '../scene/stage';
 import { sectionSpans } from '../scroll/progress';
 import { loadStory } from '../story/loader';
 import { KeyframeSampler, type KeyframeFile } from '../timeline/keyframeSampler';
@@ -28,6 +30,59 @@ export const SCREEN = { width: 1280, height: 720 };
 export const spans = sectionSpans(loadStory());
 export const sampler = new KeyframeSampler(keyframes as unknown as KeyframeFile, spans);
 const lead = galaxyLead(spans, (p) => sampler.sample(p));
+
+// Every stage is a fresh page: its systems, their uniforms, buffers and textures are its own. What a
+// stage only reads (the motes' per-mote inputs, the generated galaxy) is a pure function of the seed
+// and the budget, so it is built once per file and shared; `describeRewind` proves no path wrote it.
+const galaxies = new Map<Tier, Galaxy>();
+const shared: StageInputs = {
+  motes: moteInputs(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED),
+  galaxy: (tier) => {
+    if (!galaxies.has(tier)) galaxies.set(tier, generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP)));
+    return galaxies.get(tier)!;
+  },
+};
+
+/** A digest of everything reachable from `root`: numbers, strings and every typed array's bytes (FNV-1a). */
+export function fingerprint(root: unknown): string {
+  let h = 0x811c9dc5;
+  const byte = (b: number): void => {
+    h = Math.imul(h ^ b, 0x01000193) >>> 0;
+  };
+  const text = (t: string): void => {
+    for (let i = 0; i < t.length; i++) byte(t.charCodeAt(i) & 0xff);
+  };
+  const scalar = new DataView(new ArrayBuffer(8));
+  const seen = new Set<object>();
+  const walk = (v: unknown): void => {
+    if (typeof v === 'number') {
+      scalar.setFloat64(0, v);
+      for (let i = 0; i < 8; i++) byte(scalar.getUint8(i));
+    } else if (typeof v === 'string') text(`s${v}`);
+    else if (typeof v === 'boolean' || v === null || v === undefined) text(String(v));
+    else if (ArrayBuffer.isView(v)) {
+      // Four bytes at a time where the view allows it (the attribute arrays run to megabytes).
+      if (v.byteOffset % 4 === 0 && v.byteLength % 4 === 0) {
+        const w = new Uint32Array(v.buffer, v.byteOffset, v.byteLength / 4);
+        for (let i = 0; i < w.length; i++) h = Math.imul(h ^ w[i], 0x01000193) >>> 0;
+      } else {
+        const b = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+        for (let i = 0; i < b.length; i++) byte(b[i]);
+      }
+    } else if (typeof v === 'object') {
+      if (seen.has(v)) return text('cycle');
+      seen.add(v);
+      if (v instanceof Map) [...v.entries()].forEach(walk);
+      else if (v instanceof Set) [...v].forEach(walk);
+      else for (const k of Object.keys(v).sort()) {
+        text(k);
+        walk((v as Record<string, unknown>)[k]);
+      }
+    }
+  };
+  walk(root);
+  return h.toString(16);
+}
 
 /**
  * The grid's scenes, by section, one test file each (rewind.<scene>.test.ts). A sample that names its
@@ -55,7 +110,7 @@ export type Build = 'idle' | 'need';
 
 /** A fresh page that draws `path` in order, as main.ts does in test mode; what the last frame leaves for the GPU. */
 export function run(path: Step[], build: Build): Plain {
-  const stage = createStage(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED);
+  const stage = createStage(mechanisms[ACTIVE_MECHANISM], MOTE_BUDGET_DESKTOP, MOTE_SEED, shared);
   stage.camera.aspect = SCREEN.width / SCREEN.height;
   stage.camera.updateProjectionMatrix();
   const uploads = new Uploads();
@@ -112,6 +167,7 @@ export const samplesOf = (scene: string): PuritySample[] =>
 export function describeRewind(scene: string): void {
   describe(`the rewind invariant in ${scene}, at every sample of the grid (the purity twin)`, () => {
     const jumps = new Map<string, Plain>();
+    const before = fingerprint({ motes: shared.motes, galaxy: shared.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) });
     for (const sample of samplesOf(scene)) {
       it(`${sample.name}: jumping, scrolling under a running clock, and scrolling past and back leave the GPU identical inputs`, { timeout: 120_000 }, () => {
         const p = sample.p(spans);
@@ -167,5 +223,10 @@ export function describeRewind(scene: string): void {
         }
       });
     }
+
+    it('shares only what no stage writes: the motes’ inputs and the galaxy are as they were built', { timeout: 60_000 }, () => {
+      expect(jumps.size, 'every sample was drawn').toBe(samplesOf(scene).length);
+      expect(fingerprint({ motes: shared.motes, galaxy: shared.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) })).toBe(before);
+    });
   });
 }
