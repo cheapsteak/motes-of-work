@@ -5,6 +5,7 @@ import { generateGalaxy, galaxyBudget, type Body } from '../../galaxy/generate';
 import { GALAXY_TURN_PERIOD as SPLICED_TURN_PERIOD, hexToRgb, NODE_NEVER, NODE_PALETTE, ORBIT_CONSTANTS, ORBIT_HEAD_BITS, ORBIT_HEAD_MASK } from './birth';
 import { BODY_TEXELS, bodyTexel, LIGHT_MODE, packBodyData } from './bodyData';
 import { starTint } from './star';
+import { planetTint } from './terminator';
 import { bodyGalactic, bodyWorld, elementsAt, GALAXY_TURN_PERIOD, galaxyTurn, keplerE, orbitLocal, orbitTurns } from './orbit';
 import { orbitLibraryGlsl, withOrbitLibrary } from './shaderSource';
 import { Fails } from '../../testing/fails';
@@ -60,13 +61,17 @@ describe('packBodyData', () => {
       }
     }
     // T6 the base colour and light mode, T7 a star's look (re-skin §4.3): a star its tint, self-lit, and
-    // its brightness, spikes, period and phase; every other body the agents' blue, lit, and no look.
+    // its brightness, spikes, period and phase; a planet or moon its colour (terminator.test.ts holds
+    // which), lit; the core rows and a barycentre the agents' blue, lit; none of them a look.
     for (const b of g.bodies) {
       const f = Math.fround;
       const look = b.look;
       if (look) {
         expect(bodyTexel(data.bodies, 6, b.index), b.id).toEqual([...starTint(look.temperature).map(f), LIGHT_MODE.selfLit]);
         expect(bodyTexel(data.bodies, 7, b.index), b.id).toEqual([f(look.brightness), look.spikes, f(look.period), f(look.phase)]);
+      } else if (b.hue !== null) {
+        expect(bodyTexel(data.bodies, 6, b.index), b.id).toEqual([...planetTint(b.hue, g.bodies[b.star].look!.temperature, g.bodies[b.planet].id === 'C1').map(f), LIGHT_MODE.terminator]);
+        expect(bodyTexel(data.bodies, 7, b.index), b.id).toEqual([0, 0, 0, 0]);
       } else {
         expect(bodyTexel(data.bodies, 6, b.index), b.id).toEqual([...hexToRgb(NODE_PALETTE.NODE_AGENT).map(f), LIGHT_MODE.terminator]);
         expect(bodyTexel(data.bodies, 7, b.index), b.id).toEqual([0, 0, 0, 0]);

@@ -40,7 +40,8 @@ export const STREAM_SALT = {
   holeRing: 26,
   holeInfall: 27,
   holeStrand: 28,
-  // 29 is planetHue (Task 7), appended by that task.
+  // Each planet's hue: its index into PLANET_LOOK.cool (re-skin Task 7), keyed by the planet's draft key.
+  planetHue: 29,
   // The neighbourhood's binaries (re-skin Task 1e), keyed by pair (4096 × lower star key + higher):
   // the keep draw, then the eccentricity, the periapsis and the phase.
   binaries: 30,

@@ -332,6 +332,32 @@ const STILLS: Still[] = [
       ['fx-4', 'fix', 0.82],
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R6', name, query: '&mech=bike', at: { section, local } })),
+  // The re-skin's Task 7 (re-skin §4.4): the planets and moons lit from their own star, cool and tinted
+  // by it, glowing only when lit. N0 and its moons as the zoom-out pulls out (zo-0.25), P_a's system
+  // (ly-1), ly-4's hold, C1 at df-1 (and leaking: Task 8b's motion under the shading), the live close
+  // before the freeze's cut (df-2-live), the twelve lit (df-5) and the mended neighbourhood (fx-3).
+  ...(
+    [
+      ['zo-0.25', 'zoom-out', 0.25, undefined],
+      ['ly-1', 'layers', 0.45 / 4.3, undefined],
+      ['ly-4', 'layers', 3.45 / 4.3, undefined],
+      ['df-1', 'defect', 0.13, undefined],
+      ['df-1-leak', 'defect', 0.22, 99.45],
+      ['df-2-live', 'defect', 0.25, undefined],
+      ['df-5', 'defect', 0.9, undefined],
+      ['fx-3', 'fix', 0.55, undefined],
+    ] as const
+  ).map(([name, section, local, ambient]) => ({ tag: 'R7', name, query: `&mech=bike${ambient === undefined ? '' : `&ambient=${ambient}`}`, at: { section, local } })),
+  // And the look check's other framings the planets are in: ly-3 (the hood), ly-5's swing onto the
+  // first plan, the zoom-out's hand-over (zo-0.84) and the binary pair close.
+  ...(
+    [
+      ['ly-3', 'layers', 2.35 / 4.3],
+      ['ly-5-swing', 'layers', 3.52 / 4.3],
+      ['zo-0.84', 'zoom-out', 0.84],
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R7', name, query: '&mech=bike', at: { section, local } })),
+  ...(process.env.SHOTS === '1' ? [{ tag: 'R7', name: 'pair-a0', query: pairClose(AMBIENT_POSE), at: { section: 'lesson', local: 0.5 } }] : []),
 ];
 
 /** The first frame from 101 s with the dropout's lines up (re-skin Task 8b), on a whole frame of the ambient. */

@@ -4,12 +4,14 @@ precision highp int;
 // #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The galaxy's shell motes, the person's warm motes and the glow sprites (bodySystem.ts: net-shells,
 // net-persons, net-glow), one quad per instance, drawn by galaxyMote.frag.glsl over its body's base
-// colour (vBase: a star's tint, the agents' blue for the rest). A shell or person mote is
+// colour (vBase, the bodies texture's T6: a star's tint, a planet's or moon's colour). A shell or person mote is
 // bodyMote(): it flies in from its stream's parent (or falls from above), lands on its body's lattice
 // at the equation's radius turned by the body's own spin (a star's dot in its star's cloud), round
 // where the body is drawn (its derp on), lights, and goes dark outside the lamp. A star lights itself:
-// its dots are not shaded (T6's light mode), and its dots and glow take its brightness and breath. A planet's lattice mote 0 is its point, a 2 px dot at its
-// centre (3 px lit) that comes up with the planet, and is never drawn as a shell mote: once the shell
+// its dots are not shaded (T6's light mode), and its dots and glow take its brightness and breath. A
+// planet's and a moon's shell motes are shaded by their terminator toward their own star (bodyMote's
+// brightness, re-skin Task 7), never by the camera's key light. A planet's lattice mote 0 is its point, a 2 px dot at its
+// centre (3 px lit), in its colour and never shaded, that comes up with the planet, and is never drawn as a shell mote: once the shell
 // shows, that one lattice site is missing from the bubble, so that net-shells stays Σ latticeCount
 // (the generator's budget) with the point inside it. A moon's mote 0 is its point too: the whole moon
 // while it is a few px across, handing over to its fine-dotted sphere (its other motes and its body)
@@ -199,19 +201,12 @@ void main() {
     look.gain = limb.gain;
     ink = limb.size;
   }
-  MoteOut m;
-  m.pos = o.pos;
-  m.settled = 1.0;
-  m.type = 1.0;
-  m.brightness = 1.0;
-  m.visible = 1.0;
-  m.normal = o.normal;
-  // A self-lit body (a star, T6's light mode 0) is not shaded: its dots are its own light.
-  vec2 light = bodyTexel(6, row).w < 0.5 ? vec2(1.0) : moteLight(m, view);
+  // No camera light (re-skin Task 7): a star's dots are their own light, and a planet's and a moon's
+  // are shaded by their terminator toward their own star, in o.brightness (bodyMote.glsl bodyShade).
   // Where the shell is small on screen its motes overlap: each carries no more than its share of the disc.
   // A lit shell's gain shows where its motes stand apart; where they pile up it is spent within the
   // same share, so a lit disc is the same light in ember, not a white blot.
   float lit = 1.0 + NODE_HI_GAIN * o.hi;
   float density = min(1.0, LOOK_DENSITY * 3.14159265 * bodyPx * bodyPx / (0.5 * max(dots.y, 1.0) * px * px) / lit);
-  emit(view, px * ink, LOOK_SHELL_BRIGHTNESS * light.x * o.brightness * gain * density, FORM_POINT, o.hi, o.warm, look);
+  emit(view, px * ink, LOOK_SHELL_BRIGHTNESS * o.brightness * gain * density, FORM_POINT, o.hi, o.warm, look);
 }

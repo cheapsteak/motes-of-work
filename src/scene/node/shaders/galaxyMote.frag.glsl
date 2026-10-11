@@ -1,8 +1,9 @@
 precision highp float;
 
 // The galaxy's dots (bodySystem.ts: every quad set but the ring): mote.frag.glsl's two galaxy forms,
-// the point and the glow, over each body's own base colour (vBase: a star's tint, the agents' blue
-// for the rest) where the machine's motes use the agents' blue. Act I's motes keep mote.frag.glsl.
+// the point and the glow, over each body's own base colour (vBase: a star's tint, a planet's colour on
+// its motes, point, orbit and moon tracks, the agents' blue on the streams, the feed and the bursts)
+// where the machine's motes use the agents' blue. Act I's motes keep mote.frag.glsl.
 
 in vec2 vUv;
 flat in float vType; // 1 the body's base colour, toward 0 the person's amber

@@ -46,6 +46,11 @@ describe('the galaxy streams', () => {
     expect(streamFor(1, 'binaries', 4096 * 1003 + 1007)()).not.toBe(streamFor(1, 'spots', 4096 * 1003 + 1007)());
   });
 
+  it('draws each planet’s hue from planetHue 29 (re-skin Task 7)', () => {
+    expect(STREAM_SALT.planetHue).toBe(29);
+    expect(streamFor(1, 'planetHue', 17)()).not.toBe(streamFor(1, 'planets', 17)());
+  });
+
   it("draws the black hole's parts from 23-28 (re-skin Task 4), below planetHue 29 and binaries 30", () => {
     expect([
       STREAM_SALT.holeDisk,

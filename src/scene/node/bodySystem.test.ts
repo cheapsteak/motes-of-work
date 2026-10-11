@@ -25,7 +25,7 @@ import {
   unitIndexOf,
 } from './bodyAttrs';
 import { packBodyData } from './bodyData';
-import { STAR_LOOK } from './classLook';
+import { PLANET_LOOK, STAR_LOOK } from './classLook';
 import { createBodySystem, icospheres, type FreezeFrame } from './bodySystem';
 import { GALAXY_INCLUDE_MARKER, withGalaxyLibrary } from './shaderSource';
 import { detailPx, FULL_DETAIL_MAX, glowCaps, HALO_APART, LOD_BANDS, LodElement, motePx, onScreen } from './lod';
@@ -350,17 +350,28 @@ describe('the glow sprites keep their halos apart', () => {
 });
 
 describe('the shaders’ copies', () => {
-  const [r, gg, b] = hexToRgb(NODE_PALETTE.NODE_AGENT);
-  const agent = `vec3(${r.toFixed(7)}, ${gg.toFixed(7)}, ${b.toFixed(1)})`;
-
-  it('draw the bodies in the agents’ blue with BODY_LOOK’s rim, toward amber fixed and ember lit, as the palette has them', () => {
-    expect(bodyFrag).toContain(`const vec3 AGENT = ${agent};`);
+  it('draw the bodies in their own colour, their fill lit by the terminator and no rim but a ghost’s, toward amber fixed and ember lit, as the palette has them (re-skin Task 7)', () => {
     const glsl = (hex: string) => hexToRgb(hex).map((c) => (Number.isInteger(c) ? c.toFixed(1) : c.toFixed(7)));
     expect(bodyFrag).toContain(`const vec3 HUMAN = vec3(${glsl(NODE_PALETTE.NODE_HUMAN).join(', ')});`);
     expect(bodyFrag).toContain(`const vec3 EMBER = vec3(${glsl(NODE_PALETTE.NODE_EMBER).join(', ')});`);
     expect(bodyFrag).toContain(`const float EMBER_MIX = ${NODE_EMBER_MIX};`);
-    expect(bodyFrag).toContain(`const float RIM = ${BODY_LOOK.rim};`);
-    expect(bodyFrag).toContain(`const float RIM_POW = ${BODY_LOOK.rimPow};`);
+    // The colour is the body's own (T6, through vBase), never a hand copy of the agents' blue; the rim
+    // term is gone (planets do not glow), and the fill is PLANET_LOOK's, spliced with terminator().
+    expect(bodyFrag).toContain('flat in vec3 vBase;');
+    expect(bodyFrag).not.toMatch(/AGENT/);
+    // The rim stays on the burst's ghost alone (its outline), BODY_LOOK's.
+    expect(bodyFrag).toContain(`const float GHOST_RIM = ${BODY_LOOK.ghostRim};`);
+    expect(bodyFrag).toContain(`const float GHOST_RIM_POW = ${BODY_LOOK.ghostRimPow};`);
+    expect(bodyFrag).toContain('vRim * GHOST_RIM');
+    const bodies = system.object.children.find((o) => o.name === 'net-bodies') as Mesh;
+    const frag = (bodies.material as ShaderMaterial).fragmentShader;
+    expect(frag).toContain(`const float PLANET_EDGE = ${PLANET_LOOK.edge};`);
+    expect(frag).toContain(`const float PLANET_FILL = ${PLANET_LOOK.fill};`);
+    expect(frag).toContain('float terminator(vec3 n, vec3 toStar, float night)');
+    // A fragment shader takes terminator() alone: lightDir reads the bodies texture, left out by the define.
+    expect(frag.indexOf('#define TERMINATOR_FRAGMENT')).toBeGreaterThanOrEqual(0);
+    expect(frag.indexOf('#define TERMINATOR_FRAGMENT')).toBeLessThan(frag.indexOf('#ifndef TERMINATOR_FRAGMENT'));
+    expect((bodies.material as ShaderMaterial).vertexShader).toContain('vFill = PLANET_FILL;');
   });
 
   it('fill a lit glow’s core to BODY_LOOK.litCore, galaxyMote.frag.glsl’s one hand copy (the galaxy’s dots alone draw glows)', () => {

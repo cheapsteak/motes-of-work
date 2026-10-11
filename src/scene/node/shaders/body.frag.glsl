@@ -1,13 +1,21 @@
 precision highp float;
 
-// The galaxy's bodies (body.vert.glsl): a faint fill and a rim, rim (1 - |n.v|)^rimPow over the
-// fill (galaxy §1.3), in the agents' blue, tinted toward the person's amber once fixed and mixed
-// toward ember while lit, then toward the freeze frame's colour (vTint: a copy's, the grey, the flash's
-// white), premultiplied for the screen blend. The constants are bodyAttrs.ts
-// BODY_LOOK's and NODE_PALETTE's (bodySystem.test.ts holds the copies to them).
+// The galaxy's bodies (body.vert.glsl): a planet's or moon's faint fill (PLANET_LOOK.fill) in its
+// colour (vBase, T6), lit by its terminator toward its own star and unshaded while lit (re-skin §4.4:
+// no rim, so a planet does not glow), tinted toward the person's amber once fixed and mixed toward
+// ember while lit, then toward the freeze frame's colour (vTint: a copy's, the grey, the flash's
+// white), premultiplied for the screen blend. A burst's ghost keeps its rim, (1 - |n.v|)^GHOST_RIM_POW
+// (BODY_LOOK.ghostRim): drawn by its icosphere alone, the rim is what reads as the moon's dim double.
+// The palette's and the ghost rim's constants are NODE_PALETTE's and BODY_LOOK's (bodySystem.test.ts
+// holds the copies to them); terminator() and the planets' constants are spliced.
 
 in vec3 vNormal;
+flat in vec3 vToStar;
+flat in float vNight;
+flat in vec3 vBase;
+in vec3 vViewNormal;
 in vec3 vToEye;
+flat in float vRim;
 flat in float vFill;
 flat in float vGain;
 flat in float vHi;
@@ -30,12 +38,13 @@ uniform vec4 uDropBox;
 uniform vec2 uViewport;
 uniform float uPixelRatio;
 
-const vec3 AGENT = vec3(0.3019608, 0.6392157, 1.0); // #4DA3FF
+// #include terminator() (spliced in by src/scene/node/shaderSource.ts)
+
 const vec3 HUMAN = vec3(1.0, 0.7019608, 0.2784314); // #FFB347
 const vec3 EMBER = vec3(1.0, 0.4196078, 0.3411765); // #FF6B57
 const float EMBER_MIX = 0.8;
-const float RIM = 0.55;
-const float RIM_POW = 2.6;
+const float GHOST_RIM = 0.55;
+const float GHOST_RIM_POW = 2.6;
 
 void main() {
   // The shadow stays black (re-skin §4.2): nothing of the galaxy lights a pixel inside it.
@@ -51,9 +60,10 @@ void main() {
       }
     }
   }
-  float f = 1.0 - abs(dot(normalize(vNormal), normalize(vToEye)));
-  float a = min(1.0, (vFill + RIM * pow(f, RIM_POW)) * vGain);
-  vec3 colour = mix(mix(AGENT, HUMAN, vWarm), EMBER, EMBER_MIX * vHi);
+  float lit = mix(terminator(normalize(vNormal), vToStar, vNight), 1.0, vHi);
+  float f = 1.0 - abs(dot(normalize(vViewNormal), normalize(vToEye)));
+  float a = min(1.0, (vFill * lit + vRim * GHOST_RIM * pow(f, GHOST_RIM_POW)) * vGain);
+  vec3 colour = mix(mix(vBase, HUMAN, vWarm), EMBER, EMBER_MIX * vHi);
   if (vTint.a > 0.0) colour = mix(colour, vTint.rgb, vTint.a);
   outColor = vec4(colour * a, a);
 }

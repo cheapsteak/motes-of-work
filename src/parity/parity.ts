@@ -25,6 +25,9 @@
 // every mote of both bursts at four states of the fix and both of the twos' length sets, and the breath.
 // `?lib=leak` compares the defect's leak, leakOffset() (src/scene/node/leak.ts), over C1's dots under
 // its forced wounds at three slots and eight moments of each (leakCases.ts), as the texture carries them.
+// `?lib=terminator` compares the planets' light (src/scene/node/terminator.ts): lightDir() of every
+// planet and moon of the essay's galaxy at four ambients, and terminator() over a sphere of normals,
+// four light directions and both nights (terminatorCases).
 // `?lib=hole` compares the black hole (src/scene/hole/hole.ts): the lens, and every part's dots from two
 // cameras at four ambients (holeCases.ts).
 import {
@@ -79,7 +82,10 @@ import {
   withOrbitLibrary,
   withShellLibrary,
   withStarLibrary,
+  withTerminatorLibrary,
 } from '../scene/node/shaderSource';
+import { lightDir, terminator } from '../scene/node/terminator';
+import { PLANET_LOOK } from '../scene/node/classLook';
 import { buildHoleAttrs } from '../scene/hole/holeAttrs';
 import { HOLE_CAMERAS, HolePart, holeParityCases, holeParityView, holeReference, lensInput, type HoleCamera, type HoleSample } from './holeCases';
 import { starBreath, starDot, starSpike, starTint } from '../scene/node/star';
@@ -119,12 +125,14 @@ import {
   SHELL_PARITY_FIELDS,
   STAR_PARITY_FIELDS,
   STREAM_PARITY_FIELDS,
+  TERMINATOR_PARITY_FIELDS,
   type FreezeOut,
   type LodOut,
   type OrbitOut,
   type ShellOut,
   type StarOut,
   type StreamOut,
+  type TerminatorOut,
 } from './fields';
 import { allBodyMoteAttrs, BODY_AMBIENTS, BODY_CASES, sysPxAll } from './bodyCases';
 import { leakCases } from './leakCases';
@@ -145,6 +153,7 @@ import {
   PARITY_SIZE,
   SHELL_VERTEX,
   STAR_VERTEX,
+  TERMINATOR_VERTEX,
 } from './shaders';
 
 interface ParityCase {
@@ -213,8 +222,8 @@ function pointsGeometry(count: number): InstancedBufferGeometry {
 /** Render one object into the SIZE×SIZE float target and read it back. */
 type Draw = (object: Object3D) => Float32Array;
 
-type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'leak' | 'lod' | 'body' | 'freeze' | 'star' | 'hole';
-const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'leak', 'lod', 'body', 'freeze', 'star', 'hole'];
+type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'leak' | 'lod' | 'body' | 'freeze' | 'star' | 'terminator' | 'hole';
+const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'leak', 'lod', 'body', 'freeze', 'star', 'terminator', 'hole'];
 
 function run(lib: Lib): ParityCase[] {
   const canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -313,6 +322,9 @@ function run(lib: Lib): ParityCase[] {
   } else if (lib === 'star') {
     // --- starDot(), starSpike(), starBreath(), starTint(): every StarOut field compared with the TS reference. ---
     for (const c of starCases(draw)) cases.push(c);
+  } else if (lib === 'terminator') {
+    // --- lightDir() and terminator(): every TerminatorOut field compared with the TS reference. ---
+    for (const c of terminatorCases(draw)) cases.push(c);
   } else if (lib === 'freeze') {
     // --- The freeze frame's dressing: every FreezeOut field compared with the TS reference, over a grid. ---
     cases.push(freezeCase(draw));
@@ -1044,6 +1056,81 @@ function starBatches(draw: Draw, inputs: StarInput[], name: string): ParityCase 
   }
   mat.dispose();
   return { name, maxError: err, samples: inputs.length };
+}
+
+/** The ambients the terminator parity takes every planet's and moon's light direction at. */
+const TERMINATOR_AMBIENTS = [0, AMBIENT_POSE, 101, 3599.9];
+/** Normals over the sphere (a Fibonacci lattice) the terminator is drawn on, against TERMINATOR_TO_STAR. */
+const TERMINATOR_NORMALS = 160;
+const TERMINATOR_TO_STAR: [number, number, number][] = [
+  [0, 0, 1],
+  [1, 0, 0],
+  [0, -1, 0],
+  [0.48, 0.6, -0.64],
+];
+
+/** One sample of the terminator parity: a row and ambient for lightDir, a normal, light and night for terminator. */
+interface TerminatorInput {
+  term: [number, number, number, number];
+  n: [number, number, number];
+  toStar: [number, number, number];
+}
+
+function terminatorCases(draw: Draw): ParityCase[] {
+  const g = essayGalaxy();
+  const data = packBodyData(g);
+  const lit = g.bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon');
+  const flat: Pick<TerminatorInput, 'n' | 'toStar'> = { n: [0, 0, 1], toStar: [0, 0, 1] };
+  const dirs: TerminatorInput[] = TERMINATOR_AMBIENTS.flatMap((t) => lit.map((b) => ({ term: [b.index, t, PLANET_LOOK.night.rest, 0], ...flat })));
+  const shades: TerminatorInput[] = [];
+  for (const night of [PLANET_LOOK.night.rest, PLANET_LOOK.night.subject])
+    for (const toStar of TERMINATOR_TO_STAR)
+      for (let i = 0; i < TERMINATOR_NORMALS; i++) {
+        const y = 1 - (2 * (i + 0.5)) / TERMINATOR_NORMALS;
+        const r = Math.sqrt(1 - y * y);
+        const a = i * Math.PI * (3 - Math.sqrt(5));
+        shades.push({ term: [lit[0].index, 0, night, 0], n: [r * Math.cos(a), y, r * Math.sin(a)], toStar });
+      }
+  const bodiesTex = floatTexture(data.bodies, BODY_TEXELS, data.bodyCount);
+  const uniforms: Record<string, IUniform> = { uBodyTex: { value: bodiesTex }, uN0Row: { value: data.n0Row }, uPass: { value: 0 } };
+  const mat = material(withTerminatorLibrary(TERMINATOR_VERTEX), PARITY_FRAGMENT, uniforms);
+  const passes = parityPasses(TERMINATOR_PARITY_FIELDS);
+  const f = Math.fround;
+  const run = (inputs: TerminatorInput[], name: string): ParityCase => {
+    let err = 0;
+    for (let from = 0; from < inputs.length; from += COUNT) {
+      const batch = inputs.slice(from, from + COUNT);
+      const geometry = pointsGeometry(batch.length);
+      geometry.setAttribute('aTermIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((b) => b.term)), 4));
+      geometry.setAttribute('aNormalIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((b) => b.n)), 3));
+      geometry.setAttribute('aToStarIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((b) => b.toStar)), 3));
+      const points = new Points(geometry, mat);
+      points.frustumCulled = false; // positions come from gl_InstanceID
+      const outs = passes.map((_, pass) => {
+        uniforms.uPass.value = pass;
+        return draw(points);
+      });
+      geometry.dispose();
+      // The TS reference takes the inputs as the attributes carry them: float32.
+      batch.forEach((b, i) => {
+        const v = (x: readonly number[]) => x.map(f) as [number, number, number];
+        const want: TerminatorOut = { lightDir: lightDir(data, b.term[0], f(b.term[1])), terminator: terminator(v(b.n), v(b.toStar), f(b.term[2])) };
+        passes.forEach((pass, j) => {
+          for (const { field, offset } of pass) {
+            fieldValues(want, field.name).forEach((x, q) => {
+              const d = outs[j][i * 4 + offset + q] - x;
+              err = Math.max(err, Number.isNaN(d) ? Infinity : Math.abs(d));
+            });
+          }
+        });
+      });
+    }
+    return { name, maxError: err, samples: inputs.length };
+  };
+  const cases = [run(dirs, 'terminator: lightDir of every planet and moon'), run(shades, 'terminator: terminator over the sphere')];
+  mat.dispose();
+  bodiesTex.dispose();
+  return cases;
 }
 
 function lodCases(draw: Draw): ParityCase[] {

@@ -13,17 +13,20 @@
 // generated constants. freeze.glsl (the freeze frame's dressing) needs its generated constants, with
 // the mote library (hash01) and light.glsl (the palette) before it. The galaxy's own draws
 // (bodySystem.ts) put their libraries together once: the mote library, orbit.glsl, shell.glsl,
-// star.glsl, lod.glsl, light.glsl and freeze.glsl, then the instance chunk (withGalaxyLibrary).
+// star.glsl, terminator.glsl, lod.glsl, light.glsl and freeze.glsl, then the instance chunk (withGalaxyLibrary).
 // star.glsl (a star's dots and spikes) needs its generated constants (classLook.ts), with the mote
 // library and orbit.glsl (orbitTurns) before it. hole.glsl (the black hole: its lens, disk, ring, jets,
 // knots, in-fall and strands) needs its generated constants (holeLook.ts), with the mote library
 // (pcg, hash01, the SALT constants, moteSinCos) and orbit.glsl (orbitTurns) before it.
+// terminator.glsl (the planets' and moons' light, re-skin Task 7) needs its generated constants
+// (classLook.ts PLANET_LOOK), with the mote library and orbit.glsl (bodyTexel, bodyWorld) before it; a
+// fragment shader takes its terminator() alone (withTerminatorFragment).
 import { glslBodyMoteOutStruct, glslDerpStruct } from '../../parity/fields';
 import { instanceChunk, moteLibraryGlsl, splice, spliceAll } from '../mote/shaderSource';
 import { glslBodyMoteConstants, glslDerpConstants, glslFreezeConstants, glslLeakConstants, glslLightConstants, glslOrbitConstants, glslShellConstants } from './birth';
 import { glslGalaxyConstants } from './bodyAttrs';
 import { DROPOUT } from './birth';
-import { glslClassLookConstants } from './classLook';
+import { glslClassLookConstants, glslPlanetLookConstants } from './classLook';
 import { glslHoleConstants } from '../hole/holeLook';
 import holeGlsl from '../hole/hole.glsl?raw';
 import { BODY_KIND } from './bodyData';
@@ -39,6 +42,7 @@ import lodGlsl from './lod.glsl?raw';
 import orbitGlsl from './orbit.glsl?raw';
 import shellGlsl from './shell.glsl?raw';
 import starGlsl from './star.glsl?raw';
+import terminatorGlsl from './terminator.glsl?raw';
 
 const LIGHT_CONSTANTS_MARKER = '// #include LIGHT constants (generated from src/scene/node/birth.ts by shaderSource.ts)';
 
@@ -145,6 +149,29 @@ export function withStarLibrary(vertex: string): string {
   return splice(vertex, STAR_INCLUDE_MARKER, `${WITH_ORBIT}\n${STAR_LIBRARY}`, 'star vertex shader');
 }
 
+const PLANET_CONSTANTS_MARKER = '// #include PLANET constants (generated from src/scene/node/classLook.ts by shaderSource.ts)';
+/** The line a vertex shader (the terminator parity shader) carries where the mote library, orbit.glsl and terminator.glsl go. */
+export const TERMINATOR_INCLUDE_MARKER = '// #include mote.glsl + orbit.glsl + terminator.glsl (spliced in by src/scene/node/shaderSource.ts)';
+/** The line a fragment shader (body.frag.glsl) carries where terminator() goes. */
+export const TERMINATOR_FRAGMENT_MARKER = '// #include terminator() (spliced in by src/scene/node/shaderSource.ts)';
+
+const TERMINATOR_LIBRARY = spliceAll(terminatorGlsl, 'terminator.glsl', [[PLANET_CONSTANTS_MARKER, glslPlanetLookConstants()]]);
+
+/** terminator.glsl with the planets' generated constants: terminator() and lightDir(), without the mote library and orbit.glsl it reads. */
+export function terminatorLibraryGlsl(): string {
+  return TERMINATOR_LIBRARY;
+}
+
+/** Splice the mote library (moteSinCos), orbit.glsl (bodyTexel, bodyWorld) and terminator.glsl into a vertex shader at its marker (the terminator parity shader). */
+export function withTerminatorLibrary(vertex: string): string {
+  return splice(vertex, TERMINATOR_INCLUDE_MARKER, `${WITH_ORBIT}\n${TERMINATOR_LIBRARY}`, 'terminator vertex shader');
+}
+
+/** A fragment shader (body.frag.glsl) with terminator() alone and the planets' constants: TERMINATOR_FRAGMENT leaves lightDir out, which reads the bodies texture. */
+export function withTerminatorFragment(fragment: string): string {
+  return splice(fragment, TERMINATOR_FRAGMENT_MARKER, `#define TERMINATOR_FRAGMENT\n${TERMINATOR_LIBRARY}`, 'body fragment shader');
+}
+
 const HOLE_CONSTANTS_MARKER = '// #include HOLE constants (generated from src/scene/hole/holeLook.ts by shaderSource.ts)';
 /** The line a vertex shader (the hole's, and its parity shader) carries where the mote library, orbit.glsl and hole.glsl go. */
 export const HOLE_INCLUDE_MARKER = '// #include mote.glsl + orbit.glsl + hole.glsl (spliced in by src/scene/node/shaderSource.ts)';
@@ -217,6 +244,7 @@ const WITH_GALAXY = [
   LEAK_LIBRARY,
   SHELL_LIBRARY,
   STAR_LIBRARY,
+  TERMINATOR_LIBRARY,
   LOD_LIBRARY,
   LIGHT_LIBRARY,
   FREEZE_LIBRARY,
@@ -230,7 +258,7 @@ const WITH_GALAXY = [
 /**
  * Splice the mote library (hash01, moteSinCos), orbit.glsl (bodyWorld, orbitLocal), derp.glsl (the
  * derps), shell.glsl (the lattice, the equation, the spin, the scatter), star.glsl (a star's dots,
- * spikes, breath and tint), lod.glsl, light.glsl (the
+ * spikes, breath and tint), terminator.glsl (the planets' light), lod.glsl, light.glsl (the
  * landing, the spread, the light, the palette), freeze.glsl (the freeze frame's dressing), the galaxy's
  * and the streams' constants, bodyMote.glsl
  * (the motes in motion, the lamp, the defect on moving bodies), the instance chunk (toView,

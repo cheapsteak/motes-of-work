@@ -206,6 +206,25 @@ const BODY_CASES = [
   '64 hashed motes, the arms lamp',
   'stream dots',
 ].flatMap((c) => [`body: ${c} at the pose`, `body: ${c} at 101 s`]);
+// The planets' light (`?lib=terminator`, re-skin Task 7): lightDir() of every planet and moon of the
+// essay's galaxy at 0, the pose, 101 and 3599.9 s, and terminator() over 160 normals on the sphere,
+// four light directions and both nights. A unit direction and a share: held to 1e-4 (a float32
+// normalize is good to a few 1e-7; the terminator's ramp is 0.4 of n.L wide).
+const TERMINATOR_CASES = ['terminator: lightDir of every planet and moon', 'terminator: terminator over the sphere'];
+const TERMINATOR_TOLERANCE = 1e-4;
+
+test('GLSL lightDir() and terminator() match the TS reference', async ({ page }) => {
+  const { errors, ...parity } = await runParity(page, '&lib=terminator');
+  expect(errors).toEqual([]);
+  expect(parity.error).toBeUndefined();
+  const byName = new Map(parity.cases.map((c) => [c.name, c]));
+  expect([...byName.keys()].sort()).toEqual([...TERMINATOR_CASES, 'hash01', 'pcg goldens'].sort());
+  for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(TERMINATOR_TOLERANCE);
+  // Every planet and moon of the essay's galaxy (245 of them) at the four ambients.
+  expect(byName.get('terminator: lightDir of every planet and moon')!.samples).toBe(4 * 245);
+  expect(byName.get('terminator: terminator over the sphere')!.samples).toBe(160 * 4 * 2);
+});
+
 // A star's look (`?lib=star`): starDot() over the 160 dot indices of four seeds, starSpike() over six
 // rows of sixteen dots at five glow sizes and three distances (far, half close, close) for a four and a six, starBreath() at four ambients for two
 // looks, starTint() over 0..1 by 0.1. Measured: under 1e-6 (the TS and GLSL take the same float32
@@ -235,6 +254,11 @@ test('GLSL starDot(), starSpike(), starBreath() and starTint() match the TS refe
 const HELD_CASES = ['defect 0.33, C1 held', '0.39, C1 held and fixing'].map((c) => `body: ${c} at the pose`);
 /** The leak on the focused planet (re-skin Task 8b): C1 at full focus, its forced slot 45 curving out (99.45 s) and lingering (100.2 s). */
 const LEAK_BODY_CASES = ['99.45 s', '100.2 s'].map((at) => `body: C1 leaking, focused at ${at}`);
+/** The terminator (re-skin Task 7): N0 under its planet lamp and its moon N0-m4, each at three phases of its orbit (bodyCases.ts). */
+const TERMINATOR_BODY_CASES = [
+  ...[101, 124, 147].map((t) => `body: N0 lit by P_a, its planet lamp at ${t} s`),
+  ...[101, 104, 107].map((t) => `body: N0-m4 lit by P_a at ${t} s`),
+];
 // Measured: under 1e-5 for C1, its moons, P1 and R0, and 1.3e-4 for the hashed motes (far systems,
 // a hundred units out, where float32 keeps 8e-6 of a unit). A wrong term (a morph at 0.02 R of a
 // 0.3-unit planet, a moon's skip) is ten times this or more.
@@ -250,7 +274,9 @@ test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   expect(errors).toEqual([]);
   expect(parity.error).toBeUndefined();
   const byName = new Map(parity.cases.map((c) => [c.name, c]));
-  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, ...LEAK_BODY_CASES, TRACK_LAMP_CASE, 'hash01', 'pcg goldens'].sort());
+  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, ...LEAK_BODY_CASES, ...TERMINATOR_BODY_CASES, TRACK_LAMP_CASE, 'hash01', 'pcg goldens'].sort());
+  // N0's lattice but its point, every other mote (about 200); N0-m4's 27.
+  for (const name of TERMINATOR_BODY_CASES) expect(byName.get(name)!.samples, name).toBeGreaterThan(name.includes('-m4') ? 20 : 100);
   for (const name of LEAK_BODY_CASES) expect(byName.get(name)!.samples, name).toBeGreaterThan(1000);
   for (const name of HELD_CASES) {
     expect(byName.get(name)!.samples, name).toBeGreaterThan(100);

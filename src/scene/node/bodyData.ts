@@ -10,7 +10,9 @@
 //   T3 host row (−1 none), R, born, dur   T4 fixAt, hiAt, hop, cracked (0/1)
 //   T5 derpSeed, derpPhase, star row, rule row
 //   T6 base r, g, b, light mode (0 self-lit, 1 terminator): a star's tint (star.ts starTint of its
-//      temperature) and 0; every other body the agents' blue (NODE_AGENT) and 1
+//      temperature) and 0; a planet's colour and 1 (terminator.ts planetTint of its hue and its star's
+//      temperature, C1 the hero's cyan), a moon's its planet's; the core rows and a barycentre (which
+//      draw nothing) the agents' blue (NODE_AGENT) and 1
 //   T7 a star's look: brightness, spikes (4 or 6), its breath's period and phase; 0 for every other body
 // Streams, row = index into Galaxy.streams, then the feed:
 //   T0 from, to, kind (0 out, 1 side, 2 in, 3 feed), born
@@ -25,11 +27,12 @@
 import type { Galaxy } from '../../galaxy/generate';
 import { hexToRgb, NODE_NEVER, NODE_PALETTE } from './birth';
 import { starTint } from './star';
+import { planetTint } from './terminator';
 
 /** Texels per row, in both textures. */
 export const BODY_TEXELS = 8;
 
-/** A body's light mode as T6.w carries it: a star lights itself; every other body is lit (a terminator from Task 7). */
+/** A body's light mode as T6.w carries it: a star lights itself; every other body is lit (its terminator, re-skin Task 7). */
 export const LIGHT_MODE = { selfLit: 0, terminator: 1 } as const;
 
 const AGENT = hexToRgb(NODE_PALETTE.NODE_AGENT);
@@ -64,6 +67,13 @@ export function packBodyData(g: Galaxy): BodyData {
   const streamCount = g.streams.length + 1;
   const bodies = new Float32Array(bodyCount * ROW);
   const streams = new Float32Array(streamCount * ROW);
+  /** A body's base colour: a star's tint, a planet's or moon's colour, else the agents' blue. */
+  const base = (b: (typeof g.bodies)[number]): readonly number[] => {
+    if (b.look) return starTint(b.look.temperature);
+    if (b.hue === null) return AGENT;
+    const planet = g.bodies[b.planet];
+    return planetTint(b.hue, g.bodies[b.star].look!.temperature, planet.hero);
+  };
   for (const b of g.bodies) {
     const o = b.orbit;
     const look = b.look;
@@ -76,7 +86,7 @@ export function packBodyData(g: Galaxy): BodyData {
         b.host, b.R, b.born, b.dur,
         never(b.fixAt), never(b.hiAt), hop(b.hop), b.cracked ? 1 : 0,
         b.derpSeed, b.derpPhase, b.star, b.rule,
-        ...(look ? starTint(look.temperature) : AGENT), look ? LIGHT_MODE.selfLit : LIGHT_MODE.terminator,
+        ...base(b), look ? LIGHT_MODE.selfLit : LIGHT_MODE.terminator,
         look?.brightness ?? 0, look?.spikes ?? 0, look?.period ?? 0, look?.phase ?? 0,
       ],
       b.index * ROW,

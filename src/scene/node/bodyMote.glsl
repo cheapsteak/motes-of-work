@@ -5,7 +5,7 @@
 // generated body mote constants (birth.ts) and the BodyMoteOut struct (src/parity/fields.ts) at the
 // markers below and puts before it the mote library (hash01, moteSinCos), orbit.glsl (bodyWorld,
 // orbitLocal, galaxyTurn), derp.glsl (derp), shell.glsl (shellWarpK, shellHome, spinShell), star.glsl
-// (starDotPolar, starBreath), lod.glsl (lodGain),
+// (starDotPolar, starBreath), terminator.glsl (terminator, lightDir), lod.glsl (lodGain),
 // light.glsl (nodeLight, nodeSettle, nodeArrival, nodeSpread) and the galaxy's constants (KIND_,
 // ROLE_). Like orbit.glsl it never calls the builtin sin or cos. The parity page (src/parity,
 // ?lib=body) renders it and compares it with the TS reference.
@@ -89,7 +89,7 @@ StarLook bodyStarLook(int row) {
   return s;
 }
 
-// A body's base colour (T6.rgb): a star's tint, every other body's the agents' blue.
+// A body's base colour (T6.rgb): a star's tint, a planet's or moon's colour (terminator.ts planetTint).
 vec3 bodyBase(int row) {
   return bodyTexel(6, row).rgb;
 }
@@ -203,6 +203,16 @@ bool focusScatter(int row) {
 float trackLampGain(int row) {
   if (int(round(uLamp)) == 1 && bodyKind(row) == KIND_PLANET) return 0.0;
   return lampGain(row);
+}
+
+// The terminator's light on a planet's or moon's surface of rest normal n (bodyMote.ts bodyShade, re-skin
+// Task 7): toward its own star, its night the planet lamp's subject's or the rest's, mixed to 1 by hi;
+// every other body 1.
+float bodyShade(int row, vec3 n, float hi, float t) {
+  int kind = bodyKind(row);
+  if (kind != KIND_PLANET && kind != KIND_MOON) return 1.0;
+  float night = planetLampSubject(row) ? PLANET_NIGHT_SUBJECT : PLANET_NIGHT_REST;
+  return mix(terminator(n, lightDir(row, t), night), 1.0, hi);
 }
 
 // A body's light: (fix, hi, surge) over its T4 (fixAt, hiAt, hop).
@@ -468,10 +478,12 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
     StarLook sl = bodyStarLook(row);
     self = sl.brightness * exp(-cloud.rho / STAR_FALL) * starBreath(sl.period, sl.phase, t);
   }
+  // A planet's or moon's shell mote: its terminator on its rest normal (the person's dust is unshaded).
+  float shade = person ? 1.0 : bodyShade(row, normal, max(hi, surge), t);
   BodyMoteOut o;
   o.pos = om * om * spawn + 2.0 * om * e * ctrl + e * e * land;
   o.normal = normal;
-  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * leakLight * uShow * lamp * el * look.gain * focusGain(row) * self;
+  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * leakLight * uShow * lamp * el * look.gain * focusGain(row) * self * shade;
   o.visible = uShow > 0.0 && clock >= settle - window && lamp > 0.0 && el >= LOD_VISIBLE && look.gain > 0.0 ? 1.0 : 0.0;
   o.settled = tt;
   o.hi = max(hi, surge);

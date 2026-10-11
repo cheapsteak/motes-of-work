@@ -21,6 +21,8 @@ import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { FULL_DETAIL_MAX, HOOD_LOD, LOD_BANDS, LodElement, MOON_POINT_PX, systemPx } from '../src/scene/node/lod';
 import { canvasShot, openStage, readSpans, settle, targetScrollY } from './helpers';
 import { emberComponents } from './pixels';
+import { essayCameraAt } from './machine';
+import { lightDir } from '../src/scene/node/terminator';
 
 // The galaxy drawn by level of detail (docs/specs/2026-10-07-galaxy-orbits.md §3, §4), at §14.5's
 // probe shots (`?shot=`, each tracking its target), grown (`net.show` and
@@ -1164,7 +1166,7 @@ function lift(png: PNG, x: number, y: number): number {
 /**
  * A disc's dark floor: the lift its darkest quarter of pixels stays under (the 25th percentile), within
  * `r` px of (x, y), leaving out those inside any of `masks`. Between a dotted sphere's motes there is
- * only the faint fill (BODY_LOOK.fill, about 9 on the blue channel), so its darkest quarter is
+ * only the faint fill (PLANET_LOOK.fill, about 9 on the blue channel lit, under its terminator), so its darkest quarter is
  * near-black like the planet's; a solid fill (the old moon's 0.28, about 70) lifts the whole disc.
  */
 function darkFloor(png: PNG, x: number, y: number, r: number, masks: { x: number; y: number; r: number }[] = []): { floor: number; n: number } {
@@ -1853,6 +1855,220 @@ for (const size of SIZES) {
           expect(s.far, `${name} spot ${k}`).toBe(0);
         }
       }
+      expect(errors).toEqual([]);
+    });
+  });
+}
+
+// The re-skin's Task 7 (re-skin §4.4): planets and moons lit from their own star by a terminator,
+// cool and tinted by it, glowing only when lit. Each frame is the essay's, at the middle of its beat's
+// hold, and every place on screen is the twins' (bodyWorld, bodyCentre, lightDir) through the essay's
+// composed camera (machine.ts essayCameraAt) at the frame's ambient (the test mode's pose).
+
+/**
+ * ly-1's day half against its night half: the brief's 3, where the geometry gives it, else 0.6 × the
+ * least measured (the floors rule). Measured at 11-12 px across (phone / desktop): N0 3.36 / 3.65, B1
+ * 2.38 / 2.52 (a disc this small blurs its terminator over a third of its width): 0.6 × 2.38.
+ */
+const TERMINATOR_DAY = 1.4;
+/**
+ * The smallest planet ly-1's tests judge, CSS px across. The brief's 25 px leaves none: P_a's largest
+ * planets at ly-1 are N0 and B1, 11.3 and 11.5 px on a phone, 11.9 and 12.2 on a desktop (measured).
+ */
+const LY1_MIN_ACROSS = 10;
+
+/** The essay's frame at `section`'s `local`: its state, camera and ambient, a projection to CSS px with each point's distance, and the page's system sizes. */
+async function essayFrame(page: Page, section: string, local: number, size: { width: number; height: number }) {
+  const p = await openPlace(page, section, local);
+  const state = new KeyframeSampler(keyframes, await readSpans(page)).sample(p);
+  const { camera, ambient } = essayCameraAt(state, size.width, size.height, AMBIENT_POSE);
+  const focal = 0.5 * size.height * camera.projectionMatrix.elements[5];
+  const project = (q: readonly number[]) => {
+    const v = new Vector3(q[0], q[1], q[2]);
+    const d = v.distanceTo(camera.position);
+    v.project(camera);
+    return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height, d, front: v.z < 1 };
+  };
+  const { sysPx } = await lod(page);
+  return { state, camera, ambient, focal, project, sysPx };
+}
+
+/** A pixel's light over the stage's background, per channel. */
+function lightAt(png: PNG, x: number, y: number): [number, number, number] {
+  const i = (y * png.width + x) * 4;
+  return [png.data[i] - 0x0b, png.data[i + 1] - 0x0d, png.data[i + 2] - 0x12];
+}
+
+/** The mean light (summed channels) of the pixels whose centres `keep` selects, within the square round (cx, cy) of half-side `r`, and how many. */
+function meanLight(png: PNG, cx: number, cy: number, r: number, keep: (x: number, y: number) => boolean): { mean: number; n: number } {
+  let sum = 0;
+  let n = 0;
+  for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(png.height - 1, Math.ceil(cy + r)); y++)
+    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(png.width - 1, Math.ceil(cx + r)); x++) {
+      if (!keep(x + 0.5, y + 0.5)) continue;
+      const [a, b, c] = lightAt(png, x, y);
+      sum += a + b + c;
+      n++;
+    }
+  return { mean: sum / Math.max(1, n), n };
+}
+
+/** A measurement, kept on the test and printed (the floors below were set against these). */
+function measured(type: string, description: string): void {
+  test.info().annotations.push({ type, description });
+  console.log(`${test.info().title}: ${type}: ${description}`);
+}
+
+for (const size of SIZES) {
+  test.describe(`the planets’ terminator at ${size.width}x${size.height}`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } });
+    const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
+    const data = packBodyData(g);
+    const pa = bodyIndex(g, 'P_a');
+
+    /** P_a's planets at ly-1 on screen, each with its disc, its moons' discs and its light direction's angle out of the screen plane. */
+    const lyOnePlanets = (f: Awaited<ReturnType<typeof essayFrame>>) => {
+      const star = f.project(bodyWorld(data, pa, f.ambient));
+      return g.bodies
+        .filter((b) => b.kind === 'planet' && b.host === pa)
+        .map((b) => {
+          const c = f.project(bodyWorld(data, b.index, f.ambient));
+          const r = (b.R * f.focal) / c.d;
+          const L = lightDir(data, b.index, f.ambient);
+          const w = bodyWorld(data, b.index, f.ambient);
+          const view = [w[0] - f.camera.position.x, w[1] - f.camera.position.y, w[2] - f.camera.position.z];
+          const vl = Math.hypot(...view);
+          // The light's angle out of the screen plane: 0 in it, 90° along the line of sight.
+          const outOfPlane = (Math.asin(Math.min(1, Math.abs(L[0] * view[0] + L[1] * view[1] + L[2] * view[2]) / vl)) * 180) / Math.PI;
+          const toStar = [star.x - c.x, star.y - c.y];
+          const tl = Math.hypot(...toStar);
+          const moons = g.bodies
+            .filter((m) => m.kind === 'moon' && m.planet === b.index)
+            .map((m) => {
+              const q = f.project(bodyWorld(data, m.index, f.ambient));
+              return { x: q.x, y: q.y, r: (m.R * f.focal) / q.d + 3 };
+            });
+          return { b, x: c.x, y: c.y, r, outOfPlane, toStar: [toStar[0] / tl, toStar[1] / tl], moons, front: c.front };
+        });
+    };
+
+    test('a planet is lit from its star', async ({ page }) => {
+      // ly-1: for each of P_a's planets at least LY1_MIN_ACROSS px across whose light direction is within 45° of the
+      // screen plane, the mean of its disc's half toward P_a on screen is at least TERMINATOR_DAY times
+      // the other half's (its shells and bodies alone; its moons' discs left out).
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'layers', 0.45 / 4.3, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const all = lyOnePlanets(f);
+      const judged = all.filter((p) => p.front && 2 * p.r >= LY1_MIN_ACROSS && p.outOfPlane <= 45);
+      measured('planets', all.map((p) => `${p.b.id} ${(2 * p.r).toFixed(1)} px, light ${p.outOfPlane.toFixed(0)}° out of plane`).join('; '));
+      expect(judged.length, 'a planet to judge').toBeGreaterThanOrEqual(1);
+      for (const p of judged) {
+        const off = (x: number, y: number) => p.moons.every((m) => Math.hypot(x - m.x, y - m.y) > m.r);
+        const side = (x: number, y: number) => (x - p.x) * p.toStar[0] + (y - p.y) * p.toStar[1];
+        const disc = (x: number, y: number) => Math.hypot(x - p.x, y - p.y) <= p.r && off(x, y);
+        const day = meanLight(png, p.x, p.y, p.r, (x, y) => disc(x, y) && side(x, y) > 0);
+        const night = meanLight(png, p.x, p.y, p.r, (x, y) => disc(x, y) && side(x, y) < 0);
+        measured(p.b.id, `day ${day.mean.toFixed(1)} (${day.n} px), night ${night.mean.toFixed(1)} (${night.n} px), ratio ${(day.mean / night.mean).toFixed(2)}`);
+        expect(day.mean / Math.max(night.mean, 1e-6), `${p.b.id}: its half toward P_a against the other`).toBeGreaterThanOrEqual(TERMINATOR_DAY);
+      }
+      expect(errors).toEqual([]);
+    });
+
+    test('planets do not glow', async ({ page }) => {
+      // ly-1, the shells and bodies alone: no lit px in the 1.15–1.3 R annulus on a healthy planet's
+      // night side (the half away from its star on screen; its moons' discs left out). The rim term,
+      // the planets' glow, is gone: a night limb is as dark as the sky round it.
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'layers', 0.45 / 4.3, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const judged = lyOnePlanets(f).filter((p) => p.front && !p.b.cracked && 2 * p.r >= LY1_MIN_ACROSS);
+      expect(judged.length, 'a healthy planet to judge').toBeGreaterThanOrEqual(1);
+      for (const p of judged) {
+        let n = 0;
+        let lit = 0;
+        for (let y = Math.max(0, Math.floor(p.y - 1.3 * p.r)); y <= Math.min(png.height - 1, Math.ceil(p.y + 1.3 * p.r)); y++)
+          for (let x = Math.max(0, Math.floor(p.x - 1.3 * p.r)); x <= Math.min(png.width - 1, Math.ceil(p.x + 1.3 * p.r)); x++) {
+            const [cx, cy] = [x + 0.5, y + 0.5];
+            const d = Math.hypot(cx - p.x, cy - p.y) / p.r;
+            if (d < 1.15 || d > 1.3) continue;
+            if ((cx - p.x) * p.toStar[0] + (cy - p.y) * p.toStar[1] >= 0) continue;
+            if (!p.moons.every((m) => Math.hypot(cx - m.x, cy - m.y) > m.r)) continue;
+            n++;
+            if (lightAt(png, x, y).some((v) => Math.abs(v) > 4)) lit++;
+          }
+        measured(p.b.id, `${(2 * p.r).toFixed(1)} px across: ${lit} lit of ${n} px in its night annulus`);
+        expect(n, `${p.b.id}: an annulus to look at`).toBeGreaterThan(10);
+        expect(lit, `${p.b.id}: lit px off its night limb`).toBe(0);
+      }
+      expect(errors).toEqual([]);
+    });
+
+    test('hot planets glow everywhere', async ({ page }) => {
+      // df-5, the twelve lit: a lit planet is unshaded, so its night half is at least 0.6 × its day half
+      // (the shells, points and bodies alone, every lit planet whole on screen).
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'defect', 0.9, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const c = twinClocks({ ...f.state.net, lamp: Math.round(f.state.net.lamp), lampRow: -1 }, f.ambient, f.sysPx);
+      const lit = g.bodies.filter((b) => b.kind === 'planet' && bodyLight(b.index, c, data).hi >= 1);
+      const judged = lit
+        .map((b) => {
+          const sys = g.systems.indexOf(b.star);
+          const at = f.project(bodyCentre(b.index, bodyDerp(b.index, sys, c, data), f.ambient, data));
+          const star = f.project(bodyWorld(data, b.star, f.ambient));
+          const t = [star.x - at.x, star.y - at.y];
+          const tl = Math.hypot(...t);
+          return { b, x: at.x, y: at.y, r: Math.max((b.R * f.focal) / at.d, 2), front: at.front, toStar: [t[0] / tl, t[1] / tl] };
+        })
+        .filter((p) => p.front && p.x > p.r && p.y > p.r && p.x < size.width - p.r && p.y < size.height - p.r);
+      expect(judged.length, 'lit planets on screen').toBeGreaterThanOrEqual(6);
+      const halves = judged.map((p) => {
+        const side = (x: number, y: number) => (x - p.x) * p.toStar[0] + (y - p.y) * p.toStar[1];
+        const disc = (x: number, y: number) => Math.hypot(x - p.x, y - p.y) <= p.r + 1;
+        const day = meanLight(png, p.x, p.y, p.r + 1, (x, y) => disc(x, y) && side(x, y) > 0);
+        const night = meanLight(png, p.x, p.y, p.r + 1, (x, y) => disc(x, y) && side(x, y) < 0);
+        return { id: p.b.id, across: 2 * p.r, day: day.mean, night: night.mean };
+      });
+      measured('lit', halves.map((h) => `${h.id} ${h.across.toFixed(1)} px: day ${h.day.toFixed(0)}, night/day ${(h.night / h.day).toFixed(2)}`).join('; '));
+      for (const h of halves) {
+        expect(h.day, `${h.id} is drawn`).toBeGreaterThan(20);
+        expect(h.night / h.day, `${h.id}: its night half against its day half`).toBeGreaterThanOrEqual(0.6);
+      }
+      expect(errors).toEqual([]);
+    });
+
+    test('C1 is cyan', async ({ page }) => {
+      // df-1, the close on C1 (PLANET_LOOK.hero, #1FB0FF, at FOCUS_GAIN): its disc's mean light has
+      // B ≥ 0.95 G and G ≥ 2 R. The agents' blue it had (#4DA3FF) saturates to a pale (0.75, 1, 1) there.
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'defect', 0.13, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const c1 = g.bodies[bodyIndex(g, 'C1')];
+      const c = twinClocks({ ...f.state.net, lamp: Math.round(f.state.net.lamp), lampRow: c1.index }, f.ambient, f.sysPx);
+      const at = f.project(bodyCentre(c1.index, bodyDerp(c1.index, g.systems.indexOf(c1.star), c, data), f.ambient, data));
+      const r = (c1.R * f.focal) / at.d;
+      const sum = [0, 0, 0];
+      let n = 0;
+      for (let y = Math.floor(at.y - r); y <= Math.ceil(at.y + r); y++)
+        for (let x = Math.floor(at.x - r); x <= Math.ceil(at.x + r); x++) {
+          if (x < 0 || y < 0 || x >= png.width || y >= png.height || Math.hypot(x + 0.5 - at.x, y + 0.5 - at.y) > 0.9 * r) continue;
+          lightAt(png, x, y).forEach((v, k) => (sum[k] += v));
+          n++;
+        }
+      const [R, G, B] = sum.map((v) => v / n);
+      measured('C1', `${(2 * r).toFixed(0)} px across: mean light R ${R.toFixed(1)}, G ${G.toFixed(1)}, B ${B.toFixed(1)}`);
+      expect(n).toBeGreaterThan(1000);
+      expect(B).toBeGreaterThanOrEqual(0.95 * G);
+      expect(G).toBeGreaterThanOrEqual(2 * R);
       expect(errors).toEqual([]);
     });
   });

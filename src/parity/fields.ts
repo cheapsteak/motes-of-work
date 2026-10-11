@@ -215,6 +215,22 @@ export const STAR_PARITY_FIELDS: readonly ParityField<StarOut>[] = [
   { name: 'tint', size: 3 },
 ];
 
+/**
+ * What the terminator parity mode (`?lib=terminator`) computes per sample (src/scene/node/terminator.ts):
+ * a body's light direction toward its own star (lightDir) and the terminator's light on a normal
+ * (terminator).
+ */
+export interface TerminatorOut {
+  lightDir: Vec3;
+  terminator: number;
+}
+
+/** What the terminator parity mode compares. Its shader's TerminatorOut struct is generated from this list (glslTerminatorOutStruct). */
+export const TERMINATOR_PARITY_FIELDS: readonly ParityField<TerminatorOut>[] = [
+  { name: 'lightDir', size: 3 },
+  { name: 'terminator', size: 1 },
+];
+
 function glslOutStruct<Out>(name: string, list: string, fields: readonly ParityField<Out>[]): string {
   const members = fields.map((f) => {
     const type = GLSL_TYPE_OF_SIZE[f.size];
@@ -293,6 +309,11 @@ export function glslLodOutStruct(): string {
 /** The GLSL BodyMoteOut struct, from BODY_PARITY_FIELDS. */
 export function glslBodyMoteOutStruct(): string {
   return glslOutStruct('BodyMoteOut', 'BODY_PARITY_FIELDS', BODY_PARITY_FIELDS);
+}
+
+/** The GLSL TerminatorOut struct, from TERMINATOR_PARITY_FIELDS. */
+export function glslTerminatorOutStruct(): string {
+  return glslOutStruct('TerminatorOut', 'TERMINATOR_PARITY_FIELDS', TERMINATOR_PARITY_FIELDS);
 }
 
 /** The GLSL StarOut struct, from STAR_PARITY_FIELDS. */

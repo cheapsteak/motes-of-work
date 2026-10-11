@@ -4,7 +4,7 @@
 // clock and the story's leaves. Every dot set draws with galaxyMote.frag.glsl, over its body's base
 // colour (a star's tint, the agents' blue for the rest):
 //   net-tracks   the dotted orbits and moon tracks (track.vert.glsl)
-//   net-bodies   one icosphere per planet and moon, rim over fill, and a ghost per cracked planet or moon (body.vert.glsl, body.frag.glsl)
+//   net-bodies   one icosphere per planet and moon, its fill under its terminator (no rim), and a ghost per cracked planet or moon (body.vert.glsl, body.frag.glsl)
 //   net-shells   every body's shell motes, built by flying in: a lattice's, a planet's point among them, or a star's dots (shell.vert.glsl)
 //   net-persons  the person's warm motes of every body that carries the defect (shell.vert.glsl)
 //   net-glow     one glow sprite per star (shell.vert.glsl, the Glow role)
@@ -89,7 +89,7 @@ import { shellSkips, spikeSkips, streamSkips, trackSkips, type EarlyOutFrame } f
 import { detailPx, glowCaps, glowPx, hoodGlowPx, hoodHold, hoodReal, LOD_COUNT, LOD_VISIBLE, LodElement, lodLevel, onScreen, systemPx, type Viewport } from './lod';
 import { bodyWorld } from './orbit';
 import { inFallEmber, inFallEnd } from './stream';
-import { withDropoutConstants, withGalaxyLibrary } from './shaderSource';
+import { withDropoutConstants, withGalaxyLibrary, withTerminatorFragment } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
 import bodyFrag from './shaders/body.frag.glsl?raw';
 import bodyVert from './shaders/body.vert.glsl?raw';
@@ -193,6 +193,9 @@ const ADDITIVE: Blend = { blending: AdditiveBlending };
 
 /** The ring's alpha at full presence (the stacks network's). */
 export const RING_ALPHA = 0.7;
+
+/** The icosphere's fragment shader: the dropout's constants and terminator() (re-skin Tasks 8b and 7) spliced in. */
+const BODY_FRAG = withTerminatorFragment(withDropoutConstants(bodyFrag));
 
 const QUAD = [-1, -1, 1, -1, 1, 1, -1, 1];
 const QUAD_INDEX = [0, 1, 2, 0, 2, 3];
@@ -356,7 +359,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
   // that looks down on it. Drawn front-only, it was culled from every Act II shot.
   ringMaterial.side = DoubleSide;
   // Front faces only (the material's default side): a body is the faces the camera sees.
-  const bodyMaterial = material(bodyVert, withDropoutConstants(bodyFrag));
+  const bodyMaterial = material(bodyVert, BODY_FRAG);
 
   const shellGeometry = quadSet(shells);
   const personGeometry = quadSet(persons);
@@ -403,7 +406,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       depthWrite: false,
       transparent: true,
     });
-  const copyMaterials = ([1, 2] as const).flatMap((k) => [copyMaterial(shellVert, galaxyMoteFrag, k), copyMaterial(bodyVert, withDropoutConstants(bodyFrag), k), copyMaterial(trackVert, galaxyMoteFrag, k)]);
+  const copyMaterials = ([1, 2] as const).flatMap((k) => [copyMaterial(shellVert, galaxyMoteFrag, k), copyMaterial(bodyVert, BODY_FRAG, k), copyMaterial(trackVert, galaxyMoteFrag, k)]);
   const copyMeshes = copyMaterials.map((m, i) => {
     const kind = ['shells', 'bodies', 'tracks'][i % 3];
     const c = mesh(new InstancedBufferGeometry(), m, `net-copy-${kind}-${Math.floor(i / 3) + 1}`);

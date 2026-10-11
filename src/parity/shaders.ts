@@ -13,6 +13,7 @@ import {
   ORBIT_INCLUDE_MARKER,
   SHELL_INCLUDE_MARKER,
   STAR_INCLUDE_MARKER,
+  TERMINATOR_INCLUDE_MARKER,
 } from '../scene/node/shaderSource';
 import {
   BODY_PARITY_FIELDS,
@@ -26,6 +27,7 @@ import {
   glslPassOutput,
   glslShellOutStruct,
   glslStarOutStruct,
+  glslTerminatorOutStruct,
   glslStreamOutStruct,
   LOD_PARITY_FIELDS,
   ORBIT_PARITY_FIELDS,
@@ -33,6 +35,7 @@ import {
   SHELL_PARITY_FIELDS,
   STAR_PARITY_FIELDS,
   STREAM_PARITY_FIELDS,
+  TERMINATOR_PARITY_FIELDS,
   type PlacedField,
 } from './fields';
 
@@ -325,6 +328,36 @@ void main() {
   o.breath = starBreath(look.period, look.phase, aClockIn.y);
   o.tint = starTint(aClockIn.z);
   ${passSelect(parityPasses(STAR_PARITY_FIELDS))}
+  else vOut = vec4(0.0);
+${PLACE_ON_TEXEL}
+}
+`;
+
+/**
+ * The planets' light (`?lib=terminator`): lightDir() of a body's row at an ambient over the bodies
+ * texture, and terminator() of a normal, a light direction and a night, every sample computing both.
+ * Carries the terminator include marker: build with withTerminatorLibrary().
+ */
+export const TERMINATOR_VERTEX = /* glsl */ `
+precision highp float;
+precision highp int;
+
+${TERMINATOR_INCLUDE_MARKER}
+
+${glslTerminatorOutStruct()}
+
+in vec3 position; // the single non-instanced vertex, at the origin
+in vec4 aTermIn; // the body's row, the ambient, the night, 0
+in vec3 aNormalIn; // the surface's unit normal
+in vec3 aToStarIn; // the unit direction to the star
+uniform int uPass;
+flat out vec4 vOut;
+
+void main() {
+  TerminatorOut o;
+  o.lightDir = lightDir(int(round(aTermIn.x)), aTermIn.y);
+  o.terminator = terminator(aNormalIn, aToStarIn, aTermIn.z);
+  ${passSelect(parityPasses(TERMINATOR_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}
 }

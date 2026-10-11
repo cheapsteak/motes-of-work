@@ -29,9 +29,10 @@ export const GLOW_MAX = SYS_MAX + 8;
 motes may pile up where they overlap (a shell of N motes of px CSS px on a disc of radius r px draws
 each at most `density π r² / (N/2 · px²)`, so a dense lattice seen small is a disc in its own blue,
 not a white blot); a planet's point's brightness; a dotted orbit's dot
- * (world diameter) and brightness; a glow sprite's brightness; and the icosphere's rim
- * `rim (1 − |n·v|)^rimPow` over its faint fill, a moon's as its planet's (a moon is a small sphere of
- * its planet's material, galaxy §1.3). Lit (galaxy §14.4), a glow sprite's
+ * (world diameter) and brightness; a glow sprite's brightness; and the burst ghost's outline, a rim
+ * `ghostRim (1 − |n·v|)^ghostRimPow` (the ghost is drawn by its icosphere alone, so its rim is what reads
+ * as the moon's dim double). (A planet's or moon's own icosphere, its faint fill under the terminator
+ * and no rim, is the planets' look: classLook.ts PLANET_LOOK, re-skin Task 7.) Lit (galaxy §14.4), a glow sprite's
  * core fills to a crisp ember disc of `litCore` of its radius (galaxyMote.frag.glsl's LIT_CORE), and a
  * planet's point grows to an ember disc of `litPoint` of the planet's own disc on screen, between
  * `litPointMin` (over PX.litPlanet's floor, so that the smallest lit planet is a point a reader and
@@ -50,9 +51,8 @@ export const BODY_LOOK = {
   trackDot: 0.02,
   trackBrightness: 0.8,
   glowBrightness: 0.9,
-  rim: 0.55,
-  rimPow: 2.6,
-  fill: 0.035,
+  ghostRim: 0.55,
+  ghostRimPow: 2.6,
   litCore: 0.75,
   litPoint: 0.8,
   litPointMin: 5,

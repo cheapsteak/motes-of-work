@@ -6,11 +6,13 @@ import { partTransforms } from '../scene/mote/partTransforms';
 import { defaultSceneState } from '../timeline/sceneState';
 import { moteLibraryGlsl } from '../scene/mote/shaderSource';
 import { derpLibraryGlsl } from '../scene/node/shaderSource';
-import { STAR_VERTEX } from './shaders';
+import { STAR_VERTEX, TERMINATOR_VERTEX } from './shaders';
 import { ZERO_DERP } from '../scene/node/derp';
 import {
   STAR_PARITY_FIELDS,
   glslStarOutStruct,
+  TERMINATOR_PARITY_FIELDS,
+  glslTerminatorOutStruct,
   DERP_PARITY_FIELDS,
   fieldValues,
   glslDerpStruct,
@@ -74,6 +76,14 @@ describe('glslMoteOutStruct', () => {
   it('is the MoteOut struct the mote library is built with', () => {
     expect(moteLibraryGlsl()).toContain(glslMoteOutStruct());
     expect(moteLibraryGlsl().match(/struct MoteOut\b/g)).toHaveLength(1);
+  });
+});
+
+describe('TERMINATOR_PARITY_FIELDS', () => {
+  it('compares lightDir and terminator, each written by the terminator parity shader', () => {
+    expect(TERMINATOR_PARITY_FIELDS.map((f) => f.name)).toEqual(['lightDir', 'terminator']);
+    expect(TERMINATOR_VERTEX).toContain(glslTerminatorOutStruct());
+    for (const f of TERMINATOR_PARITY_FIELDS) expect(TERMINATOR_VERTEX).toContain(`o.${f.name} = `);
   });
 });
 

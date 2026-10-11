@@ -48,7 +48,7 @@ import {
 } from './body';
 import { holeInstances } from './hole';
 import { streamFor } from './seeds';
-import { STAR_DOTS } from '../scene/node/classLook';
+import { PLANET_LOOK, STAR_DOTS } from '../scene/node/classLook';
 import { FIRST, HOSTS, LINEAGE, OWN_FIXES, SOURCE, AGENT_RULE, type ScriptedBody } from './lineage';
 
 /** Out from the core to a star or from a star to a planet; sideways (a copy, a reused plan); in (C7 → R1). */
@@ -100,6 +100,12 @@ export interface Body {
   motes: number;
   /** A star's own look (re-skin §4.3), from its `starLook` stream; null for every other body. */
   look: StarLook | null;
+  /**
+   * A planet's colour (re-skin §4.4): an integer index into PLANET_LOOK.cool, floor(u × its length)
+   * with u from its `planetHue` stream keyed by the planet's draft key; a moon's is its planet's;
+   * null for the stars, the core rows and a barycentre.
+   */
+  hue: number | null;
   /** The person's warm motes for its fix: bodies that carry the defect only. */
   personMotes: number;
   /**
@@ -1221,6 +1227,8 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: H
     const rowOf = (x: Draft): number => row.get(x)!;
     const key = p.moon ? d.key * 8 + p.moon.j + 100_000 : d.key;
     const derpPhase = rngFor(seed, 'derps', key)();
+    // A planet's hue, and its moons' (the same draft): its own draw, keyed as its slots are.
+    const hue = d.kind === 'planet' ? Math.floor(rngFor(seed, 'planetHue', d.key)() * PLANET_LOOK.cool.length) : null;
     const shared = {
       index,
       cracked: d.cracked!,
@@ -1235,6 +1243,7 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: H
       motes: 0,
       personMotes: 0,
       look: null,
+      hue,
     };
     if (p.moon) {
       const { j, draw } = p.moon;
@@ -1328,6 +1337,7 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: H
       lattice: null,
       motes: 0,
       look: null,
+      hue: null,
       personMotes: 0,
       orbit: null,
       spot: pair.spot!,

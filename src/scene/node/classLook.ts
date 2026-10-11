@@ -1,7 +1,8 @@
-// The look of the galaxy's classes of body (docs/specs/2026-10-09-act-2-reskin.md §4.3, §4.6): one
-// place for the stars' values (the planets' join them in the re-skin's Task 7). A re-tune is a
-// one-line change here: star.ts reads these, and glslClassLookConstants() splices them into
-// star.glsl (shaderSource.ts), so the TS and the GLSL cannot drift.
+// The look of the galaxy's classes of body (docs/specs/2026-10-09-act-2-reskin.md §4.3, §4.4, §4.6):
+// one place for the stars' values and the planets' (the re-skin's Task 7). A re-tune is a one-line
+// change here: star.ts and terminator.ts read these, and glslClassLookConstants() and
+// glslPlanetLookConstants() splice them into star.glsl and terminator.glsl (shaderSource.ts), so the
+// TS and the GLSL cannot drift; the planets' colours reach the shaders in the bodies texture (T6).
 import { STAR_TINT } from '../galaxy/spriteLook';
 import { hexToRgb } from './birth';
 
@@ -53,6 +54,19 @@ export const STAR_LOOK = {
   breathPeriod: [4, 9],
 } as const;
 
+/**
+ * How a planet and its moons look (§4.4):
+ *  - its colour is one of the `cool` hues (its Body.hue, drawn from the planetHue stream), mixed
+ *    `starTint` of the way toward its star's tint; a moon takes its planet's; C1 is pinned to `hero`,
+ *    unmixed (× FOCUS_GAIN that is the freeze mock's luminous cyan);
+ *  - every shell mote and icosphere fragment is lit by its terminator toward its own star:
+ *    mix(night, 1, smoothstep(−`edge`, `edge`, n·L)), `night` the planet lamp's subject's or the rest's;
+ *    a lit (ember) body is unshaded;
+ *  - the icosphere has no rim: its `fill` alone, lit by the same terminator.
+ */
+export const PLANET_LOOK = { cool: ['#4DA3FF', '#3D8BFF', '#5BC0EB', '#46C2C9', '#6FA8DC'], hero: '#1FB0FF', starTint: 0.25,
+  night: { rest: 0.15, subject: 0.5 }, edge: 0.2, fill: 0.035 } as const;
+
 /** The share of the halo's exponential law that lies inside its cut at haloMax (star.ts draws inside it). */
 export const STAR_HALO_CUT = 1 - Math.exp(-(STAR_LOOK.haloMax - STAR_LOOK.haloFrom) / STAR_LOOK.haloScale);
 
@@ -80,4 +94,18 @@ export function glslClassLookConstants(): string {
     out.push(`const float STAR_SPIKE_ANGLES_${n}[${a.length}] = float[${a.length}](${a.map(lit).join(', ')});`);
   }
   return out.join('\n');
+}
+
+/**
+ * The constants terminator.glsl reads, generated from PLANET_LOOK (spliced by shaderSource.ts). The
+ * colours are not among them: they reach the shaders in the bodies texture's T6 (bodyData.ts).
+ */
+export function glslPlanetLookConstants(): string {
+  return [
+    '// The look of the planets and moons, generated from src/scene/node/classLook.ts.',
+    `const float PLANET_EDGE = ${lit(PLANET_LOOK.edge)};`,
+    `const float PLANET_NIGHT_REST = ${lit(PLANET_LOOK.night.rest)};`,
+    `const float PLANET_NIGHT_SUBJECT = ${lit(PLANET_LOOK.night.subject)};`,
+    `const float PLANET_FILL = ${lit(PLANET_LOOK.fill)};`,
+  ].join('\n');
 }

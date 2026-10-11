@@ -36,7 +36,10 @@
 // bodies texture's T7); lit (nodeLight's hi, by hiAt on `net.highlight`, the surge by hop), a shell's motes are
 // ember (NODE_EMBER_MIX) and NODE_HI_GAIN brighter; fixed, a shell is tinted toward the person's
 // amber (`warm`). The lamp (lampGain): a mote is lit iff its membership row at the lamp's level is
-// the focus body's, else dark; inside, `net.focus` dims all but the subject to LAMP_FLOOR.
+// the focus body's, else dark; inside, `net.focus` dims all but the subject to LAMP_FLOOR. A planet's
+// and a moon's shell motes are shaded by their terminator toward their own star (terminator.ts, re-skin
+// Task 7: bodyShade), on the mote's rest normal, so a scattered or leaking dot keeps its own side's
+// light; a lit (ember) body is unshaded.
 import type { Vec3 } from '../../math/vec';
 import { Lamp } from '../../timeline/netTrack';
 import {
@@ -82,6 +85,8 @@ import { llUnit, moteHashes, shellHome, shellK, shellWarpLeak, spinShell, type S
 import { unpackLeak, type Wound } from './leak';
 import { starBreath, starDot, starDotPolar } from './star';
 import { streamControl } from './stream';
+import { PLANET_LOOK } from './classLook';
+import { lightDir, terminator } from './terminator';
 import type { StarLook } from '../../galaxy/body';
 
 /** What a mote of the galaxy is (bodyAttrs.ts packs these into its instance attributes). */
@@ -327,6 +332,19 @@ export function trackLampGain(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow
   return Math.round(c.lamp) === Lamp.Planet && kindOf(data, row) === BODY_KIND.planet ? 0 : lampGain(row, c, data);
 }
 
+/**
+ * The terminator's light on a planet's or moon's surface of rest normal `n` at ambient `t` (re-skin §4.4):
+ * terminator(n, lightDir, night), its night PLANET_LOOK.night.subject on the planet lamp's subject and
+ * PLANET_LOOK.night.rest everywhere else, mixed to 1 by `hi` (a lit body glows everywhere). Every
+ * other body, 1. The icosphere's fragments take the same (body.vert.glsl, body.frag.glsl).
+ */
+export function bodyShade(row: number, n: Vec3, hi: number, t: number, c: Pick<BodyClocks, 'lamp' | 'lampRow'>, data: BodyData): number {
+  const kind = kindOf(data, row);
+  if (kind !== BODY_KIND.planet && kind !== BODY_KIND.moon) return 1;
+  const night = planetLampSubject(row, c, data) ? PLANET_LOOK.night.subject : PLANET_LOOK.night.rest;
+  return mix(terminator(n, lightDir(data, row, t), night), 1, hi);
+}
+
 /** A body's light at the story's clocks (light.ts nodeLight over its T4: fixAt, hiAt, hop). */
 export function bodyLight(row: number, c: Pick<BodyClocks, 'fix' | 'highlight'>, data: BodyData) {
   const [fixAt, hiAt, hop] = bodyTexel(data.bodies, 4, row);
@@ -569,8 +587,10 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
   // A star's dot: its star's brightness, its own gain by its distance, the star's breath.
   const star = dot ? bodyStarLook(data, row) : null;
   const self = star ? star.brightness * starDot(a.index, a.seed).gain * starBreath(star, t) : 1;
+  // A planet's or moon's shell mote: its terminator on its rest normal (the person's dust is unshaded).
+  const shade = person ? 1 : bodyShade(row, normal, Math.max(hi, surge), t, c, data);
   const brightness =
-    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * leakLight * c.show * lamp * el * look.gain * focusGain(row, c, data) * self;
+    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * leakLight * c.show * lamp * el * look.gain * focusGain(row, c, data) * self * shade;
   return {
     pos,
     normal,

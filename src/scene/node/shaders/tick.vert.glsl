@@ -29,7 +29,7 @@ out float vBrightness;
 flat out float vRadiusPx;
 out float vHi;
 flat out vec4 vTint;
-flat out vec3 vBase; // galaxyMote.frag.glsl's base colour: the agents' blue (a planet's own colour is the re-skin's Task 7)
+flat out vec3 vBase; // galaxyMote.frag.glsl's base colour: the agents' blue (the bursts keep it: re-skin Task 7)
 
 // A view-space point's clip position and its place on screen (CSS px from the frame's centre, y up).
 vec2 onScreen(vec4 clip) {

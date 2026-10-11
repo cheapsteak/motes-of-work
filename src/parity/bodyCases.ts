@@ -110,6 +110,28 @@ export const BODY_LEAK_CASE: BodyCase = {
   ambients: BODY_LEAK_AMBIENTS,
 };
 
+/**
+ * The terminator on a planet and a moon (re-skin Task 7), each at three phases of its own orbit, so its
+ * star stands on three sides of it: N0 (period 69.3 s) under the zoom-out's planet lamp, its night the
+ * subject's, at 101, 124 and 147 s; and its moon N0-m4 (period 9 s) with no lamp, its night the rest's,
+ * at 101, 104 and 107 s. Every lattice mote but the point (which is drawn unshaded, not by bodyMote).
+ */
+export const BODY_TERMINATOR_AMBIENTS = { planet: [101, 124, 147], moon: [101, 104, 107] } as const;
+export const BODY_TERMINATOR_CASES: BodyCase[] = [
+  {
+    name: 'N0 lit by P_a, its planet lamp',
+    motes: (g, all) => all.filter(ofBody(g, 'N0')).filter((a) => a.index > 0 && a.index % 2 === 0),
+    clocks: (g) => ({ ...quiet, lamp: Lamp.Planet, lampRow: g.ids.N0, sysPx: sysPxAll(200) }),
+    ambients: BODY_TERMINATOR_AMBIENTS.planet,
+  },
+  {
+    name: 'N0-m4 lit by P_a',
+    motes: (g, all) => all.filter(ofBody(g, 'N0-m4')).filter((a) => a.index > 0),
+    clocks: () => ({ ...quiet, sysPx: sysPxAll(200) }),
+    ambients: BODY_TERMINATOR_AMBIENTS.moon,
+  },
+];
+
 /** The ?lib=body cases, at each of BODY_AMBIENTS. */
 export const BODY_CASES: BodyCase[] = [
   {
@@ -165,6 +187,7 @@ export const BODY_CASES: BodyCase[] = [
   BODY_ARMS_CASE,
   ...BODY_HELD_CASES,
   BODY_LEAK_CASE,
+  ...BODY_TERMINATOR_CASES,
 ];
 
 /** Instance k of a quad set as bodyMote() takes it, its lattice point as the float attribute carries it. */

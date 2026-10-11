@@ -58,6 +58,8 @@ import { LOD_BANDS, LodElement } from './lod';
 import { bodyWorld, elementsAt, orbitLocal, orbitTurns } from './orbit';
 import { moteHashes, shellSeed, shellWarp, shellWarpLeak, spinShell } from './shell';
 import { streamControl } from './stream';
+import { PLANET_LOOK } from './classLook';
+import { lightDir, terminator } from './terminator';
 
 // Task 6 step 1: the galaxy's motes in motion (bodyMote.ts), in TypeScript (the parity page holds
 // the GLSL to it).
@@ -279,12 +281,14 @@ describe('the light', () => {
     }
   });
 
-  it('a lit shell is NODE_HI_GAIN brighter (× 2.5), a fixed one tinted amber, a person mote amber', () => {
+  it('a lit shell is NODE_HI_GAIN brighter (× 2.5) and unshaded, a fixed one tinted amber, a person mote amber', () => {
     const data = dataAt(0);
     const a = motesOf(shells, byId('C2').index)[1];
     const dark = bodyMote(a, clocks({}), data);
     const lit = bodyMote(a, clocks({ highlight: 0.5 }), data);
-    expect(lit.brightness / dark.brightness).toBeCloseTo(2.5, 9);
+    // The dark mote is shaded by its terminator (re-skin §4.4); lit, it glows everywhere.
+    const shade = terminator(dark.normal, lightDir(data, a.row, 0), PLANET_LOOK.night.rest);
+    expect(lit.brightness / dark.brightness).toBeCloseTo(2.5 / shade, 9);
     expect(dark.warm).toBe(0);
     expect(bodyMote(a, clocks({ highlight: 0.5, fix: 1 }), data).warm).toBeCloseTo(0.3, 12);
     const p = motesOf(persons, byId('C2').index)[0];
@@ -622,5 +626,56 @@ describe('the forced scatter (re-skin Task 8b)', () => {
     }
     // A scatter in every slot: its event runs 1 s of every 2.2.
     expect(scatters / 400).toBeGreaterThan(0.4);
+  });
+});
+
+describe('the terminator on the shells (re-skin §4.4)', () => {
+  const T = 101;
+  const data = dataAt(T);
+  const C1 = byId('C1').index;
+  /** Every landed lattice mote of `row` but its point (mote 0, drawn unshaded by shell.vert.glsl). */
+  const landed = (row: number) => motesOf(shells, row).filter((a) => a.index > 0);
+  /** Each mote's brightness over its terminator at `night`: one value across the body if the shading is exactly the terminator. */
+  const ratios = (row: number, c: BodyClocks, night: number) =>
+    landed(row).map((a) => {
+      const o = bodyMote(a, c, data);
+      return o.brightness / terminator(o.normal, lightDir(data, row, T), night);
+    });
+  const spread = (xs: number[]) => (Math.max(...xs) - Math.min(...xs)) / Math.max(...xs);
+
+  it('shades a healthy planet’s and moon’s every shell mote by its terminator toward its own star, at the rest night', () => {
+    const planet = g.bodies.find((b) => b.kind === 'planet' && !b.cracked && b.index !== C1)!;
+    const moon = g.bodies.find((b) => b.kind === 'moon' && !b.cracked)!;
+    for (const b of [planet, moon]) {
+      const r = ratios(b.index, clocks({ ambient: T }), PLANET_LOOK.night.rest);
+      expect(r.length, b.id).toBeGreaterThan(20);
+      expect(spread(r), b.id).toBeLessThan(1e-9);
+      // Not vacuous: the shell has a day side and a night side, PLANET_LOOK.night.rest apart.
+      const raw = landed(b.index).map((a) => bodyMote(a, clocks({ ambient: T }), data).brightness);
+      expect(Math.min(...raw) / Math.max(...raw), b.id).toBeCloseTo(PLANET_LOOK.night.rest, 6);
+    }
+  });
+
+  it('keeps the planet lamp’s subject’s night at 0.5, its moons’ too, and every other body’s at 0.15', () => {
+    const moon = g.bodies.find((b) => b.kind === 'moon' && b.planet === C1)!.index;
+    const lamp = clocks({ ambient: T, lamp: Lamp.Planet, lampRow: C1, focus: 1 });
+    expect(spread(ratios(C1, lamp, PLANET_LOOK.night.subject))).toBeLessThan(1e-9);
+    expect(spread(ratios(moon, lamp, PLANET_LOOK.night.subject))).toBeLessThan(1e-9);
+    // The same planet under any other lamp is at the rest night.
+    expect(spread(ratios(C1, clocks({ ambient: T, lamp: Lamp.Star, lampRow: C1, focus: 1 }), PLANET_LOOK.night.rest))).toBeLessThan(1e-9);
+  });
+
+  it('leaves a lit body unshaded, and the person’s amber dust unshaded on every side', () => {
+    const c2 = byId('C2');
+    const lit = landed(c2.index).map((a) => bodyMote(a, clocks({ ambient: T, highlight: 0.5 }), data).brightness);
+    expect(spread(lit)).toBeLessThan(1e-9);
+    // The person's motes face every way round C2, its day side and its night side alike, and all land
+    // as bright: they are the person's light, not the planet's.
+    const L = lightDir(data, c2.index, T);
+    const outs = motesOf(persons, c2.index).map((a) => bodyMote(a, clocks({ ambient: T, fix: 1 }), data));
+    const facing = outs.map((o) => o.normal[0] * L[0] + o.normal[1] * L[1] + o.normal[2] * L[2]);
+    expect(Math.min(...facing)).toBeLessThan(-PLANET_LOOK.edge);
+    expect(Math.max(...facing)).toBeGreaterThan(PLANET_LOOK.edge);
+    expect(spread(outs.map((o) => o.brightness))).toBeLessThan(1e-9);
   });
 });

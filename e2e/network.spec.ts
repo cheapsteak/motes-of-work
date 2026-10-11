@@ -7,8 +7,9 @@ import { AMBIENT_POSE, FREEZE_PINS } from '../src/galaxy/ambient';
 import { galaxyBudget, generateGalaxy } from '../src/galaxy/generate';
 import { galaxyTier } from '../src/galaxy/background';
 import type { SectionSpan } from '../src/scroll/progress';
-import { FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
-import { bodyCentre, bodyDerp, bodyGhost, type BodyClocks } from '../src/scene/node/bodyMote';
+import { FOCUS_SCATTER, FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
+import { bodyCentre, bodyDerp, bodyGhost, bodyLeak, focusScatterRow, type BodyClocks } from '../src/scene/node/bodyMote';
+import { packShellData } from '../src/scene/node/bodyAttrs';
 import { bodyWorld } from '../src/scene/node/orbit';
 import { KeyframeSampler, type KeyframeFile } from '../src/timeline/keyframeSampler';
 import { mergeState, type SceneState } from '../src/timeline/sceneState';
@@ -195,8 +196,13 @@ const AMBERISH = (r: number, g: number, b: number) => r > 120 && g > 0.55 * r &&
  * 1,177 / 1,357, the warm copy alone 3,118 / 3,631 warm-hued px and the cold one 4,524 / 5,242 cold;
  * amber-hued 127 / 149 held and 344 / 401 as the fix lands (the focused piece at FOCUS_GAIN).
  * freeze-frame §4's 300 / 300 / 150 were set on the mocks at 2x.
+ * The amber's rise is re-pinned for the terminator (re-skin Task 7): it was the whole frame's (floor 120),
+ * most of it the warm copy turning amber, which now already reads amber in the held frame over C1's
+ * darkened half (258 / 294 held, 269 / 328 as the fix lands). It is the piece's own now (its shells,
+ * persons, bodies and tracks, the copies left out): 0 held and 51 / 55 as the fix lands (36 / 41 on
+ * 8831f96, before it), so 0.6 × 51. With the terminator the blue-dominant count is 2,189 / 2,553.
  */
-const SPLIT = { ember: 120, blue: 300, copy: 1_800, amberRise: 120 };
+const SPLIT = { ember: 120, blue: 300, copy: 1_800, amberRise: 30 };
 /**
  * The mended piece's warm-hued pixels, measured at 1x on the phone: the planet 33, the moons 8, 12, 8,
  * 10, 22 (the one caught mid-burst, which took 20 of the person's motes), 6. The person's dust is six
@@ -314,8 +320,12 @@ for (const size of FREEZE_SIZES) {
       const fixing = await defectFrame(page, 0.395);
       const fixingEmber = colourWhere(fixing.png, EMBER, inRect);
       const fixingWarm = colourWhere(fixing.png, WARM, inRect);
-      const heldWarm = colourWhere(held.png, AMBERISH, inRect);
-      const fixingAmber = colourWhere(fixing.png, AMBERISH, inRect);
+      // The fix's amber on the piece itself (its shells, persons, bodies and tracks; the copies left out):
+      // under the terminator (re-skin Task 7) the warm copy reads amber over C1's darkened half, so the
+      // whole frame's amber no longer rises with the fix alone.
+      const own = { only: ['net-shells', 'net-persons', 'net-bodies', 'net-tracks'] };
+      const heldWarm = colourWhere((await defectFrame(page, 0.33, own)).png, AMBERISH, inRect);
+      const fixingAmber = colourWhere((await defectFrame(page, 0.395, own)).png, AMBERISH, inRect);
       note(
         'split',
         `0.33: ember ${ember}, blue ${blue}, warm copy ${warmLit} warm / ${warmCold} cold, cold copy ${coldLit} cold / ${coldWarm} warm, amberish ${heldWarm}; 0.25: ember ${liveEmber}; 0.395: ember ${fixingEmber}, warm ${fixingWarm}, amberish ${fixingAmber}`,
@@ -445,10 +455,26 @@ test.describe('the freeze frame, 390x844', () => {
       return mean((x, y) => d(x, y) >= 0.8 && d(x, y) <= 1) / mean((x, y) => d(x, y) < 0.8);
     };
     // The held frame with its hold let go, so the shell is not scattered (every mote is on its rest
-    // place: the limb is the rest normal's), dressed; and the live frame before the cut.
-    const dressed = ratio(await defectFrame(page, 0.33, { ...shells, extra: { freeze: { hold: 0 } } }));
+    // place: the limb is the rest normal's), dressed; and the live frame before the cut. Let go at full
+    // focus, the focused planet's own motion (re-skin Task 8b: a scatter in every slot, its leak and the
+    // dropout, over FOCUS_SCATTER) would scatter it again: the focus is held at FOCUS_SCATTER, where that
+    // motion stands down, and the dressing at 2, so the shaders' dress × focus is the held frame's 1.
+    const calm = { freeze: { hold: 0, dress: 1 / FOCUS_SCATTER }, net: { focus: FOCUS_SCATTER } };
+    const dressedFrame = await defectFrame(page, 0.33, { ...shells, extra: calm });
+    // Truly unscattered, by the twin: no forced or focused scatter, C1's own schedule calm, no wound open.
+    const { g, data } = galaxyOf();
+    const c1 = g.ids.C1;
+    const t = AMBIENT_POSE;
+    const clocks: BodyClocks = { ...dressedFrame.state.net, ambient: t, lamp: Math.round(dressedFrame.state.net.lamp), lampRow: c1, sysPx: new Float32Array(32).fill(200), holding: false };
+    expect(focusScatterRow(clocks, data)).toBe(-1);
+    expect(bodyDerp(c1, 0, clocks, data, 1).scatterS, 'C1 not mid-scatter').toBe(-1);
+    expect(bodyLeak(c1, t, { ...data, shells: packShellData(g, t, -1, true) }), 'no wound open on C1').toEqual([]);
+    const dressed = ratio(dressedFrame);
     const live = ratio(await defectFrame(page, 0.25, shells));
     note('limb', `dressed ${dressed.toFixed(2)}, live ${live.toFixed(2)}`);
+    // Measured under the terminator (re-skin Task 7), the dressed frame truly unscattered: 2.63 and
+    // 2.02 on SwiftShader at 1x (8b's report had 2.43 and 2.08, its dressed frame scattered by its own
+    // motion). The floors are unchanged.
     expect(dressed).toBeGreaterThanOrEqual(2.4);
     expect(live).toBeGreaterThanOrEqual(1.8);
   });
