@@ -88,7 +88,8 @@ void main() {
   vToStar = lightDir(row, uAmbient);
   vNight = planetLampSubject(row) ? PLANET_NIGHT_SUBJECT : PLANET_NIGHT_REST;
   vBase = bodyBase(row);
-  vFill = PLANET_FILL;
+  // The held planet's scatter haze (re-skin §4.5): its fill halved while the freeze holds its scatter out.
+  vFill = PLANET_FILL * heldFill(row, d.scatterS);
   vHi = max(light.y, light.z);
   vGain = gain * uShow * (1.0 + BODY_HI_GAIN * vHi) * look.gain * focusGain(row);
   vWarm = light.x * (moon ? BODY_WARM_MOON : BODY_WARM);

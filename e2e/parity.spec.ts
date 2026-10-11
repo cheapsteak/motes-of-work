@@ -161,13 +161,14 @@ test('GLSL lodGain(), glowPx(), the moon handover, motePx(), the early-out and t
 // values of v, both warm modes and the defect moon's or not; freezeLimb() over 24 screen angles at five
 // tilts, two lights, the base and a copy; freezeTick() over every mote of both bursts (238) at four
 // states of the fix (v, the shell out, the moon's direction: the gap) and both of the twos' length
-// sets; freezeTickShow(), freezeTickWarm() (each dash warm or cold) and freezeBreath(). Held to 1e-4:
+// sets; freezeTickShow(), freezeTickWarm() (each dash warm or cold), freezeBreath() and the held planet's
+// scatter haze, freezeScatterFill() (held or not, about its window's edges). Held to 1e-4:
 // lengths are CSS px (up to 50) and angles radians; a wrong term (a 3 px offset, a 26° gap, a dropped
 // mote, a dash of the wrong warmth) is far over it.
-const FREEZE_CASE = 'freeze: the copies, the limb and the bursts';
+const FREEZE_CASE = 'freeze: the copies, the limb, the bursts and the scatter haze';
 const FREEZE_TOLERANCE = 1e-4;
 
-test('GLSL freezeCopy(), freezeLimb() and freezeTick() match the TS reference', async ({ page }) => {
+test('GLSL freezeCopy(), freezeLimb(), freezeTick() and freezeScatterFill() match the TS reference', async ({ page }) => {
   const { errors, ...parity } = await runParity(page, '&lib=freeze');
   expect(errors).toEqual([]);
   expect(parity.error).toBeUndefined();

@@ -553,7 +553,8 @@ export const BODY_MOTE_CONSTANTS: ReadonlyMap<string, number> = new Map(BODY_MOT
  * The copies: the focused piece drawn twice more, a cold copy FREEZE_COPY_PX to one side and a warm
  * one as far to the other (the moon caught mid-burst, FREEZE_MOON_COPY_PX), at FREEZE_COPY_GAIN of
  * the base, both spreading in with the dressing. The warm copy is ember turning amber as the fix
- * lands (mode A, the author's choice) or amber throughout (B).
+ * lands (mode A, the author's choice) or amber throughout (B). They blend additively (re-skin §4.5,
+ * as the mock: bodySystem.ts), so where they overlap the base they sum to a strong double image.
  */
 export const FREEZE_COPY_PX = 3;
 export const FREEZE_MOON_COPY_PX = 6;
@@ -614,6 +615,13 @@ export const FREEZE_ROLL = 4;
 export const FREEZE_FLASH = { gain: 1, white: 0.45 } as const;
 export const FREEZE_TWOS_HZ = 12;
 export const FREEZE_BREATH_PX = 0.6;
+/**
+ * The scatter haze (re-skin §4.5, as the mock): while the freeze holds and the held planet's scatter is
+ * out (its scatter seconds in [FREEZE_SCATTER_WINDOW[0], FREEZE_SCATTER_WINDOW[1])), its icosphere's
+ * fill is FREEZE_SCATTER_FILL of its own, so its scattered motes keep C1's hue instead of piling to white.
+ */
+export const FREEZE_SCATTER_FILL = 0.5;
+export const FREEZE_SCATTER_WINDOW = [0, 0.36] as const;
 /** The held system's size on screen is never under this while `net.focus` is up (CSS px), so the hold never catches a hand-over of detail. */
 export const FREEZE_MIN_SYS_PX = 120;
 
@@ -641,6 +649,7 @@ const FREEZE_CONSTANT_LIST: readonly [string, number][] = [
   ['FREEZE_ROLL', FREEZE_ROLL],
   ['FREEZE_TWOS_HZ', FREEZE_TWOS_HZ],
   ['FREEZE_BREATH_PX', FREEZE_BREATH_PX],
+  ['FREEZE_SCATTER_FILL', FREEZE_SCATTER_FILL],
 ];
 
 /** The freeze's pairs, which freeze.glsl reads as vec2. */
@@ -653,6 +662,7 @@ const FREEZE_VEC2_LIST: readonly [string, readonly [number, number]][] = [
   ['FREEZE_TICK_SHOW_MOON', FREEZE_TICK_SHOW_MOON],
   ['FREEZE_TICK_SHOW_PLANET', FREEZE_TICK_SHOW_PLANET],
   ['FREEZE_TICK_WINK', FREEZE_TICK_WINK],
+  ['FREEZE_SCATTER_WINDOW', FREEZE_SCATTER_WINDOW],
   ['FREEZE_FLASH', [FREEZE_FLASH.gain, FREEZE_FLASH.white]],
 ];
 

@@ -174,6 +174,12 @@ FreezeLook freezeLook(int row, float v) {
   return f;
 }
 
+// The icosphere's fill on row, as a multiple of PLANET_FILL (bodyMote.ts heldFill): the scatter haze on
+// the held planet while the freeze holds and its scatter seconds are in the window; 1 everywhere else.
+float heldFill(int row, float scatterS) {
+  return freezeScatterFill(uHolding > 0.5 && row == int(round(uHeld.y)), scatterS);
+}
+
 // Whether row is the planet lamp's subject (the focused piece).
 bool planetLampSubject(int row) {
   return int(round(uLamp)) == 1 && lampSubject(row, int(round(uLampRow)));

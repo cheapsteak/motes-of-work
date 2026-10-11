@@ -22,7 +22,8 @@
 // seeds, starSpike() over every row and dot at five glow sizes and both spike counts, starBreath() at
 // four ambients and starTint() over the temperatures.
 // `?lib=freeze` compares the freeze frame's dressing (src/scene/node/freeze.ts): the copies, the limb,
-// every mote of both bursts at four states of the fix and both of the twos' length sets, and the breath.
+// every mote of both bursts at four states of the fix and both of the twos' length sets, the breath,
+// and the held planet's scatter haze (freezeScatterFill) about its window's edges.
 // `?lib=leak` compares the defect's leak, leakOffset() (src/scene/node/leak.ts), over C1's dots under
 // its forced wounds at three slots and eight moments of each (leakCases.ts), as the texture carries them.
 // `?lib=terminator` compares the planets' light (src/scene/node/terminator.ts): lightDir() of every
@@ -91,7 +92,7 @@ import { HOLE_CAMERAS, HolePart, holeParityCases, holeParityView, holeReference,
 import { starBreath, starDot, starSpike, starTint } from '../scene/node/star';
 import { STAR_DOTS } from '../scene/node/classLook';
 import type { StarLook } from '../galaxy/body';
-import { freezeBreath, freezeCopy, freezeLimb, freezeTick, freezeTickShow, freezeTickWarm, type FreezeCopyIndex } from '../scene/node/freeze';
+import { freezeBreath, freezeCopy, freezeLimb, freezeScatterFill, freezeTick, freezeTickShow, freezeTickWarm, type FreezeCopyIndex } from '../scene/node/freeze';
 import { FREEZE_LIMB_LIGHT, FREEZE_TICK_MOON, FREEZE_TICK_PLANET } from '../scene/node/birth';
 import {
   glowPx,
@@ -1458,6 +1459,8 @@ const FREEZE_COPY_DRESS = [0, 0.3, 1];
 const FREEZE_COPY_V = [0, 0.26, 1];
 const FREEZE_LIMB_TILT = [0.5, 0.8, 0.85, 0.95, 1];
 const FREEZE_LIGHTS: readonly [number, number, number][] = [[...FREEZE_LIMB_LIGHT], [0.6, 0.48, 0.64]];
+/** The scatter haze's grid: held or not, at scatter seconds none (−1), at the window's edges and inside and past it. */
+const FREEZE_FILL_S = [-1, 0, 0.16, 0.3599, 0.36, 0.5, 1.2];
 
 function freezeCase(draw: Draw): ParityCase {
   const f = Math.fround;
@@ -1482,7 +1485,8 @@ function freezeCase(draw: Draw): ParityCase {
         [1, FREEZE_TICK_PLANET],
       ] as const)
         for (let i = 0; i < k.n; i++) for (let j = 0; j < k.motes; j++) ticks.push([source, i, j, variant, v, out, toMoon]);
-  const samples = ticks.map((tick, k) => ({ tick, copy: copies[k % copies.length], limb: limbs[k % limbs.length], twos: k % 50 }));
+  const fills: [number, number][] = [0, 1].flatMap((held) => FREEZE_FILL_S.map((sec): [number, number] => [held, sec]));
+  const samples = ticks.map((tick, k) => ({ tick, copy: copies[k % copies.length], limb: limbs[k % limbs.length], twos: k % 50, fill: fills[k % fills.length] }));
   const uniforms: Record<string, IUniform> = { uPass: { value: 0 } };
   const mat = material(withFreezeLibrary(FREEZE_VERTEX), PARITY_FRAGMENT, uniforms);
   const passes = parityPasses(FREEZE_PARITY_FIELDS);
@@ -1496,6 +1500,7 @@ function freezeCase(draw: Draw): ParityCase {
     geometry.setAttribute('aLimbL', new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => s.limb.light)), 3));
     geometry.setAttribute('aTickIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => s.tick.slice(0, 4))), 4));
     geometry.setAttribute('aTickClock', new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => [...s.tick.slice(4), s.twos])), 4));
+    geometry.setAttribute('aFillIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => s.fill)), 2));
     const points = new Points(geometry, mat);
     points.frustumCulled = false; // positions come from gl_InstanceID
     const outs = passes.map((_, pass) => {
@@ -1524,6 +1529,7 @@ function freezeCase(draw: Draw): ParityCase {
         tickShow: freezeTickShow(src, dress),
         tickWarm: freezeTickWarm(src, di) ? 1 : 0,
         breath: freezeBreath(s.twos),
+        scatterFill: freezeScatterFill(s.fill[0] > 0.5, f(s.fill[1])),
       };
       passes.forEach((pass, j) => {
         for (const { field, offset } of pass) {
@@ -1536,7 +1542,7 @@ function freezeCase(draw: Draw): ParityCase {
     });
   }
   mat.dispose();
-  return { name: 'freeze: the copies, the limb and the bursts', maxError, samples: samples.length };
+  return { name: 'freeze: the copies, the limb, the bursts and the scatter haze', maxError, samples: samples.length };
 }
 
 /** A hole sample's attributes from `lo` (aHoleA 0, aHoleB 4, aHoleC 8), zero past its own: a holeLens sample's aHoleA its point about `cam`'s hole. */

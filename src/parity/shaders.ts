@@ -477,6 +477,7 @@ in vec4 aLimbN; // the rest normal in view space, and 1 for the defect moon's co
 in vec3 aLimbL; // the key light's direction in view space
 in vec4 aTickIn; // source (0 moon, 1 planet), dash, mote, the twos' length set
 in vec4 aTickClock; // v, scatterOut, toMoon, the twos' tick
+in vec2 aFillIn; // 1 on the held planet while the freeze holds, its scatter seconds
 uniform int uPass;
 flat out vec4 vOut;
 
@@ -499,6 +500,7 @@ void main() {
   o.tickShow = freezeTickShow(source, aCopyIn.y);
   o.tickWarm = freezeTickWarm(source, int(round(aTickIn.y))) ? 1.0 : 0.0;
   o.breath = freezeBreath(aTickClock.w);
+  o.scatterFill = freezeScatterFill(aFillIn.x > 0.5, aFillIn.y);
   ${passSelect(parityPasses(FREEZE_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}

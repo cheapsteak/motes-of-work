@@ -1,4 +1,4 @@
-import { Vector3, type IUniform, type Mesh, type ShaderMaterial } from 'three';
+import { AdditiveBlending, CustomBlending, Vector3, type IUniform, type Mesh, type ShaderMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { AMBIENT_POSE } from '../../galaxy/ambient';
@@ -6,6 +6,13 @@ import { galaxyTier } from '../../galaxy/background';
 import { latticeCount } from '../../galaxy/body';
 import { bodyIndex, galaxyBudget, generateGalaxy, STREAM_DOTS, streamDots, TRACK_DOTS } from '../../galaxy/generate';
 import { GALAXY_SHOTS, galaxyShotCamera } from '../../timeline/netShots';
+import { KeyframeSampler, type KeyframeFile } from '../../timeline/keyframeSampler';
+import keyframes from '../../timeline/keyframes.json';
+import { lampFocusRow } from '../../timeline/netTrack';
+import { sectionSpans } from '../../scroll/progress';
+import { loadStory } from '../../story/loader';
+import { galaxyOf } from './galaxyOnScreen';
+import { bodyLight, bodyMote, focusScatterRow, type BodyClocks } from './bodyMote';
 import { mulberry32 } from '../../math/hash';
 import { defaultSceneState } from '../../timeline/sceneState';
 import { hexToRgb, NODE_EMBER_MIX, NODE_PALETTE, NodeRole } from './birth';
@@ -371,7 +378,8 @@ describe('the shaders’ copies', () => {
     // A fragment shader takes terminator() alone: lightDir reads the bodies texture, left out by the define.
     expect(frag.indexOf('#define TERMINATOR_FRAGMENT')).toBeGreaterThanOrEqual(0);
     expect(frag.indexOf('#define TERMINATOR_FRAGMENT')).toBeLessThan(frag.indexOf('#ifndef TERMINATOR_FRAGMENT'));
-    expect((bodies.material as ShaderMaterial).vertexShader).toContain('vFill = PLANET_FILL;');
+    // The held planet's scatter haze (re-skin §4.5): its fill × heldFill, the hold's window on its scatter seconds.
+    expect((bodies.material as ShaderMaterial).vertexShader).toContain('vFill = PLANET_FILL * heldFill(row, d.scatterS);');
   });
 
   it('fill a lit glow’s core to BODY_LOOK.litCore, galaxyMote.frag.glsl’s one hand copy (the galaxy’s dots alone draw glows)', () => {
@@ -494,6 +502,131 @@ describe('the freeze frame’s forced scatter', () => {
     expect(forced(0.49, 1)).toBe(-1);
     expect(forced(1, 1)).toBe(C1);
   });
+});
+
+describe('the freeze frame’s copies', () => {
+  it('add over the frame, as the mock’s (re-skin §4.5: AdditiveBlending over premultiplied colour, One + One); the rest keeps its blend', () => {
+    const meshes = system.object.children as Mesh[];
+    const copies = meshes.filter((m) => m.name.startsWith('net-copy-'));
+    expect(copies.map((m) => m.name).sort()).toEqual(['bodies', 'shells', 'tracks'].flatMap((k) => [1, 2].map((i) => `net-copy-${k}-${i}`)).sort());
+    for (const m of copies) {
+      const mat = m.material as ShaderMaterial;
+      expect(mat.blending, m.name).toBe(AdditiveBlending);
+      expect(mat.premultipliedAlpha, m.name).toBe(true);
+    }
+    // The base piece and the rest of the galaxy keep the screen blend; the ring adds its band as before.
+    for (const m of meshes.filter((x) => !x.name.startsWith('net-copy-') && x.name !== 'net-ring')) {
+      const mat = m.material as ShaderMaterial;
+      expect(mat.blending, m.name).toBe(CustomBlending);
+      expect(mat.premultipliedAlpha, m.name).toBe(false);
+    }
+  });
+});
+
+describe('the freeze’s release (re-skin Task 8, from 8b’s review: M7)', () => {
+  // The hold lets go at defect 0.405 and the dressing fades out over 0.405-0.421. Then the focused planet's
+  // own motion (Task 8b: the forced scatter in every slot, its leak and the dropout) no longer stands down,
+  // and the copies, which share the uniforms, would carry it too. The ruling: that reads right, because the
+  // fix has landed on C1 by 0.400 (v = 0), and the scatter and the leak are times v and the dropout needs
+  // v > 0. So the release draws the mended piece whole, its copies fading, exactly as if the motion still
+  // stood down. These hold it, and fail if the keys ever move the fix past the hold.
+  const story = loadStory();
+  const spans = sectionSpans(story);
+  const sampler = new KeyframeSampler(keyframes as unknown as KeyframeFile, spans);
+  const span = spans.find((x) => x.id === 'defect')!;
+  const stateAt = (local: number) => sampler.sample(span.start + local * (span.end - span.start));
+  const RELEASE = [0.405, 0.408, 0.412, 0.416, 0.42];
+  // Ambients across the hour, a wound's peak, and a second of 30 fps frames from 101 s (dropout cells).
+  const AMBIENTS = [...Array.from({ length: 25 }, (_, k) => 7.3 + 143.1 * k), 99.45, 100.2, ...Array.from({ length: 30 }, (_, k) => 101 + k / 30)];
+  // Measured alone at load 0.9: 0.68 s (the dropout) and 1.7 s (the twin). A loaded run here takes up to 8
+  // times its alone time (the test-speed report), so 15 s and 40 s are 3 times that and over 5 times CI's.
+  const DROPOUT_TIMEOUT = 15_000;
+  const TWIN_TIMEOUT = 40_000;
+
+  it('lands the fix on C1 before the hold lets go: v = 0 through the release, the dressing still up', () => {
+    const { g: dg, data } = galaxyOf();
+    const C1 = dg.ids.C1;
+    for (const l of RELEASE) {
+      const s = stateAt(l);
+      expect(s.freeze.hold, `hold at ${l}`).toBe(0);
+      expect(s.freeze.dress * s.net.focus, `dress at ${l}`).toBeGreaterThan(0);
+      expect(1 - bodyLight(C1, s.net, data).fix, `C1's v at ${l}`).toBe(0);
+    }
+    // The last held frame is mended already.
+    expect(1 - bodyLight(C1, stateAt(0.4045).net, data).fix).toBe(0);
+  });
+
+  it('draws no dropout line on the piece through the release, at any ambient; with the fix withheld it would', () => {
+    const data = packBodyData(g);
+    const size = { width: 390, height: 844 };
+    const C1 = bodyIndex(g, 'C1');
+    const freeze: FreezeFrame = { hero: { planet: C1, moon: bodyIndex(g, 'C1-m5'), forceScatter: true }, live: null, flashOn: false };
+    let withheld = 0;
+    for (const l of RELEASE)
+      for (const t of AMBIENTS) {
+        const camera = galaxyShotCamera(GALAXY_SHOTS.close, g, data, size, t);
+        const s = stateAt(l);
+        system.update(s, camera, { ...size, pixelRatio: 1 }, t, freeze);
+        expect(system.dropout(), `defect ${l}, ambient ${t}`).toBeNull();
+        const unfixed = { ...s, net: { ...s.net, fix: 0 } };
+        system.update(unfixed, camera, { ...size, pixelRatio: 1 }, t, freeze);
+        if ((system.dropout()?.lines.length ?? 0) > 0) withheld++;
+      }
+    expect(withheld, 'frames with lines had the fix not landed').toBeGreaterThan(0);
+  }, DROPOUT_TIMEOUT);
+
+  it('draws the piece and both copies as if the motion stood down: no scatter, no leak, at any ambient; with the fix withheld they would differ', () => {
+    const { g: dg, data, motes } = galaxyOf();
+    const C1 = dg.ids.C1;
+    const moon = dg.ids['C1-m5'];
+    const rows = [C1, ...dg.bodies.filter((b) => b.kind === 'moon' && b.host === C1).map((b) => b.index)];
+    const piece = rows.flatMap((row) => motes[row]);
+    expect(piece.length).toBeGreaterThan(100);
+    let moved = 0;
+    // Every mote of the piece is a bodyMote() a copy a frame: the release's two ends and its middle, at
+    // five ambients across the hour, a wound's peak, the slot after and a dropout second.
+    for (const l of [RELEASE[0], RELEASE[2], RELEASE[4]])
+      for (const t of [7.3, 579.7, 1295.2, 2153.8, 3012.4, 99.45, 100.2, 101.5])
+        for (const fix of [null, 0]) {
+          const s = stateAt(l);
+          const net = fix === null ? s.net : { ...s.net, fix };
+          const clocks = (copy: 0 | 1 | 2): BodyClocks => ({
+            growth: net.growth,
+            fix: net.fix,
+            highlight: net.highlight,
+            show: net.show,
+            ambient: t,
+            focus: net.focus,
+            lamp: Math.round(net.lamp),
+            lampRow: lampFocusRow(net.lampAt, dg),
+            sysPx: new Float32Array(32).fill(1e4),
+            forcedScatter: -1,
+            holding: false,
+            freeze: { dress: s.freeze.dress, flash: s.freeze.flash, copy, moon, planet: C1 },
+          });
+          // The shells as bodySystem packs them: the focus's forced row, the leak unless held (the copy packs nothing of its own).
+          const c0 = clocks(0);
+          if (fix === null) expect(focusScatterRow(c0, data), 'the motion is back in name').toBe(C1);
+          const live = { ...data, shells: packShellData(dg, t, focusScatterRow(c0, data), true) };
+          const still = { ...data, shells: packShellData(dg, t, focusScatterRow({ ...c0, holding: true }, data), false) };
+          for (const copy of [0, 1, 2] as const) {
+            const c = clocks(copy);
+            const down: BodyClocks = { ...c, holding: true };
+            for (const a of piece) {
+              const x = bodyMote(a, c, live);
+              const y = bodyMote(a, down, still);
+              const off = Math.hypot(x.pos[0] - y.pos[0], x.pos[1] - y.pos[1], x.pos[2] - y.pos[2]);
+              const dim = Math.abs(x.brightness - y.brightness);
+              if (fix === null) {
+                expect(off, `defect ${l}, ambient ${t}, copy ${copy}`).toBeLessThan(1e-9);
+                expect(dim, `defect ${l}, ambient ${t}, copy ${copy}`).toBeLessThan(1e-9);
+                expect(x.visible).toBe(y.visible);
+              } else if (off > 1e-3 || dim > 1e-3) moved++;
+            }
+          }
+        }
+    expect(moved, 'motes moved or dimmed by the motion had the fix not landed').toBeGreaterThan(0);
+  }, TWIN_TIMEOUT);
 });
 
 describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {

@@ -8,6 +8,8 @@ import {
   FREEZE_LIMB_GAIN,
   FREEZE_LIMB_LIGHT,
   FREEZE_LIMB_SIZE,
+  FREEZE_SCATTER_FILL,
+  FREEZE_SCATTER_WINDOW,
   FREEZE_TICK_COUNT,
   FREEZE_TICK_MOON,
   FREEZE_TICK_PLANET,
@@ -16,7 +18,8 @@ import {
   hexToRgb,
   NODE_PALETTE,
 } from './birth';
-import { freezeBreath, freezeCopy, freezeLimb, freezeTick, freezeTickShow, freezeTickWarm, freezeTwos, type TickSource } from './freeze';
+import { freezeBreath, freezeCopy, freezeLimb, freezeScatterFill, freezeTick, freezeTickShow, freezeTickWarm, freezeTwos, type TickSource } from './freeze';
+import { heldFill } from './bodyMote';
 import { freezeLibraryGlsl, withGalaxyLibrary, GALAXY_INCLUDE_MARKER } from './shaderSource';
 import freezeGlsl from './freeze.glsl?raw';
 
@@ -202,6 +205,35 @@ describe('the twos', () => {
   });
 });
 
+describe('the scatter haze (re-skin §4.5)', () => {
+  it('fills the held planet at 0.5 while its scatter is out, [0, 0.36) s, and at 1 outside the window', () => {
+    expect(FREEZE_SCATTER_FILL).toBe(0.5);
+    expect([...FREEZE_SCATTER_WINDOW]).toEqual([0, 0.36]);
+    for (const s of [0, 0.01, 0.16, 0.3, 0.359999]) expect(freezeScatterFill(true, s), `${s} s`).toBe(0.5);
+    for (const s of [-1, -1e-9, 0.36, 0.5, 1.2, 2]) expect(freezeScatterFill(true, s), `${s} s`).toBe(1);
+    // Not held: never, whatever the scatter.
+    for (const s of [-1, 0, 0.16, 0.36, 1]) expect(freezeScatterFill(false, s), `${s} s`).toBe(1);
+  });
+
+  it('is the held planet’s alone, and only while the freeze holds: never another row, nor the focused planet’s own scatters', () => {
+    const planet = 31;
+    const moon = 40;
+    const held = { holding: true, freeze: { dress: 1, flash: 0, copy: 0 as const, moon, planet } };
+    expect(heldFill(planet, 0.16, held)).toBe(0.5);
+    // Its copies carry it too (the copy's material reads the same row and uniforms).
+    for (const copy of [1, 2] as const) expect(heldFill(planet, 0.16, { ...held, freeze: { ...held.freeze, copy } })).toBe(0.5);
+    expect(heldFill(planet, 0.4, held)).toBe(1);
+    expect(heldFill(planet, -1, held)).toBe(1);
+    // Any other row: its moon, a neighbour.
+    for (const row of [moon, planet + 1, 0]) expect(heldFill(row, 0.16, held), `row ${row}`).toBe(1);
+    // Not holding (df-1's forced scatters, the release, the mended planet): its own fill.
+    expect(heldFill(planet, 0.16, { ...held, holding: false })).toBe(1);
+    expect(heldFill(planet, 0.16, { freeze: held.freeze })).toBe(1);
+    // No freeze frame (no held planet): its own fill.
+    expect(heldFill(planet, 0.16, { holding: true })).toBe(1);
+  });
+});
+
 describe('freeze.glsl', () => {
   it('declares the constants birth.ts exports for it, spliced, and names only those', () => {
     const lib = freezeLibraryGlsl();
@@ -224,5 +256,7 @@ describe('freeze.glsl', () => {
     expect(shader.split('FreezeTick freezeTick(')).toHaveLength(2);
     expect(shader.indexOf('const vec3 NODE_EMBER')).toBeLessThan(shader.indexOf('FreezeCopy freezeCopy('));
     expect(shader.indexOf('FreezeCopy freezeCopy(')).toBeLessThan(shader.indexOf('BodyMoteOut bodyMote(BodyMoteAttrs a)'));
+    expect(shader.split('float freezeScatterFill(bool held, float scatterS)')).toHaveLength(2);
+    expect(shader.indexOf('float freezeScatterFill(')).toBeLessThan(shader.indexOf('float heldFill(int row, float scatterS)'));
   });
 });

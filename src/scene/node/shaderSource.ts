@@ -210,7 +210,7 @@ export const FREEZE_INCLUDE_MARKER = '// #include mote.glsl + light.glsl + freez
 
 const FREEZE_LIBRARY = spliceAll(freezeGlsl, 'freeze.glsl', [[FREEZE_CONSTANTS_MARKER, glslFreezeConstants()]]);
 
-/** freeze.glsl with its generated constants: the copies, the limb and the bursts, without the mote library (hash01) and light.glsl (the palette) it reads. */
+/** freeze.glsl with its generated constants: the copies, the limb, the bursts and the scatter haze, without the mote library (hash01) and light.glsl (the palette) it reads. */
 export function freezeLibraryGlsl(): string {
   return FREEZE_LIBRARY;
 }

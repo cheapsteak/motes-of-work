@@ -77,7 +77,7 @@ import {
 import { SHELL_LEAK_AT, SHELL_TEXELS } from './bodyAttrs';
 import { BODY_KIND, bodyTexel, type BodyData } from './bodyData';
 import { derp, type Derp } from './derp';
-import { freezeCopy, type FreezeCopyIndex } from './freeze';
+import { freezeCopy, freezeScatterFill, type FreezeCopyIndex } from './freeze';
 import { nodeArrival, nodeLight, nodeSettle, nodeSpread } from './light';
 import { LOD_VISIBLE, LodElement, lodGain } from './lod';
 import { bodyWorld, elementsAt, galaxyTurn, orbitLocal, orbitTurns } from './orbit';
@@ -175,6 +175,17 @@ export function freezeLook(row: number, v: number, c: Pick<BodyClocks, 'focus' |
   const copy = freezeCopy(f.copy, dress, v, FREEZE_WARM_MODE, row === f.moon);
   if (f.copy > 0) return { gain: copy.gain, offPx: copy.offPx, tint: [...copy.tint, 1] };
   return { gain: 1 + FREEZE_FLASH.gain * flash, offPx: 0, tint: [1, 1, 1, FREEZE_FLASH.white * flash] };
+}
+
+/**
+ * The icosphere's fill on `row`, as a multiple of PLANET_LOOK.fill (body.vert.glsl; bodyMote.glsl
+ * heldFill): the scatter haze (freezeScatterFill) on the held planet (the freeze's, uHeld) while the
+ * freeze holds (uHolding) and its scatter seconds `scatterS` (bodyDerp's) are in the window; 1 on every
+ * other row and frame. It keys on the hold, not the dressing, so the focused planet's own scatters
+ * (re-skin Task 8b, df-1 and after the fix) never touch its fill.
+ */
+export function heldFill(row: number, scatterS: number, c: Pick<BodyClocks, 'holding' | 'freeze'>): number {
+  return freezeScatterFill(c.holding === true && (c.freeze?.planet ?? -1) === row, scatterS);
 }
 
 export interface BodyMoteOut {

@@ -13,7 +13,8 @@
 //   net-feed     the reviewer's feed, the same dots, only while `net.feed` and its alpha are up
 //   net-ring     the reviewer's ring, one quad flat in the galaxy's plane (flatRing.vert.glsl; not instanced)
 //   net-copy-*   the freeze frame's two copies of the held piece, cold (1) and warm (2): its shell motes,
-//                bodies and tracks again, only while the dressing is up (freeze-frame §3.1)
+//                bodies and tracks again, only while the dressing is up (freeze-frame §3.1), added
+//                over the frame (re-skin §4.5); the held planet's fill halved while its scatter is out
 //   net-ticks    the freeze frame's two bursts of dotted dashes, round the moon and the planet (tick.vert.glsl)
 // The core rows draw nothing (re-skin Task 5): the black hole is drawn in their place (src/scene/hole/
 // holeSystem.ts), and every fragment shader here discards inside its shadow (uShadow, shared with it).
@@ -190,6 +191,12 @@ type Blend = { blending: Blending; blendEquation?: typeof AddEquation; blendSrc?
 const SCREEN: Blend = { blending: CustomBlending, blendEquation: AddEquation, blendSrc: OneFactor, blendDst: OneMinusSrcColorFactor };
 /** The ring adds its band, as on the stacks network. */
 const ADDITIVE: Blend = { blending: AdditiveBlending };
+/**
+ * The freeze frame's copies add (re-skin §4.5, as the mock draws them): AdditiveBlending over the
+ * premultiplied colour the fragment shaders output, which three.js draws as (One, One), so where a copy
+ * overlaps the base or the other copy they sum to a strong double image.
+ */
+const COPY_BLEND = { blending: AdditiveBlending, premultipliedAlpha: true } as const;
 
 /** The ring's alpha at full presence (the stacks network's). */
 export const RING_ALPHA = 0.7;
@@ -394,15 +401,16 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
 
   // The freeze frame's two copies of the held piece (freeze-frame §3.1): its shell motes, its bodies
   // (the ghost among them) and its tracks drawn twice more, cold and warm, each copy's material saying
-  // which (uCopy). Their geometry is the piece's own instances, cut from the full sets once the piece
-  // is known, so a copy costs nothing outside the hold and a few thousand instances in it.
+  // which (uCopy), added over the frame (COPY_BLEND). Their geometry is the piece's own instances, cut
+  // from the full sets once the piece is known, so a copy costs nothing outside the hold and a few
+  // thousand instances in it.
   const copyMaterial = (vertex: string, fragment: string, copy: 1 | 2): RawShaderMaterial =>
     new RawShaderMaterial({
       glslVersion: GLSL3,
       vertexShader: withGalaxyLibrary(vertex),
       fragmentShader: fragment,
       uniforms: { ...uniforms, uCopy: { value: copy } },
-      ...SCREEN,
+      ...COPY_BLEND,
       depthWrite: false,
       transparent: true,
     });

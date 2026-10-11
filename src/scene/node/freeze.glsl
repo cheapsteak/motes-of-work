@@ -1,11 +1,11 @@
 // GLSL mirror of src/scene/node/freeze.ts, step for step: the freeze frame's dressing (the copies, the
-// inked limb, the two bursts of dotted dashes, the twos' breath). freeze.ts says what each term is. It
-// has no main(), and it is not usable raw: take it from withGalaxyLibrary() (or, for the parity page,
-// withFreezeLibrary()) in shaderSource.ts (this folder), which splices in the generated constants at
-// the marker below and puts before it the mote library (hash01) and light.glsl (the palette:
-// NODE_AGENT, NODE_HUMAN, NODE_EMBER). Screen angles are radians counter-clockwise from the screen's
-// right, its y up; screen lengths CSS px. The parity page (src/parity, ?lib=freeze) renders it and
-// compares it with the TS.
+// inked limb, the two bursts of dotted dashes, the twos' breath, the held planet's scatter haze).
+// freeze.ts says what each term is. It has no main(), and it is not usable raw: take it from
+// withGalaxyLibrary() (or, for the parity page, withFreezeLibrary()) in shaderSource.ts (this folder),
+// which splices in the generated constants at the marker below and puts before it the mote library
+// (hash01) and light.glsl (the palette: NODE_AGENT, NODE_HUMAN, NODE_EMBER). Screen angles are
+// radians counter-clockwise from the screen's right, its y up; screen lengths CSS px. The parity page
+// (src/parity, ?lib=freeze) renders it and compares it with the TS.
 
 // #include FREEZE constants (generated from src/scene/node/birth.ts by shaderSource.ts)
 
@@ -108,4 +108,10 @@ bool freezeTickWarm(int source, int i) {
 // The copies' breath at twos tick `twos` (0: the twos are off).
 float freezeBreath(float twos) {
   return twos > 0.0 ? (hash01(FREEZE_TICK_SEED, uint(twos)) - 0.5) * FREEZE_BREATH_PX : 0.0;
+}
+
+// The held planet's icosphere fill, as a multiple of its own: FREEZE_SCATTER_FILL while held and its
+// scatter seconds are in the window.
+float freezeScatterFill(bool held, float scatterS) {
+  return held && scatterS >= FREEZE_SCATTER_WINDOW.x && scatterS < FREEZE_SCATTER_WINDOW.y ? FREEZE_SCATTER_FILL : 1.0;
 }

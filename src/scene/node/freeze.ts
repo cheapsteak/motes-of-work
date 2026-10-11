@@ -3,10 +3,11 @@
 // vertex shaders apply (bodySystem.ts): the focused piece's two misregistered copies (freezeCopy), its
 // inked limb (freezeLimb), and the two bursts of dotted dashes round the moon caught mid-burst and the
 // planet caught mid-scatter (freezeTick, freezeTickShow, freezeTickWarm). The GLSL in freeze.glsl mirrors
-// it step for step; the parity page (`?lib=freeze`) compares them. Only operations GLSL has are used,
-// and both mirrors read the constants of birth.ts (spliced into the GLSL). Nothing here moves on its
-// own: the dressing is a pure function of the story's leaves (`freeze.dress`, the fix's `v`) and,
-// for the twos, of the 12 Hz tick the CPU hands it (0 in test mode and under reduced motion).
+// it step for step; the parity page (`?lib=freeze`) compares them. The held planet's scatter haze
+// (freezeScatterFill: its icosphere's fill halved while its scatter is out) is a term here too. Only
+// operations GLSL has are used, and both mirrors read the constants of birth.ts (spliced into the
+// GLSL). Nothing here moves on its own: the dressing is a pure function of the story's leaves
+// (`freeze.dress`, the fix's `v`) and, for the twos, of the 12 Hz tick the CPU hands it (0 in test mode and under reduced motion).
 //
 // Screen angles are radians counter-clockwise from the screen's right, its y up, as clip space has
 // them; screen lengths are CSS px; a burst's radii are in its source's own screen radius.
@@ -23,6 +24,8 @@ import {
   FREEZE_LIMB_SIZE,
   FREEZE_LIMB_WEIGHT,
   FREEZE_MOON_COPY_PX,
+  FREEZE_SCATTER_FILL,
+  FREEZE_SCATTER_WINDOW,
   FREEZE_TICK_KEEP,
   FREEZE_TICK_MOON,
   FREEZE_TICK_PLANET,
@@ -155,4 +158,14 @@ export function freezeTwos(live: number | null): number {
 /** The copies' breath at twos tick `twos` (CSS px along the rolled screen x): ±FREEZE_BREATH_PX / 2, none while the twos are off (tick 0). */
 export function freezeBreath(twos: number): number {
   return twos > 0 ? (hash01(FREEZE_TICK_SEED, twos) - 0.5) * FREEZE_BREATH_PX : 0;
+}
+
+/**
+ * The held planet's icosphere fill, as a multiple of its own (re-skin §4.5, the mock's scatter haze):
+ * FREEZE_SCATTER_FILL while `held` (the icosphere is the held planet's and the freeze holds) and its
+ * scatter seconds `scatterS` are in [FREEZE_SCATTER_WINDOW[0], FREEZE_SCATTER_WINDOW[1]); 1 otherwise
+ * (no scatter runs at −1).
+ */
+export function freezeScatterFill(held: boolean, scatterS: number): number {
+  return held && scatterS >= FREEZE_SCATTER_WINDOW[0] && scatterS < FREEZE_SCATTER_WINDOW[1] ? FREEZE_SCATTER_FILL : 1;
 }

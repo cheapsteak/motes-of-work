@@ -129,6 +129,8 @@ export interface FreezeOut {
   /** freezeTickWarm: 1 for a warm dash, 0 for a cold one. */
   tickWarm: number;
   breath: number;
+  /** freezeScatterFill: the held planet's fill factor. */
+  scatterFill: number;
 }
 
 /** What the freeze parity mode compares. The freeze parity shader's FreezeOut struct is generated from this list (glslFreezeOutStruct). */
@@ -145,6 +147,7 @@ export const FREEZE_PARITY_FIELDS: readonly ParityField<FreezeOut>[] = [
   { name: 'tickShow', size: 1 },
   { name: 'tickWarm', size: 1 },
   { name: 'breath', size: 1 },
+  { name: 'scatterFill', size: 1 },
 ];
 
 /**
