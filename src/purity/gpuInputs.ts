@@ -10,17 +10,138 @@
 // made without `needsUpdate`, or made while the draw was hidden and never uploaded, shows here as it
 // would on screen: stale. A digest, not a copy: a stage's buffers run to megabytes, and the twin
 // builds about a hundred stages.
+//
+// What it reads is an allow-list, and anything outside it throws `Unmodelled`; it never reads as equal.
+// - Object kinds: the exact classes in DRAW_KINDS and CONTAINER_KINDS. So an InstancedMesh, a SkinnedMesh,
+//   a BatchedMesh or a Sprite throws.
+// - Every object: the default layer, and three's own no-op render callbacks.
+// - The scene: no background, environment, fog or override material.
+// - Geometry: no morph attributes and no partial-upload ranges.
+// - Materials: RawShaderMaterial or ShaderMaterial, each of whose properties is either read here or still
+//   at its default. Stencil, clipping planes, tone mapping, dithering, vertex colours, blend colour,
+//   lights and fog all throw once they are set.
+// - Textures: DataTextures, held to the same rule.
 import {
   type BufferAttribute,
   type BufferGeometry,
   type Camera,
+  DataTexture,
+  Group,
   type InterleavedBufferAttribute,
+  Line,
+  LineLoop,
+  LineSegments,
   type Material,
-  type Mesh,
-  type Object3D,
-  type ShaderMaterial,
+  Mesh,
+  Object3D,
+  Points,
+  RawShaderMaterial,
+  Scene,
+  ShaderMaterial,
   type Texture,
 } from 'three';
+
+/** What the reader met and does not model: it throws this rather than read the frame as equal. */
+export class Unmodelled extends Error {
+  constructor(what: string, feature: string) {
+    super(`gpuInputs: ${what}: ${feature} is not modelled`);
+  }
+}
+
+type Named = { name?: string; uuid?: string };
+const nameOf = (o: Named & object): string => `${o.constructor.name} "${o.name || o.uuid}"`;
+
+type Kind = abstract new (...args: never[]) => unknown;
+/** Object classes that draw, and classes that only hold others: an object of any other class throws. */
+const DRAW_KINDS: Kind[] = [Mesh, Points, Line, LineSegments, LineLoop];
+const CONTAINER_KINDS: Kind[] = [Scene, Group, Object3D];
+/** The material and texture classes read here: any other class throws. */
+const MATERIAL_KINDS: Kind[] = [RawShaderMaterial, ShaderMaterial];
+const TEXTURE_KINDS: Kind[] = [DataTexture];
+/** The layer every object is on by default, the only one read here. */
+const DEFAULT_LAYERS = new Object3D().layers.mask;
+
+const isA = (x: object, kinds: Kind[]): boolean => kinds.includes(x.constructor as Kind);
+
+function same(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if ('equals' in a && typeof a.equals === 'function') return (a as { equals(o: unknown): boolean }).equals(b);
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Throws unless each own enumerable property of `x` passes one of these:
+ * - it is read here (`read`);
+ * - it is bookkeeping that never reaches the GPU (`ignored`, or a `_private` field behind a getter that
+ *   is itself read);
+ * - it equals its value on a freshly built instance of the same class.
+ */
+function assertDefaults(x: Named & object, read: ReadonlySet<string>, ignored: ReadonlySet<string>): void {
+  const fresh = new (x.constructor as new () => Record<string, unknown>)();
+  for (const [k, v] of Object.entries(x)) {
+    if (read.has(k) || ignored.has(k) || k.startsWith('_')) continue;
+    if (!same(v, fresh[k])) throw new Unmodelled(nameOf(x), `its ${k} (set from the default)`);
+  }
+}
+
+/** Throws on an object the reader does not model; true if the object draws. */
+function checkObject(o: Object3D): boolean {
+  const draws = isA(o, DRAW_KINDS);
+  if (!draws && !isA(o, CONTAINER_KINDS)) throw new Unmodelled(nameOf(o), `the object kind ${o.constructor.name}`);
+  if (o.layers.mask !== DEFAULT_LAYERS) throw new Unmodelled(nameOf(o), `the layers mask ${o.layers.mask}`);
+  if (o.onBeforeRender !== Object3D.prototype.onBeforeRender) throw new Unmodelled(nameOf(o), 'an onBeforeRender');
+  if (o.onAfterRender !== Object3D.prototype.onAfterRender) throw new Unmodelled(nameOf(o), 'an onAfterRender');
+  const scene = o as Scene;
+  if (scene.isScene) {
+    for (const k of ['background', 'environment', 'fog', 'overrideMaterial'] as const) {
+      if (scene[k] !== null) throw new Unmodelled(nameOf(o), `the scene's ${k}`);
+    }
+  }
+  return draws;
+}
+
+/** Material properties read here (filled from RENDER_STATE below), and bookkeeping. */
+const MATERIAL_READ = new Set<string>(['uniforms', 'defines']);
+const MATERIAL_IGNORED = new Set(['uuid', 'name', 'userData', 'version', 'uniformsNeedUpdate']);
+/** Texture properties read here (plainTexture and the upload), and bookkeeping. */
+const TEXTURE_READ = new Set([
+  'image',
+  'source',
+  'format',
+  'type',
+  'internalFormat',
+  'minFilter',
+  'magFilter',
+  'wrapS',
+  'wrapT',
+  'flipY',
+  'unpackAlignment',
+  'generateMipmaps',
+  'premultiplyAlpha',
+  'colorSpace',
+]);
+const TEXTURE_IGNORED = new Set(['uuid', 'name', 'userData', 'version', 'pmremVersion']);
+
+function checkMaterial(m: Material): void {
+  if (!isA(m, MATERIAL_KINDS)) throw new Unmodelled(nameOf(m), `the material kind ${m.constructor.name}`);
+  assertDefaults(m, MATERIAL_READ, MATERIAL_IGNORED);
+}
+
+function checkTexture(t: Texture): void {
+  if (!isA(t, TEXTURE_KINDS)) throw new Unmodelled(nameOf(t), `the texture kind ${t.constructor.name}`);
+  assertDefaults(t, TEXTURE_READ, TEXTURE_IGNORED);
+}
+
+function checkGeometry(o: Object3D, g: BufferGeometry): void {
+  for (const [k, list] of Object.entries(g.morphAttributes)) {
+    if (list.length > 0) throw new Unmodelled(nameOf(o), `the morph attribute ${k}`);
+  }
+  for (const [k, a] of Object.entries(g.attributes)) {
+    const ranges = (a as BufferAttribute).updateRanges;
+    if (ranges && ranges.length > 0) throw new Unmodelled(nameOf(o), `partial uploads (updateRanges) of ${k}`);
+  }
+}
 
 /** A plain value: numbers compared with Object.is; bytes as their digest (`digestOf`). */
 export type Plain = number | string | boolean | null | Plain[] | { [key: string]: Plain };
@@ -82,9 +203,11 @@ interface Draw {
 }
 
 function drawOf(o: Object3D): Draw | null {
+  if (!checkObject(o)) return null;
   const m = o as Mesh;
-  if (!(m.isMesh || (o as { isPoints?: boolean }).isPoints || (o as { isLine?: boolean }).isLine)) return null;
-  if (Array.isArray(m.material)) throw new Error(`gpuInputs: ${o.name || o.type} has several materials; not supported`);
+  if (Array.isArray(m.material)) throw new Unmodelled(nameOf(o), 'several materials');
+  checkMaterial(m.material);
+  checkGeometry(o, m.geometry);
   return { object: o, geometry: m.geometry, material: m.material };
 }
 
@@ -101,7 +224,7 @@ function sourceOf(a: BufferAttribute | InterleavedBufferAttribute): Uploadable {
 function viewOf(source: Uploadable): ArrayBufferView {
   if ('isTexture' in source) {
     const data = (source.image as { data?: unknown } | null)?.data;
-    if (!ArrayBuffer.isView(data)) throw new Error(`gpuInputs: texture ${source.name || source.uuid} holds no data array; not supported`);
+    if (!ArrayBuffer.isView(data)) throw new Unmodelled(nameOf(source), 'a texture with no data array');
     return data;
   }
   return source.array;
@@ -111,7 +234,10 @@ function texturesOf(material: Material): Texture[] {
   const out: Texture[] = [];
   const uniforms = (material as ShaderMaterial).uniforms ?? {};
   const visit = (v: unknown): void => {
-    if (v && typeof v === 'object' && (v as Texture).isTexture) out.push(v as Texture);
+    if (v && typeof v === 'object' && (v as Texture).isTexture) {
+      checkTexture(v as Texture);
+      out.push(v as Texture);
+    }
     else if (Array.isArray(v)) v.forEach(visit);
   };
   for (const u of Object.values(uniforms)) visit(u.value);
@@ -132,7 +258,7 @@ function plainValue(v: unknown, uploads: Uploads, at: string): Plain {
   if ('isVector2' in o) return [o.x, o.y] as number[];
   if ('isVector3' in o) return [o.x, o.y, o.z] as number[];
   if ('isVector4' in o || 'isQuaternion' in o) return [o.x, o.y, o.z, o.w] as number[];
-  throw new Error(`gpuInputs: uniform ${at} has a value of an unknown kind`);
+  throw new Unmodelled(`uniform ${at}`, 'a value of this kind');
 }
 
 function plainTexture(t: Texture, uploads: Uploads): Plain {
@@ -184,6 +310,7 @@ const RENDER_STATE = [
   'vertexShader',
   'fragmentShader',
 ] as const;
+for (const k of RENDER_STATE) MATERIAL_READ.add(k);
 
 function plainMaterial(material: Material, uploads: Uploads): Plain {
   const m = material as ShaderMaterial & Record<string, unknown>;
@@ -223,6 +350,7 @@ function plainGeometry(g: BufferGeometry, uploads: Uploads): Plain {
  * per visible draw (in scene order, by name) its transform, render order, geometry and material.
  */
 export function gpuInputs(scene: Object3D, camera: Camera, uploads: Uploads): Plain {
+  if (camera.layers.mask !== DEFAULT_LAYERS) throw new Unmodelled(nameOf(camera), `the camera's layers mask ${camera.layers.mask}`);
   scene.updateMatrixWorld();
   camera.updateMatrixWorld();
   // Keyed by place and name, so a draw missing from one frame reads as such.
