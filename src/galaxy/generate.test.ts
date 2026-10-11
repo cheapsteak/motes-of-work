@@ -557,6 +557,9 @@ describe('generateGalaxy', () => {
   });
 
   it('keeps every piece clear of its neighbours at any precession or tilt, over many seeds', () => {
+    // Measured, now its 299 galaxies draw no background: 9.1 s on CI, 10.9 s alone, 46.5 s locally at load
+    // 12-22 beside the full suite (before: 46 s on CI, 99 s alone, and over the old 120 s under load). 180 s
+    // is nearly 4 times the loaded time and 20 times CI's.
     // Fix ruling 2. Neighbouring planets i < j: a_j(1 − e_j) − a_i(1 + e_i) ≥ R_i + R_j + max(ms_i, ms_j) + 0.15,
     // and the pieces (planet or moon system, whichever reaches further) clear each other by 0.15 too;
     // the first piece clears the star. Neighbouring tracks round a planet, and the first track and the
@@ -591,7 +594,7 @@ describe('generateGalaxy', () => {
     };
     check(g);
     for (let seed = 2; seed <= 300; seed++) check(generateGalaxy(seed, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP)));
-  }, 120_000);
+  }, 180_000);
 
   it("keeps every planet's eccentricity in its band but in a flattened system", () => {
     // §12.1's 0.05-0.22; only a system of the story's planets that cannot fit otherwise (P5's nine) falls below it.
@@ -631,6 +634,9 @@ describe('generateGalaxy', () => {
   });
 
   it('fits everything it draws in the budget', () => {
+    // Measured, now its galaxies draw no background: 0.5 s on CI, 0.6 s alone, 3.3 s locally at load 12-22
+    // beside the full suite (before, 2.8 s on CI and 6.4 s alone, over the default 5 s). 30 s is 9 times the
+    // loaded time.
     // Re-pinned from 76,000 (0.76 of the mote budget): the author's provisional allowance for the
     // hole, the stars and the planets, GALAXY_SHARE 0.935 (re-skin §7).
     expect(GALAXY_SHARE).toBe(0.935);
@@ -671,7 +677,7 @@ describe('generateGalaxy', () => {
     }
     // Every body that carries the defect has a person set, but a core row, which draws nothing.
     for (const b of g.bodies) expect(b.personMotes > 0).toBe(b.cracked && b.kind !== 'core');
-  });
+  }, 30_000);
 
   it('stars are dots and spikes, not lattices', () => {
     for (const tier of ['desktop', 'phone'] as const) {

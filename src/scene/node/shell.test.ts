@@ -250,6 +250,8 @@ describe('shellWarp', () => {
   });
 
   it('the bounds hold', () => {
+    // Measured: 0.6 s on CI and alone, 1.9 s locally at load 12-22 beside the full suite; the default 5 s
+    // would be only 2.6 times that. 30 s is 15 times.
     // Every sample's bounds tested plainly and the failures held to none once (Fails): an expect per
     // sample was half of this test (3.5 s on CI, past 5 s under load).
     const fails = new Fails();
@@ -293,7 +295,7 @@ describe('shellWarp', () => {
       if (!(d <= LEAP_MAX)) fails.add(`unmorphed ${i}: ${d}`);
     }
     expect(fails.count, String(fails)).toBe(0);
-  });
+  }, 30_000);
 
   it('the sweep crosses in 80 ms and all are home by 0.36 s', () => {
     const at = (sec: number) => {

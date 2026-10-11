@@ -99,17 +99,21 @@ function fingerprint(states: SceneState[], h?: ReflowHome): string {
 
 describe('the reflow at 0 (test 1: identity)', () => {
   it('leaves mote() byte-identical on the golden states of every Act I section', () => {
+    // Measured: 1.6 s on CI, 1.7 s alone, 10.3 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 60 s is over 5 times the loaded time.
     // Computed from mote() as it was before the reflow existed, over the same states and motes.
     expect(golden).toHaveLength(84);
     expect(fingerprint(golden)).toBe('7bd9b743');
     // ...and a home given changes nothing while the reflow is 0.
     expect(fingerprint(golden, home)).toBe('7bd9b743');
-  });
+  }, 60_000);
 
   it('is not vacuous: the least reflow changes the fingerprint', () => {
+    // Measured: 1.5 s on CI, 1.8 s alone, 11.0 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 60 s is over 5 times the loaded time.
     const nudged = golden.map((s) => mergeState(s, { mech: { reflow: 1e-6 } }));
     expect(fingerprint(nudged, home)).not.toBe(fingerprint(golden));
-  });
+  }, 60_000);
 
   it('needs its home only once it runs', () => {
     const s = mergeState(defaultSceneState(), { mech: { reflow: 0.5 } });

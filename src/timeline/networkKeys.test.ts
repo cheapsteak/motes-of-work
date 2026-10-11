@@ -242,6 +242,8 @@ describe('the holds rule (test 9, over Act II)', () => {
   }
 
   it('holds no growth key within a flare of a body’s landings, nor a fix key within a flare of a fix', () => {
+    // Measured: 0.5 s on CI, 0.4 s alone, 4.7 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is over 6 times the loaded time.
     // A body's builders land over [born, born + dur] (a moon's all at its birth).
     const landings = g.bodies.map((n) => [n.born, n.born + n.dur]);
     const fixes = bodies.flatMap((n) => (n.fixAt === null ? [] : [n.fixAt]));
@@ -258,7 +260,7 @@ describe('the holds rule (test 9, over Act II)', () => {
     // Not vacuous: the fix holds at 0 before C1, at FIX_TWELVE after it (from the defect through the
     // trace), after each rule and at the end.
     expect(fixHolds).toBeGreaterThanOrEqual(8);
-  });
+  }, 30_000);
 
   it('never holds the growth clock for a stretch, anywhere in Act II', () => {
     for (const id of ACT_II) expect(holds(id, (p) => sampler.sample(p).net.growth), id).toEqual([]);
@@ -833,6 +835,8 @@ describe('the freeze frame’s leaves (Task 12)', () => {
   });
 
   it('are up only in a focused frame, and over no stream or feed: the clock the hold substitutes shows only where net.focus is 1, and the dressing never needs to dim a stream', () => {
+    // Measured: 0.3 s on CI and alone, 2.9 s locally at load 12-22 beside the full suite (it ran out of the
+    // default 5 s under load). 30 s is 10 times the loaded time.
     // Every freeze term is times net.focus in the shaders, and the forced scatter is gated by it
     // (bodySystem.ts); the hold's clock is not (main.ts reads the pin whenever the hold is up), and the
     // stream shader takes no dressing. The keys make both safe: this holds them to it.
@@ -844,7 +848,7 @@ describe('the freeze frame’s leaves (Task 12)', () => {
       expect([x.net.focus, x.net.streams, x.net.feed], `defect ${l}`).toEqual([1, 0, 0]);
     }
     expect(up).toBeGreaterThan(6000);
-  });
+  }, 30_000);
 
   it('holds the cut as a step: hold is 0 or 1 at every key and at every sample, up over 0.2605–0.405', () => {
     for (const k of file.tracks['freeze.hold']) expect([0, 1]).toContain(k.value);
@@ -858,6 +862,8 @@ describe('the freeze frame’s leaves (Task 12)', () => {
   });
 
   it('flashes once, on the cut: one pulse no wider than 0.005 of the section, peak 1, and no stop inside it', () => {
+    // Measured: 0.4 s on CI and alone, 2.8 s locally at load 12-22 beside the full suite (it ran out of the
+    // default 5 s under load). 30 s is 10 times the loaded time.
     const fl = steps(0, 1, 40000).map((l) => s('defect', l).freeze.flash);
     const on = fl.map((v, i) => (v > 0 ? i : -1)).filter((i) => i >= 0);
     expect(on.length).toBeGreaterThan(0);
@@ -867,7 +873,7 @@ describe('the freeze frame’s leaves (Task 12)', () => {
     expect(Math.max(...fl)).toBe(1);
     const stops = autoStops(story, spans, (p) => sceneMotion(sampler.sample(p)));
     expect(stops.filter((x) => x.progress < defect.end && localOf(x.progress) >= 0.26 && localOf(x.progress) <= 0.264)).toEqual([]);
-  });
+  }, 30_000);
 
   it('stops where freeze-frame §1.3 has it: df-1 at 0.238, df-2 at 0.358, df-2b as the pull-out leaves; none on the cut, the snap or the release', () => {
     const stops = autoStops(story, spans, (p) => sceneMotion(sampler.sample(p)));

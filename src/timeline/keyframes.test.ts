@@ -616,6 +616,8 @@ describe('zoom-out', () => {
   // by one by its hash, the scenario in which it is the agents' colour, and that scenario changes
   // nothing but the colour (attributes.ts: the vibed scenario's visibility is the specced one's).
   it('fades the bike’s warm speckle to the agents’ colour under zo-2, and moves no mote', () => {
+    // Measured: 1.2 s on CI and alone, 3.0 s locally at load 12-22 beside the full suite (it ran out of the
+    // default 5 s under load). 30 s is 10 times the loaded time.
     const bike = mechanisms.bike;
     const attrs = buildMoteAttrs(bike, bike.samplePoints(3000, 1));
     const g = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
@@ -639,7 +641,7 @@ describe('zoom-out', () => {
         expect([o.pos, o.visible, o.brightness, o.settled]).toEqual([p.pos, p.visible, p.brightness, p.settled]);
       }
     }
-  });
+  }, 30_000);
 
   it('keeps every Act II leaf at 0 through Act I', () => {
     for (let i = 0; i <= 2000 && i / 2000 < at('zoom-out', 0); i++) {

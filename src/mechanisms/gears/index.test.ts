@@ -143,13 +143,17 @@ describe('gears meshing', () => {
   }
 
   it('the 18- and 9-tooth gears mesh without overlap through a tooth period', () => {
+    // Measured: 0.9 s on CI, 1.5 s alone, 7.3 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is 4 times the loaded time.
     // Measured at a 0.0005 grid over 24 steps: at most 2.6e-5, a sliver where the drive tip meets
     // the pinion's radial flank (the 9-tooth pinion has no undercut). A tooth is 5.3e-2 (pinion).
     expect(Math.max(...sweep(false))).toBeLessThan(1e-4);
-  });
+  }, 30_000);
 
   it('control: the driven gear shifted by half a pitch collides at every step', () => {
+    // Measured: 0.9 s on CI, 1.5 s alone, 9.3 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is over 3 times the loaded time.
     // Measured: at least 4.65e-2.
     expect(Math.min(...sweep(true))).toBeGreaterThan(1e-2);
-  });
+  }, 30_000);
 });
