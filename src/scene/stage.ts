@@ -17,7 +17,7 @@ import { createEssayCamera } from './cameraRig';
 import { createGalaxySystem, type GalaxySystem } from './galaxy/galaxySystem';
 import { createInkSystem, type InkSystem } from './ink/inkSystem';
 import { reflowBodies } from './mote/mote';
-import { createMoteSystem, type MoteSystem } from './mote/moteSystem';
+import { createMoteSystem, type MoteInputs, type MoteSystem } from './mote/moteSystem';
 import { packBodyData, type BodyData } from './node/bodyData';
 import { createBodySystem, type BodySystem, type FreezeFrame } from './node/bodySystem';
 import type { Viewport } from './node/lod';
@@ -89,12 +89,22 @@ export function galaxyLead(spans: SectionSpan[], sample: (p: number) => SceneSta
   return first < 0 ? Infinity : spans[Math.max(0, first - 1)].start;
 }
 
-export function createStage(mechanism: Mechanism, budget: number, seed: number): Stage {
+/**
+ * Pure inputs of a stage, which a caller that builds many stages of one essay (the purity twin) may
+ * build once and share: the motes' (moteInputs of the same mechanism, budget and seed) and the
+ * galaxy's (generateGalaxy of the same seed and budget, per tier). A stage only reads them.
+ */
+export interface StageInputs {
+  motes?: MoteInputs;
+  galaxy?: (tier: Tier) => Galaxy;
+}
+
+export function createStage(mechanism: Mechanism, budget: number, seed: number, inputs: StageInputs = {}): Stage {
   const anchors = mechanismAnchors(mechanism);
   // The far plane holds Act II's wide shots (cameraRig.ts createEssayCamera).
   const camera = createEssayCamera(1);
   const scene = new Scene();
-  const motes = createMoteSystem(mechanism, budget, seed);
+  const motes = createMoteSystem(mechanism, budget, seed, { inputs: inputs.motes });
   scene.add(motes.object);
   // The galaxy goes into a slot that holds its place in the scene, so the scene's order does not
   // depend on when it was built.
@@ -126,7 +136,7 @@ export function createStage(mechanism: Mechanism, budget: number, seed: number):
     buildGalaxy(tier) {
       if (galaxy !== null) return false;
       // Generated once per page load from the essay's seed, at the galaxy's share of the mote budget.
-      const g = generateGalaxy(seed, tier, galaxyBudget(budget));
+      const g = inputs.galaxy?.(tier) ?? generateGalaxy(seed, tier, galaxyBudget(budget));
       const data = packBodyData(g);
       // One far star per unit, on its spot: a binary's on its barycentre, so from afar a pair is one star.
       const background = createGalaxySystem(

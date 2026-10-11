@@ -77,6 +77,25 @@ export interface MoteSystem {
 export interface MoteSystemOptions {
   /** Every mote takes this type in every scenario, and renders in that type's hero form. */
   forceType?: MoteType;
+  /**
+   * The per-mote inputs, built beforehand by `moteInputs` with the same mechanism, budget, seed and
+   * type: a caller that builds many systems of one essay (the purity twin, src/purity/twin.ts) builds
+   * them once. They are only read, never written. Omitted, the system builds its own.
+   */
+  inputs?: MoteInputs;
+}
+
+/** A mote system's per-mote inputs: a pure function of its mechanism, budget, seed and forced type. */
+export interface MoteInputs {
+  attrs: readonly MoteAttrs[];
+  instanced: Record<string, InstancedBufferAttribute>;
+}
+
+export function moteInputs(mech: Mechanism, budget: number, seed: number, forceType?: MoteType): MoteInputs {
+  const built = buildMoteAttrs(mech, mech.samplePoints(budget, seed));
+  const attrs =
+    forceType === undefined ? built : built.map((a): MoteAttrs => ({ ...a, type: [forceType, forceType, forceType] }));
+  return { attrs, instanced: instancedAttributes(attrs) };
 }
 
 const QUAD = [-1, -1, 1, -1, 1, 1, -1, 1];
@@ -168,10 +187,7 @@ function mesh(geometry: InstancedBufferGeometry, mat: RawShaderMaterial, name: s
 
 export function createMoteSystem(mech: Mechanism, budget: number, seed: number, opts?: MoteSystemOptions): MoteSystem {
   const forceType = opts?.forceType;
-  const built = buildMoteAttrs(mech, mech.samplePoints(budget, seed));
-  const attrs =
-    forceType === undefined ? built : built.map((a): MoteAttrs => ({ ...a, type: [forceType, forceType, forceType] }));
-  const instanced = instancedAttributes(attrs);
+  const { attrs, instanced } = opts?.inputs ?? moteInputs(mech, budget, seed, forceType);
   const n = attrs.length;
 
   const moteGeometry = instancedGeometry(
