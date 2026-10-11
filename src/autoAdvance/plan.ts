@@ -14,7 +14,8 @@ import type { SceneState } from '../timeline/sceneState';
  * outlasts its text (the orbit), the stop waits for it instead: the latest point it is at rest
  * before the next text comes up. A move that leaves as its page starts to fade (Act II's page-turn
  * moves) ends its scene the same way: the latest point at rest is the instant it leaves, with the
- * text still whole, so `ends: 'motion'` there means "just before a motion", not "after one". A
+ * text still whole, so `ends: 'motion'` there means "just before a motion", not "after one". Only the
+ * first stretch at rest counts, so a move that rests part way still ends its scene as it leaves. A
  * page with an explicit `out` never waits: it leaves early to make a stretch with no text for motion
  * to play in (no page of the essay has one since the author deleted spread's second fix, which made
  * the first), so its last scene stops while the page is whole and the motion
@@ -227,8 +228,20 @@ export function autoStops(story: readonly StopShape[], spans: readonly SectionSp
       let left = 0;
       for (let q = textEnd + step; q < next; q += step) left = Math.max(left, moved(start, motion(q)));
       if (left > OUTLASTS_TEXT) {
-        // Then the stop waits for it: the latest point at rest before the next text comes up.
-        for (let q = latest; q > textEnd; q -= step) if (atRest(q)) return { id, from, words, progress: q, ends: 'motion' };
+        // Then the stop waits for it: the latest point at rest before the next text comes up, in the
+        // first stretch at rest from the text's end. A move that rests part way (ly-5's swing to P_a,
+        // then its close-in) so never carries the stop past the instant it first leaves.
+        let leave = Infinity;
+        let rested = false;
+        for (let q = textEnd; q < latest; q += step) {
+          const rest = atRest(q);
+          if (rest) rested = true;
+          else if (rested) {
+            leave = q;
+            break;
+          }
+        }
+        for (let q = latest; q > textEnd; q -= step) if (q < leave && atRest(q)) return { id, from, words, progress: q, ends: 'motion' };
       }
     }
     return { id, from, words, progress: textEnd, ends: 'text' };

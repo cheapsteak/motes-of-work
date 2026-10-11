@@ -39,7 +39,7 @@ void main() {
   // The star's real form's share (bodyScreen.glsl bodyHoodReal, the dissolve): its spikes are drawn
   // times it. Where it is 0 the early-out above has hidden them: the CPU draws no glow there (bodySystem.ts),
   // so its cap is 0.
-  float real = bodyHoodReal(KIND_STAR, toView(bodyWorld(row, uAmbient)));
+  float real = bodyHoodReal(row, KIND_STAR, toView(bodyWorld(row, uAmbient)));
   vec3 centre = bodyCentre(row, bodyDerp(row, sys), uAmbient);
   vec3 light = bodyLight(row);
   float hi = max(light.y, light.z);

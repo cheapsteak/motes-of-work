@@ -20,6 +20,9 @@ Add a row whenever the author decides something; never rewrite a past decision, 
 | Budget: err high (2026-10-09) | `GALAXY_SHARE` 0.935 (93,500); dial down after the real-phone check. | | |
 | Neighbourhood spacing **1.5×** (2026-10-10) | Two systems' stars at least 1.5 × their combined outer radii apart, so no pair reads as touching. Task 1d. | `scratch/session/binaries/mock.html` option b | `binaries-four-options-sheet.png` (b) |
 | **S-type binary stars** (2026-10-10; "S type looks pretty good") | Today's closest filler pairs become binaries: the two stars orbit their barycentre, each keeps only the planets inside its stability limit. Scripted stars, and N0's star, are never paired. Task 1e. | `scratch/session/binaries/` (notes and mock, option c) | `binaries-s-type-close-phone.png` |
+| ly-4's code is born in view (2026-10-11) | The ride ends with a short push-in on star-4, lit alone, and holds while its new planet lands; the planet is a small point (at least 4 px). Accepted as is. | | |
+| **One binary pair** in the essay's galaxy (2026-10-11) | The capped placement gives the essay's galaxy one pair (star-7 + star-14, near the middle); keep it and re-fit the two shots it touches (up-2, fx-3). | `scratch/session/binaries/` | |
+| ly-5 opens **aimed at the first plan** (2026-10-11; "B looks good") | After ly-4's hold, the camera swings to P_a over 3.50–3.53 (lamp steps mid-swing), so a phone never shows empty sky; desktop unchanged. | `scratch/session/ly5cmp/` (strips, video, patches) | |
 
 ## Stars, plans and the black hole
 

@@ -1,7 +1,8 @@
 // Reference implementation of the galaxy's orbits (docs/specs/2026-10-07-galaxy-orbits.md §12.1,
 // §14.2, §2.1's turn): a planet goes round its star and a moon round its planet on a Kepler ellipse
-// that precesses, in a plane tilted out of the galaxy's; the core and the stars sit at their spots;
-// and the whole galaxy turns rigidly about its core. The GLSL in orbit.glsl mirrors this step for
+// that precesses, in a plane tilted out of the galaxy's; a binary's two stars go round their
+// barycentre on Kepler ellipses that do not precess (re-skin Task 1e); the core, a single star and a
+// barycentre sit at their spots; and the whole galaxy turns rigidly about its core. The GLSL in orbit.glsl mirrors this step for
 // step; the parity page (`?lib=orbit`) compares them. Only operations GLSL has are used. Both mirrors
 // read GALAXY_TURN_PERIOD from birth.ts (spliced into the GLSL) and the same packed bodies texture
 // (bodyData.ts). Every term is a function of the ambient clock `t` and the texture: nothing is
@@ -68,7 +69,8 @@ export type OrbitParams = Pick<OrbitElements, 'a' | 'e' | 'tilt' | 'tiltAz' | 'o
  * A body's place relative to what it goes round, at ambient `t` (§12.1):
  *  - mean anomaly `M = phase·2π + 2π t / period` (phase in turns), eccentric anomaly `E` by keplerE,
  *    so the radius is `a (1 − e cos E)` at true anomaly ν: faster near periapsis;
- *  - the periapsis at bearing `ω(t) = ω0 + 2π t / precession`;
+ *  - the periapsis at bearing `ω(t) = ω0 + 2π t / precession`, or held at ω0 for `precession` 0 (a
+ *    binary's stars round their barycentre, whose ellipses do not turn);
  *  - the plane tilted by `tilt` about the horizontal axis at bearing `tiltAz`.
  */
 export function orbitLocal(o: OrbitParams, t: number): Vec3 {
@@ -78,8 +80,8 @@ export function orbitLocal(o: OrbitParams, t: number): Vec3 {
   // which is the radius a (1 − e cos E) at the true anomaly ν.
   const px = o.a * (Math.cos(E) - o.e);
   const py = o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E);
-  // The periapsis at bearing ω, in the galaxy's plane.
-  const w = o.omega0 + TAU * orbitTurns(t, o.precession);
+  // The periapsis at bearing ω, in the galaxy's plane; precession 0 is none (a binary's stars).
+  const w = o.precession === 0 ? o.omega0 : o.omega0 + TAU * orbitTurns(t, o.precession);
   const cw = Math.cos(w);
   const sw = Math.sin(w);
   const x = px * cw - py * sw;
@@ -108,8 +110,9 @@ export function elementsAt(data: BodyData, row: number): OrbitParams {
 
 /**
  * A body's place in the galaxy's own frame (before the turn) at ambient `t`: up its host chain (a
- * moon round its planet, a planet round its star), adding each orbit, to a body that sits at its
- * spot (a star, or a core body). At most three hops: a moon is two from its star.
+ * moon round its planet, a planet round its star, a binary's star round its barycentre), adding each
+ * orbit, to a body that sits at its spot (a single star, a barycentre or a core body). At most three
+ * hops: a moon of a binary star's planet is three from its barycentre.
  */
 export function bodyGalactic(data: BodyData, row: number, t: number): Vec3 {
   const p: Vec3 = [0, 0, 0];

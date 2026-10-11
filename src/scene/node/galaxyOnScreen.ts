@@ -16,7 +16,7 @@ import { lampFocusRow } from '../../timeline/netTrack';
 import type { SceneState } from '../../timeline/sceneState';
 import { shown } from '../ambientClock';
 import { FREEZE_BREATH_PX, FREEZE_TICK_MOON, FREEZE_TICK_PLANET } from './birth';
-import { BODY_LOOK, buildPersonAttrs, buildShellAttrs, buildTrackAttrs, packShellData, shellMoteDiameter } from './bodyAttrs';
+import { BODY_LOOK, buildPersonAttrs, buildShellAttrs, buildTrackAttrs, packShellData, shellMoteDiameter, unitIndexOf } from './bodyAttrs';
 import { packBodyData, type BodyData } from './bodyData';
 import { bodyCentre, bodyDerp, bodyLight, bodyMote, bodyPresence, lampGain, pieceOf, sysGain, trackDot, trackLampGain, type BodyClocks, type BodyMoteAttrs } from './bodyMote';
 import { freezeCopy, freezeTick, freezeTickShow, freezeTickWarm } from './freeze';
@@ -283,7 +283,7 @@ export function visibleTracks(s: SceneState, ambient: number, camera: Perspectiv
     const px = systemPx(systemOuter(g, row), d, focal);
     return px * onScreen(((q.x + 1) / 2) * width, ((1 - q.y) / 2) * height, px, width, height);
   });
-  const sysPx = Float32Array.from(detailPx(raw));
+  const sysPx = Float32Array.from(detailPx(raw, unitIndexOf(g)));
   const clocks = { lamp: Math.round(s.net.lamp), lampRow: lampFocusRow(s.net.lampAt, g), focus: s.net.focus };
   const out: GalaxyPoint[] = [];
   const places = trackPlaces(ambient);

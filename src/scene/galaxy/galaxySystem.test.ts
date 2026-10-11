@@ -24,7 +24,7 @@ const instanceData = (system: System, name: string): Float32Array => (system.obj
 describe.each(['phone', 'desktop'] as Tier[])('the background galaxy (%s)', (tier) => {
   const g = generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));
   const data = packBodyData(g);
-  const spots = g.systems.map((i) => g.bodies[i].spot!);
+  const spots = g.units.map((i) => g.bodies[i].spot!);
   const system = createGalaxySystem(g.background, spots, (t) => bodyGalactic(data, data.n0Row, t));
   const shown = mergeState(defaultSceneState(), { net: { show: 1 } });
 
@@ -47,7 +47,9 @@ describe.each(['phone', 'desktop'] as Tier[])('the background galaxy (%s)', (tie
     });
     expect(instances['galaxy-stars'] + instances['galaxy-far-stars']).toBe(system.counts.stars);
     expect(instances['galaxy-bright'] + instances['galaxy-far-bright']).toBe(system.counts.bright);
-    expect(instances['galaxy-far-stars'] + instances['galaxy-far-bright']).toBe(30);
+    // One far star per unit: a binary's at its barycentre, so from afar a pair is one star.
+    expect(instances['galaxy-far-stars'] + instances['galaxy-far-bright']).toBe(g.units.length);
+    expect(g.units.length).toBeLessThan(g.systems.length);
   });
 
   it('draws the neighbourhood’s far form: the pulled rows at their spots, each at its class’s size, fading with its spot’s real star', () => {
@@ -81,7 +83,7 @@ describe.each(['phone', 'desktop'] as Tier[])('the background galaxy (%s)', (tie
       system.update(mergeState(defaultSceneState(), { net: { show: 1, hoodHold: hold } }), cam, view, AMBIENT_POSE);
       return system.farShares();
     };
-    expect(shares('galaxyWide', 0)).toHaveLength(30);
+    expect(shares('galaxyWide', 0)).toHaveLength(g.units.length);
     if (tier === 'phone') expect(shares('galaxyWide', 0).every((f) => f === 1)).toBe(true);
     expect(shares('hood', 0).every((f) => f === 0)).toBe(true);
     expect(shares('galaxyWide', 1).every((f) => f === 0)).toBe(true);

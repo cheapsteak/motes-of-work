@@ -5,7 +5,7 @@
 // the same float32 values.
 //
 // Bodies, row = Body.index:
-//   T0 spot.xyz (0 for what orbits), kind (0 core, 1 star, 2 planet, 3 moon)
+//   T0 spot.xyz (0 for what orbits), kind (0 core, 1 star, 2 planet, 3 moon, 4 barycentre)
 //   T1 a, e, tilt, tiltAz                 T2 omega0, precession, period, phase (turns)
 //   T3 host row (−1 none), R, born, dur   T4 fixAt, hiAt, hop, cracked (0/1)
 //   T5 derpSeed, derpPhase, star row, rule row
@@ -16,7 +16,9 @@
 //   T0 from, to, kind (0 out, 1 side, 2 in, 3 feed), born
 //   T1 hiAt, hop, bowBearing, the child's fixAt
 // A `hiAt` or `fixAt` that never comes is NODE_NEVER; a `hop` off the defect's lineage is −1; the
-// core's and the stars' orbit texels are 0. The feed runs from R0 to the reviewer (to −1), comes up
+// orbit texels of the core, a single star and a barycentre are 0. A binary's star orbits its
+// barycentre (T3's host), its orbit in T1 and T2 with precession 0 (its ellipse does not turn); the
+// barycentre has the spot. The feed runs from R0 to the reviewer (to −1), comes up
 // at 0, never lights, carries R0's hop plus one and R0's fixAt, and has no bow. Both textures are
 // BODY_TEXELS wide, as the network's two are one width, so one texel reader serves both: a stream
 // row's T2–T7 are 0, free for what the streams need later.
@@ -33,8 +35,11 @@ export const LIGHT_MODE = { selfLit: 0, terminator: 1 } as const;
 const AGENT = hexToRgb(NODE_PALETTE.NODE_AGENT);
 const ROW = BODY_TEXELS * 4;
 
-/** A body's kind as the texture carries it (`T0.w`). */
-export const BODY_KIND = { core: 0, star: 1, planet: 2, moon: 3 } as const;
+/**
+ * A body's kind as the texture carries it (`T0.w`). A barycentre (re-skin Task 1e) has its pair's spot
+ * and draws nothing: a binary's stars have it as their host, their orbits in T1 and T2.
+ */
+export const BODY_KIND = { core: 0, star: 1, planet: 2, moon: 3, bary: 4 } as const;
 /** A stream's kind as the texture carries it (`T0.z`). */
 export const STREAM_KIND = { out: 0, side: 1, in: 2, feed: 3 } as const;
 

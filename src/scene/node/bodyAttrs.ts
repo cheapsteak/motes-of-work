@@ -69,12 +69,21 @@ export function shellMoteDiameter(b: Pick<Body, 'kind' | 'R' | 'lattice'>): numb
   return (BODY_LOOK.dotShare * Math.PI * b.R) / Math.max(1, b.lattice[0]);
 }
 
-/** Each body's system: its index in `g.systems` (its star's), or −1 for the core. */
+/** Each body's system: its index in `g.systems` (its star's), or −1 for the core and a barycentre. */
 export function systemIndexOf(g: Galaxy): Int32Array {
   const sysOfStar = new Map(g.systems.map((row, i) => [row, i]));
   const out = new Int32Array(g.bodies.length);
   g.bodies.forEach((b, i) => (out[i] = b.star < 0 ? -1 : (sysOfStar.get(b.star) ?? -1)));
   return out;
+}
+
+/**
+ * Each system's unit (re-skin Task 1e): the index in `g.units` of its star's, a binary's two stars
+ * sharing their barycentre's. In `g.systems` order: what detailPx counts as one for its at-most-two rule.
+ */
+export function unitIndexOf(g: Galaxy): number[] {
+  const unitOf = new Map(g.units.map((row, i) => [row, i]));
+  return g.systems.map((row) => unitOf.get(g.bodies[row].host >= 0 ? g.bodies[row].host : row)!);
 }
 
 /** Instances of one of the quad sets: the count and each attribute's packed values (bodyMote.ts BodyMoteAttrs). */
@@ -162,13 +171,14 @@ export function buildGlowAttrs(g: Galaxy): QuadSet & { rows: number[] } {
 }
 
 /**
- * The icospheres: one per body but a star (a star is its dots and its glow, re-skin §4.3), then a
+ * The icospheres: one per body but a star (a star is its dots and its glow, re-skin §4.3) and a
+ * barycentre (it draws nothing), then a
  * ghost per planet or moon that carries the defect (the burst's double, galaxy §12.3). Per instance:
  * (row, system, 1 for a ghost).
  */
 export function buildBodyAttrs(g: Galaxy): { count: number; ghosts: number; body: Float32Array } {
   const sys = systemIndexOf(g);
-  const drawn = g.bodies.filter((b) => b.kind !== 'star');
+  const drawn = g.bodies.filter((b) => b.kind !== 'star' && b.kind !== 'bary');
   const ghosts = g.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon'));
   const body = new Float32Array([...drawn.flatMap((b) => [b.index, sys[b.index], 0]), ...ghosts.flatMap((b) => [b.index, sys[b.index], 1])]);
   return { count: drawn.length + ghosts.length, ghosts: ghosts.length, body };

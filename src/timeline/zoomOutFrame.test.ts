@@ -5,7 +5,8 @@ import { AMBIENT_GRID } from '../galaxy/ambient';
 import { galaxyTier } from '../galaxy/background';
 import { galaxyBudget, generateGalaxy, systemOuter, type Galaxy } from '../galaxy/generate';
 import { BG_STAR_SIZE, bgStarPx, LEGIBLE_STAR_PX } from '../scene/galaxy/galaxySystem';
-import { packBodyData } from '../scene/node/bodyData';
+import { systemIndexOf, unitIndexOf } from '../scene/node/bodyAttrs';
+import { packBodyData, type BodyData } from '../scene/node/bodyData';
 import { bodyPresence, lampGain } from '../scene/node/bodyMote';
 import { detailPx, LOD_VISIBLE, LodElement, lodGain, MOON_POINT_PX, onScreen, systemPx } from '../scene/node/lod';
 import { bodyWorld, galacticToWorld } from '../scene/node/orbit';
@@ -13,9 +14,9 @@ import { sectionSpans } from '../scroll/progress';
 import { loadStory } from '../story/loader';
 import { KeyframeSampler, type KeyframeFile } from './keyframeSampler';
 import keyframes from './keyframes.json';
-import { essayCamera, ZOOM_OUT } from './netShots';
+import { essayCamera, GALAXY_SHOTS, galaxyShotKeys, galaxyShotLampAt, ZOOM_OUT } from './netShots';
 import { Lamp, lampFocusRow } from './netTrack';
-import type { SceneState } from './sceneState';
+import { defaultSceneState, mergeState, type SceneState } from './sceneState';
 
 // The middle of the pull is never empty (Task 8 fix round 1, ruling C; script draft 4, zo-2: "More
 // pieces come up near and far along the same curve; the curve shows itself as one arm of a spiral,
@@ -48,13 +49,14 @@ function galaxyFor(size: { width: number; height: number }): Galaxy {
   if (!galaxies.has(tier)) galaxies.set(tier, generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP)));
   return galaxies.get(tier)!;
 }
-const desktop = galaxyFor(SIZES[1]);
-const data = packBodyData(desktop);
-const n0 = desktop.bodies[data.n0Row];
+const essay = galaxyFor(SIZES[1]);
+const essayData = packBodyData(essay);
 
 interface Frame {
   /** Stars, core bodies and planets drawn in the frame. */
   pieces: number;
+  /** Of those, the planets' ids. */
+  planets: string[];
   /** Moons drawn as spheres in the frame. */
   spheres: number;
   /** Background stars legible in the frame. */
@@ -63,9 +65,10 @@ interface Frame {
 const things = (f: Frame): number => f.pieces + f.spheres + f.stars;
 
 /** What the frame at state `s` holds on a screen of `size` at ambient `t`. */
-function inFrame(s: SceneState, size: { width: number; height: number }, t: number): Frame {
-  if (s.net.show <= 0) return { pieces: 0, spheres: 0, stars: 0 };
-  const g = galaxyFor(size);
+function inFrame(s: SceneState, size: { width: number; height: number }, t: number, desktop: Galaxy = essay, data: BodyData = essayData): Frame {
+  if (s.net.show <= 0) return { pieces: 0, planets: [], spheres: 0, stars: 0 };
+  const g = desktop === essay ? galaxyFor(size) : desktop;
+  const n0 = desktop.bodies[data.n0Row];
   const camera = essayCamera(s.camera, desktop, data, size, t);
   camera.updateMatrixWorld();
   const eye = camera.getWorldPosition(new Vector3());
@@ -85,22 +88,26 @@ function inFrame(s: SceneState, size: { width: number; height: number }, t: numb
     const px = systemPx(systemOuter(desktop, row), c.d, focal);
     return px * onScreen(c.x, c.y, px, size.width, size.height);
   });
-  const sysPx = detailPx(raw);
+  const sysPx = detailPx(raw, unitIndexOf(desktop));
+  const sysOf = systemIndexOf(desktop);
   const clocks = { lamp: Math.round(s.net.lamp), lampRow: lampFocusRow(s.net.lampAt, desktop), focus: s.net.focus };
   // The bike's own motes draw its planet and its moons while they show and the reflow carries them there.
   const bike = s.stage.motes > 0 && s.mech.reflow > 0;
-  const frame: Frame = { pieces: 0, spheres: 0, stars: 0 };
+  const frame: Frame = { pieces: 0, planets: [], spheres: 0, stars: 0 };
   for (const b of desktop.bodies) {
+    // A barycentre draws nothing.
+    if (b.kind === 'bary') continue;
     const ofBike = bike && (b === n0 || (b.kind === 'moon' && b.host === n0.index));
     if (!ofBike) {
       if (bodyPresence(b.index, s.net.growth, data) * lampGain(b.index, clocks, data) * s.net.show < LOD_VISIBLE) continue;
-      const sys = b.star >= 0 ? desktop.systems.indexOf(b.star) : -1;
+      const sys = sysOf[b.index];
       const level = b.kind === 'planet' ? LodElement.PlanetPoint : b.kind === 'moon' ? LodElement.Moon : null;
       if (level !== null && lodGain(level, sysPx[sys]) < LOD_VISIBLE) continue;
     }
     const c = project(bodyWorld(data, b.index, t));
     if (!inside(c)) continue;
     if (b.kind !== 'moon') frame.pieces++;
+    if (b.kind === 'planet') frame.planets.push(b.id);
     else if ((2 * b.R * focal) / c.d >= MOON_POINT_PX[0]) frame.spheres++;
   }
   for (const [set, points] of [
@@ -160,6 +167,38 @@ describe('the middle of the zoom-out is never empty (fix round 1, ruling C)', ()
       ).toBeGreaterThanOrEqual(2);
     expect(least(0.8, (f) => f.pieces)).toBeGreaterThan(least(0.6, (f) => f.pieces));
   }, 300_000);
+
+  it('draws no binary star’s planet at the galaxy wide or fr-1 (re-skin Task 1e), and no more of the neighbourhood’s planets than Task 1d did', () => {
+    // From afar each star of a pair reads as an arm star: its detail is sized by its own planets, not
+    // its pair's reach. Task 1d itself draws three filler planets at the desktop's wide (953): planet-4,
+    // -5 and -6, whose systems stand at the planets' point band there (not this task's; for the look check).
+    const one = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP), 'singles');
+    const oneData = packBodyData(one);
+    const far = spans.find((x) => x.id === 'far')!;
+    const fr1 = sampler.sample(far.start + 0.53125 * (far.end - far.start));
+    const built = mergeState(defaultSceneState(), {
+      camera: galaxyShotKeys(GALAXY_SHOTS.galaxyWide, essay),
+      net: { show: 1, growth: 1, lamp: Lamp.Off, lampAt: galaxyShotLampAt(GALAXY_SHOTS.galaxyWide) },
+    });
+    expect(essay.bodies.some((b) => b.bin)).toBe(true);
+    for (const [name, s] of [
+      ['the galaxy wide', at(1)],
+      ['fr-1', fr1],
+      // The pair is not yet built where the essay passes the wides (star-7 at growth 0.278), so the wide
+      // probe shot with everything built is held to it too.
+      ['the galaxy wide, everything built', built],
+    ] as const)
+      for (const size of SIZES)
+        for (const t of AMBIENT_GRID) {
+          const where = `${name} ${size.width} at ${t}`;
+          const drawn = inFrame(s, size, t).planets;
+          for (const id of drawn) expect(essay.bodies[essay.bodies[essay.ids[id]].host].bin, `${where}: ${id}`).toBeUndefined();
+          const before = inFrame(s, size, t, one, oneData).planets;
+          expect(drawn.length, where).toBeLessThanOrEqual(before.length);
+          if (name === 'the galaxy wide')
+            expect(before.filter((id) => id.startsWith('planet-')).sort(), where).toEqual(size.width === 390 ? [] : ['planet-4', 'planet-5', 'planet-6']);
+        }
+  }, 120_000);
 
   it('the background reads as stars at the middle distances and as crisp points from afar', () => {
     // Far: the galaxy wide's 640 on a desktop, about 1.5 px a unit, keeps every star at HALO_PX (§4).

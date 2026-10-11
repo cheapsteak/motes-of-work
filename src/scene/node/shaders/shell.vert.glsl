@@ -85,7 +85,7 @@ void main() {
   float across = bodyAcrossAt(row, home);
   // A neighbourhood star's real form's share (re-skin §4.1, the dissolve): its glow, its dots and its
   // person motes are drawn times it, so where it is 0 the early-out hides them here (lod.glsl hoodSkip).
-  float real = bodyHoodReal(kind, home);
+  float real = bodyHoodReal(row, kind, home);
   if (hoodSkip(kind, real)) {
     gl_Position = MOTE_HIDDEN;
     return;

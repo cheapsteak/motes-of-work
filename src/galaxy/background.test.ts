@@ -110,9 +110,10 @@ function crossArmBins(bgs: Background[], lo: number, hi: number, reach: number):
 }
 
 describe('background', () => {
-  // The neighbourhood the essay hands the background: seed 1's 30 star spots (the same on both tiers).
+  // The neighbourhood the essay hands the background: seed 1's systems' spots, a binary's barycentre
+  // for its pair (the same on both tiers).
   const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
-  const spots = g.systems.map((i) => g.bodies[i].spot!);
+  const spots = g.units.map((i) => g.bodies[i].spot!);
   const cache = new Map<string, Background>();
   /** The background of `seed` on `tier` about the neighbourhood, generated once. */
   const bgOf = (seed: number, tier: Tier): Background => {
@@ -137,9 +138,12 @@ describe('background', () => {
     // neighbourhood moves the spots the halos keep off, and the desktop's wide stands at 953, which
     // shrinks the halos it keeps apart there; the dust reads neither): before it, phone
     // '0c5057f0', '2c8e498b', '411bb106', 'a4abea91' and desktop 'd70a1b1b', '9736792a', '820ba3bf', 'be7af0c6'.
+    // Re-pinned by Task 1e (its one binary on seed 1: 29 units' spots, the pair's at its barycentre,
+    // measured from gen.js with the new hood.txt): before it, phone 'cc711f0c', 'ef5f9050', '411bb106',
+    // '4c3f3db2' and desktop '461869cf', '6d205268', '820ba3bf', '272bff14'.
     const [p, d] = [bgOf(1, 'phone'), bgOf(1, 'desktop')];
-    expect([fnv(p.stars), fnv(p.bright), fnv(p.dust), fnv(p.stars, p.bright, p.dust)]).toEqual(['cc711f0c', 'ef5f9050', '411bb106', '4c3f3db2']);
-    expect([fnv(d.stars), fnv(d.bright), fnv(d.dust), fnv(d.stars, d.bright, d.dust)]).toEqual(['461869cf', '6d205268', '820ba3bf', '272bff14']);
+    expect([fnv(p.stars), fnv(p.bright), fnv(p.dust), fnv(p.stars, p.bright, p.dust)]).toEqual(['4e6eece8', 'ef5f9050', '411bb106', 'bf687566']);
+    expect([fnv(d.stars), fnv(d.bright), fnv(d.dust), fnv(d.stars, d.bright, d.dust)]).toEqual(['6bd16e42', '6fb4d33f', '820ba3bf', 'dec3aca2']);
     expect([p.stars.length / 4, p.bright.length / 4, p.dust.length / 4]).toEqual([2040, 360, 4000]);
     expect([d.stars.length / 4, d.bright.length / 4, d.dust.length / 4]).toEqual([3400, 600, 8000]);
     // pitch 0.28, as the background had it before RECOMMENDED: arm 0 through the neighbourhood's middle.
@@ -353,7 +357,7 @@ describe('background', () => {
     // 5.0 of 8.6 on the desktop). So the stars off the disc are held in the plane only.
     for (const tier of TIERS) {
       const gt = generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));
-      const hood = gt.systems.map((i) => gt.bodies[i].spot!);
+      const hood = gt.units.map((i) => gt.bodies[i].spot!);
       const stars = [...points(gt.background.stars).map((p) => ({ p, px: HALO_PX.star })), ...points(gt.background.bright).map((p) => ({ p, px: HALO_PX.bright }))];
       expect(hoodApart(stars, hood, tier, (p) => [p[0], 0, p[2]]).every(Boolean), tier).toBe(true);
       const disc = stars.filter(({ p }) => Math.abs(p[1]) <= BG.starY);
@@ -392,15 +396,15 @@ describe('background', () => {
 
 describe('pullToHood', () => {
   const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
-  const spots = g.systems.map((i) => g.bodies[i].spot!);
+  const spots = g.units.map((i) => g.bodies[i].spot!);
   const of = { phone: generateBackground(1, 'phone', spots), desktop: generateBackground(1, 'desktop', spots) };
 
   it('pulls the nearest star onto each spot', () => {
-    // Measured, seed 1: phone mean 7.11, least 5.59, most 16.94 (3 of the 30 bright); desktop 5.58,
-    // 4.74, 8.43 (1 bright). Re-pinned by Task 1d (the wider neighbourhood's spots, its farthest where
-    // the background thins; the desktop's wide at 953): before it, phone 6.66, 5.65, 10.52 (2); desktop
-    // 5.49, 4.73, 8.53 (4).
-    const want = { phone: [7.11, 5.59, 16.94, 3], desktop: [5.58, 4.74, 8.43, 1] };
+    // Measured, seed 1: phone mean 7.18, least 5.59, most 16.94 (3 of the 29 bright); desktop 5.60,
+    // 4.74, 8.43 (1 bright). One per unit: a binary's far star on its barycentre. Re-pinned by Task
+    // 1e (one pair, 29 spots): before it, phone 7.11, 5.59, 16.94 (3 of 30); desktop 5.58, 4.74,
+    // 8.43 (1). Before Task 1d, phone 6.66, 5.65, 10.52 (2); desktop 5.49, 4.73, 8.53 (4).
+    const want = { phone: [7.18, 5.59, 16.94, 3], desktop: [5.6, 4.74, 8.43, 1] };
     for (const tier of TIERS) {
       const bg = of[tier];
       const pull = pullToHood(bg, spots);

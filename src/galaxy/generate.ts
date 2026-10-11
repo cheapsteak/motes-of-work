@@ -18,6 +18,7 @@ import { NODE_NEVER } from '../scene/node/birth';
 import { partGroups } from '../mechanisms/bike/partGroups';
 import { generateBackground, type Background, type Tier } from './background';
 import {
+  BIN,
   CORE_R,
   LATTICE,
   MOON_PERIOD,
@@ -25,6 +26,9 @@ import {
   PLANET_ORBIT_FIRST,
   PLANET_ORBIT_MAX,
   STAR_R,
+  binaryPeriod,
+  forcedEccentricity,
+  hwS,
   latticeCount,
   moonCount,
   moonLattice,
@@ -37,6 +41,7 @@ import {
   planetPeriod,
   planetRadius,
   starLook,
+  starMass,
   type BodyKind,
   type OrbitElements,
   type StarLook,
@@ -61,9 +66,9 @@ export interface Body {
   scripted: boolean;
   /** Stream parents (rows), the main stream first. Empty for a rule nothing built and for a moon. */
   parents: number[];
-  /** What it goes round: a planet's star, a moon's planet; −1 for the core and the stars. */
+  /** What it goes round: a planet's star, a moon's planet, a binary star's barycentre; −1 for the core, a single star and a barycentre. */
   host: number;
-  /** Its system's star (a star's own row); −1 for the core. */
+  /** Its system's star (a star's own row); −1 for the core and a barycentre. */
   star: number;
   /** The rule its main lineage comes from (a rule's own row). */
   rule: number;
@@ -96,10 +101,22 @@ export interface Body {
   look: StarLook | null;
   /** The person's warm motes for its fix: bodies that carry the defect only. */
   personMotes: number;
-  /** Its orbit round its host (planets and moons); null for the core and the stars. */
+  /**
+   * Its orbit round its host (planets, moons, and a binary's stars round their barycentre, which turn
+   * in the galaxy's plane and do not precess: `precession` 0); null for the core, a single star and a barycentre.
+   */
   orbit: OrbitElements | null;
-  /** Its fixed place in the galaxy's frame (the core and the stars); null for what orbits. */
+  /** Its fixed place in the galaxy's frame (the core, a single star, a barycentre); null for what orbits. */
   spot: readonly [number, number, number] | null;
+  /**
+   * A binary star's pair (re-skin Task 1e): the relative orbit's semi-major axis `a` and eccentricity
+   * `e`, its periapsis `omega` and starting `phase` (turns), its `period`, and this star's `share` of
+   * the separation (m_other / M: it goes round the barycentre at share × a, the heavier on the
+   * smaller ellipse). Absent on every other body.
+   */
+  bin?: { a: number; e: number; omega: number; phase: number; period: number; share: number };
+  /** A binary star's stable limit (units, `hwS` × the separation): every planet's apoapsis is inside it. Absent on every other body. */
+  aCrit?: number;
   /** The seed its derps are drawn from: R0's for every body that carries the defect, else `NODE_NEVER`. */
   derpSeed: number;
   /** Its own phase in the derp schedule, in [0, 1). */
@@ -143,9 +160,19 @@ export interface Galaxy {
   visits: string[];
   /** Body row by id and by alias. */
   ids: Record<string, number>;
-  /** The systems that get detail: every star's row, in birth order. */
+  /**
+   * The systems that get detail: every star's row, in birth order. A binary's two stars are two
+   * systems, each sized by its own planets (re-skin Task 1e: from afar each reads as an arm star).
+   */
   systems: number[];
-  /** The middle of the neighbourhood: the centroid of the stars' spots. */
+  /**
+   * The neighbourhood's units (re-skin Task 1e), in the order of their first star's birth: a single
+   * star's row, or a binary's barycentre's. A pair is one unit wherever the neighbourhood is placed,
+   * cleared or counted: its spacing, the background's far stars and halo clearance, the middle, and
+   * the at-most-two full-detail rule.
+   */
+  units: number[];
+  /** The middle of the neighbourhood: the centroid of the units' spots (a pair's barycentre counted once). */
   hoodCentroid: [number, number, number];
   background: Background;
   /**
@@ -195,14 +222,23 @@ export const STREAM_PITCH = 1.2,
   STREAM_DOTS = [6, 40] as const;
 
 /**
+ * Where a body is held from, and how far from it it can go: up its host chain (a moon to its planet,
+ * a planet to its star, a binary star to its barycentre) to the body with a fixed spot, and the sum of
+ * the apoapses on the way (0 for a body at its spot).
+ */
+export function anchorOf(bodies: readonly Body[], b: Body): { spot: readonly number[]; reach: number } {
+  if (b.spot) return { spot: b.spot, reach: 0 };
+  const up = anchorOf(bodies, bodies[b.host]);
+  return { spot: up.spot, reach: up.reach + b.orbit!.r };
+}
+
+/**
  * The most dots a stream can need: its longest chord over any ambient (the distance between the two
- * systems' fixed spots, plus each end's apoapsis round its star), one per `STREAM_PITCH` rounded up, clamped.
+ * ends' fixed spots, plus each end's reach from its own: anchorOf), one per `STREAM_PITCH` rounded up, clamped.
  */
 export function streamDots(bodies: readonly Body[], s: Pick<Stream, 'from' | 'to'>): number {
-  const anchor = (b: Body): readonly number[] => b.spot ?? (b.kind === 'planet' ? bodies[b.host].spot! : bodies[bodies[b.host].host].spot!);
-  const range = (b: Body): number => (b.kind === 'planet' ? b.orbit!.r : b.kind === 'moon' ? bodies[b.host].orbit!.r + b.orbit!.r : 0);
-  const [a, b] = [bodies[s.from], bodies[s.to]];
-  const chord = dist(anchor(a), anchor(b)) + range(a) + range(b);
+  const [a, b] = [anchorOf(bodies, bodies[s.from]), anchorOf(bodies, bodies[s.to])];
+  const chord = dist(a.spot, b.spot) + a.reach + b.reach;
   return Math.min(STREAM_DOTS[1], Math.max(STREAM_DOTS[0], Math.ceil(chord / STREAM_PITCH)));
 }
 
@@ -233,7 +269,10 @@ export const HOOD_PITCH = 0.28;
 export const HOOD_R_WIDE = 150;
 /** Two systems keep their spots this much further apart than HOOD_SPACING × the sum of their outer radii. */
 export const HOOD_MARGIN = 1;
-/** Two systems' stars sit at least this × the sum of their outer radii, plus HOOD_MARGIN, apart (the author's spacing; a nod to orbit stability). */
+/**
+ * Two systems' stars (a binary's barycentre for its pair) sit at least this × the sum of their outer
+ * radii, plus HOOD_MARGIN, apart (the author's spacing; a nod to orbit stability).
+ */
 export const HOOD_SPACING = 1.5;
 /** The neighbourhood's shape (§14.2's 90 × 70, along the arm × across it): the metric its spots pack toward the middle in. */
 export const HOOD_SPREAD = [45, 35] as const;
@@ -335,8 +374,14 @@ export function pieceOuter(g: Galaxy, planet: number): number {
   return pieceReach(g.bodies[planet].R, moons);
 }
 
-/** A star system's outer radius: the widest of its planets' apoapses plus that planet's reach. */
+/**
+ * A star system's outer radius: the widest of its planets' apoapses plus that planet's reach. A
+ * binary's (`star` its barycentre's row): the widest of its stars' apoapses round the barycentre plus
+ * that star's system.
+ */
 export function systemOuter(g: Galaxy, star: number): number {
+  if (g.bodies[star].kind === 'bary')
+    return g.bodies.reduce((m, s) => (s.kind === 'star' && s.host === star ? Math.max(m, s.orbit!.r + systemOuter(g, s.index)) : m), 0);
   let outer = g.bodies[star].R;
   for (const p of g.bodies) {
     if (p.kind !== 'planet' || p.host !== star) continue;
@@ -430,6 +475,41 @@ interface Draft {
   hiAt?: number | null;
   fixAt?: number | null;
   rule?: Draft;
+  /** A star of a binary: its pair. */
+  pair?: PairDraft;
+}
+
+/** A binary (re-skin Task 1e): two filler stars round their barycentre, `a` the heavier. */
+interface PairDraft {
+  /** 4096 × the lower star key + the higher: its `binaries` stream's key. */
+  key: number;
+  a: Draft;
+  b: Draft;
+  /** The relative orbit: semi-major axis, eccentricity, periapsis, starting phase (turns), period. */
+  aB: number;
+  e: number;
+  omega: number;
+  phase: number;
+  period: number;
+  /** Each star's share of the separation (m_other / M), and its stable limit. */
+  share: [number, number];
+  aCrit: [number, number];
+  /** Each star's planets kept inside its limit (its first slots, refitted), and its system's reach. */
+  kept: [SlotDraw[], SlotDraw[]];
+  starOuter: [number, number];
+  /** The pair's reach from its barycentre: the wider of its stars' apoapses plus that star's system. */
+  outer: number;
+  /** The barycentre's spot, once placed. */
+  spot?: [number, number, number];
+}
+
+/** A unit of the neighbourhood's placement: a single star's system, or a binary as one. */
+interface Unit {
+  /** Its `spots` stream's key: the star's key, a pair's lower star's. */
+  key: number;
+  scripted: boolean;
+  outer: number;
+  spot?: [number, number, number];
 }
 
 const halfBuilt = (d: Pick<Draft, 'born' | 'dur'>): number => d.born + 0.5 * d.dur;
@@ -540,22 +620,28 @@ function drawSlot(seed: number, star: Draft, k: number, pin: ScriptedBody | unde
 }
 
 /**
- * The apoapses of a star's planets with eccentricities `ecc(e0)` (no two pieces may ever touch), or null if the last
- * passes 9.6: each at least its floor, and far enough out that its periapsis clears the star's body
- * (the first) or its inner neighbour's apoapsis by the two pieces plus a margin. For neighbours
+ * The apoapses of a star's planets with eccentricities `ecc(e0, k)` (no two pieces may ever touch),
+ * or null if the last passes `maxR` (9.6, or a binary star's limit): each at least its floor, and far
+ * enough out that its periapsis clears the star's body (the first) or its inner neighbour's apoapsis
+ * by the two pieces plus a margin. For neighbours
  * i < j the clearance is `max(R_i + R_j + max(ms_i, ms_j), reach_i + reach_j) + 0.15`: a body on the
  * outer ellipse is never nearer the star than its periapsis, nor one on the inner farther than its
  * apoapsis, so no two planets, and no two pieces, ever touch at any precession or tilt.
  */
-function layOut(slots: readonly SlotDraw[], floors: readonly number[], ecc: (e0: number) => number): number[] | null {
+function layOut(
+  slots: readonly SlotDraw[],
+  floors: readonly number[],
+  ecc: (e0: number, k: number) => number,
+  maxR: number = PLANET_ORBIT_MAX,
+): number[] | null {
   const radii: number[] = [];
   slots.forEach((s, k) => {
-    const e = ecc(s.e0);
+    const e = ecc(s.e0, k);
     const p = slots[k - 1];
     const inner = k === 0 ? STAR_R + slotReach(s) : radii[k - 1] + Math.max(p.R + s.R + Math.max(p.ms, s.ms), slotReach(p) + slotReach(s));
     radii.push(Math.max(floors[k], ((inner + PLANET_MARGIN) * (1 + e)) / (1 - e)));
   });
-  return radii[radii.length - 1] <= PLANET_ORBIT_MAX ? radii : null;
+  return radii[radii.length - 1] <= maxR ? radii : null;
 }
 
 /** How often the fit had to give way over a galaxy (see `fitSystem`). */
@@ -640,6 +726,211 @@ function fitSystem(seed: number, star: Draft, all: SlotDraw[], scripted: number,
   }
 }
 
+/**
+ * A binary star's own planets (re-skin Task 1e), its system refitted inside its stable limit `aCrit`
+ * in place of 9.6, or null if not even one planet fits. `drawn` are its slots as drawn. As fitSystem,
+ * easing the eccentricities and then dropping the outermost slots, down to one planet, with:
+ *  - its floors, the designed spacing (nominalRadii), scaled in so the last sits at BIN.floorShare ×
+ *    `aCrit` (never out), so the star keeps a small system rather than one planet;
+ *  - each planet's eccentricity raised by its forced eccentricity in the binary of separation `aB` and
+ *    eccentricity `eB` (forcedEccentricity, capped at BIN.eMax): taken at its semi-major axis as fitted
+ *    without it, the fit run again with it, and once more at the semi-major axis that gave;
+ *  - each planet's precession quickened by 1 + BIN.quicken (r / aCrit)³ (stylised: see BIN).
+ */
+function fitBinaryStar(seed: number, star: Draft, drawn: readonly SlotDraw[], aCrit: number, aB: number, eB: number): SlotDraw[] | null {
+  const floorsFor = (n: number): number[] => {
+    const f = nominalRadii(seed, star, n);
+    const k = Math.min(1, (BIN.floorShare * aCrit) / f[n - 1]);
+    return f.map((r) => r * k);
+  };
+  // At most `nMax` slots: a refit with a forced eccentricity keeps no slot the fit before it dropped,
+  // so every slot it keeps carries its forced term.
+  const fit = (add: readonly number[], nMax = drawn.length): SlotDraw[] | null => {
+    const eased = (x: number) => (e0: number, k: number) => Math.min(BIN.eMax, PLANET_E_MIN + x * (e0 - PLANET_E_MIN) + (add[k] ?? 0));
+    for (let n = nMax; n >= 1; n--) {
+      const slots = drawn.slice(0, n);
+      const floors = floorsFor(n);
+      if (!layOut(slots, floors, eased(0), aCrit)) continue;
+      const x = largestFit((v) => layOut(slots, floors, eased(v), aCrit) !== null);
+      const radii = layOut(slots, floors, eased(x), aCrit)!;
+      return slots.map((s, k) => {
+        const e = eased(x)(s.e0, k);
+        return { ...s, orbit: { ...s.orbit, r: radii[k], e, a: radii[k] / (1 + e), period: planetPeriod(radii[k]) } };
+      });
+    }
+    return null;
+  };
+  // The forced eccentricity at each planet's semi-major axis: from the fit without it, then once more
+  // from the fit with it (the added eccentricity moves the orbits out).
+  const forced = (slots: readonly SlotDraw[]): number[] => slots.map((s) => forcedEccentricity(s.orbit.a, aB, eB));
+  const first = fit([]);
+  if (!first) return null;
+  const second = fit(forced(first), first.length);
+  if (!second) return null;
+  const slots = fit(forced(second), second.length);
+  if (!slots) return null;
+  return slots.map((s) => ({ ...s, orbit: { ...s.orbit, precession: s.orbit.precession / (1 + BIN.quicken * (s.orbit.r / aCrit) ** 3) } }));
+}
+
+/** A star's system radius from its slots: the widest apoapsis plus that slot's reach, at least the star's own radius. */
+const outerOf = (slots: readonly SlotDraw[]): number => slots.reduce((m, slot) => Math.max(m, slot.orbit.r + slotReach(slot)), STAR_R);
+
+/** A binary's `binaries` stream key: 4096 × the lower star key + the higher. */
+function pairKey(a: number, b: number): number {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  if (hi >= 4096) throw new Error(`pairKey: star key ${hi} is past 4096`);
+  return 4096 * lo + hi;
+}
+
+/**
+ * The close pairs that become binaries (re-skin Task 1e), in the neighbourhood as Task 1d packs it
+ * (every star single, at its spot): every two filler stars that are each other's nearest star and
+ * nearer than BIN.pairK × their combined outer radii, closest first by that ratio, each kept by the
+ * first draw of its `binaries` stream (< BIN.share), at most BIN.max. A scripted star, and so N0's
+ * star (P_a: the world is anchored at N0, so it must never move), is never paired. Each kept pair
+ * carries its stream on, for its eccentricity, periapsis and phase, and the two stars' distance.
+ */
+function closePairs(seed: number, stars: Draft[]): { a: Draft; b: Draft; d: number; rng: () => number }[] {
+  const units = stars.map((d) => ({ key: d.key, scripted: !!d.script, outer: d.outer!, spot: d.spot!, d }) as Unit & { d: Draft });
+  const nearest = (u: Unit): Unit & { d: Draft } =>
+    units.reduce<(Unit & { d: Draft }) | null>((best, o) => (o === u || (best && dist(o.spot!, u.spot!) >= dist(best.spot!, u.spot!)) ? best : o), null)!;
+  const close: { u: Unit & { d: Draft }; o: Unit & { d: Draft }; d: number; k: number }[] = [];
+  for (const u of units) {
+    const o = nearest(u);
+    if (u.key > o.key || nearest(o) !== u || u.scripted || o.scripted) continue;
+    const d = dist(u.spot!, o.spot!);
+    const k = d / (u.outer + o.outer);
+    if (k < BIN.pairK) close.push({ u, o, d, k });
+  }
+  close.sort((x, y) => x.k - y.k || x.u.key - y.u.key);
+  const kept: { a: Draft; b: Draft; d: number; rng: () => number }[] = [];
+  for (const c of close) {
+    if (kept.length >= BIN.max) break;
+    const rng = rngFor(seed, 'binaries', pairKey(c.u.key, c.o.key));
+    if (rng() < BIN.share) kept.push({ a: c.u.d, b: c.o.d, d: c.d, rng });
+  }
+  return kept;
+}
+
+/**
+ * A close pair as an S-type binary (re-skin Task 1e): the heavier star (starMass of its brightness) is
+ * `a`; the eccentricity, periapsis and phase from the pair's stream; the separation the pre-binary
+ * distance `d` clamped to BIN.a; each star's limit hwS(m_other / M, e) × the separation, and its
+ * planets refitted inside it (fitBinaryStar, from its slots redrawn by `redraw`). If either star
+ * cannot keep one planet, the separation grows by BIN.grow and both are fitted again. The stars keep
+ * their full slots (`slots`): the planets are born into them as if single, and those past the kept
+ * ones are dropped (generateGalaxy, step 6).
+ */
+function buildPair(seed: number, c: { a: Draft; b: Draft; d: number; rng: () => number }, redraw: (d: Draft) => SlotDraw[]): PairDraft {
+  const mass = (d: Draft): number => starMass(starLook(rngFor(seed, 'starLook', d.key)).brightness);
+  const [a, b] = mass(c.b) > mass(c.a) ? [c.b, c.a] : [c.a, c.b];
+  const e = BIN.e[0] + (BIN.e[1] - BIN.e[0]) * c.rng();
+  const omega = 2 * Math.PI * c.rng();
+  const phase = c.rng();
+  const M = mass(a) + mass(b);
+  const share: [number, number] = [mass(b) / M, mass(a) / M];
+  // hwS's fit holds for 0.1 ≤ μ ≤ 0.9 and 0 ≤ e ≤ 0.8 (STAR_LOOK's brightness keeps μ in 0.32-0.68).
+  if (share.some((mu) => mu < 0.1 || mu > 0.9) || e > 0.8) throw new Error(`the binary of ${a.id} and ${b.id} is outside the S-type fit`);
+  let aB = Math.min(BIN.a[1], Math.max(BIN.a[0], c.d));
+  for (let i = 0; i < 200; i++, aB *= BIN.grow) {
+    const aCrit: [number, number] = [hwS(share[0], e) * aB, hwS(share[1], e) * aB];
+    const sa = fitBinaryStar(seed, a, redraw(a), aCrit[0], aB, e);
+    const sb = fitBinaryStar(seed, b, redraw(b), aCrit[1], aB, e);
+    if (!sa || !sb) continue;
+    const starOuter: [number, number] = [outerOf(sa), outerOf(sb)];
+    const outer = Math.max(share[0] * aB * (1 + e) + starOuter[0], share[1] * aB * (1 + e) + starOuter[1]);
+    const pair: PairDraft = { key: pairKey(a.key, b.key), a, b, aB, e, omega, phase, period: binaryPeriod(aB), share, aCrit, kept: [sa, sb], starOuter, outer };
+    a.pair = pair;
+    b.pair = pair;
+    return pair;
+  }
+  throw new Error(`the binary of ${a.id} and ${b.id} does not fit`);
+}
+
+/** A circle in the galaxy's plane (x, z): its centre and radius. */
+interface Circle {
+  c: readonly [number, number];
+  r: number;
+}
+
+/**
+ * The least move from `from` (x, z) to a point outside every circle of `keepOut`, inside `within`, and
+ * no further than `cap`; null if there is none. The least move is to `from` itself, to the nearest
+ * point of one circle's edge, or to where two edges cross, so those are the candidates (each edge
+ * taken a hair to its free side, so the point clears in float64).
+ */
+function leastNudge(from: readonly [number, number], keepOut: readonly Circle[], within: Circle, cap: number): [number, number] | null {
+  const len = (x: number, z: number): number => Math.hypot(x, z);
+  const free = (x: number, z: number): boolean =>
+    len(x - within.c[0], z - within.c[1]) <= within.r && keepOut.every((k) => len(x - k.c[0], z - k.c[1]) >= k.r);
+  // Each edge, a hair to its free side: out of a keep-out circle, into the band's outer one.
+  const edges: Circle[] = [...keepOut.map((k) => ({ c: k.c, r: k.r * (1 + 1e-12) + 1e-9 })), { c: within.c, r: within.r * (1 - 1e-12) - 1e-9 }].filter(
+    (k) => Math.abs(len(from[0] - k.c[0], from[1] - k.c[1]) - k.r) <= cap,
+  );
+  const candidates: [number, number][] = [[from[0], from[1]]];
+  for (const k of edges) {
+    const d = len(from[0] - k.c[0], from[1] - k.c[1]);
+    if (d > 0) candidates.push([k.c[0] + ((from[0] - k.c[0]) / d) * k.r, k.c[1] + ((from[1] - k.c[1]) / d) * k.r]);
+  }
+  for (let i = 0; i < edges.length; i++)
+    for (let j = i + 1; j < edges.length; j++) {
+      const [a, b] = [edges[i], edges[j]];
+      const d = len(b.c[0] - a.c[0], b.c[1] - a.c[1]);
+      if (d === 0 || d > a.r + b.r || d < Math.abs(a.r - b.r)) continue;
+      const along = (a.r * a.r - b.r * b.r + d * d) / (2 * d);
+      const h = Math.sqrt(Math.max(0, a.r * a.r - along * along));
+      const [ux, uz] = [(b.c[0] - a.c[0]) / d, (b.c[1] - a.c[1]) / d];
+      const [mx, mz] = [a.c[0] + ux * along, a.c[1] + uz * along];
+      candidates.push([mx - uz * h, mz + ux * h], [mx + uz * h, mz - ux * h]);
+    }
+  let best: [number, number] | null = null;
+  let bestMove = Infinity;
+  for (const [x, z] of candidates) {
+    const move = len(x - from[0], z - from[1]);
+    if (move <= cap && move < bestMove && free(x, z)) [best, bestMove] = [[x, z], move];
+  }
+  return best;
+}
+
+/**
+ * The binaries' spots (re-skin Task 1e), the pairs closest first: each on the barycentre of its two
+ * stars' Task 1d spots (mass-weighted), every single star kept on its own. A pair's stars are spaced
+ * as a single is: each, at its orbit's widest excursion about the barycentre (its share of the
+ * separation × (1 + e)), at least HOOD_SPACING × (its own system's reach + the other's) plus
+ * HOOD_MARGIN from every other system (a single star at its spot; a pair placed before it, its stars
+ * at their widest too; and the stars of a pair not yet placed, at their spots as singles, so either
+ * outcome for that pair is clear). A pair that is not is nudged by the least distance, at most
+ * BIN.nudgeMax, its barycentre inside the band [HOOD_R[0], HOOD_R_WIDE]. A pair that cannot be placed
+ * so stays two single stars on their spots. Returns the pairs placed.
+ */
+function placePairs(stars: readonly Draft[], pairs: readonly PairDraft[]): PairDraft[] {
+  const placed: PairDraft[] = [];
+  const swing = (p: PairDraft, i: 0 | 1): number => p.share[i] * p.aB * (1 + p.e);
+  const sides = [0, 1] as const;
+  for (const p of pairs) {
+    const from: [number, number] = [p.share[1] * p.a.spot![0] + p.share[0] * p.b.spot![0], p.share[1] * p.a.spot![2] + p.share[0] * p.b.spot![2]];
+    const keepOut: Circle[] = [];
+    for (const d of stars) {
+      if (d === p.a || d === p.b || placed.some((q) => q.a === d || q.b === d)) continue;
+      const r = Math.max(...sides.map((i) => swing(p, i) + HOOD_SPACING * (p.starOuter[i] + d.outer!) + HOOD_MARGIN));
+      keepOut.push({ c: [d.spot![0], d.spot![2]], r });
+    }
+    for (const q of placed) {
+      const r = Math.max(...sides.flatMap((i) => sides.map((j) => swing(p, i) + swing(q, j) + HOOD_SPACING * (p.starOuter[i] + q.starOuter[j]) + HOOD_MARGIN)));
+      keepOut.push({ c: [q.spot![0], q.spot![2]], r });
+    }
+    keepOut.push({ c: [0, 0], r: HOOD_R[0] });
+    const at = leastNudge(from, keepOut, { c: [0, 0], r: HOOD_R_WIDE }, BIN.nudgeMax);
+    if (!at) {
+      p.a.pair = p.b.pair = undefined;
+      continue;
+    }
+    p.spot = [at[0], 0, at[1]];
+    placed.push(p);
+  }
+  return placed;
+}
+
 /** Spots for the core: R0 (and any pinned spot) where the story puts it, the rest seeded within the spread. */
 function placeCore(seed: number, core: Draft[]): void {
   const placed: Draft[] = [];
@@ -664,16 +955,17 @@ function placeCore(seed: number, core: Draft[]): void {
 }
 
 /**
- * Spots for the stars (ruling 7, §14.2): a knot on arm 0 round the neighbourhood's middle (radius 65,
- * bearing 0.9), drawn out along the arm, every spot at a galactic radius in `HOOD_R` and every pair of
- * systems at least HOOD_SPACING × their outer radii plus a margin apart. Each star in turn (the scripted first, so
- * the story's plans sit in the middle) takes, of `HOOD_CANDIDATES` seeded spots, the free one nearest
- * the middle, measured on the ellipse of `HOOD_SPREAD` laid along the arm. That packs the thirty about
- * as tight as their gaps allow. (Drawn anywhere on the arm stretch instead, they do not fit: the arm
- * is narrow, and between radius 40 and 110 it winds most of the way round the core.) If the thirty do
- * not fit, the stretch reaches out to `HOOD_R_WIDE`.
+ * Spots for the neighbourhood's units, each a single star's system or a binary as one (ruling 7,
+ * §14.2): a knot on arm 0 round the neighbourhood's middle (radius 65, bearing 0.9), drawn out along
+ * the arm, every spot at a galactic radius in `HOOD_R` and every two units at least `spacing` × their
+ * outer radii plus a margin apart. Each unit in turn (the scripted first, so the story's plans sit in
+ * the middle) takes, of `HOOD_CANDIDATES` seeded spots, the free one nearest the middle, measured on
+ * the ellipse of `HOOD_SPREAD` laid along the arm. That packs them about as tight as their gaps allow.
+ * (Drawn anywhere on the arm stretch instead, they do not fit: the arm is narrow, and between radius
+ * 40 and 110 it winds most of the way round the core.) If they do not fit, the stretch reaches out to
+ * `HOOD_R_WIDE`.
  */
-function placeStars(seed: number, stars: Draft[]): void {
+function placeStars(seed: number, units: Unit[], spacing: number): void {
   const mid = (HOOD_R[0] + HOOD_R[1]) / 2;
   const centre = [mid * Math.cos(HOOD_BEARING), 0, mid * Math.sin(HOOD_BEARING)];
   // The arm's direction at the middle (outward along it, at HOOD_PITCH), and the direction across it.
@@ -681,9 +973,9 @@ function placeStars(seed: number, stars: Draft[]): void {
   const tl = Math.hypot(t[0], t[1]);
   const along = [t[0] / tl, t[1] / tl];
   const across = [-along[1], along[0]];
-  const order = [...stars].sort((a, b) => (a.script ? 0 : 1) - (b.script ? 0 : 1) || a.key - b.key);
+  const order = [...units].sort((a, b) => (a.scripted ? 0 : 1) - (b.scripted ? 0 : 1) || a.key - b.key);
   for (const rMax of [HOOD_R[1], HOOD_R_WIDE]) {
-    const placed: Draft[] = [];
+    const placed: Unit[] = [];
     for (const d of order) {
       const rng = rngFor(seed, 'spots', d.key + (rMax === HOOD_R[1] ? 0 : 50_000));
       let best: [number, number, number] | null = null;
@@ -695,7 +987,7 @@ function placeStars(seed: number, stars: Draft[]): void {
         const r = Math.hypot(c[0], c[2]);
         const score = (u / HOOD_SPREAD[0]) ** 2 + (v / HOOD_SPREAD[1]) ** 2;
         if (score >= bestScore || r < HOOD_R[0] || r > rMax) continue;
-        if (placed.every((o) => dist(c, o.spot!) >= HOOD_SPACING * (d.outer! + o.outer!) + HOOD_MARGIN)) {
+        if (placed.every((o) => dist(c, o.spot!) >= spacing * (d.outer + o.outer) + HOOD_MARGIN)) {
           best = c;
           bestScore = score;
         }
@@ -704,12 +996,19 @@ function placeStars(seed: number, stars: Draft[]): void {
       d.spot = best;
       placed.push(d);
     }
-    if (placed.length === stars.length) return;
+    if (placed.length === units.length) return;
   }
-  throw new Error(`the ${stars.length} systems do not fit on the arm stretch`);
+  throw new Error(`the ${units.length} systems do not fit on the arm stretch`);
 }
 
-export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy {
+/**
+ * How the neighbourhood is generated: with its binaries (the essay's), or every star single at Task
+ * 1d's spots (`singles`: where the close pairs are found; for tests and tooling).
+ */
+export type HoodMode = 'binaries' | 'singles';
+
+/** Generates the galaxy of `seed` on `tier` within `budget` instances, its neighbourhood by `mode`. */
+export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: HoodMode = 'binaries'): Galaxy {
   // 1. The core and the stars: who, when. The filler stars are born by the plans' law.
   const scriptedOf = (kind: ScriptedBody['kind']) => LINEAGE.map((s, key) => ({ s, key })).filter((x) => x.s.kind === kind);
   const draft = (key: number, s: ScriptedBody): Draft => ({
@@ -750,14 +1049,22 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
   }
   const u0 = new Map(fillerSlots.map(([d, k], i) => [`${d.key}/${k}`, (strata[i] + srng()) / strata.length]));
   const fit: FitCounts = { systemsEased: 0, slotsDropped: 0, systemsFlattened: 0, flattened: [], moonsDropped: 0 };
+  const scriptedOn = (d: Draft): ScriptedBody[] => (HOSTS[d.id] ?? []).map((id) => LINEAGE.find((s) => s.id === id)!);
+  const drawSlots = (d: Draft): SlotDraw[] =>
+    Array.from({ length: counts.get(d)! }, (_, k) => drawSlot(seed, d, k, scriptedOn(d)[k], u0.get(`${d.key}/${k}`) ?? null));
   for (const d of stars) {
-    const scripted = (HOSTS[d.id] ?? []).map((id) => LINEAGE.find((s) => s.id === id)!);
-    const drawn = Array.from({ length: counts.get(d)! }, (_, k) => drawSlot(seed, d, k, scripted[k], u0.get(`${d.key}/${k}`) ?? null));
-    d.slots = fitSystem(seed, d, drawn, scripted.length, fit);
-    d.outer = d.slots.reduce((m, slot) => Math.max(m, slot.orbit.r + slotReach(slot)), STAR_R);
+    d.slots = fitSystem(seed, d, drawSlots(d), scriptedOn(d).length, fit);
+    d.outer = outerOf(d.slots);
   }
   placeCore(seed, core);
-  placeStars(seed, stars);
+  // Every star single first: Task 1d's neighbourhood, where the close pairs are found.
+  const singles = stars.map((d) => ({ key: d.key, scripted: !!d.script, outer: d.outer!, d }) as Unit & { d: Draft });
+  placeStars(seed, singles, HOOD_SPACING);
+  for (const u of singles) u.d.spot = u.spot;
+  // Then the close pairs become binaries (re-skin Task 1e), each on its stars' barycentre: the single
+  // stars keep their spots, and a pair's stars keep theirs as drafted (their lineage is built as if single).
+  const candidates = (mode === 'binaries' ? closePairs(seed, stars) : []).map((c) => buildPair(seed, c, drawSlots));
+  const pairs = placePairs(stars, candidates).sort((x, y) => x.key - y.key);
 
   // 3. The planets: the scripted ones in their host's first slots; the filler born by the code's law
   // into the free slots. A slot's planet can be born once its star is half built (and, for a star
@@ -884,19 +1191,30 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
     moon?: { j: number; draw: MoonDraw };
     born: number;
   }
-  const protos: Proto[] = done.map((d) => ({ d, born: d.born }));
+  // A binary's star keeps only the planets inside its limit (its first slots, refitted); the planets born
+  // into the rest are dropped, with their moons. Every other body, and every birth, is as without them.
+  const slotOf = (d: Draft): SlotDraw | null => {
+    const host = d.hostDraft!;
+    if (!host.pair) return host.slots![d.slot!];
+    return host.pair.kept[host.pair.a === host ? 0 : 1][d.slot!] ?? null;
+  };
+  const all: Proto[] = done.map((d) => ({ d, born: d.born }));
   for (const d of done) {
     if (d.kind !== 'planet') continue;
     const moons = d.hostDraft!.slots![d.slot!].moons;
-    moons.forEach((draw, j) => protos.push({ d, moon: { j, draw }, born: d.born + d.dur * (0.7 + (0.3 * (j + 1)) / moons.length) }));
+    moons.forEach((draw, j) => all.push({ d, moon: { j, draw }, born: d.born + d.dur * (0.7 + (0.3 * (j + 1)) / moons.length) }));
   }
-  protos.sort(
-    (a, b) => a.born - b.born || (a.moon ? 1 : 0) - (b.moon ? 1 : 0) || a.d.index! - b.d.index! || (a.moon?.j ?? 0) - (b.moon?.j ?? 0),
-  );
+  all.sort((a, b) => a.born - b.born || (a.moon ? 1 : 0) - (b.moon ? 1 : 0) || a.d.index! - b.d.index! || (a.moon?.j ?? 0) - (b.moon?.j ?? 0));
+  const protos = all.filter((p) => p.d.kind !== 'planet' || slotOf(p.d) !== null);
+  for (const p of protos) if (p.moon) p.moon.draw = slotOf(p.d)!.moons[p.moon.j];
   const row = new Map<Draft, number>();
   protos.forEach((p, i) => !p.moon && row.set(p.d, i));
+  // Each row's place among every body before the binaries dropped any: the key a stream's bow is drawn by.
+  const fullRow = protos.map((p) => all.indexOf(p));
 
   const r0Seed = derpSeedFor(seed);
+  // A binary's barycentre takes a row after every other body's (it draws nothing, so no row before it moves).
+  const baryRow = (pair: PairDraft): number => protos.length + pairs.indexOf(pair);
   const bodies: Body[] = protos.map((p, index): Body => {
     const d = p.d;
     const rowOf = (x: Draft): number => row.get(x)!;
@@ -939,7 +1257,28 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
       };
     }
     const planet = d.kind === 'planet';
-    const slot = planet ? d.hostDraft!.slots![d.slot!] : null;
+    const slot = planet ? slotOf(d) : null;
+    const pair = d.pair ?? null;
+    // A binary's star: its share of the separation, round the barycentre, `a` at ω and `b` opposite.
+    const side: 0 | 1 = pair?.a === d ? 0 : 1;
+    const binary = pair
+      ? {
+          host: baryRow(pair),
+          orbit: {
+            r: pair.share[side] * pair.aB * (1 + pair.e),
+            a: pair.share[side] * pair.aB,
+            e: pair.e,
+            tilt: 0,
+            tiltAz: 0,
+            omega0: pair.omega + side * Math.PI,
+            precession: 0,
+            period: pair.period,
+            phase: pair.phase,
+          },
+          bin: { a: pair.aB, e: pair.e, omega: pair.omega, phase: pair.phase, period: pair.period, share: pair.share[side] },
+          aCrit: pair.aCrit[side],
+        }
+      : null;
     return {
       ...shared,
       id: d.id,
@@ -947,7 +1286,7 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
       kind: d.kind,
       scripted: !!d.script,
       parents: d.parents!.map(rowOf),
-      host: planet ? rowOf(d.hostDraft!) : -1,
+      host: planet ? rowOf(d.hostDraft!) : (binary?.host ?? -1),
       star: d.kind === 'star' ? index : planet ? rowOf(d.hostDraft!) : -1,
       planet: planet ? index : -1,
       born: d.born,
@@ -956,13 +1295,48 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
       // A star's look from its own stream, keyed as its spot and slots are (the draft's key).
       look: d.kind === 'star' ? starLook(rngFor(seed, 'starLook', d.key)) : null,
       R: slot ? slot.R : d.kind === 'core' ? CORE_R : STAR_R,
-      orbit: slot ? slot.orbit : null,
-      spot: planet ? null : d.spot!,
+      orbit: slot ? slot.orbit : (binary?.orbit ?? null),
+      spot: planet || binary ? null : d.spot!,
+      ...(binary ? { bin: binary.bin, aCrit: binary.aCrit } : {}),
       partGroup: null,
       track: null,
       stream: null,
     };
   });
+  // The barycentres: the pair's spot, nothing drawn, no instance.
+  for (const pair of pairs) {
+    const [a, b] = [bodies[row.get(pair.a)!], bodies[row.get(pair.b)!]];
+    bodies.push({
+      index: bodies.length,
+      id: `bary-${a.id}-${b.id}`,
+      kind: 'bary',
+      scripted: false,
+      parents: [],
+      host: -1,
+      star: -1,
+      rule: a.rule,
+      planet: -1,
+      born: Math.min(a.born, b.born),
+      dur: 0,
+      cracked: false,
+      hero: false,
+      hiAt: null,
+      fixAt: null,
+      hop: null,
+      R: 0,
+      lattice: null,
+      motes: 0,
+      look: null,
+      personMotes: 0,
+      orbit: null,
+      spot: pair.spot!,
+      derpSeed: NODE_NEVER,
+      derpPhase: 0,
+      partGroup: null,
+      track: null,
+      stream: null,
+    });
+  }
 
   // 7. Streams, now every parent has a row.
   const streams: Stream[] = [];
@@ -981,7 +1355,7 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
         born: Math.max(b.born, halfBuilt(p)),
         hiAt: carried ? b.hiAt : null,
         hop: carried ? p.hop! + 1 : null,
-        bowBearing: 2 * Math.PI * rngFor(seed, 'bows', b.index * 4 + slot)(),
+        bowBearing: 2 * Math.PI * rngFor(seed, 'bows', (fullRow[b.index] ?? b.index) * 4 + slot)(),
       });
     });
   }
@@ -996,8 +1370,10 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
     if (b.alias) ids[b.alias] = b.index;
   }
   const systems = bodies.filter((b) => b.kind === 'star').map((b) => b.index);
+  // One unit per single star, and one per pair (its barycentre, in its first star's place).
+  const units = [...new Set(systems.map((i) => (bodies[i].host >= 0 ? bodies[i].host : i)))];
   const hoodCentroid: [number, number, number] = [0, 0, 0];
-  for (const i of systems) for (let k = 0; k < 3; k++) hoodCentroid[k] += bodies[i].spot![k] / systems.length;
+  for (const i of units) for (let k = 0; k < 3; k++) hoodCentroid[k] += bodies[i].spot![k] / units.length;
   return {
     seed,
     tier,
@@ -1007,11 +1383,12 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number): Galaxy
     visits: [...REVIEW_VISITS],
     ids,
     systems,
+    units,
     hoodCentroid,
     background: generateBackground(
       seed,
       tier,
-      systems.map((i) => bodies[i].spot!),
+      units.map((i) => bodies[i].spot!),
     ),
     motes: instances.total,
     instances,
@@ -1098,8 +1475,8 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   const stars = bodies.filter((b) => b.kind === 'star').length;
   const glow = bodies.filter((b) => b.kind === 'star' || b.kind === 'core').length;
   const dots = streams.reduce<number>((n, st) => n + streamDots(bodies, st), STREAM_DOTS[1]);
-  // Icospheres: every body's but a star's, and the ghosts.
-  const icospheres = bodies.length - stars + ghosts;
+  // Icospheres: every body's but a star's and a barycentre's (which draws nothing), and the ghosts.
+  const icospheres = bodies.filter((b) => b.kind !== 'star' && b.kind !== 'bary').length + ghosts;
   const spikes = stars * STAR_SPIKE_DOTS;
   const hole = holeInstances();
   const fixed = tracks + icospheres + glow + dots + spikes + hole;

@@ -37,7 +37,8 @@ const CORE_RING = 72;
 const CORE_JITTER = 0.25;
 const PLACE_ATTEMPTS = 64;
 const STAR_R = 0.9, GLOW_SCALE = 5, GLOW_MIN_PX = 5, GLOW_CAP_STAR = 18;
-// The neighbourhood's 30 star spots (x, z), as generateGalaxy(seed 1) places them (the same on both tiers).
+// The neighbourhood's units' spots (x, z), as generateGalaxy(seed 1) places them (the same on both tiers):
+// a single star's spot, or a binary's barycentre (re-skin Task 1e: seed 1 has one pair, so 29).
 /*HOOD*/
 
 export function galaxyWideView(width, height) {

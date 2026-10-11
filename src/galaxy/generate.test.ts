@@ -4,7 +4,10 @@ import { CLEAN_AFTER, G_TWELVE, HI_AT_BIRTH, HI_TWELVE, REVIEW_VISITS, SWEEP, TW
 import { bike, partShares } from '../mechanisms/bike';
 import { NODE_NEVER } from '../scene/node/birth';
 import { BG } from './background';
-import { LATTICE, MOON_TRACK, latticeCount, moonLattice, planetLattice } from './body';
+import { BIN, LATTICE, MOON_TRACK, binaryPeriod, forcedEccentricity, hwS, latticeCount, moonLattice, planetLattice, starMass } from './body';
+import { packBodyData } from '../scene/node/bodyData';
+import { bodyGalactic, elementsAt, orbitLocal } from '../scene/node/orbit';
+import { streamFor } from './seeds';
 import { holeInstances } from './hole';
 import { STAR_LOOK } from '../scene/node/classLook';
 import {
@@ -27,7 +30,9 @@ import {
   GALAXY_SHARE,
   galaxyBudget,
   generateGalaxy,
+  type HoodMode,
   PERSON_MIN,
+  anchorOf,
   systemOuter,
   type Body,
   type Galaxy,
@@ -42,6 +47,27 @@ const kinds = (x: Galaxy, kind: Body['kind']): Body[] => x.bodies.filter((b) => 
 const dist = (a: readonly number[], b: readonly number[]): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 /**
+ * The neighbourhood's spacing (Task 1d's rule, and re-skin Task 1e's for a binary's stars): every two
+ * stars not of one pair, each where it can come nearest (a single at its spot; a binary's star at its
+ * barycentre's spot, swung out by its orbit's apoapsis about it), at least HOOD_SPACING × the sum of
+ * their own systems' reaches plus HOOD_MARGIN apart. The least of those margins over the galaxy.
+ */
+function leastSpacing(x: Galaxy): { margin: number; between: string } {
+  const at = (s: Body) => (s.spot ? { spot: s.spot, swing: 0 } : { spot: x.bodies[s.host].spot!, swing: s.orbit!.r });
+  const stars = x.bodies.filter((b) => b.kind === 'star');
+  let least = { margin: Infinity, between: '' };
+  for (let i = 0; i < stars.length; i++)
+    for (let j = i + 1; j < stars.length; j++) {
+      const [s, t] = [stars[i], stars[j]];
+      if (s.host >= 0 && s.host === t.host) continue;
+      const [a, b] = [at(s), at(t)];
+      const margin = dist(a.spot, b.spot) - a.swing - b.swing - (HOOD_SPACING * (systemOuter(x, s.index) + systemOuter(x, t.index)) + HOOD_MARGIN);
+      if (margin < least.margin) least = { margin, between: `${s.id} and ${t.id}` };
+    }
+  return least;
+}
+
+/**
  * Every instance the galaxy counts (plan Task 5's budget test, and the re-skin's §7): shells and person
  * sets; 90 dots per planet orbit and 40 per moon track (a track's moons share it); an icosphere per
  * body but a star and a ghost per planet or moon that carries the defect; a glow per star and core
@@ -53,9 +79,9 @@ function drawnInstances(x: Galaxy): number {
   const tracks = planets.reduce((n, p) => n + 90 + 40 * new Set(moonsOf(x, p.id).map((m) => m.orbit!.r)).size, 0);
   const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
   const glow = kinds(x, 'star').length + kinds(x, 'core').length;
-  const centre = (b: Body): readonly number[] =>
-    b.kind === 'planet' ? x.bodies[b.host].spot! : b.kind === 'moon' ? x.bodies[x.bodies[b.host].host].spot! : b.spot!;
-  const reach = (b: Body): number => (b.kind === 'planet' ? b.orbit!.r : b.kind === 'moon' ? x.bodies[b.host].orbit!.r + b.orbit!.r : 0);
+  // A body's fixed spot up its host chain (a binary's star's is its barycentre's), and the apoapses on the way.
+  const centre = (b: Body): readonly number[] => (b.spot ? b.spot : centre(x.bodies[b.host]));
+  const reach = (b: Body): number => (b.spot ? 0 : reach(x.bodies[b.host]) + b.orbit!.r);
   const dots = x.streams.reduce((n, s) => {
     const [a, b] = [x.bodies[s.from], x.bodies[s.to]];
     // Ceil: the shader draws an unrounded count, the last dot partly (stream.ts streamCount).
@@ -63,14 +89,19 @@ function drawnInstances(x: Galaxy): number {
   }, 40);
   const shells = x.bodies.reduce((n, b) => n + b.motes + b.personMotes, 0);
   const stars = kinds(x, 'star').length;
-  return shells + tracks + x.bodies.length - stars + ghosts + glow + dots + 96 * stars + 27_610;
+  // An icosphere per body but a star and a barycentre (which draws nothing).
+  const icospheres = x.bodies.length - stars - kinds(x, 'bary').length;
+  return shells + tracks + icospheres + ghosts + glow + dots + 96 * stars + 27_610;
 }
 
 /**
- * The neighbourhood's 30 star spots [x, z] (y 0), copied from scratch/session/galaxytuner/hood.txt.
- * Re-pinned by the re-skin's Task 1d (the designed change: systems at least HOOD_SPACING 1.5 × their
- * outer radii apart). Before it, the first and last were [40.56849831458735, 50.916398553737885] and
- * [-56.58197443306347, 69.75555196235015].
+ * The neighbourhood's units' spots [x, z] (y 0; a binary's barycentre for its pair), copied from
+ * scratch/session/galaxytuner/hood.txt. Re-pinned by the re-skin's Task 1e (the designed change: the
+ * story's seed has one binary, star-7 and star-14, on its stars' barycentre, nudged 3.41; every
+ * single star keeps its Task 1d spot), so 29 spots: before it, 30 star spots, the first and last
+ * [36.60935229815551, 55.28699773763559] and [132.77024894223192, 7.513180951214093]. Re-pinned by
+ * Task 1d before that (systems at least HOOD_SPACING 1.5 × their outer radii apart): before it, the
+ * first and last were [40.56849831458735, 50.916398553737885] and [-56.58197443306347, 69.75555196235015].
  */
 const HOOD_SPOTS: readonly (readonly [number, number])[] = [
   [36.60935229815551, 55.28699773763559],
@@ -82,7 +113,7 @@ const HOOD_SPOTS: readonly (readonly [number, number])[] = [
   [98.8646523258612, 67.44789957337133],
   [-19.5209699380317, 52.305502095801565],
   [20.952504373583334, 83.21883327832168],
-  [57.34926083050949, -28.502208062543563],
+  [41.42997024847768, -34.892121917870135],
   [67.46707959517133, 66.48817195445919],
   [87.23743634965058, 102.0355246266771],
   [-6.073098316343183, 126.25640973596569],
@@ -95,7 +126,6 @@ const HOOD_SPOTS: readonly (readonly [number, number])[] = [
   [112.22196816165535, 41.68653532101668],
   [48.78983701169009, 124.46068779638647],
   [-28.381013045141856, 28.776705769474084],
-  [25.620209490705605, -34.41354177628917],
   [87.81475314975592, 42.13670975351566],
   [23.153999527203595, 115.35336764758912],
   [-44.361732604201215, 57.55939241572435],
@@ -130,12 +160,16 @@ describe('generateGalaxy', () => {
     expect(phone.tier).toBe('phone');
   });
 
-  it('indexes every body by id and alias, in birth order', () => {
+  it('indexes every body by id and alias, in birth order, the barycentres last', () => {
+    const bary = kinds(g, 'bary').length;
+    expect(bary).toBeGreaterThan(0);
     g.bodies.forEach((b, i) => {
       expect(b.index).toBe(i);
       expect(bodyIndex(g, b.id)).toBe(i);
       if (b.alias) expect(bodyIndex(g, b.alias)).toBe(i);
-      if (i > 0) expect(b.born).toBeGreaterThanOrEqual(g.bodies[i - 1].born);
+      // A barycentre draws nothing: its row comes after every body's, so it moves no row before it.
+      expect(b.kind === 'bary', b.id).toBe(i >= g.bodies.length - bary);
+      if (i > 0 && b.kind !== 'bary') expect(b.born).toBeGreaterThanOrEqual(g.bodies[i - 1].born);
     });
     expect(bodyIndex(g, 'C19')).toBe(bodyIndex(g, 'V3'));
     expect(() => bodyIndex(g, 'nope')).toThrow();
@@ -159,32 +193,38 @@ describe('generateGalaxy', () => {
     const stars = kinds(g, 'star');
     expect(stars).toHaveLength(STAR_COUNT);
     expect(g.systems).toEqual(stars.map((s) => s.index));
-    expect(g.systems.length).toBeLessThanOrEqual(SYS_MAX);
+    // One system per unit: a single star, or a binary's barycentre (in its first star's place).
+    expect(g.units).toEqual([...new Set(stars.map((s) => (s.host >= 0 ? s.host : s.index)))]);
+    expect(g.units.length).toBeLessThanOrEqual(SYS_MAX);
+    const units = g.units.map((i) => g.bodies[i]);
     for (const s of stars) {
-      const r = Math.hypot(s.spot![0], s.spot![2]);
-      expect(r).toBeGreaterThanOrEqual(HOOD_R[0]);
-      expect(r).toBeLessThanOrEqual(HOOD_R_WIDE);
       expect(s.R).toBe(0.9);
       expect(s.lattice).toBeNull();
+      // A single star has its spot; a binary's has none (it goes round its barycentre, which has it).
+      expect(s.spot === null, s.id).toBe(s.host >= 0);
     }
-    for (let i = 0; i < stars.length; i++) {
-      for (let j = i + 1; j < stars.length; j++) {
-        const gap = dist(stars[i].spot!, stars[j].spot!);
-        expect(gap).toBeGreaterThanOrEqual(systemOuter(g, stars[i].index) + systemOuter(g, stars[j].index) + 1);
+    for (const u of units) {
+      const r = Math.hypot(u.spot![0], u.spot![2]);
+      expect(r).toBeGreaterThanOrEqual(HOOD_R[0]);
+      expect(r).toBeLessThanOrEqual(HOOD_R_WIDE);
+    }
+    for (let i = 0; i < units.length; i++) {
+      for (let j = i + 1; j < units.length; j++) {
+        const gap = dist(units[i].spot!, units[j].spot!);
+        expect(gap).toBeGreaterThanOrEqual(systemOuter(g, units[i].index) + systemOuter(g, units[j].index) + 1);
       }
     }
-    const c = stars.reduce(
-      (a, s) => [a[0] + s.spot![0] / STAR_COUNT, a[1] + s.spot![1] / STAR_COUNT, a[2] + s.spot![2] / STAR_COUNT],
-      [0, 0, 0],
-    );
+    const n = units.length;
+    const c = units.reduce((a, s) => [a[0] + s.spot![0] / n, a[1] + s.spot![1] / n, a[2] + s.spot![2] / n], [0, 0, 0]);
     for (let k = 0; k < 3; k++) expect(g.hoodCentroid[k]).toBeCloseTo(c[k], 9);
   });
 
   it('the neighbourhood does not move', () => {
-    // The 30 star spots, in order, as the tuner's neighbourhood holds them (its hood.txt, [x, z], y 0).
+    // The systems' spots (a binary's barycentre for its pair), in order, as the tuner's neighbourhood
+    // holds them (its hood.txt, [x, z], y 0).
     // placeStars lays them along HOOD_PITCH, not the arms' pitch, so a re-tuned arm moves none of them.
-    expect(g.systems).toHaveLength(HOOD_SPOTS.length);
-    g.systems.forEach((i, k) => {
+    expect(g.units).toHaveLength(HOOD_SPOTS.length);
+    g.units.forEach((i, k) => {
       const spot = g.bodies[i].spot!;
       expect(Math.abs(spot[0] - HOOD_SPOTS[k][0]), `spot ${k} x`).toBeLessThanOrEqual(1e-9);
       expect(spot[1], `spot ${k} y`).toBe(0);
@@ -206,7 +246,7 @@ describe('generateGalaxy', () => {
     };
     /** Each star's nearest other star, seed 1. */
     const nearest = (x: Galaxy): number[] => {
-      const spots = x.systems.map((i) => x.bodies[i].spot!);
+      const spots = x.units.map((i) => x.bodies[i].spot!);
       return spots.map((s, i) => Math.min(...spots.map((o, j) => (i === j ? Infinity : dist(s, o)))));
     };
 
@@ -216,7 +256,7 @@ describe('generateGalaxy', () => {
       let widest = 0;
       each((x, where) => {
         expect(x.systems, where).toHaveLength(STAR_COUNT);
-        for (const i of x.systems) widest = Math.max(widest, Math.hypot(x.bodies[i].spot![0], x.bodies[i].spot![2]));
+        for (const i of x.units) widest = Math.max(widest, Math.hypot(x.bodies[i].spot![0], x.bodies[i].spot![2]));
       });
       expect(widest).toBeLessThanOrEqual(HOOD_R_WIDE);
     }, 120_000);
@@ -224,20 +264,18 @@ describe('generateGalaxy', () => {
     it('keeps every pair of systems at least 1.5 × their outer radii plus the margin apart', () => {
       expect(HOOD_SPACING).toBe(1.5);
       expect(HOOD_MARGIN).toBe(1);
+      // A binary's star (Task 1e) as a single is spaced, from where it swings nearest (leastSpacing).
       each((x, where) => {
-        for (let a = 0; a < x.systems.length; a++)
-          for (let b = a + 1; b < x.systems.length; b++) {
-            const [i, j] = [x.systems[a], x.systems[b]];
-            const want = HOOD_SPACING * (systemOuter(x, i) + systemOuter(x, j)) + HOOD_MARGIN;
-            expect(dist(x.bodies[i].spot!, x.bodies[j].spot!), `${where}: ${x.bodies[i].id} and ${x.bodies[j].id}`).toBeGreaterThanOrEqual(want - 1e-9);
-          }
+        const least = leastSpacing(x);
+        expect(least.margin, `${where}: ${least.between}`).toBeGreaterThanOrEqual(-1e-9);
       });
       // The neighbourhood grows by about the spacing: seed 1's nearest-neighbour mean was 18.63 (least
-      // 14.07, RMS spread about the centroid 55.19); measured now 27.48 (least 24.41, RMS 67.67), 1.475×.
+      // 14.07, RMS spread about the centroid 55.19); measured at Task 1d 27.48 (least 24.41, RMS 67.67),
+      // 1.475×. Since Task 1e it is taken between units, a pair's at its barycentre.
       const nn = nearest(g);
       const mean = nn.reduce((s, v) => s + v, 0) / nn.length;
       expect(mean / 18.63).toBeGreaterThanOrEqual(1.3);
-      expect(mean / 18.63).toBeLessThanOrEqual(1.5);
+      expect(mean / 18.63).toBeLessThanOrEqual(1.7);
     }, 120_000);
 
     it('keeps the first plan in the middle', () => {
@@ -254,7 +292,7 @@ describe('generateGalaxy', () => {
       };
       each((x, where) => {
         const pa = x.bodies[bodyIndex(x, 'P_a')];
-        for (const i of x.systems) if (i !== pa.index) expect(score(pa.spot!), `${where}: P_a against ${x.bodies[i].id}`).toBeLessThan(score(x.bodies[i].spot!));
+        for (const i of x.units) if (i !== pa.index) expect(score(pa.spot!), `${where}: P_a against ${x.bodies[i].id}`).toBeLessThan(score(x.bodies[i].spot!));
       });
     }, 120_000);
   });
@@ -262,7 +300,8 @@ describe('generateGalaxy', () => {
   it("a system's outer radius is its widest planet's apoapsis plus that planet's reach", () => {
     for (const star of g.systems) {
       const planets = planetsOf(g, star);
-      expect(planets.length).toBeGreaterThanOrEqual(2);
+      // A binary's star keeps at least one (its limit truncates it); a single one at least two.
+      expect(planets.length).toBeGreaterThanOrEqual(g.bodies[star].bin ? 1 : 2);
       expect(planets.length).toBeLessThanOrEqual(9);
       let outer = 0;
       for (const p of planets) {
@@ -271,6 +310,12 @@ describe('generateGalaxy', () => {
         expect(p.orbit!.r).toBeLessThanOrEqual(9.6 + 1e-12);
       }
       expect(systemOuter(g, star)).toBeCloseTo(outer, 12);
+    }
+    // A binary's: the wider of its stars' apoapses round the barycentre plus that star's system.
+    for (const c of kinds(g, 'bary')) {
+      const stars = kinds(g, 'star').filter((s) => s.host === c.index);
+      expect(stars).toHaveLength(2);
+      expect(systemOuter(g, c.index)).toBeCloseTo(Math.max(...stars.map((s) => s.orbit!.r + systemOuter(g, s.index))), 12);
     }
   });
 
@@ -365,7 +410,8 @@ describe('generateGalaxy', () => {
       }
       // A moon's is its planet's pitch, from its planet's lattice as fitted: its planet's grain.
       if (b.kind === 'moon') expect(b.lattice).toEqual(moonLattice(b.R, g.bodies[b.host].R, g.bodies[b.host].lattice!));
-      expect(b.motes).toBe(b.kind === 'star' ? 160 : latticeCount(...b.lattice!));
+      if (b.kind === 'bary') expect([b.lattice, b.motes]).toEqual([null, 0]);
+      else expect(b.motes).toBe(b.kind === 'star' ? 160 : latticeCount(...b.lattice!));
     }
   });
 
@@ -444,9 +490,12 @@ describe('generateGalaxy', () => {
     for (const b of g.bodies) {
       if (b.kind === 'core') expect([b.rule, b.star, b.planet, b.host]).toEqual([b.index, -1, -1, -1]);
       if (b.kind === 'star') {
-        expect([b.star, b.planet, b.host]).toEqual([b.index, -1, -1]);
+        // A binary's star goes round its barycentre (its host); a single one has none.
+        expect([b.star, b.planet, b.host]).toEqual([b.index, -1, b.bin ? b.host : -1]);
+        if (b.bin) expect(g.bodies[b.host].kind).toBe('bary');
         expect(b.rule).toBe(g.bodies[b.parents[0]].rule);
       }
+      if (b.kind === 'bary') expect([b.star, b.planet, b.host, b.parents]).toEqual([-1, -1, -1, []]);
       if (b.kind === 'planet') {
         expect([b.star, b.planet]).toEqual([b.host, b.index]);
         expect(g.bodies[b.host].kind).toBe('star');
@@ -550,6 +599,8 @@ describe('generateGalaxy', () => {
         expect(p.orbit!.e).toBeLessThanOrEqual(0.22);
         continue;
       }
+      // A binary star's planets carry the forced eccentricity on top (the binaries' own test).
+      if (g.bodies[p.host].bin) continue;
       expect(p.orbit!.e, p.id).toBeGreaterThanOrEqual(0.05 - 1e-12);
       expect(p.orbit!.e, p.id).toBeLessThanOrEqual(0.22);
     }
@@ -567,10 +618,13 @@ describe('generateGalaxy', () => {
     }
   });
 
-  it('gives the planets and moons orbits and nothing else one', () => {
+  it("gives the planets, the moons and a binary's stars orbits and nothing else one", () => {
     for (const b of g.bodies) {
-      expect(b.orbit === null).toBe(b.kind === 'core' || b.kind === 'star');
-      expect(b.spot === null).toBe(b.kind === 'planet' || b.kind === 'moon');
+      const binary = b.kind === 'star' && b.host >= 0;
+      expect(b.orbit === null).toBe(b.kind === 'core' || b.kind === 'bary' || (b.kind === 'star' && !binary));
+      expect(b.spot === null).toBe(b.kind === 'planet' || b.kind === 'moon' || binary);
+      if (binary) expect(g.bodies[b.host].kind).toBe('bary');
+      expect(b.bin !== undefined && b.aCrit !== undefined).toBe(binary);
     }
   });
 
@@ -621,9 +675,9 @@ describe('generateGalaxy', () => {
       expect(x.instances.spikes).toBe(2_880);
       expect(x.instances.hole).toBe(27_610);
       expect(x.motes).toBeLessThanOrEqual(93_500);
-      // The icospheres drawn: none for a star.
+      // The icospheres drawn: none for a star, none for a barycentre.
       const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
-      expect(x.instances.bodies).toBe(x.bodies.length - STAR_COUNT + ghosts);
+      expect(x.instances.bodies).toBe(x.bodies.length - STAR_COUNT - kinds(x, 'bary').length + ghosts);
     }
     // Each star's look is its own stream's, so the stars do not all look alike.
     const looks = kinds(g, 'star').map((b) => b.look!);
@@ -695,4 +749,253 @@ describe('generateGalaxy', () => {
       expect(kinds(x, 'star')).toHaveLength(STAR_COUNT);
     }
   });
+});
+
+describe('the S-type binaries (re-skin Task 1e)', () => {
+  const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
+  const memo = new Map<string, Galaxy>();
+  /** The galaxy of `seed` (desktop) with its binaries, every star single (Task 1d's), or its pre-binary packing, generated once. */
+  const of = (seed: number, mode: HoodMode = 'binaries'): Galaxy => {
+    const key = `${seed} ${mode}`;
+    if (!memo.has(key)) memo.set(key, generateGalaxy(seed, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP), mode));
+    return memo.get(key)!;
+  };
+  /** A barycentre's two stars, the heavier (`a`, the smaller share) first. */
+  const pairOf = (x: Galaxy, bary: Body): [Body, Body] => {
+    const stars = x.bodies.filter((b) => b.kind === 'star' && b.host === bary.index).sort((p, q) => p.bin!.share - q.bin!.share);
+    expect(stars, bary.id).toHaveLength(2);
+    return stars as [Body, Body];
+  };
+  const mass = (b: Body): number => starMass(b.look!.brightness);
+  /** A binary star's place in the galaxy's own frame at `t`, in float64: its barycentre's spot plus its orbit. */
+  const placeOf = (x: Galaxy, b: Body, t: number): number[] => {
+    const local = orbitLocal(b.orbit!, t);
+    return x.bodies[b.host].spot!.map((v, k) => v + local[k]);
+  };
+
+  it('pairs only close filler stars, mutual nearest, and never a scripted one', () => {
+    let pairs = 0;
+    for (const seed of SEEDS) {
+      const x = of(seed);
+      const pre = of(seed, 'singles');
+      const where = `seed ${seed}`;
+      // Task 1d's packing, where the pairs are found: every star single, 1.5 × their outer radii plus the margin apart.
+      expect(kinds(pre, 'bary'), where).toHaveLength(0);
+      const preStars = kinds(pre, 'star');
+      const nearest = (s: Body): Body => preStars.reduce((m, o) => (o !== s && (m === s || dist(o.spot!, s.spot!) < dist(m.spot!, s.spot!)) ? o : m), s);
+      const close = preStars
+        .flatMap((s) => {
+          const o = nearest(s);
+          const k = dist(s.spot!, o.spot!) / (systemOuter(pre, s.index) + systemOuter(pre, o.index));
+          return s.id < o.id && nearest(o) === s && !s.scripted && !o.scripted && k < BIN.pairK ? [{ ids: [s.id, o.id].sort(), k }] : [];
+        })
+        .sort((p, q) => p.k - q.k);
+      const bary = kinds(x, 'bary');
+      expect(bary.length, where).toBeLessThanOrEqual(BIN.max);
+      pairs += bary.length;
+      const formed = new Set(bary.map((c) => pairOf(x, c).map((b) => b.id).sort().join(' ')));
+      // Closest first, each kept by its stream's first draw, until BIN.max are kept.
+      const want: string[] = [];
+      for (const c of close) {
+        if (want.length >= BIN.max) break;
+        const keys = c.ids.map((id) => 1000 + Number(id.split('-')[1]) - 1).sort((p, q) => p - q);
+        if (streamFor(seed, 'binaries', 4096 * keys[0] + keys[1])() < BIN.share) want.push(c.ids.join(' '));
+      }
+      // Every pair formed is one of those; one that is not formed could not be placed, and its stars are single.
+      for (const f of formed) expect(want, where).toContain(f);
+      for (const w of want.filter((f) => !formed.has(f)))
+        for (const id of w.split(' ')) expect(x.bodies[bodyIndex(x, id)].host, `${where} ${id}`).toBe(-1);
+      for (const c of bary) {
+        for (const s of pairOf(x, c)) {
+          expect(s.scripted, `${where} ${s.id}`).toBe(false);
+          expect(s.id, where).not.toBe('P_a');
+        }
+      }
+      // Every scripted star single, P_a (N0's star) above all: the world is anchored at N0.
+      for (const s of kinds(x, 'star')) if (s.scripted) expect([s.host, s.orbit, s.spot === null], `${where} ${s.id}`).toEqual([-1, null, false]);
+      expect(x.bodies[x.bodies[bodyIndex(x, 'N0')].host].id).toBe('P_a');
+    }
+    // Pairs form on some seeds, not all.
+    expect(pairs).toBeGreaterThan(0);
+    // Deterministic and seed-sensitive.
+    expect(generateGalaxy(1, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP)).bodies.filter((b) => b.kind === 'bary')).toEqual(kinds(of(1), 'bary'));
+    expect(kinds(of(2), 'bary').map((b) => b.id)).not.toEqual(kinds(of(1), 'bary').map((b) => b.id));
+  }, 240_000);
+
+  it("keeps each binary star's planets inside its stable limit", () => {
+    for (const seed of SEEDS) {
+      const x = of(seed);
+      for (const c of kinds(x, 'bary')) {
+        const [a, b] = pairOf(x, c);
+        const M = mass(a) + mass(b);
+        expect(a.bin!.share).toBeCloseTo(mass(b) / M, 12);
+        expect(b.bin!.share).toBeCloseTo(mass(a) / M, 12);
+        expect(a.bin!.e).toBeGreaterThanOrEqual(BIN.e[0]);
+        expect(a.bin!.e).toBeLessThanOrEqual(BIN.e[1]);
+        expect(a.bin!.a).toBeGreaterThanOrEqual(BIN.a[0]);
+        for (const s of [a, b]) {
+          const where = `seed ${seed} ${s.id}`;
+          expect(s.aCrit, where).toBeCloseTo(hwS(s.bin!.share, s.bin!.e) * s.bin!.a, 12);
+          const planets = planetsOf(x, s.index);
+          expect(planets.length, where).toBeGreaterThanOrEqual(1);
+          for (const p of planets) {
+            const o = p.orbit!;
+            expect(o.a * (1 + o.e), `${where} ${p.id}`).toBeLessThanOrEqual(s.aCrit! + 1e-9);
+            expect(o.e, `${where} ${p.id}`).toBeLessThanOrEqual(BIN.eMax + 1e-12);
+            // The forced eccentricity, added on top of the band: at least the band's floor plus 0.95 of it at
+            // its final a, unless capped (it is taken at the a of the fit before, iterated once; measured
+            // over seeds 1-40: at least 0.963 of it).
+            expect(o.e, `${where} ${p.id}`).toBeGreaterThanOrEqual(Math.min(BIN.eMax, 0.05 + 0.95 * forcedEccentricity(o.a, s.bin!.a, s.bin!.e)) - 1e-12);
+            // The precession quickened by 1 + 2 (r / aCrit)³ from its band (400-900 s).
+            const drawn = o.precession * (1 + BIN.quicken * (o.r / s.aCrit!) ** 3);
+            expect(drawn, `${where} ${p.id}`).toBeGreaterThanOrEqual(400 - 1e-9);
+            expect(drawn, `${where} ${p.id}`).toBeLessThanOrEqual(900 + 1e-9);
+            expect(o.precession).toBeLessThan(drawn);
+          }
+        }
+      }
+    }
+  }, 240_000);
+
+  it('the pair turns round a fixed barycentre', () => {
+    for (const seed of [1, 2, 3, 7]) {
+      const x = of(seed);
+      for (const c of kinds(x, 'bary')) {
+        const [a, b] = pairOf(x, c);
+        const { a: aB, e, period } = a.bin!;
+        expect(period).toBeCloseTo(BIN.kep * aB ** 1.5, 9);
+        expect(period).toBe(binaryPeriod(aB));
+        expect([a.orbit!.period, b.orbit!.period, a.orbit!.precession, b.orbit!.precession, a.orbit!.tilt]).toEqual([period, period, 0, 0, 0]);
+        // The heavier star goes round on the smaller ellipse.
+        expect(a.orbit!.a).toBeLessThanOrEqual(b.orbit!.a);
+        let [near, far] = [Infinity, 0];
+        for (let t = 0; t < 3600; t += 7.3) {
+          const [pa, pb] = [placeOf(x, a, t), placeOf(x, b, t)];
+          const M = mass(a) + mass(b);
+          for (let k = 0; k < 3; k++) expect((mass(a) * pa[k] + mass(b) * pb[k]) / M, `seed ${seed} ${c.id} at ${t}`).toBeCloseTo(c.spot![k], 6);
+          const sep = dist(pa, pb);
+          expect(sep).toBeGreaterThanOrEqual(aB * (1 - e) - 1e-9);
+          expect(sep).toBeLessThanOrEqual(aB * (1 + e) + 1e-9);
+          [near, far] = [Math.min(near, sep), Math.max(far, sep)];
+        }
+        // It runs the whole ellipse in the hour (its period is 10-17 min).
+        expect(near).toBeLessThan(aB * (1 - e) * 1.01);
+        expect(far).toBeGreaterThan(aB * (1 + e) * 0.99);
+        // The barycentre has the spot and draws nothing.
+        expect([c.motes, c.personMotes, c.lattice, c.orbit, c.host, c.star]).toEqual([0, 0, null, null, -1, -1]);
+      }
+    }
+  });
+
+  it('planets ride their star', () => {
+    // Through the packed texture, as both mirrors read it: a binary star's planet's place minus its
+    // star's is its own orbit, so the host chain carries it (and its moons) round the barycentre.
+    const x = of(1);
+    const data = packBodyData(x);
+    const binaryPlanets = kinds(x, 'planet').filter((p) => x.bodies[p.host].host >= 0);
+    expect(binaryPlanets.length).toBeGreaterThan(0);
+    for (let t = 0; t < 3600; t += 37.7)
+      for (const p of binaryPlanets) {
+        const [pp, ps] = [bodyGalactic(data, p.index, t), bodyGalactic(data, p.host, t)];
+        const local = orbitLocal(elementsAt(data, p.index), t);
+        for (let k = 0; k < 3; k++) expect(pp[k] - ps[k], `${p.id} at ${t}`).toBeCloseTo(local[k], 4);
+      }
+    // ...and a moon of one rides three hops: moon, planet, star, to the barycentre.
+    const moon = kinds(x, 'moon').find((m) => x.bodies[x.bodies[m.host].host].host >= 0)!;
+    expect(moon).toBeDefined();
+    for (const t of [0, 101, 3599.9]) {
+      const [pm, pp] = [bodyGalactic(data, moon.index, t), bodyGalactic(data, moon.host, t)];
+      const local = orbitLocal(elementsAt(data, moon.index), t);
+      for (let k = 0; k < 3; k++) expect(pm[k] - pp[k]).toBeCloseTo(local[k], 4);
+    }
+  });
+
+  it("places every seed on Task 1d's spots: the singles on their own, each pair on its stars' barycentre, nudged at most 12, in the band", () => {
+    const counts = new Map<number, number>();
+    for (const seed of SEEDS) {
+      const [x, one] = [of(seed), of(seed, 'singles')];
+      const where = `seed ${seed}`;
+      const spotOf = (y: Galaxy, id: string) => y.bodies[bodyIndex(y, id)].spot!;
+      // Every single star, and every star of a pair that could not be placed, on its Task 1d spot.
+      for (const s of kinds(x, 'star')) if (s.spot) expect(s.spot, `${where} ${s.id}`).toEqual(spotOf(one, s.id));
+      for (const c of kinds(x, 'bary')) {
+        const [a, b] = pairOf(x, c);
+        const M = mass(a) + mass(b);
+        const mid = [0, 1, 2].map((k) => (mass(a) * spotOf(one, a.id)[k] + mass(b) * spotOf(one, b.id)[k]) / M);
+        expect(dist(c.spot!, mid), `${where} ${c.id}: its nudge`).toBeLessThanOrEqual(BIN.nudgeMax + 1e-9);
+        const r = Math.hypot(c.spot![0], c.spot![2]);
+        expect(r, `${where} ${c.id}`).toBeGreaterThanOrEqual(HOOD_R[0]);
+        expect(r, `${where} ${c.id}`).toBeLessThanOrEqual(HOOD_R_WIDE);
+      }
+      // Each star of a pair as a single is spaced, from where it swings nearest.
+      const least = leastSpacing(x);
+      expect(least.margin, `${where}: ${least.between}`).toBeGreaterThanOrEqual(-1e-9);
+      const n = kinds(x, 'bary').length;
+      counts.set(n, (counts.get(n) ?? 0) + 1);
+    }
+    // Measured: 0 pairs on 15 seeds, 1 on 16, 2 on 6, 3 on 3; the story's seed has one (star-7 and star-14).
+    expect([...counts].sort()).toEqual([
+      [0, 15],
+      [1, 16],
+      [2, 6],
+      [3, 3],
+    ]);
+    expect(kinds(of(1), 'bary').map((c) => c.id)).toEqual(['bary-star-14-star-7']);
+  }, 240_000);
+
+  it('keeps every birth: the planets are born as if no star were paired, those past a binary star\'s limit dropped', () => {
+    for (const seed of SEEDS) {
+      const [x, one] = [of(seed), of(seed, 'singles')];
+      const where = `seed ${seed}`;
+      for (const p of [...kinds(x, 'planet'), ...kinds(x, 'moon')]) {
+        const q = one.bodies[bodyIndex(one, p.id)];
+        expect(p.born, `${where} ${p.id}`).toBe(q.born);
+        expect([p.hiAt, p.fixAt, p.cracked], `${where} ${p.id}`).toEqual([q.hiAt, q.fixAt, q.cracked]);
+      }
+      // Dropped: exactly the planets (and their moons) of a binary's star past the ones it keeps.
+      const gone = kinds(one, 'planet').filter((q) => !(q.id in x.ids));
+      for (const q of gone) expect(x.bodies[bodyIndex(x, one.bodies[q.host].id)].bin, `${where} ${q.id}`).toBeDefined();
+      for (const c of kinds(x, 'bary'))
+        for (const st of pairOf(x, c)) {
+          const kept = planetsOf(x, st.index).length;
+          const all = planetsOf(one, bodyIndex(one, st.id)).sort((p, q) => p.orbit!.r - q.orbit!.r);
+          expect(all.slice(0, kept).map((q) => q.id).sort(), `${where} ${st.id}`).toEqual(planetsOf(x, st.index).map((q) => q.id).sort());
+        }
+    }
+  }, 240_000);
+
+  it('places every seed, units at 1.5 × apart', () => {
+    for (const seed of SEEDS) {
+      const x = of(seed);
+      const where = `seed ${seed}`;
+      expect(kinds(x, 'star'), where).toHaveLength(STAR_COUNT);
+      expect(x.systems).toEqual(kinds(x, 'star').map((b) => b.index));
+      // One unit per single star, and one per pair (its barycentre).
+      expect(x.units.length, where).toBe(STAR_COUNT - kinds(x, 'bary').length);
+      for (const i of x.units) expect(x.bodies[i].spot, `${where} ${x.bodies[i].id}`).not.toBeNull();
+      expect(leastSpacing(x).margin, where).toBeGreaterThanOrEqual(-1e-9);
+      // A pair's reach: the wider of its stars' apoapses round the barycentre plus that star's system.
+      for (const c of kinds(x, 'bary')) {
+        const [a, b] = pairOf(x, c);
+        const reach = (s: Body) => s.bin!.share * s.bin!.a * (1 + s.bin!.e) + systemOuter(x, s.index);
+        expect(systemOuter(x, c.index)).toBeCloseTo(Math.max(reach(a), reach(b)), 12);
+        expect(anchorOf(x.bodies, a)).toEqual({ spot: c.spot, reach: a.orbit!.r });
+      }
+    }
+  }, 240_000);
+
+  it('counts the budget with the pairs', () => {
+    for (const seed of SEEDS)
+      for (const tier of ['phone', 'desktop'] as const) {
+        const x = tier === 'desktop' ? of(seed) : generateGalaxy(seed, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));
+        const where = `${tier} seed ${seed}`;
+        expect(x.motes, where).toBeLessThanOrEqual(93_500);
+        expect(x.motes, where).toBe(drawnInstances(x));
+        // A barycentre adds no instance: no shell, no person, no icosphere, no glow, no spikes.
+        const ghosts = x.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
+        expect(x.instances.bodies, where).toBe(x.bodies.length - STAR_COUNT - kinds(x, 'bary').length + ghosts);
+        expect(x.instances.glow, where).toBe(STAR_COUNT + kinds(x, 'core').length);
+        expect(x.instances.spikes, where).toBe(96 * STAR_COUNT);
+      }
+  }, 240_000);
 });

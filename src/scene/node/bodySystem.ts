@@ -72,6 +72,7 @@ import {
   packShellData,
   SHELL_TEXELS,
   systemIndexOf,
+  unitIndexOf,
   type QuadSet,
 } from './bodyAttrs';
 import { bodyCentre, bodyDerp, bodyLight, bodyPresence, lampGain, type BodyClocks } from './bodyMote';
@@ -106,12 +107,19 @@ export interface SpikesOnScreen {
   spikes: 4 | 6;
 }
 
-/** A neighbourhood star's dissolve on screen (BodySystem.hood). */
+/**
+ * A neighbourhood star's dissolve on screen (BodySystem.hood): its plain glow, its real form's share
+ * and its centre (CSS px); its unit's index in `g.units` and that unit's spot on screen (`sx`, `sy`:
+ * a single star's own place, a binary's barycentre, where its one far form stands).
+ */
 export interface HoodOnScreen {
   glowPx: number;
   real: number;
   x: number;
   y: number;
+  unit: number;
+  sx: number;
+  sy: number;
 }
 
 /**
@@ -143,9 +151,11 @@ export interface BodySystem {
   /** The last frame's drawn spikes (their star up and lit by the lamp, its glow big enough that they come in), CSS px. */
   spikes(): SpikesOnScreen[];
   /**
-   * The neighbourhood's dissolve at the last frame (re-skin §4.1), per star in spot order: its plain
-   * glow (lod.ts hoodGlowPx, CSS px) at its undisturbed place, its real form's share (hoodReal, held by
-   * the beats' hold; the far form, galaxySystem's, takes the rest) and its centre on screen (CSS px).
+   * The neighbourhood's dissolve at the last frame (re-skin §4.1), per star in `g.systems` order: its
+   * plain glow (lod.ts hoodGlowPx, CSS px) at its unit's spot (a binary's star's at the barycentre, so
+   * the pair dissolves as one), its real form's share (hoodReal, held by the beats' hold; the far form,
+   * galaxySystem's, one per unit, takes the rest), its centre on screen (CSS px, a binary's star where
+   * it is on its orbit), its unit and the unit's spot on screen.
    */
   hood(): HoodOnScreen[];
   /** Test mode: hold an element's gain at `gain` whatever the systems' sizes, or (null) let go. */
@@ -252,6 +262,7 @@ export function createBodySystem(g: Galaxy): BodySystem {
   const outer = g.systems.map((row) => systemOuter(g, row));
   const glowBodies = glow.rows.map((row) => g.bodies[row]);
   const sysOf = systemIndexOf(g);
+  const unitOf = unitIndexOf(g);
   const visits: RingVisit[] = g.visits.map((id) => {
     const row = bodyIndex(g, id);
     return { row, radius: pieceOuter(g, row) };
@@ -499,21 +510,27 @@ export function createBodySystem(g: Galaxy): BodySystem {
         return { x: ((at.x + 1) / 2) * w, y: ((1 - at.y) / 2) * h, d, front: at.z < 1 && at.z > -1 };
       };
 
-      // Each star's real form's share (the dissolve, re-skin §4.1) by its plain glow at its undisturbed
-      // place (bodyScreen.glsl bodyHoodReal): its glow, dots and spikes are drawn times it.
-      const homes = g.systems.map((row) => project(bodyWorld(data, row, ambient)));
+      // Each star's real form's share (the dissolve, re-skin §4.1) by its plain glow at its unit's spot
+      // (bodyScreen.glsl bodyHoodReal): a single's own place, a binary's barycentre, where the unit's far
+      // star stands. Its glow, dots and spikes are drawn times it.
       const hold = uniforms.uHoodHold.value as number;
-      lastHood = homes.map((c) => {
-        const glowPx = hoodGlowPx(c.d, focal);
-        return { glowPx, real: hoodReal(glowPx, hold), x: c.x, y: c.y };
+      // Each star at its own place (a binary's on its orbit), and each unit's spot (a binary's barycentre).
+      const homes = g.systems.map((row) => project(bodyWorld(data, row, ambient)));
+      const spots = g.units.map((row) => project(bodyWorld(data, row, ambient)));
+      lastHood = homes.map((c, i) => {
+        const u = unitOf[i];
+        const glowPx = hoodGlowPx(spots[u].d, focal);
+        return { glowPx, real: hoodReal(glowPx, hold), x: c.x, y: c.y, unit: u, sx: spots[u].x, sy: spots[u].y };
       });
       const realOf = new Map(g.systems.map((row, i) => [row, lastHood[i].real]));
+      // Each system's size on screen, about its own star (a binary's star by its own planets: from afar
+      // each reads as an arm star); a binary's two count as one for the at-most-two rule.
       const raw = homes.map((c, i) => {
         if (!c.front) return 0;
         const s = systemPx(outer[i], c.d, focal);
         return s * onScreen(c.x, c.y, s, w, h);
       });
-      lastSys = detailPx(raw);
+      lastSys = detailPx(raw, unitOf);
       // The focused system never drops under FREEZE_MIN_SYS_PX while the lamp's focus is up (galaxy
       // §7.4): a held frame never catches a hand-over of its detail.
       const focusSys = sysOf[uniforms.uLampRow.value as number] ?? -1;

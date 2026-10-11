@@ -5,7 +5,7 @@ import { generateGalaxy, galaxyBudget, type Body } from '../../galaxy/generate';
 import { GALAXY_TURN_PERIOD as SPLICED_TURN_PERIOD, hexToRgb, NODE_NEVER, NODE_PALETTE, ORBIT_CONSTANTS, ORBIT_HEAD_BITS, ORBIT_HEAD_MASK } from './birth';
 import { BODY_TEXELS, bodyTexel, LIGHT_MODE, packBodyData } from './bodyData';
 import { starTint } from './star';
-import { bodyGalactic, bodyWorld, elementsAt, GALAXY_TURN_PERIOD, galaxyTurn, keplerE, orbitLocal } from './orbit';
+import { bodyGalactic, bodyWorld, elementsAt, GALAXY_TURN_PERIOD, galaxyTurn, keplerE, orbitLocal, orbitTurns } from './orbit';
 import { orbitLibraryGlsl, withOrbitLibrary } from './shaderSource';
 import orbitGlsl from './orbit.glsl?raw';
 
@@ -20,10 +20,13 @@ const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const orbiting = g.bodies.filter((b) => b.orbit !== null);
 /** A body's orbital elements as the texture holds them (float32), so the checks read what the shaders read. */
 const elements = (b: Body) => elementsAt(data, b.index);
-/** Every star's system: its planets and their moons. */
-const systems = g.bodies
-  .filter((b) => b.kind === 'star')
-  .map((s) => ({ star: s, members: g.bodies.filter((b) => b.star === s.index && b.index !== s.index) }));
+/** Every star's system: its planets and their moons; a binary's is both stars' (the first star the one listed as `star`). */
+const systems = g.systems
+  .map((row) => g.bodies.filter((s) => s.kind === 'star' && (s.index === row || s.host === row)))
+  .map(([star, ...others]) => ({
+    star,
+    members: g.bodies.filter((b) => b.kind !== 'bary' && b.index !== star.index && [star, ...others].some((s) => b.star === s.index)),
+  }));
 
 describe('packBodyData', () => {
   it('packs one row of eight texels per body and one of two per stream, the feed last', () => {
@@ -36,7 +39,7 @@ describe('packBodyData', () => {
   });
 
   it('holds every field of a body where the layout says', () => {
-    const kinds = { core: 0, star: 1, planet: 2, moon: 3 } as const;
+    const kinds = { core: 0, star: 1, planet: 2, moon: 3, bary: 4 } as const;
     for (const b of g.bodies) {
       const f = Math.fround;
       const [x, y, z, kind] = bodyTexel(data.bodies, 0, b.index);
@@ -93,8 +96,8 @@ describe('packBodyData', () => {
 });
 
 describe('orbit', () => {
-  it('Kepler converges for e ≤ 0.3', () => {
-    for (const e of [0, 0.1, 0.22, 0.3])
+  it('Kepler converges for e ≤ 0.4 (a binary star up to BIN.e[1], a planet of one up to BIN.eMax)', () => {
+    for (const e of [0, 0.1, 0.22, 0.3, 0.4])
       for (const M of grid(0, TAU, 360)) expect(Math.abs(keplerE(M, e) - e * Math.sin(keplerE(M, e)) - M)).toBeLessThan(1e-6);
   });
 
@@ -121,7 +124,7 @@ describe('orbit', () => {
         const u = p[0] * ca + p[2] * sa;
         const w = (-p[0] * sa + p[2] * ca) * Math.cos(o.tilt) + p[1] * Math.sin(o.tilt);
         const angle = Math.atan2(w, u) + o.tiltAz;
-        const want = o.omega0 + (TAU * t) / o.precession + o.phase * TAU + (TAU * t) / o.period;
+        const want = o.omega0 + (o.precession === 0 ? 0 : (TAU * t) / o.precession) + o.phase * TAU + (TAU * t) / o.period;
         const d = Math.atan2(Math.sin(angle - want), Math.cos(angle - want));
         expect(Math.abs(d), `${b.id} at ${t}`).toBeLessThan(1e-9);
         // The plane is tilted by `tilt` about the axis: the lift is the in-plane offset from it times sin tilt.
@@ -183,7 +186,9 @@ describe('orbit', () => {
   });
 
   it('the galaxy turns rigidly', () => {
-    const fixed = g.bodies.filter((b) => b.kind === 'core' || b.kind === 'star');
+    // Every body at a spot: the core, the single stars and the binaries' barycentres.
+    const fixed = g.bodies.filter((b) => b.spot !== null);
+    expect(fixed.some((b) => b.kind === 'bary')).toBe(true);
     const pairs = fixed.flatMap((a, i) => fixed.slice(i + 1).map((b) => [a.index, b.index] as const));
     const dist = (i: number, j: number, t: number) => len(sub(bodyWorld(data, i, t), bodyWorld(data, j, t)));
     for (const [i, j] of pairs) {
@@ -240,12 +245,54 @@ describe('orbit', () => {
     const at = grid(0, 1200, 720);
     for (const b of orbiting) {
       const host = g.bodies[b.host];
-      const bound = b.kind === 'planet' ? 9.6 * Math.sin(0.25) : Math.max(2.5 * host.R, outerTrack(host)) * Math.sin(0.2);
+      // A binary's star goes round in the galaxy's plane.
+      const bound = b.kind === 'star' ? 0 : b.kind === 'planet' ? 9.6 * Math.sin(0.25) : Math.max(2.5 * host.R, outerTrack(host)) * Math.sin(0.2);
       for (const t of at) {
         const lift = Math.abs(bodyGalactic(data, b.index, t)[1] - bodyGalactic(data, host.index, t)[1]);
         expect(lift, `${b.id} at ${t}`).toBeLessThanOrEqual(bound);
       }
     }
+  });
+});
+
+describe('precession 0 (re-skin Task 1e)', () => {
+  /** orbitLocal as it was before precession 0 meant none, statement for statement. */
+  const before = (o: ReturnType<typeof elements>, t: number): Vec3 => {
+    const M = TAU * ((x: number) => x - Math.floor(x))(o.phase + orbitTurns(t, o.period));
+    const E = keplerE(M, o.e);
+    const px = o.a * (Math.cos(E) - o.e);
+    const py = o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E);
+    const w = o.omega0 + TAU * orbitTurns(t, o.precession);
+    const [cw, sw] = [Math.cos(w), Math.sin(w)];
+    const [x, z] = [px * cw - py * sw, px * sw + py * cw];
+    const [ca, sa] = [Math.cos(o.tiltAz), Math.sin(o.tiltAz)];
+    const [u, v] = [x * ca + z * sa, -x * sa + z * ca];
+    const h = v * Math.cos(o.tilt);
+    return [u * ca - h * sa, v * Math.sin(o.tilt), u * sa + h * ca];
+  };
+
+  it('holds ω at ω0 at every t: a binary star round its barycentre', () => {
+    const stars = orbiting.filter((b) => b.kind === 'star');
+    expect(stars.length).toBeGreaterThanOrEqual(2);
+    for (const b of stars) {
+      const o = elements(b);
+      expect(o.precession).toBe(0);
+      for (const t of grid(0, 3600, 211)) {
+        const p = orbitLocal(o, t);
+        // The ellipse never turns: its periapsis stays at ω0, so the body's true anomaly from ω0 is its Kepler ν.
+        const turns = o.phase + orbitTurns(t, o.period);
+        const E = keplerE(TAU * (turns - Math.floor(turns)), o.e);
+        const nu = 2 * Math.atan2(Math.sqrt(1 + o.e) * Math.sin(E / 2), Math.sqrt(1 - o.e) * Math.cos(E / 2));
+        const d = Math.atan2(p[2], p[0]) - (o.omega0 + nu);
+        expect(Math.abs(Math.atan2(Math.sin(d), Math.cos(d))), `${b.id} at ${t}`).toBeLessThan(1e-9);
+        expect(Math.abs(p[1])).toBe(0);
+      }
+    }
+  });
+
+  it('leaves every other orbit byte-identical', () => {
+    for (const b of orbiting.filter((x) => x.kind !== 'star'))
+      for (const t of [0, 37.3, 101, 953, 3599.9]) expect(orbitLocal(elements(b), t), `${b.id} at ${t}`).toEqual(before(elements(b), t));
   });
 });
 

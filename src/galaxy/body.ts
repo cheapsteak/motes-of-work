@@ -4,8 +4,12 @@
 // every draw takes its random numbers from the caller, so a layout is a function of the seed.
 import { STAR_LOOK } from '../scene/node/classLook';
 
-/** The core is the rules, a star is a plan, a planet with its moons is a piece of code (§14.1). */
-export type BodyKind = 'core' | 'star' | 'planet' | 'moon';
+/**
+ * The core is the rules, a star is a plan, a planet with its moons is a piece of code (§14.1). A
+ * barycentre (`bary`) is the point a bound pair of stars goes round (re-skin Task 1e): it has the
+ * pair's spot and draws nothing.
+ */
+export type BodyKind = 'core' | 'star' | 'planet' | 'moon' | 'bary';
 
 /**
  * A Kepler orbit round a parent (§12.1): an ellipse of semi-major axis `a` and eccentricity `e`, whose
@@ -183,22 +187,30 @@ export function orbitFor(kind: 'planet' | 'moon', r: number, period: number, rng
 /**
  * The neighbourhood's binary stars (re-skin Task 1e: S-type, each star keeping its own planets inside
  * its stability limit, the two going round their barycentre):
- *  - `pairK`: a close pair is two filler stars, each the other's nearest in the pre-binary packing,
- *    nearer than this × their combined outer radii;
+ *  - `pairK`: a close pair is two filler stars, each the other's nearest in the neighbourhood as Task
+ *    1d packs it (systems at least HOOD_SPACING 1.5 × their outer radii plus a margin apart), nearer
+ *    than this × their combined outer radii. 2.2, not the mock's 1.35, which it measured in the packing
+ *    before Task 1d (outer radii plus the margin apart): at 1.5 × spacing no two systems are nearer
+ *    than 1.5 ×, and Task 1d's mutual-nearest filler pairs stand 1.55-2.18 × apart over seeds 1-40
+ *    (18-33 units), so 2.2 admits the closest of them, and the pair's barycentre falls between two of
+ *    Task 1d's spots;
  *  - `share`, `max`: each close pair, closest first (by that ratio), is kept with this seeded chance,
  *    at most this many;
- *  - `a`: the pair's separation (semi-major axis of the relative orbit) is the pre-binary distance, clamped to this;
+ *  - `a`: the pair's separation (semi-major axis of the relative orbit) is the two stars' distance in
+ *    Task 1d's packing, clamped to this;
  *  - `e`: its eccentricity, seeded in this range;
  *  - `floorShare`: a binary star's designed spacing (nominalRadii) is scaled so its last floor sits at this × its limit;
  *  - `grow`: if either star cannot keep one planet, the separation grows by this and the fit runs again;
  *  - `eMax`: a planet's eccentricity with the forced term added, capped;
+ *  - `nudgeMax`: a pair too near another system is nudged at most this far off its barycentre, or
+ *    stays two single stars;
  *  - `quicken`: a planet's precession is quickened by 1 + quicken (r / limit)³. Stylised, a design
  *    choice: it only says that a planet near the limit is perturbed faster than one deep inside it;
  *  - `kep`: the stars' Kepler constant, matched to planetPeriod at r = 5 (planetPeriod(5) / 5^1.5 ≈ 9.727),
  *    so a pair of separation a goes round in `kep · a^1.5` ambient seconds.
  */
 export const BIN = {
-  pairK: 1.35,
+  pairK: 2.2,
   share: 0.8,
   max: 4,
   a: [16, 26],
@@ -207,6 +219,7 @@ export const BIN = {
   grow: 1.03,
   eMax: 0.4,
   quicken: 2,
+  nudgeMax: 12,
   kep: 108.75 / 5 ** 1.5,
 } as const;
 

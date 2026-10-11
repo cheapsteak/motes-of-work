@@ -13,9 +13,13 @@ float bodyAcrossAt(int row, vec4 view) {
 // A neighbourhood star's real form's share (lod.glsl hoodReal, re-skin §4.1 "Dissolve (late)") at
 // `view`, its undisturbed place in view space: by its plain glow at that distance, held up to the beats'
 // uHoodHold. Its glow, dots, person motes and spikes are drawn times it; every other body is whole (1).
-float bodyHoodReal(int kind, vec4 view) {
+// A binary's star (a star with a host, re-skin Task 1e) dissolves at its host, the pair's barycentre,
+// where the pair's one far star stands: so its two stars and that far star always share 1 between them.
+float bodyHoodReal(int row, int kind, vec4 view) {
   if (kind != KIND_STAR) return 1.0;
-  return hoodReal(hoodGlowPx(length(view.xyz), 0.5 * uViewport.y * projectionMatrix[1][1] / uPixelRatio), uHoodHold);
+  int host = int(round(bodyTexel(3, row).x));
+  vec4 at = host >= 0 ? toView(bodyWorld(host, uAmbient)) : view;
+  return hoodReal(hoodGlowPx(length(at.xyz), 0.5 * uViewport.y * projectionMatrix[1][1] / uPixelRatio), uHoodHold);
 }
 
 // A body's diameter on screen (CSS px) at its undisturbed place at the ambient: a moon hands over from

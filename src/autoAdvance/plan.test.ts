@@ -274,6 +274,20 @@ describe('autoStops (on a made-up story)', () => {
     expect(done[0].progress).toBeCloseTo(0.5 - fadeWidth(2) - margin, 12);
   });
 
+  it('ends a scene as its move leaves, even when the move rests part way (ly-5: the swing, then the close-in)', () => {
+    // A move that leaves as a's page starts to fade, swings by 1 in a twentieth of the fade, rests, then
+    // closes in by 2 more past b's line. The rest part way is not where a's scene ends: it ends as the
+    // move leaves, the first stretch at rest, with a's text still whole.
+    const fade = 0.5 - fadeWidth(2);
+    const w = fadeWidth(2);
+    const swing = (p: number) => Math.min(1, Math.max(0, (p - fade) / (0.1 * w)));
+    const close = (p: number) => 2 * Math.min(1, Math.max(0, (p - (fade + 0.6 * w)) / w));
+    const s = stopsOf(shape(0.5), (p) => [swing(p) + close(p)]);
+    expect(s[0]).toMatchObject({ ends: 'motion' });
+    expect(s[0].progress).toBeGreaterThanOrEqual(fade - margin - 1e-12);
+    expect(s[0].progress).toBeLessThanOrEqual(fade + 0.001);
+  });
+
   it('never waits past a page with an explicit out: it ends with its text, however long the motion after it', () => {
     // A page that leaves early (`out`) leaves a stretch with no text, made for motion to play in
     // (as spread's deleted second fix had): the stop sits while the page is whole and the motion is crossed

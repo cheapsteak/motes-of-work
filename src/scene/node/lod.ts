@@ -169,12 +169,20 @@ const BELOW_FULL = FULL_FROM - 0.1;
  * where `lead` is their excess over the next largest; every other system is held just under full
  * detail. Continuous in the sizes, so a camera move never pops a system's moons, and never more
  * than FULL_DETAIL_MAX at or above full detail. Order statistics are continuous: when the second
- * and third sizes meet, the second's cap has come down to the third's.
+ * and third sizes meet, the second's cap has come down to the third's. Systems that share a `unit`
+ * (a binary's two stars, re-skin Task 1e) count as one: the unit ranks by its larger, and its lead
+ * holds both.
  */
-export function detailPx(raw: readonly number[]): number[] {
-  const sorted = [...raw].sort((a, b) => b - a);
+export function detailPx(raw: readonly number[], unit?: readonly number[]): number[] {
+  // A binary's two stars are one unit (re-skin Task 1e): it ranks by its larger, and both share its hold.
+  const units = new Map<number, number>();
+  raw.forEach((s, i) => units.set(unit?.[i] ?? i, Math.max(units.get(unit?.[i] ?? i) ?? 0, s)));
+  const sorted = [...units.values()].sort((a, b) => b - a);
   const next = sorted[FULL_DETAIL_MAX] ?? 0;
-  return raw.map((s) => Math.min(s, BELOW_FULL + FULL_DETAIL_SOFT * Math.max(0, s - Math.max(next, BELOW_FULL))));
+  return raw.map((s, i) => {
+    const lead = units.get(unit?.[i] ?? i)!;
+    return Math.min(s, BELOW_FULL + FULL_DETAIL_SOFT * Math.max(0, lead - Math.max(next, BELOW_FULL)));
+  });
 }
 
 /**

@@ -21,6 +21,8 @@ import {
   meanAnomalyTurns,
   packShellData,
   SHELL_TEXELS,
+  systemIndexOf,
+  unitIndexOf,
 } from './bodyAttrs';
 import { packBodyData } from './bodyData';
 import { STAR_LOOK } from './classLook';
@@ -33,7 +35,7 @@ import bodyFrag from './shaders/body.frag.glsl?raw';
 import bodyVert from './shaders/body.vert.glsl?raw';
 import shellVert from './shaders/shell.vert.glsl?raw';
 import spikeVert from './shaders/spike.vert.glsl?raw';
-import { shellSkips, spikeSkips } from './earlyOut';
+import { bodyHoodReal, shellSkips, spikeSkips } from './earlyOut';
 import moteFrag from '../mote/shaders/mote.frag.glsl?raw';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
 import starFrag from '../galaxy/shaders/star.frag.glsl?raw';
@@ -47,7 +49,9 @@ describe('the body set, counted', () => {
   const ghosts = g.bodies.filter((b) => b.cracked && (b.kind === 'planet' || b.kind === 'moon')).length;
 
   it('draws every shell mote: Σ latticeCount and each star’s 160 dots, the generator’s shells', () => {
-    const sum = g.bodies.reduce((n, b) => n + (b.lattice ? latticeCount(...b.lattice) : 160), 0);
+    // A barycentre (re-skin Task 1e) draws nothing.
+    const sum = g.bodies.reduce((n, b) => n + (b.lattice ? latticeCount(...b.lattice) : b.kind === 'star' ? 160 : 0), 0);
+    expect(g.bodies.some((b) => b.kind === 'bary')).toBe(true);
     expect(system.counts.shells).toBe(sum);
     expect(system.counts.shells).toBe(g.instances.shells);
   });
@@ -64,13 +68,14 @@ describe('the body set, counted', () => {
     expect(system.counts.glow).toBe(g.instances.glow);
   });
 
-  it('draws an icosphere per planet, moon and core body (none for a star) and a ghost per cracked planet or moon', () => {
+  it('draws an icosphere per planet, moon and core body (none for a star or a barycentre) and a ghost per cracked planet or moon', () => {
     const stars = g.bodies.filter((b) => b.kind === 'star').length;
+    const bary = g.bodies.filter((b) => b.kind === 'bary').length;
     expect(system.counts.ghosts).toBe(ghosts);
-    expect(system.counts.bodies).toBe(g.bodies.length - stars + ghosts);
+    expect(system.counts.bodies).toBe(g.bodies.length - stars - bary + ghosts);
     expect(system.counts.bodies).toBe(g.instances.bodies);
     const drawn = buildBodyAttrs(g);
-    for (let k = 0; k < drawn.count; k++) expect(g.bodies[drawn.body[k * 3]].kind).not.toBe('star');
+    for (let k = 0; k < drawn.count; k++) expect(['star', 'bary']).not.toContain(g.bodies[drawn.body[k * 3]].kind);
     expect(new Set(Array.from({ length: drawn.count - ghosts }, (_, k) => g.bodies[drawn.body[k * 3]].kind))).toEqual(new Set(['core', 'planet', 'moon']));
   });
 
@@ -119,11 +124,17 @@ describe('the shell attributes', () => {
     expect(at).toBe(shells.count);
   });
 
-  it('put every mote of a system in its star’s system, and the core in none', () => {
+  it('put every mote of a system in its star’s system (a binary’s star its own), and the core in none', () => {
     for (let k = 0; k < shells.count; k += 97) {
       const b = g.bodies[shells.mote[k * 4]];
       expect(shells.mote[k * 4 + 2]).toBe(b.kind === 'core' ? -1 : g.systems.indexOf(b.star));
     }
+    const sys = systemIndexOf(g);
+    for (const b of g.bodies) if (b.kind === 'bary') expect(sys[b.index]).toBe(-1);
+    // ...and a binary's two stars share one unit, every other star its own.
+    const unit = unitIndexOf(g);
+    g.systems.forEach((row, i) => expect(g.units[unit[i]]).toBe(g.bodies[row].host >= 0 ? g.bodies[row].host : row));
+    expect(new Set(unit).size).toBe(g.units.length);
   });
 
   it('fly each builder in on its body’s stream, a moon’s on its planet’s, each with its own seed and order', () => {
@@ -272,6 +283,19 @@ describe('at most two systems at full detail', () => {
     expect(detailPx([223, 217, 209, 30])[0]).toBeGreaterThanOrEqual(120);
     expect(detailPx([223, 217, 209, 30])[1]).toBeGreaterThanOrEqual(120);
     expect(detailPx([223, 217, 209, 30])[2]).toBeLessThan(full);
+  });
+
+  it("a binary's two stars count as one unit (re-skin Task 1e)", () => {
+    const full = LOD_BANDS[LodElement.Moon][0];
+    // Four systems, the first two one binary: it and the third are the two largest units, so all three
+    // keep full detail, and the fourth is held under it.
+    const out = detailPx([200, 190, 180, 170], [0, 0, 1, 2]);
+    expect(out.slice(0, 3).every((s) => s >= full)).toBe(true);
+    expect(out[3]).toBeLessThan(full);
+    // Counted alone, the third would be held instead.
+    expect(detailPx([200, 190, 180, 170])[2]).toBeLessThan(full);
+    // Without units it is the rule as it was.
+    expect(detailPx([200, 190, 180, 170], [0, 1, 2, 3])).toEqual(detailPx([200, 190, 180, 170]));
   });
 
   it('is continuous: a system overtaking another hands its detail over without a jump', () => {
@@ -465,10 +489,12 @@ describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {
   };
   const kindOf = (row: number) => g.bodies[row].kind;
 
-  it('reads one plain glow per star at its spot: the far form only at the galaxy wide, the real form only at the hood shot', () => {
+  it('reads one plain glow per star at its place: the far form only at the galaxy wide, the real form only at the hood shot', () => {
     drawAt('galaxyWide', 0);
     const wide = system.hood();
+    // Every star, a binary's two each at its own place, with its unit (one far form per unit).
     expect(wide).toHaveLength(g.systems.length);
+    expect(wide.map((s) => s.unit)).toEqual(unitIndexOf(g));
     for (const s of wide) {
       expect(s.glowPx).toBe(5); // the phone's galaxy wide: every star at the glow's floor
       expect(s.real).toBe(0);
@@ -482,6 +508,37 @@ describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {
     drawAt('galaxyWide', 1);
     for (const s of system.hood()) expect(s.real).toBe(1);
     expect(system.glows().length).toBeGreaterThan(g.bodies.filter((b) => b.kind === 'core').length);
+  });
+
+  it("a binary's two stars dissolve as one, at their barycentre, where the pair's far star stands (re-skin Task 1e)", () => {
+    const pairs = [...new Set(unitIndexOf(g))].map((u) => g.systems.filter((_, i) => unitIndexOf(g)[i] === u)).filter((rows) => rows.length === 2);
+    expect(pairs.length).toBeGreaterThanOrEqual(1);
+    // Back off the hood shot until the pair is part way through its hand-over.
+    const frameAt = (distance: number) => {
+      const camera = galaxyShotCamera({ ...GALAXY_SHOTS.hood, distance }, g, data, size, AMBIENT_POSE);
+      const s = defaultSceneState();
+      s.net = { ...s.net, show: 1, growth: 1, hoodHold: 0 };
+      system.update(s, camera, { ...size, pixelRatio: 1 }, AMBIENT_POSE);
+      return system.earlyOut()!;
+    };
+    const unit = unitIndexOf(g);
+    let mid = 0;
+    for (let distance = 40; distance < 4000 && mid === 0; distance *= 1.04) {
+      const f = frameAt(distance);
+      const hood = system.hood();
+      for (const [i, s] of hood.entries()) {
+        // The early-out's twin of the shaders' share is the hook's, star by star.
+        expect(bodyHoodReal(f, data, g.systems[i]), `star ${i} at ${distance}`).toBeCloseTo(s.real, 12);
+        // A binary's two stars, at their two places, share one real form.
+        const other = hood.findIndex((o, j) => j !== i && unit[j] === unit[i]);
+        if (other >= 0) {
+          expect(s.real).toBe(hood[other].real);
+          expect([s.x, s.y]).not.toEqual([hood[other].x, hood[other].y]);
+          if (s.real > 0.05 && s.real < 0.95) mid++;
+        }
+      }
+    }
+    expect(mid, 'a pair seen part way through its hand-over').toBeGreaterThan(0);
   });
 
   it('a neighbourhood star’s glow, shells, person motes and spikes carry the real form’s share; planets, moons and core rows do not', () => {
@@ -516,8 +573,8 @@ describe('the neighbourhood’s dissolve (re-skin §4.1)', () => {
 
   it('multiplies the share into each gain the shaders compare with LOD_VISIBLE, and computes it once per body', () => {
     const lib = withGalaxyLibrary(shellVert);
-    expect(lib.split('float bodyHoodReal(int kind, vec4 view)')).toHaveLength(2);
-    expect(shellVert).toContain('float real = bodyHoodReal(kind, home);');
+    expect(lib.split('float bodyHoodReal(int row, int kind, vec4 view)')).toHaveLength(2);
+    expect(shellVert).toContain('float real = bodyHoodReal(row, kind, home);');
     expect(shellVert).toContain('* focusGain(row) : 0.0) * real;');
     expect(shellVert).toContain('float gain = real;');
     expect(spikeVert).toContain('* focusGain(row) : 0.0) * real;');

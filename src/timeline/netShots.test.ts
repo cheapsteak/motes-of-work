@@ -631,11 +631,14 @@ describe('the text band (test 8): cylinderTop at least 8 px under it, at both si
     // The generator's moons lift past §12.1's 0.14 (so the constant would be wrong) ...
     expect(Math.max(...g.bodies.filter((m) => m.kind === 'moon').map((m) => lifted(m.orbit!)))).toBeGreaterThan(0.14);
     // ... though on the essay galaxy no moon sets the maximum, so a galaxy whose moon does checks the term.
-    const top = g.bodies.filter((p) => p.kind === 'planet').reduce((a, b) => (lifted(b.orbit!) > lifted(a.orbit!) ? b : a));
+    // (The most lifted planet with a moon: since Task 1e the most lifted of all has none.)
+    const top = g.bodies
+      .filter((p) => p.kind === 'planet' && g.bodies.some((m) => m.kind === 'moon' && m.host === p.index))
+      .reduce((a, b) => (lifted(b.orbit!) > lifted(a.orbit!) ? b : a));
     const moon = g.bodies.find((m) => m.kind === 'moon' && m.host === top.index)!;
     const raised: Galaxy = {
       ...g,
-      bodies: g.bodies.map((b) => (b === moon ? { ...b, orbit: { ...b.orbit!, r: 1, tilt: Math.PI / 2 } } : b)),
+      bodies: g.bodies.map((b) => (b === moon ? { ...b, orbit: { ...b.orbit!, r: 2, tilt: Math.PI / 2 } } : b)),
     };
     expect(liftBound(raised)).toBeCloseTo(sum(raised), 12);
     expect(liftBound(raised)).toBeGreaterThan(lift + 0.5);
@@ -1294,7 +1297,7 @@ describe('the defect and spread shots (galaxy §14.5, Task 10’s shot pass)', (
       'df-3': [{ centroid: ['P1', 'P2', 'P3'] }, -10, 74, 132, 40, 0, Lamp.Lineage, { distance: 150, frame: 0, bearing: -115 }, true],
       'up-1': [{ body: 'R1' }, 60, 60, 50, 38, 0.8, Lamp.Core, { distance: 130, frame: 0 }, true],
       // Task 1d re-fitted up-2 to the wider neighbourhood (169 / 442 before).
-      'up-2': [{ hood: true }, 0, 82, 221, 40, 0.85, Lamp.Hood, { distance: 581, frame: 0 }, true],
+      'up-2': [{ hood: true }, 0, 82, 258, 40, 0.85, Lamp.Hood, { distance: 678, frame: 0 }, true],
     });
     // The twelve's lamp is R0's lineage (through P1, its rule's).
     expect(g.bodies[lampFocusRow(trackIndex(DEFECT_SHOTS['df-3'].target), g)].rule).toBe(bodyIndex(g, 'R0'));
@@ -1541,7 +1544,7 @@ describe('the reviewer, trace, fix and lesson shots (galaxy §14.5, Task 11’s 
       'fx-1': [{ body: 'R0' }, -15, 35, 8, 36, 1, Lamp.Core, undefined, { distance: 15, frame: 1, bearing: 0 }, true],
       'fx-2': [{ body: 'R1' }, -60, 35, 8, 36, 0.75, Lamp.Core, undefined, { distance: 15, frame: 1 }, true],
       // Task 1d re-fitted fx-3 (210 / 540 before) and ls-1's landscape (400 before) to the wider neighbourhood.
-      'fx-3': [{ hood: true }, 0, 82, 237, 40, 0.85, Lamp.Hood, undefined, { distance: 622, frame: 0 }, true],
+      'fx-3': [{ hood: true }, 0, 82, 258, 40, 0.85, Lamp.Hood, undefined, { distance: 678, frame: 0 }, true],
       'ls-1': [{ core: true }, 42, 82, 270, 40, 0, Lamp.Hood, undefined, { distance: 420, frame: 0 }, true],
     });
     expect(LATE_CLOSE).toEqual(['tr-2', 'fx-1', 'fx-2']);

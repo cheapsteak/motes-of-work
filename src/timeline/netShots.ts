@@ -2,7 +2,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { AMBIENT_POSE, HERO_CLOSE } from '../galaxy/ambient';
 import { BG, GALAXY_WIDE } from '../galaxy/background';
 import { CORE_R, GLOW_CAP, glowPx, STAR_R } from '../galaxy/body';
-import { bodyIndex, systemOuter, type Body, type Galaxy } from '../galaxy/generate';
+import { anchorOf, bodyIndex, systemOuter, type Body, type Galaxy } from '../galaxy/generate';
 import { mechanismAnchors, type MechanismAnchors } from '../mechanisms/anchors';
 import { mechanisms } from '../mechanisms';
 import type { Vec3 } from '../math/vec';
@@ -368,13 +368,18 @@ function coreDisc(g: Galaxy, halfHeight: number, growth: number): LitDisc | null
   return { centre: { core: true }, radius: Math.max(...core.map((b) => Math.hypot(b.spot![0], b.spot![2]) + b.R)), halfHeight };
 }
 
-/** The stars `stars` (rows) with their built systems, about the neighbourhood's middle or the galactic centre; null if nothing of them is built. */
+/**
+ * The stars `stars` (rows) with their built systems, about the neighbourhood's middle or the galactic
+ * centre; null if nothing of them is built. A binary's star reaches from its barycentre's spot by its
+ * apoapsis round it (anchorOf).
+ */
 function starsDisc(g: Galaxy, stars: readonly number[], halfHeight: number, growth: number, about: 'hood' | 'core'): LitDisc | null {
   const c = about === 'hood' ? g.hoodCentroid : [0, 0, 0];
   let radius = -1;
   for (const s of stars) {
     const outer = bornSystemOuter(g, s, growth);
-    if (outer > 0) radius = Math.max(radius, Math.hypot(g.bodies[s].spot![0] - c[0], g.bodies[s].spot![2] - c[2]) + outer);
+    const { spot, reach } = anchorOf(g.bodies, g.bodies[s]);
+    if (outer > 0) radius = Math.max(radius, Math.hypot(spot[0] - c[0], spot[2] - c[2]) + reach + outer);
   }
   return radius < 0 ? null : { centre: about === 'hood' ? { hood: true } : { core: true }, radius, halfHeight };
 }
@@ -413,7 +418,7 @@ export function litDiscs(g: Galaxy, lamp: Lamp, row: number, growth = 1): LitDis
       discs.push(coreDisc(g, halfHeight, growth));
       break;
     case Lamp.Arms:
-      // Each built system about its own star (the core dark): the arms are no one disc.
+      // Each built system about its own star, a binary's star where it is on its orbit (the core dark): the arms are no one disc.
       for (const s of g.systems) {
         const outer = bornSystemOuter(g, s, growth);
         if (outer > 0) discs.push({ centre: { body: g.bodies[s].id }, radius: outer, halfHeight });
@@ -948,9 +953,10 @@ export const POSE_TURN_DEG = (trackTurn({ a: 0, b: 0, mix: 0, turn: 1 }, AMBIENT
  *  - `df-3` (df-3 to df-5): the built twelve, lamp 5 (R0's lineage, through P1's rule).
  *  - `up-1`: R1 from §14.5's bearing, elevation and field, stood off (50, frame 0.8) so the other
  *    rules sit clear of the text with R1 low in the frame; 130 on a landscape screen. Lamp 4, the core.
- *  - `up-2`: the neighbourhood from §14.5's bearing and elevation, stood off (221, frame 0.85) so the
- *    healthy stars and the core keep under the text; 581 on a landscape screen (Task 1d's re-fit to the
- *    wider neighbourhood: the least whole distances that clear; 169 and 442 before). Lamp 3.
+ *  - `up-2`: the neighbourhood from §14.5's bearing and elevation, stood off (258, frame 0.85) so the
+ *    healthy stars and the core keep under the text; 678 on a landscape screen (re-skin Task 1e's
+ *    re-fit to the binary star-7 and star-14, whose stars swing about 13 units about their barycentre:
+ *    the least whole distances that clear; Task 1d's 221 and 581 before, and 169 and 442 before it). Lamp 3.
  * Each clears the text band at both sizes and every AMBIENT_GRID pose with what is built under its
  * line: the lamp-1 shots and the twelve by their projected visible bodies with their sprites (the lit
  * set's cylinder counts the whole galaxy's lift, far above a close piece, and the lineage's disc spans
@@ -986,11 +992,11 @@ export const DEFECT_SHOTS = {
     target: { hood: true },
     bearing: 0,
     elevation: 82,
-    distance: 221,
+    distance: 258,
     fov: 40,
     frame: 0.85,
     lamp: Lamp.Hood,
-    landscape: { distance: 581, frame: 0 },
+    landscape: { distance: 678, frame: 0 },
     ridesTurn: true,
   },
 } as const satisfies Record<string, GalaxyShot>;
@@ -1039,10 +1045,11 @@ const SPREAD_LAMPS = { follow: 0.027, toHood: 0.5, toReview: 0.965 } as const;
  *    bodies behind R0 dip into the band on a phone as the camera closes in over the page turn.
  *  - `fx-2`: R1 close from -60, framed 0.75 (at -15 a blue core body stood cut at the frame's edge
  *    in the band); R1 heals in the second half of its hold.
- *  - `fx-3` (fx-3 and fx-4): up-2's framing pulled back to 237, lamp 3: the two rules healed in the
- *    core, P7 and Q3 forming in plain blue (at §14.5's 60 both were out of the frame and the core in the
- *    band), then the sweep, hub to rim. 622 on a landscape screen (Task 1d's re-fit: 210 and 540
- *    before). fx-4 holds it: no move on that turn.
+ *  - `fx-3` (fx-3 and fx-4): up-2's framing at 258, lamp 3: the two rules healed in the core, P7 and
+ *    Q3 forming in plain blue (at §14.5's 60 both were out of the frame and the core in the band), then
+ *    the sweep, hub to rim. 678 on a landscape screen (re-skin Task 1e's re-fit to the binary, the least
+ *    whole distances that clear, as up-2's; Task 1d's 237 and 622 before, and 210 and 540 before it).
+ *    fx-4 holds it: no move on that turn.
  *  - `ls-1`: overhead of the core from ly-3's side, further off (270), lamp 3: the core in the middle,
  *    the stars in a ring round it, the arm's dust to the edges ("rings around a centre"). 420 on a
  *    landscape screen (Task 1d: at 400 under three-quarters of the wider neighbourhood's stars stood in
@@ -1124,11 +1131,11 @@ export const LATE_SHOTS = {
     target: { hood: true },
     bearing: 0,
     elevation: 82,
-    distance: 237,
+    distance: 258,
     fov: 40,
     frame: 0.85,
     lamp: Lamp.Hood,
-    landscape: { distance: 622, frame: 0 },
+    landscape: { distance: 678, frame: 0 },
     ridesTurn: true,
   },
   'ls-1': {
@@ -1188,6 +1195,12 @@ export interface Move {
    * which has nothing to pan (the same target and bearings). Marked, not inferred from the poses.
    */
   motion?: 'ride' | 'push';
+  /**
+   * A move that ends nearer pans first over this share of its scroll (MOVE_LEAD otherwise), so it
+   * swings to its new target quickly, and closes in over MOVE_LEAD as before. ly-5 swings to P_a as soon
+   * as ly-4's hold ends, so a phone sees no empty sky between star-4 and P_a.
+   */
+  pan?: number;
 }
 
 /**
@@ -1249,7 +1262,8 @@ export const NET_MOVES = {
  *  - `toLesson`: to ls-1 over the page turn into lesson. No one step from the neighbourhood's lamp
  *    to ls-1's clears the band over it (the pan lifts the neighbourhood's cylinder into the band on
  *    both screens), so the lamp passes through the core alone on the way, from fix 0.979 (0.986 before
- *    Task 1d's re-fit of fx-3) to lesson 0.026: the hub lights first, then the rings round it.
+ *    Task 1d's re-fit of fx-3) to lesson 0.029 (0.026 before re-skin Task 1e's re-fit of fx-3 to 258
+ *    and 678): the hub lights first, then the rings round it.
  */
 export const LATE_MOVES = {
   toReview: { shot: 're-1', from: spreadAt(2.708), until: ['reviewer', 0.03125], lamp: ['spread', SPREAD_LAMPS.toReview] },
@@ -1264,12 +1278,14 @@ export const LATE_MOVES = {
   toFix: { shot: 'fx-1', from: ['trace', 0.97058824], until: ['fix', 0.02173913], lamp: ['trace', 0.971] },
   panToR1: { shot: 'fx-2 pan', from: ['fix', 0.16173913], until: ['fix', 0.21], lamp: ['fix', 0.162] },
   inOnR1: { shot: 'fx-2', from: ['fix', 0.215], until: ['fix', 0.25], lamp: ['fix', 0.215], motion: 'push' },
-  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.463] },
+  // Its lamp step at 0.464, the first thousandth from which fx-3's lit set clears (0.463 before re-skin
+  // Task 1e's re-fit of fx-3, 0.458 before Task 1d's).
+  toNew: { shot: 'fx-3', from: ['fix', 0.42173913], until: ['fix', 0.5], lamp: ['fix', 0.464] },
   toLesson: {
     shot: 'ls-1',
     from: ['fix', 0.97826087],
     until: ['lesson', 0.0625],
-    lamp: ['lesson', 0.026],
+    lamp: ['lesson', 0.029],
     via: { at: ['fix', 0.979], lamp: Lamp.Core, on: { core: true } },
   },
 } as const satisfies Record<string, Move>;
@@ -1282,7 +1298,7 @@ export const ACT_TWO_MOVES: readonly Move[] = [
   { shot: 'ly-4 ride', from: LY4_RIDE.from, until: LY4_RIDE.until, lamp: LY4_RIDE.from, motion: 'ride' },
   // The lamp steps on the push's first thousandth, as the other moves' do, so the ride's end keeps Arms.
   { shot: 'ly-4 close', from: LY4_CLOSE.from, until: LY4_CLOSE.until, lamp: ['layers', LY4_CLOSE.from[1] + 0.001], motion: 'push' },
-  { shot: 'ly-5', from: layersAt(3.5), until: layersAt(3.7), lamp: layersAt(3.5) },
+  { shot: 'ly-5', from: layersAt(3.5), until: layersAt(3.7), lamp: layersAt(3.515), pan: 0.15 },
   { shot: 'fr-1', from: layersAt(4.2), until: ['far', 0.0625], lamp: ['far', 0.027] },
   NET_MOVES.dive,
   NET_MOVES.pushIn,
@@ -1602,20 +1618,20 @@ export type MovePose = CameraPose & Pick<Pose, 'track'>;
  * tracked point and the bearing) the camera is at `x` (0..1) of the scroll of `move`, from `a` to `b`.
  * A move marked one motion (Move `motion`) runs both together.
  */
-export function moveShares(move: Pick<Move, 'motion'>, a: MovePose, b: MovePose, x: number): { zoom: number; pan: number } {
+export function moveShares(move: Pick<Move, 'motion' | 'pan'>, a: MovePose, b: MovePose, x: number): { zoom: number; pan: number } {
   if (move.motion) {
     const u = inOut(Math.min(1, Math.max(0, x)));
     return { zoom: u, pan: u };
   }
-  const early = inOut(Math.min(1, Math.max(0, x / MOVE_LEAD)));
+  const early = inOut(Math.min(1, Math.max(0, x / (b.distance > a.distance ? MOVE_LEAD : (move.pan ?? MOVE_LEAD)))));
   const late = inOut(Math.min(1, Math.max(0, (x - (1 - MOVE_LEAD)) / MOVE_LEAD)));
   return b.distance > a.distance ? { zoom: early, pan: late } : { zoom: late, pan: early };
 }
 
 /** The part of a move's scroll (0..1) its pan runs over (moveShares). */
-export function panSpan(move: Pick<Move, 'motion'>, a: MovePose, b: MovePose): [number, number] {
+export function panSpan(move: Pick<Move, 'motion' | 'pan'>, a: MovePose, b: MovePose): [number, number] {
   if (move.motion) return [0, 1];
-  return b.distance > a.distance ? [1 - MOVE_LEAD, 1] : [0, MOVE_LEAD];
+  return b.distance > a.distance ? [1 - MOVE_LEAD, 1] : [0, move.pan ?? MOVE_LEAD];
 }
 
 /** The way from pose `a` to `b`, `zoom` of the pull and `pan` of the pan (each 0..1, already eased): angles, field and frame linear, distances log-linear. */
@@ -1718,7 +1734,12 @@ export function actTwoKeyPlaces(g: Galaxy): SectionAt[] {
     const last = out[out.length - 1];
     if (!last || last[0] !== move.from[0] || Math.abs(last[1] - move.from[1]) > 1e-9) out.push(move.from);
     const [a, b] = [screensOf(move.from), screensOf(move.until)];
-    for (let i = 1; i <= n; i++) out.push(i === n ? move.until : placeOf(a + ((b - a) * i) / n));
+    // A quick pan (Move `pan`) gets its own n keys over its share, then n over the rest.
+    const cuts = move.pan && to.distance <= from.distance ? [0, move.pan, 1] : [0, 1];
+    for (let c = 1; c < cuts.length; c++) {
+      const [u0, u1] = [cuts[c - 1], cuts[c]];
+      for (let i = 1; i <= n; i++) out.push(i === n && c === cuts.length - 1 ? move.until : placeOf(a + (b - a) * (u0 + ((u1 - u0) * i) / n)));
+    }
   }
   return out;
 }

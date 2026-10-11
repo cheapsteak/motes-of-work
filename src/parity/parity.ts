@@ -446,24 +446,31 @@ function moteCases(id: string, mech: Mechanism, draw: Draw): ParityCase[] {
 }
 
 /**
- * The ambient times the orbit cases sample (s): the start, revision 2's pose, two more, an hour less
- * a tenth, and a day, where an angle not reduced to one turn would show (the galaxy's turn is 72
- * turns in by then, swinging points a hundred units from N0).
+ * The ambient times the orbit cases sample (s): the start, the pose (AMBIENT_POSE), revision 2's pose,
+ * two more, an hour less a tenth, and a day, where an angle not reduced to one turn would show (the
+ * galaxy's turn is 72 turns in by then, swinging points a hundred units from N0).
  */
-const ORBIT_TIMES = [0, 37.3, 101, 953, 3599.9, 86_400];
+const ORBIT_TIMES = [0, AMBIENT_POSE, 37.3, 101, 953, 3599.9, 86_400];
 /** Rows drawn by hash on top of the named ones. */
 const ORBIT_HASHED_ROWS = 32;
 
 /**
- * The orbit sample: N0 (the origin), C1 and its six moons, P1 (C1's star), R0 and R1 in the core,
- * and ORBIT_HASHED_ROWS rows by hash over every body, at every one of ORBIT_TIMES.
+ * The orbit sample: N0 (the origin), C1 and its six moons, P1 (C1's star), R0 and R1 in the core; a
+ * binary (re-skin Task 1e): the first moon of a binary star's planet, that planet, its star and the
+ * barycentre they go round (the moon is three hops from it); and ORBIT_HASHED_ROWS rows by hash over
+ * every body, at every one of ORBIT_TIMES.
  */
 function orbitSample(g: Galaxy): number[] {
   const named = ['N0', 'C1', 'P1', 'R0', 'R1'].map((id) => g.ids[id]);
   const c1Moons = g.bodies.filter((b) => b.kind === 'moon' && b.host === g.ids.C1).map((b) => b.index);
   if (c1Moons.length !== 6) throw new Error(`orbit parity: C1 has ${c1Moons.length} moons, not 6`);
+  const moon = g.bodies.find((b) => b.kind === 'moon' && g.bodies[g.bodies[b.host].host].host >= 0);
+  if (!moon) throw new Error('orbit parity: no binary star has a moon round its planets');
+  const planet = g.bodies[moon.host];
+  const star = g.bodies[planet.host];
+  const binary = [moon.index, planet.index, star.index, star.host];
   const hashed = Array.from({ length: ORBIT_HASHED_ROWS }, (_, i) => pcg(i + 1) % g.bodies.length);
-  return [named[0], named[1], ...c1Moons, ...named.slice(2), ...hashed];
+  return [named[0], named[1], ...c1Moons, ...named.slice(2), ...binary, ...hashed];
 }
 
 function orbitCases(draw: Draw): ParityCase[] {

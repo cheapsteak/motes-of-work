@@ -50,7 +50,8 @@ vec3 orbitLocal(vec4 t1, vec4 t2, float t) {
   vec2 sE = moteSinCos(keplerE(M, e));
   float px = a * (sE.y - e);
   float py = a * sqrt(1.0 - e * e) * sE.x;
-  vec2 sw = moteSinCos(t2.x + ORBIT_TAU * orbitTurns(t, t2.y));
+  // Precession 0 is none: a binary's stars round their barycentre (orbit.ts).
+  vec2 sw = moteSinCos(t2.y == 0.0 ? t2.x : t2.x + ORBIT_TAU * orbitTurns(t, t2.y));
   float x = px * sw.y - py * sw.x;
   float z = px * sw.x + py * sw.y;
   vec2 sa = moteSinCos(t1.w);
@@ -66,7 +67,8 @@ float galaxyTurn(float t) {
   return ORBIT_TAU * orbitTurns(t, GALAXY_TURN_PERIOD);
 }
 
-// A body's place in the galaxy's own frame: up its host chain, at most three hops, to a spot.
+// A body's place in the galaxy's own frame: up its host chain, at most three hops (a moon of a binary
+// star's planet: moon, planet, star, to the barycentre), to a spot.
 vec3 bodyGalactic(int row, float t) {
   vec3 p = vec3(0.0);
   int r = row;

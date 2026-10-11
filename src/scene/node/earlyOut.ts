@@ -50,12 +50,14 @@ function homeView(f: EarlyOutFrame, data: BodyData, row: number): Vector4 {
 /**
  * A body's real form's share at the frame (bodyScreen.glsl bodyHoodReal): a neighbourhood star's by its
  * plain glow at its undisturbed place, `home` in view space (by default computed), held up to the
- * beats' hold; 1 for every other body.
+ * beats' hold; 1 for every other body. A binary's star's at its host, the pair's barycentre (Task 1e).
  */
 export function bodyHoodReal(f: EarlyOutFrame, data: BodyData, row: number, home = homeView(f, data, row)): number {
   if (Math.round(bodyTexel(data.bodies, 0, row)[3]) !== BODY_KIND.star) return 1;
+  const host = Math.round(bodyTexel(data.bodies, 3, row)[0]);
+  const at = host >= 0 ? homeView(f, data, host) : home;
   const focal = (0.5 * f.viewport.height * f.projection.elements[5]) / f.viewport.pixelRatio;
-  return hoodReal(hoodGlowPx(Math.hypot(home.x, home.y, home.z), focal), f.hoodHold);
+  return hoodReal(hoodGlowPx(Math.hypot(at.x, at.y, at.z), focal), f.hoodHold);
 }
 
 /**

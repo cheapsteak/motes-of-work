@@ -395,8 +395,9 @@ function gradAngle(seed: number, ch: number, o: number, iu: number, iv: number):
 /**
  * The background (the tuner's `generateBackground` on its wisps path at `WISPS_REVIEWED`, statement
  * for statement: the same draws on each stream, in the same order, rounded to float32 where it
- * rounds). `hood` is the neighbourhood's star spots: no background star is drawn where its halo would
- * touch one of theirs at the galaxy wide (`nearHood`), which is all the room they need.
+ * rounds). `hood` is the neighbourhood's systems' spots (a binary's barycentre for its pair): no
+ * background star is drawn where its halo would touch one of theirs at the galaxy wide (`nearHood`),
+ * which is all the room they need.
  */
 export function generateBackground(seed: number, tier: Tier, hood: readonly (readonly [number, number, number])[]): Background {
   const P = BG;

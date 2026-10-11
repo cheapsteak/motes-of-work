@@ -54,11 +54,13 @@ interface MotesTestHook {
   /** The last frame's drawn spikes on screen (BodySystem.spikes); null before the galaxy is built. */
   spikes(): ReturnType<BodySystem['spikes']> | null;
   /**
-   * The neighbourhood's dissolve at the last frame (re-skin §4.1): per star, in spot order, its plain
-   * glow (CSS px), its real form's share (BodySystem.hood), its far form's share at its far star's own
-   * place (GalaxySystem.farShares) and its centre on screen (CSS px); null before the galaxy is built.
+   * The neighbourhood's dissolve at the last frame (re-skin §4.1): per star, in row order, its plain
+   * glow (CSS px), its real form's share (BodySystem.hood), its unit's far form's share at its far
+   * star's own place (GalaxySystem.farShares: one far star per unit, a binary's at its barycentre),
+   * its centre on screen (CSS px), and its unit's index and spot on screen (sx, sy: a binary's
+   * barycentre); null before the galaxy is built.
    */
-  hoodLod(): { glowPx: number; real: number; far: number; x: number; y: number }[] | null;
+  hoodLod(): { glowPx: number; real: number; far: number; x: number; y: number; unit: number; sx: number; sy: number }[] | null;
   /** Hold a LodElement's gain at `gain` (null lets go), and redraw. */
   forceLod(el: LodElement, gain: number | null): void;
   /** Draw only the named meshes (null: all of them again), and redraw. */
@@ -235,9 +237,10 @@ if (renderer) {
     const data = packBodyData(g);
     galaxy = g;
     galaxyData = data;
+    // One far star per unit, on its spot: a binary's on its barycentre, so from afar a pair is one star.
     galaxyBackground = createGalaxySystem(
       g.background,
-      g.systems.map((i) => g.bodies[i].spot!),
+      g.units.map((i) => g.bodies[i].spot!),
       (t) => bodyGalactic(data, data.n0Row, t),
     );
     bodies = createBodySystem(g);
@@ -446,7 +449,7 @@ if (testMode) {
     hoodLod: () => {
       if (!bodies || !galaxyBackground) return null;
       const far = galaxyBackground.farShares();
-      return bodies.hood().map((s, k) => ({ ...s, far: far[k] }));
+      return bodies.hood().map((s) => ({ ...s, far: far[s.unit] }));
     },
     forceLod: (el, gain) => {
       bodies?.forceLod(el, gain);
