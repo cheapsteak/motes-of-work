@@ -53,6 +53,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The stills, the pixel gates and the layout checks were all measured where system-ui is DejaVu
+      # Sans. The image ships no DejaVu, so its system-ui falls to a face with other widths (a slider's
+      # value overflowed its column in compare.spec.ts). Install the face; print what system-ui is.
+      - name: The face the checks were measured with
+        run: |
+          echo "system-ui before: $(fc-match system-ui)"
+          apt-get update -qq && apt-get install -y -qq --no-install-recommends fonts-dejavu-core > /dev/null
+          echo "system-ui after: $(fc-match system-ui)"
       - name: e2e:full, shard ${{ matrix.shard }} of 8
         run: npm run e2e:full -- --shard=${{ matrix.shard }}/8 --reporter=blob,list
       - name: Upload the blob report
