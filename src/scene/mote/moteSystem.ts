@@ -81,6 +81,8 @@ export interface MoteSystemOptions {
 
 const QUAD = [-1, -1, 1, -1, 1, 1, -1, 1];
 const QUAD_INDEX = [0, 1, 2, 0, 2, 3];
+/** Each part group's keep share outside the reflow: every mote kept (read only while it runs). */
+const NO_REFLOW_KEEP: readonly number[] = Object.freeze(new Array<number>(8).fill(1));
 
 function instancedGeometry(
   instanced: Record<string, InstancedBufferAttribute>,
@@ -126,7 +128,7 @@ function moteUniforms(
     uMisallocated: { value: 0 },
     uReflow: { value: 0 },
     uBodies: { value: Array.from({ length: 8 }, () => new Vector4()) },
-    uReflowKeep: { value: new Array<number>(8).fill(1) },
+    uReflowKeep: { value: NO_REFLOW_KEEP },
     uViewport: viewport,
     uPixelRatio: pixelRatio,
     uShimmerOn: { value: 0 },
@@ -240,6 +242,11 @@ export function createMoteSystem(mech: Mechanism, budget: number, seed: number, 
         if (!bodies) throw new Error('MoteSystem.update: the reflow needs its bodies (reflowBodies)');
         bodies.forEach((b, k) => live.uBodies.value[k].set(b[0], b[1], b[2], b[3]));
         live.uReflowKeep.value = reflowKeep(bodies, counts);
+      } else {
+        // Unread at 0, but put back as built, so what the GPU holds is the frame's alone, not the
+        // last reflow's (the purity twin compares every uniform: src/purity/twin.ts).
+        for (const b of live.uBodies.value) b.set(0, 0, 0, 0);
+        live.uReflowKeep.value = NO_REFLOW_KEEP;
       }
       live.uStage.value = state.stage.motes;
       const shimmerOn = shimmerTime !== null && Number.isFinite(shimmerTime);
