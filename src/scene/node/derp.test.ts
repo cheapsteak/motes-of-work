@@ -172,6 +172,8 @@ describe('the kinds', () => {
   const events = (kind: DerpKind, n: number) => eventsOfKind(SEED, 0.37, kind, n);
 
   it('each kind reaches its extremum and no further', () => {
+    // Measured: 1.1 s on CI, 1.2 s alone, 5.0 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is 6 times the loaded time.
     // Skip: out to 0.55 r and up 0.2 r at s 0.6, never further; it rings home, never past a quarter.
     for (const e of events(DerpKind.Skip, 5)) {
       const peak = at('planet', e.at(0.6));
@@ -237,7 +239,7 @@ describe('the kinds', () => {
     expect(DERP_STAR_SHIVER * DERP_WOBBLE).toBeCloseTo(4 * 0.06, 12);
     expect(maxW).toBeLessThanOrEqual(4 * 0.06 * R);
     expect(maxW).toBeGreaterThan(0.9 * 4 * 0.06 * R);
-  });
+  }, 30_000);
 
   it('a star and the core only shiver, except for the scatter', () => {
     for (const kind of [DerpKind.Burst, DerpKind.Skip, DerpKind.Stall, DerpKind.Reverse, DerpKind.Wobble])

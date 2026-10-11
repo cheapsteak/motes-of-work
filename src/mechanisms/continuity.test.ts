@@ -90,13 +90,16 @@ describe.each(Object.entries(mechanisms))('part-pose continuity: %s', (_id, m) =
   });
 
   it.each([0, 0.25, 0.5, 0.75, 1])('every part moves continuously in drive at variant %s', (variant) => {
+    // Measured, the slowest mechanism: 0.8 s on CI, 1.4 s alone, 2.4 s locally at load 12-22 beside the full
+    // suite (strandbeest at 0.25 ran out of the default 5 s once under load). 30 s is over 12 times the
+    // loaded time.
     const coarse = largestSteps(driveSweep(m, variant, 1000), points);
     const fine = largestSteps(driveSweep(m, variant, 2000), points);
     expectHalving(coarse, fine, m, `at variant ${variant}`);
     // An absolute bound too. At 2000 steps the fastest honest motion (the watch's balance rim at the
     // bottom of its swing) travels about 0.08 a step; a flip through a half turn travels a unit or more.
     fine.forEach((s, i) => expect(s, `${m.parts[i].id} at variant ${variant}`).toBeLessThan(0.15));
-  });
+  }, 30_000);
 
   // Section by section, 2000 and 4000 steps each (twice that for a section longer than 4 screens):
   // the rewind unwinds 3 units of drive in one screen and the spec section rides 1.4 in under one,

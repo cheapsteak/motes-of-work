@@ -167,6 +167,8 @@ describe('strandbeest pose', () => {
   });
 
   it('solves every joint without a clamp over the whole ratio dial, at every variant', () => {
+    // Measured: under 0.3 s on CI, 0.3 s alone, 2.0 s locally at load 12-22 beside the full suite; the
+    // default 5 s would be only 2.5 times that. 30 s is 15 times.
     // Each part's transform tested plainly and the failures held to none once (Fails): an expect per
     // part per pose was six tenths of this test (4.0 s on CI, past 5 s under load).
     const fails = new Fails();
@@ -185,7 +187,7 @@ describe('strandbeest pose', () => {
     }
     expect(fails.count, String(fails)).toBe(0);
     expect(clamped).toBe(0);
-  });
+  }, 30_000);
 
   it('never produces NaN beyond the dial, where the out-of-range lower rocker clamps', () => {
     // Ratio 4 pushes the throw from 15 to 18.6: the pin comes close enough to the frame pivot that

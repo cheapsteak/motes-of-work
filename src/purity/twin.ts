@@ -155,6 +155,9 @@ export function describeRewind(scene: string): void {
   describe(`the rewind invariant in ${scene}, at every sample of the grid (the purity twin)`, () => {
     const jumps = new Map<string, Plain>();
     const before = fingerprint({ motes: shared.motes, galaxy: shared.galaxy!(galaxyTier(SCREEN.width, SCREEN.height)) });
+    // Timeouts measured: a sample takes 0.3-0.7 s on CI, 0.4-1.1 s alone and up to 6.0 s locally at load
+    // 12-22 beside the full suite, so 120 s is 20 times the loaded time; the last check takes 0.8-1.1 s on
+    // CI, 1.3 s alone and 4.7-7.0 s loaded, so 60 s is over 8 times. Both ran out of the default 5 s.
     for (const sample of samplesOf(scene)) {
       it(`${sample.name}: jumping, scrolling under a running clock, and scrolling past and back leave the GPU identical inputs`, { timeout: 120_000 }, () => {
         const p = sample.p(spans);

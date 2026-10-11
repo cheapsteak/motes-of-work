@@ -168,6 +168,8 @@ describe('background', () => {
   });
 
   it('the arms emerge without an edge', () => {
+    // Measured: 1.3 s on CI, 1.8 s alone, 8.7 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is over 3 times the loaded time.
     // shape-notes §9's cliff: stars at r 120–200, in 0.5σ bins of the cross-arm distance (σ the
     // yardstick, 3 + 6r/220), out to ±8σ (the farthest that every radius in the band reaches before
     // the next arm), among bins at 2 % of the peak or more: the largest step between neighbours is
@@ -190,7 +192,7 @@ describe('background', () => {
       expect(keys.length, tier).toBeGreaterThanOrEqual(30);
       expect(worst, tier).toBeLessThan(2);
     }
-  });
+  }, 30_000);
 
   it('keeps about half the old disc between the arms', () => {
     // shape-notes §11's inter-arm measure: of the old stars at r 80–160, the share farther than one old
@@ -280,6 +282,8 @@ describe('background', () => {
   });
 
   it('keeps every point in range', () => {
+    // Measured: 0.8 s on CI, 1.1 s alone, 6.9 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is over 4 times the loaded time.
     // Stars and dust inside the radius (measured, seed 1: stars to r 213.8 phone, 214.6 desktop; dust
     // 215.6 and 216.2: the disc fades out by discFadeEnd 1), none within coreExclusion 16 of the
     // centre; star brightness brightFloor 0.30 to 1 (oldDim 0 leaves the floor where it is); dust
@@ -301,9 +305,11 @@ describe('background', () => {
         expect(b).toBeLessThanOrEqual(Math.fround(BG.dustFloor + BG.dustRange));
       }
     }
-  });
+  }, 30_000);
 
   it('draws the tier counts, deterministically', () => {
+    // Measured: 0.9 s on CI, 1.3 s alone, 6.4 s locally at load 12-22 beside the full suite (it ran out of
+    // the default 5 s under load). 30 s is over 4 times the loaded time.
     for (const tier of TIERS) {
       const bg = generateBackground(1, tier, []);
       expect((bg.stars.length + bg.bright.length) / 4).toBe(BG.stars[tier]);
@@ -319,7 +325,7 @@ describe('background', () => {
       expect(other.stars).not.toEqual(bg.stars);
       expect(other.dust).not.toEqual(bg.dust);
     }
-  });
+  }, 30_000);
 
   it('gives the brightest 15 % to the bright set', () => {
     for (const tier of TIERS) {
