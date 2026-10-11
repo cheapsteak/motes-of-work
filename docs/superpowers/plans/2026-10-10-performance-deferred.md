@@ -9,7 +9,7 @@ the heavy vertex runs at the hood on a phone from 278k to 152k, and at fr-1 from
 
 ## 1. Task 3's fix round, parked on a branch
 
-Branch `perf-deferred` (pushed), four commits on a10f7d8, written in the review worktree:
+Branch `perf-deferred` in the archive repo `cheapsteak/motes-of-work-private` (pushed), four commits on a10f7d8, written in the review worktree:
 
 | Commit | What it does |
 |---|---|

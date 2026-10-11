@@ -10,6 +10,9 @@ The published pages are private links for the author.
 
 Add a row whenever the author decides something; never rewrite a past decision, supersede it.
 
+The work moved to this public repo on 2026-10-11. Commit ids from before that live in the archive repo
+`cheapsteak/motes-of-work-private`, which keeps the full earlier history.
+
 ## The galaxy
 
 | Decision | What it means | Prototype | Still |
@@ -73,10 +76,10 @@ difference the author accepts becomes a new row above.
 
 | Version | Commit | What it shows | Look check |
 |---|---|---|---|
-| 21 (2026-10-10) | 62ed247 (branch `reskin-v21`) | the wisps galaxy, the late dissolve, the hold at ly-3, up-2, fx-3 and ls-1 | independent judge: PUBLISH; every built row matches |
+| 21 (2026-10-10) | 62ed247 (branch `reskin-v21` in the archive repo `motes-of-work-private`) | the wisps galaxy, the late dissolve, the hold at ly-3, up-2, fx-3 and ls-1 | independent judge: PUBLISH; every built row matches |
 
 ## Process
 
 | Decision | What it means |
 |---|---|
-| Performance work waits until after the essay review (2026-10-10) | See `2026-10-10-performance-deferred.md`; the early-out's fix round is on branch `perf-deferred`. |
+| Performance work waits until after the essay review (2026-10-10) | See `2026-10-10-performance-deferred.md`; the early-out's fix round is on branch `perf-deferred` in the archive repo `motes-of-work-private`. |
