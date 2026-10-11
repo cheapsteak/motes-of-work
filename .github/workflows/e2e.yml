@@ -153,6 +153,9 @@ jobs:
           GREP: ${{ inputs.grep }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ needs.plan.outputs.total }}
+          # The blob reporter names its file from --shard, which a shard run with --test-list does not
+          # pass: every shard would write report.zip, and the merge below would read one zip over another.
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-${{ matrix.shard }}.zip
         run: |
           set -euo pipefail
           set -f
