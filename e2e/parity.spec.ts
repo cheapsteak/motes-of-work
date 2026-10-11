@@ -255,3 +255,36 @@ test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   // Every track row under seven lamps at three foci (the planet's own orbit and the moon tracks).
   expect(byName.get(TRACK_LAMP_CASE)!.samples).toBeGreaterThan(7 * 3 * 100);
 });
+
+// The black hole's twins (`?lib=hole`, re-skin Task 4): holeLens() over both images, in front of and
+// behind the hole, inside and outside the shadow, on the axis and past the view's edge; diskDot() over
+// a uniform sample of the disk's streak and haze dots through both images, and dots chosen across a
+// life boundary and in a hot life; ringDot(), jetDot(), knotDot() under the fronts (0, 0), (1, 0),
+// (1, 1) and (0.5, 0.2), infallDot(), strandDot() for both strands at R1's strand1 0, 0.3, 0.6 and 1 ×
+// heat 1, 0.4 and 0, and strandJoin() for both. Each at the ambients 0, the pose, 101 and 3599.9, from
+// two cameras (elevation 16 at 75, framed as the inspector; elevation 82 at 210), every HoleOut field.
+// Positions are world units (after the float-safe phase reduction), colours, alpha and the ember flag
+// shares, sizes CSS px: all to 1e-3. holeLens's ok to 1e-4.
+const HOLE_CASES = ['holeLens', 'diskDot', 'ringDot', 'jetDot', 'knotDot', 'infallDot', 'strandDot', 'strandJoin'].map((c) => `hole: ${c}`);
+const HOLE_TOLERANCE = 1e-3;
+const HOLE_LENS_OK = 'hole: holeLens ok';
+/** holeLens's points (holeCases.ts LENS_POINTS). */
+const HOLE_LENS_POINTS = 12;
+
+test('GLSL hole twins match the TS reference (?lib=hole)', async ({ page }) => {
+  const { errors, ...parity } = await runParity(page, '&lib=hole');
+  expect(errors).toEqual([]);
+  expect(parity.error).toBeUndefined();
+  const byName = new Map(parity.cases.map((c) => [c.name, c]));
+  expect([...byName.keys()].sort()).toEqual([...HOLE_CASES, HOLE_LENS_OK, 'hash01', 'pcg goldens'].sort());
+  for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(c.name === HOLE_LENS_OK ? 1e-4 : HOLE_TOLERANCE);
+  // Each part's inputs × the 4 ambients × the 2 cameras.
+  expect(byName.get('hole: holeLens')!.samples).toBe(HOLE_LENS_POINTS * 2 * 4 * 2);
+  expect(byName.get('hole: diskDot')!.samples).toBeGreaterThan(600 * 2 * 4 * 2);
+  expect(byName.get('hole: ringDot')!.samples).toBe(320 * 4 * 2);
+  expect(byName.get('hole: jetDot')!.samples).toBe(1200 * 4 * 2);
+  expect(byName.get('hole: knotDot')!.samples).toBe(768 * 4 * 4 * 2);
+  expect(byName.get('hole: infallDot')!.samples).toBe(72 * 4 * 2);
+  expect(byName.get('hole: strandDot')!.samples).toBe(250 * 4 * 3 * 4 * 2);
+  expect(byName.get('hole: strandJoin')!.samples).toBe(2 * 4 * 2);
+});

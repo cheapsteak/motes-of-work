@@ -23,6 +23,8 @@
 // four ambients and starTint() over the temperatures.
 // `?lib=freeze` compares the freeze frame's dressing (src/scene/node/freeze.ts): the copies, the limb,
 // every mote of both bursts at four states of the fix and both of the twos' length sets, and the breath.
+// `?lib=hole` compares the black hole (src/scene/hole/hole.ts): the lens, and every part's dots from two
+// cameras at four ambients (holeCases.ts).
 import {
   BufferAttribute,
   DataTexture,
@@ -33,7 +35,9 @@ import {
   NearestFilter,
   NoBlending,
   type Object3D,
+  Matrix3,
   OrthographicCamera,
+  Vector3,
   Vector4,
   Points,
   RawShaderMaterial,
@@ -63,7 +67,18 @@ import { bodyMote, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyM
 import { feedGain, streamBandMask, streamDot, streamGain } from '../scene/node/stream';
 import { AMBIENT_POSE } from '../galaxy/ambient';
 import { bodyWorld } from '../scene/node/orbit';
-import { withDerpLibrary, withFreezeLibrary, withGalaxyLibrary, withLodLibrary, withOrbitLibrary, withShellLibrary, withStarLibrary } from '../scene/node/shaderSource';
+import {
+  withDerpLibrary,
+  withFreezeLibrary,
+  withGalaxyLibrary,
+  withHoleLibrary,
+  withLodLibrary,
+  withOrbitLibrary,
+  withShellLibrary,
+  withStarLibrary,
+} from '../scene/node/shaderSource';
+import { buildHoleAttrs } from '../scene/hole/holeAttrs';
+import { HOLE_CAMERAS, HolePart, holeParityCases, holeParityView, holeReference, lensInput, type HoleCamera, type HoleSample } from './holeCases';
 import { starBreath, starDot, starSpike, starTint } from '../scene/node/star';
 import { STAR_DOTS } from '../scene/node/classLook';
 import type { StarLook } from '../galaxy/body';
@@ -94,6 +109,7 @@ import {
   DERP_PARITY_FIELDS,
   fieldValues,
   FREEZE_PARITY_FIELDS,
+  HOLE_PARITY_FIELDS,
   LOD_PARITY_FIELDS,
   ORBIT_PARITY_FIELDS,
   parityPasses,
@@ -115,6 +131,7 @@ import {
   DERP_VERTEX,
   FREEZE_VERTEX,
   HASH_VERTEX,
+  HOLE_VERTEX,
   LOD_VERTEX,
   MOTE_VERTEX,
   ORBIT_VERTEX,
@@ -188,8 +205,8 @@ function pointsGeometry(count: number): InstancedBufferGeometry {
 /** Render one object into the SIZE×SIZE float target and read it back. */
 type Draw = (object: Object3D) => Float32Array;
 
-type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'lod' | 'body' | 'freeze' | 'star';
-const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'lod', 'body', 'freeze', 'star'];
+type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'lod' | 'body' | 'freeze' | 'star' | 'hole';
+const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'lod', 'body', 'freeze', 'star', 'hole'];
 
 function run(lib: Lib): ParityCase[] {
   const canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -288,6 +305,9 @@ function run(lib: Lib): ParityCase[] {
   } else if (lib === 'freeze') {
     // --- The freeze frame's dressing: every FreezeOut field compared with the TS reference, over a grid. ---
     cases.push(freezeCase(draw));
+  } else if (lib === 'hole') {
+    // --- The black hole: every HoleOut field compared with the TS reference, from two cameras. ---
+    for (const c of holeParity(draw)) cases.push(c);
   } else {
     // --- mote(): every MoteOut field compared with the TS reference, for every registered mechanism. ---
     for (const [id, mech] of Object.entries(mechanisms) as [string, Mechanism][]) {
@@ -1362,6 +1382,77 @@ function freezeCase(draw: Draw): ParityCase {
   }
   mat.dispose();
   return { name: 'freeze: the copies, the limb and the bursts', maxError, samples: samples.length };
+}
+
+/** A hole sample's attributes from `lo` (aHoleA 0, aHoleB 4, aHoleC 8), zero past its own: a holeLens sample's aHoleA its point about `cam`'s hole. */
+function holeAttribute(s: HoleSample, cam: HoleCamera, lo: number): number[] {
+  const v = s.part === HolePart.lens && lo === 0 ? lensInput(s, cam) : [...s.a.subarray(lo, lo + 4)];
+  return [0, 1, 2, 3].map((j) => v[j] ?? 0);
+}
+
+/**
+ * The hole cases (holeCases.ts), each drawn from both cameras in batches of COUNT: every HoleOut field
+ * compared with its TS reference, to the larger error; and holeLens's ok alone, its own case.
+ */
+function holeParity(draw: Draw): ParityCase[] {
+  const uniforms: Record<string, IUniform> = {
+    uPass: { value: 0 },
+    uHoleCam: { value: new Vector3() },
+    uHoleViewRot: { value: new Matrix3() },
+    uHoleHv: { value: new Vector3() },
+    uHoleGain: { value: 1 },
+  };
+  const mat = material(withHoleLibrary(HOLE_VERTEX), PARITY_FRAGMENT, uniforms);
+  const passes = parityPasses(HOLE_PARITY_FIELDS);
+  const out: ParityCase[] = [];
+  for (const c of holeParityCases(buildHoleAttrs(MOTE_SEED))) {
+    let err = 0;
+    let okErr = 0;
+    for (const cam of HOLE_CAMERAS) {
+      const v = holeParityView(cam, 0);
+      (uniforms.uHoleCam.value as Vector3).fromArray(v.cam);
+      (uniforms.uHoleViewRot.value as Matrix3).fromArray(v.viewRot);
+      (uniforms.uHoleHv.value as Vector3).fromArray(v.hv);
+      uniforms.uHoleGain.value = v.gain;
+      for (let from = 0; from < c.samples.length; from += COUNT) {
+        const batch = c.samples.slice(from, from + COUNT);
+        const geometry = pointsGeometry(batch.length);
+        for (const [name, lo] of [
+          ['aHoleA', 0],
+          ['aHoleB', 4],
+          ['aHoleC', 8],
+        ] as const)
+          geometry.setAttribute(name, new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => holeAttribute(s, cam, lo))), 4));
+        geometry.setAttribute('aHoleIn', new InstancedBufferAttribute(new Float32Array(batch.flatMap((s) => [s.part, ...s.input])), 4));
+        geometry.setAttribute('aHoleT', new InstancedBufferAttribute(new Float32Array(batch.map((s) => s.t)), 1));
+        const points = new Points(geometry, mat);
+        points.frustumCulled = false; // positions come from gl_InstanceID
+        const outs = passes.map((_, pass) => {
+          uniforms.uPass.value = pass;
+          return draw(points);
+        });
+        geometry.dispose();
+        batch.forEach((s, i) => {
+          const want = holeReference(s, cam);
+          passes.forEach((pass, j) => {
+            for (const { field, offset } of pass) {
+              fieldValues(want, field.name).forEach((value, q) => {
+                const diff = outs[j][i * 4 + offset + q] - value;
+                const e = Number.isNaN(diff) ? Infinity : Math.abs(diff);
+                err = Math.max(err, e);
+                if (field.name === 'ok') okErr = Math.max(okErr, e);
+              });
+            }
+          });
+        });
+      }
+    }
+    const samples = c.samples.length * HOLE_CAMERAS.length;
+    out.push({ name: c.name, maxError: err, samples });
+    if (c.name === 'hole: holeLens') out.push({ name: 'hole: holeLens ok', maxError: okErr, samples });
+  }
+  mat.dispose();
+  return out;
 }
 
 function report(cases: ParityCase[], error?: string): void {

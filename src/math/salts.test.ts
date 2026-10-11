@@ -6,6 +6,9 @@ import moteTs from '../scene/mote/mote.ts?raw';
 import lightGlsl from '../scene/node/light.glsl?raw';
 import lightTs from '../scene/node/light.ts?raw';
 import bodyAttrsTs from '../scene/node/bodyAttrs.ts?raw';
+import holeGlsl from '../scene/hole/hole.glsl?raw';
+import holeTs from '../scene/hole/hole.ts?raw';
+import holeLookTs from '../scene/hole/holeLook.ts?raw';
 import { glslSaltConstants, glslSaltName, SALT, type SaltName } from './salts';
 
 /** `name -> value` for every `const uint SALT_X = Nu;` line in a GLSL chunk. */
@@ -46,6 +49,28 @@ describe('SALT', () => {
       starDotZ: 27,
       starDotAzimuth: 28,
       starDotRadius: 29,
+      // The black hole (re-skin Task 4): the knots, the jets, the in-fall and the strands, then the disk's motion.
+      knotLaunch: 30,
+      knotEmber: 31,
+      jetSpeed: 32,
+      infallPeriod: 33,
+      infallOffset: 34,
+      infallTilt: 35,
+      infallSide: 36,
+      infallAzimuth: 37,
+      infallFrom: 38,
+      infallTo: 39,
+      infallWind: 40,
+      strandBright: 41,
+      diskPhase: 42,
+      diskLifeR: 43,
+      diskLifeAngle: 44,
+      diskLifeLen: 45,
+      diskLifeBright: 46,
+      diskLifePitch: 47,
+      diskHot: 48,
+      hazePhase: 49,
+      hazeAngle: 50,
     });
   });
 
@@ -71,13 +96,14 @@ describe('salt call sites', () => {
       ['mote.glsl', moteGlsl],
       ['instance.glsl', instanceGlsl],
       ['light.glsl', lightGlsl],
+      ['hole.glsl', holeGlsl],
     ]) {
       const calls = src.split('\n').filter((l) => /\bhash01\(/.test(l) && !/^\s*float hash01\(uint/.test(l));
       expect(calls.length, file).toBeGreaterThan(0);
       for (const line of calls) expect(line, file).toMatch(/hash01\(.*,\s*SALT_[A-Z0-9_]+\)/);
     }
     const generated = new Set(parseGlslSalts(glslSaltConstants()).keys());
-    const used = new Set([...(moteGlsl + instanceGlsl + lightGlsl).matchAll(/\bSALT_[A-Z0-9_]+/g)].map((m) => m[0]));
+    const used = new Set([...(moteGlsl + instanceGlsl + lightGlsl + holeGlsl).matchAll(/\bSALT_[A-Z0-9_]+/g)].map((m) => m[0]));
     expect(used.size).toBeGreaterThan(0);
     for (const name of used) expect(generated.has(name), name).toBe(true);
   });
@@ -88,6 +114,8 @@ describe('salt call sites', () => {
       ['mote.ts', moteTs],
       ['light.ts', lightTs],
       ['bodyAttrs.ts', bodyAttrsTs],
+      ['hole.ts', holeTs],
+      ['holeLook.ts', holeLookTs],
     ]) {
       const calls = src.split('\n').filter((l) => /\bhash01\(/.test(l) && !/^import/.test(l));
       expect(calls.length, file).toBeGreaterThan(0);

@@ -14,12 +14,16 @@
 // (bodySystem.ts) put their libraries together once: the mote library, orbit.glsl, shell.glsl,
 // star.glsl, lod.glsl, light.glsl and freeze.glsl, then the instance chunk (withGalaxyLibrary).
 // star.glsl (a star's dots and spikes) needs its generated constants (classLook.ts), with the mote
-// library and orbit.glsl (orbitTurns) before it.
+// library and orbit.glsl (orbitTurns) before it. hole.glsl (the black hole: its lens, disk, ring, jets,
+// knots, in-fall and strands) needs its generated constants (holeLook.ts), with the mote library
+// (pcg, hash01, the SALT constants, moteSinCos) and orbit.glsl (orbitTurns) before it.
 import { glslBodyMoteOutStruct, glslDerpStruct } from '../../parity/fields';
 import { instanceChunk, moteLibraryGlsl, splice, spliceAll } from '../mote/shaderSource';
 import { glslBodyMoteConstants, glslDerpConstants, glslFreezeConstants, glslLightConstants, glslOrbitConstants, glslShellConstants } from './birth';
 import { glslGalaxyConstants } from './bodyAttrs';
 import { glslClassLookConstants } from './classLook';
+import { glslHoleConstants } from '../hole/holeLook';
+import holeGlsl from '../hole/hole.glsl?raw';
 import { BODY_KIND } from './bodyData';
 import { glslLodConstants } from './lod';
 import { glslStreamConstants } from './stream';
@@ -120,6 +124,22 @@ export function starLibraryGlsl(): string {
 /** Splice the mote library (hash01, moteSinCos), orbit.glsl (orbitTurns) and star.glsl into a vertex shader at its marker (the star parity shader). */
 export function withStarLibrary(vertex: string): string {
   return splice(vertex, STAR_INCLUDE_MARKER, `${WITH_ORBIT}\n${STAR_LIBRARY}`, 'star vertex shader');
+}
+
+const HOLE_CONSTANTS_MARKER = '// #include HOLE constants (generated from src/scene/hole/holeLook.ts by shaderSource.ts)';
+/** The line a vertex shader (the hole's, and its parity shader) carries where the mote library, orbit.glsl and hole.glsl go. */
+export const HOLE_INCLUDE_MARKER = '// #include mote.glsl + orbit.glsl + hole.glsl (spliced in by src/scene/node/shaderSource.ts)';
+
+const HOLE_LIBRARY = spliceAll(holeGlsl, 'hole.glsl', [[HOLE_CONSTANTS_MARKER, glslHoleConstants()]]);
+
+/** hole.glsl with the hole's generated constants: the lens and every part's dots, without the mote library and orbit.glsl it reads. */
+export function holeLibraryGlsl(): string {
+  return HOLE_LIBRARY;
+}
+
+/** Splice the mote library (pcg, hash01, moteSinCos), orbit.glsl (orbitTurns) and hole.glsl into a vertex shader at its marker (the hole's shader, the hole parity shader). */
+export function withHoleLibrary(vertex: string): string {
+  return splice(vertex, HOLE_INCLUDE_MARKER, `${WITH_ORBIT}\n${HOLE_LIBRARY}`, 'hole vertex shader');
 }
 
 const LOD_CONSTANTS_MARKER = '// #include LOD constants (generated from src/scene/node/lod.ts by shaderSource.ts)';

@@ -46,6 +46,17 @@ describe('the galaxy streams', () => {
     expect(streamFor(1, 'binaries', 4096 * 1003 + 1007)()).not.toBe(streamFor(1, 'spots', 4096 * 1003 + 1007)());
   });
 
+  it("draws the black hole's parts from 23-28 (re-skin Task 4), below planetHue 29 and binaries 30", () => {
+    expect([
+      STREAM_SALT.holeDisk,
+      STREAM_SALT.holeJet,
+      STREAM_SALT.holeKnot,
+      STREAM_SALT.holeRing,
+      STREAM_SALT.holeInfall,
+      STREAM_SALT.holeStrand,
+    ]).toEqual([23, 24, 25, 26, 27, 28]);
+  });
+
   it("leaves 15, 16, 20 and 21 unused: the tuner's bgSpurs, bgTemp, bgHoodLook and bgHoodJitter", () => {
     const salts: number[] = Object.values(STREAM_SALT);
     for (const reserved of [15, 16, 20, 21]) expect(salts, String(reserved)).not.toContain(reserved);

@@ -31,7 +31,16 @@ export const STREAM_SALT = {
   // The along-arm modulation: the tuner's 14, which is starLook here, so it moved past it (and in the
   // tuner's gen.js with it).
   bgArmMod: 22,
-  // 23-29 are the black hole's (Task 4) and planetHue (Task 7), appended by those tasks.
+  // The black hole's parts (re-skin Task 4), one stream per dot of each (holeAttrs.ts): the disk (its
+  // streaks' own at 100,000 + k), the jets, the knots, the photon ring, the in-fall (its falls are
+  // shader hashes: registered, nothing drawn on the CPU yet) and the strands (R0's at 10,000 + i).
+  holeDisk: 23,
+  holeJet: 24,
+  holeKnot: 25,
+  holeRing: 26,
+  holeInfall: 27,
+  holeStrand: 28,
+  // 29 is planetHue (Task 7), appended by that task.
   // The neighbourhood's binaries (re-skin Task 1e), keyed by pair (4096 × lower star key + higher):
   // the keep draw, then the eccentricity, the periapsis and the phase.
   binaries: 30,

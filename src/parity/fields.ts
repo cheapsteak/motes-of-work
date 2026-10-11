@@ -307,3 +307,35 @@ export function glslFreezeOutStruct(): string {
 export function glslStreamOutStruct(): string {
   return glslOutStruct('StreamOut', 'STREAM_PARITY_FIELDS', STREAM_PARITY_FIELDS);
 }
+
+/**
+ * The black hole's twins (`?lib=hole`, src/scene/hole/hole.ts): a dot's view-space place after the
+ * lens, its alpha, colour and CSS size, the lens's ok, a knot's ember flag (0 for the other parts) and
+ * its size in device px at its depth at pixel ratio 2 (holeDotPx). A holeLens case fills view and ok, a
+ * strandJoin case view (the join, in the hole's frame).
+ */
+export interface HoleOut {
+  view: Vec3;
+  alpha: number;
+  rgb: Vec3;
+  sizeCss: number;
+  ok: number;
+  ember: number;
+  px: number;
+}
+
+/** What the hole parity mode compares. The hole parity shader's HoleOut struct is generated from this list (glslHoleOutStruct). */
+export const HOLE_PARITY_FIELDS: readonly ParityField<HoleOut>[] = [
+  { name: 'view', size: 3 },
+  { name: 'alpha', size: 1 },
+  { name: 'rgb', size: 3 },
+  { name: 'sizeCss', size: 1 },
+  { name: 'ok', size: 1 },
+  { name: 'ember', size: 1 },
+  { name: 'px', size: 1 },
+];
+
+/** The GLSL HoleOut struct, from HOLE_PARITY_FIELDS. */
+export function glslHoleOutStruct(): string {
+  return glslOutStruct('HoleOut', 'HOLE_PARITY_FIELDS', HOLE_PARITY_FIELDS);
+}

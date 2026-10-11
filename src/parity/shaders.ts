@@ -7,6 +7,7 @@ import {
   DERP_INCLUDE_MARKER,
   FREEZE_INCLUDE_MARKER,
   GALAXY_INCLUDE_MARKER,
+  HOLE_INCLUDE_MARKER,
   LOD_INCLUDE_MARKER,
   ORBIT_INCLUDE_MARKER,
   SHELL_INCLUDE_MARKER,
@@ -17,7 +18,9 @@ import {
   DERP_PARITY_FIELDS,
   FREEZE_PARITY_FIELDS,
   glslFreezeOutStruct,
+  glslHoleOutStruct,
   glslLodOutStruct,
+  HOLE_PARITY_FIELDS,
   glslOrbitOutStruct,
   glslPassOutput,
   glslShellOutStruct,
@@ -427,6 +430,65 @@ void main() {
   o.tickWarm = freezeTickWarm(source, int(round(aTickIn.y))) ? 1.0 : 0.0;
   o.breath = freezeBreath(aTickClock.w);
   ${passSelect(parityPasses(FREEZE_PARITY_FIELDS))}
+  else vOut = vec4(0.0);
+${PLACE_ON_TEXEL}
+}
+`;
+
+/**
+ * The black hole (`?lib=hole`): one instance a sample, its part in aHoleIn.x (0 holeLens, 1 diskDot,
+ * 2 ringDot, 3 jetDot, 4 knotDot, 5 infallDot, 6 strandDot, 7 strandJoin), the dot's own attributes
+ * (aHoleA, aHoleB and the disk's aHoleC: holeAttrs.ts; a holeLens case's point in aHoleA.xyz, a
+ * strandJoin's strand in aHoleA.x), its image, the fronts or the window and heat in aHoleIn.yzw, and
+ * its ambient in aHoleT; the camera as uniforms, as hole.ts HoleView. Carries the hole include marker:
+ * build with withHoleLibrary().
+ */
+export const HOLE_VERTEX = /* glsl */ `
+precision highp float;
+precision highp int;
+
+${HOLE_INCLUDE_MARKER}
+
+${glslHoleOutStruct()}
+
+in vec3 position; // the single non-instanced vertex, at the origin
+in vec4 aHoleA;
+in vec4 aHoleB;
+in vec4 aHoleC;
+in vec4 aHoleIn; // part, image, and the fronts (ember, clean) or the window and heat (head, heat)
+in float aHoleT; // the ambient
+uniform vec3 uHoleCam;
+uniform mat3 uHoleViewRot;
+uniform vec3 uHoleHv;
+uniform float uHoleGain;
+uniform int uPass;
+flat out vec4 vOut;
+
+void main() {
+  HoleView v = HoleView(aHoleT, uHoleCam, uHoleViewRot, uHoleHv, uHoleGain);
+  int part = int(round(aHoleIn.x));
+  HoleDot d = HoleDot(vec3(0.0), vec3(0.0), 0.0, 0.0, 0.0);
+  float ember = 0.0;
+  if (part == 0) {
+    vec4 l = holeLens(aHoleA.xyz, uHoleHv, aHoleIn.y, HOLE_LOOK_SCALE);
+    d.view = l.xyz;
+    d.ok = l.w;
+  } else if (part == 1) d = diskDot(aHoleA, aHoleB, aHoleC, v, aHoleIn.y);
+  else if (part == 2) d = ringDot(aHoleA, aHoleB, v);
+  else if (part == 3) d = jetDot(aHoleA, aHoleB, v);
+  else if (part == 4) d = knotDot(aHoleA, aHoleB, v, aHoleIn.zw, ember);
+  else if (part == 5) d = infallDot(aHoleA, aHoleB, v);
+  else if (part == 6) d = strandDot(aHoleA, aHoleB, v, aHoleIn.zw);
+  else if (part == 7) d.view = strandJoin(aHoleA.x, aHoleT);
+  HoleOut o;
+  o.view = d.view;
+  o.alpha = d.alpha;
+  o.rgb = d.rgb;
+  o.sizeCss = d.sizeCss;
+  o.ok = d.ok;
+  o.ember = ember;
+  o.px = holeDotPx(d.sizeCss, -d.view.z, 2.0);
+  ${passSelect(parityPasses(HOLE_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}
 }

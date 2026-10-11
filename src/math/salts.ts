@@ -30,6 +30,28 @@ export const SALT = {
   starDotZ: 27, // star.ts starDot(): a star's dot's height on the unit sphere (its direction)
   starDotAzimuth: 28, // and its azimuth
   starDotRadius: 29, // and its distance from the centre, in units of R (the core's gaussian or the halo's exponential)
+  // The black hole (hole.ts / hole.glsl), each hash of a holeSeed (holeLook.ts): a knot's launch jitter and ember draw,
+  knotLaunch: 30,
+  knotEmber: 31,
+  jetSpeed: 32, // a jet dot's drift speed
+  infallPeriod: 33, // an in-fall slot's period and its phase,
+  infallOffset: 34,
+  infallTilt: 35, // and each fall's tilt out of the plane, its side, its azimuth, its start and end radii and its winding
+  infallSide: 36,
+  infallAzimuth: 37,
+  infallFrom: 38,
+  infallTo: 39,
+  infallWind: 40,
+  strandBright: 41, // a strand dot's brightness
+  diskPhase: 42, // a disk streak's phase in its lives,
+  diskLifeR: 43, // and each life's centre radius, angle, length, brightness, pitch and hot flag
+  diskLifeAngle: 44,
+  diskLifeLen: 45,
+  diskLifeBright: 46,
+  diskLifePitch: 47,
+  diskHot: 48,
+  hazePhase: 49, // a haze dot's phase in its lives, and each life's angle
+  hazeAngle: 50,
 } as const;
 
 export type SaltName = keyof typeof SALT;
