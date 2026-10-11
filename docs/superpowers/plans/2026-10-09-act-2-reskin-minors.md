@@ -112,5 +112,5 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **The two netShots layers sweeps went from 300 s to 900 s** before 91a2f91's bound; re-measure and bring the timeouts back down if the bound recovered the time.
 - [ ] **The reduced-motion test waits 1000 ms before comparing** (`e2e/reducedMotion.spec.ts`); the brief says the hole stops at the pose on the next frame. The test proves it stops, not when.
 - [ ] **For the author (look):** R0's clean blue strand reads as blue arcs on the warm receding half; the shadow blanks background stars while the hole is unlit (up to 23 px radius in the move into ly-2, before its lamp step).
-- [ ] **gpuInputs does not check `updateRanges` on the index or interleaved data**, and does not read interleaved `stride` or `gpuType` (re-review of fix round 1).
-- [ ] **`assertDefaults` skips every underscore-prefixed field**, not only fields behind read getters (re-review of fix round 1).
+- [ ] **Test speed: gpuInputs does not check `updateRanges` on the index or interleaved data**, and does not read interleaved `stride` or `gpuType` (re-review of fix round 1).
+- [ ] **Test speed: `assertDefaults` skips every underscore-prefixed field**, not only fields behind read getters (re-review of fix round 1).
