@@ -21,7 +21,8 @@ npm ci
 npm run dev         # Vite dev server
 npm run typecheck   # tsc --noEmit
 npm test            # unit tests (Vitest), including the story content lint
-npm run e2e         # Playwright end-to-end tests; builds and previews the site on :4173
+npm run e2e:task    # the e2e tier a task ends with: every spec but the full-only ones (e2e/tiers.ts)
+npm run e2e:full    # every e2e test (also `npm run e2e`); builds and previews the site on :4173
 npm run shots       # screenshots of every story beat, and of every mechanism at a three-quarter view (states, faults), written to shots/ (SHOTS=1 e2e/shots.spec.ts)
 npm run build       # production build into dist/
 ```
@@ -30,7 +31,13 @@ The e2e tests run Chromium on software WebGL (SwiftShader), launched with `--use
 --enable-unsafe-swiftshader --ignore-gpu-blocklist` (see `playwright.config.ts`). A frame of the 100k-mote
 cloud takes a couple of seconds there, so `npm run e2e` takes minutes. `@playwright/test` is pinned to
 `1.56.1` and `PLAYWRIGHT_BROWSERS_PATH` is preset to the machine's browser directory
-(`/opt/pw-browsers`): never run `playwright install` locally. CI installs its own Chromium.
+(`/opt/pw-browsers`): never run `playwright install` locally.
+
+The e2e suite has two tiers. `e2e:full` runs before a push to `main` and before a publish; `e2e:task` leaves
+out the specs tagged `@full-only` (purity, reduced motion and the pages), and a unit test
+(`src/e2eTiers.test.ts`) fails if a spec file falls out of both. The rewind invariant is checked in two
+places: the purity twin (`src/purity/`) drives the page's own stage in Node through every sample of the
+grid and compares what each path leaves for the GPU, and `e2e/purity.spec.ts` is its browser fence.
 
 ### URL parameters
 
