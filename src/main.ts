@@ -1,22 +1,14 @@
-import { Color, Group, InstancedBufferGeometry, type Mesh, Scene, Vector2, WebGLRenderer } from 'three';
+import { Color, InstancedBufferGeometry, type Mesh, Vector2, WebGLRenderer } from 'three';
 import { mountAutoAdvance, type AutoAdvance } from './autoAdvance/indicator';
 import { autoAdvanceSettings, autoStops, sceneMotion } from './autoAdvance/plan';
 import { ACTIVE_MECHANISM, AUTO_ADVANCE, MOTE_BUDGET_DESKTOP, MOTE_SEED } from './config';
 import { mountCredits } from './credits/credits';
-import { mechanismAnchors } from './mechanisms/anchors';
 import { galaxyTier } from './galaxy/background';
-import { bodyIndex, galaxyBudget, generateGalaxy, type Galaxy } from './galaxy/generate';
 import { isMechanismId, mechanisms, type MechanismId } from './mechanisms';
 import type { AmbientClock } from './scene/ambientClock';
-import { createEssayCamera } from './scene/cameraRig';
-import { createInkSystem, type InkSystem } from './scene/ink/inkSystem';
-import { reflowBodies } from './scene/mote/mote';
-import { createMoteSystem, type MoteSystem } from './scene/mote/moteSystem';
-import { createGalaxySystem, type GalaxySystem } from './scene/galaxy/galaxySystem';
-import { packBodyData, type BodyData } from './scene/node/bodyData';
-import { createBodySystem, type BodySystem, type FreezeFrame } from './scene/node/bodySystem';
+import type { BodySystem } from './scene/node/bodySystem';
 import type { LodElement } from './scene/node/lod';
-import { bodyGalactic } from './scene/node/orbit';
+import { createStage, galaxyLead, needsGalaxy, type Stage } from './scene/stage';
 import { createScrollDriver } from './scroll/driver';
 import { scrollYForProgress, sectionSpans } from './scroll/progress';
 import { applyBrief, briefThresholds, parseBrief } from './story/brief';
@@ -25,7 +17,6 @@ import { loadStory } from './story/loader';
 import { storyLooks } from './story/reveal';
 import { KeyframeSampler, type KeyframeFile } from './timeline/keyframeSampler';
 import keyframes from './timeline/keyframes.json';
-import { composeEssayCamera } from './timeline/netTrack';
 import { mergeState, type SceneState } from './timeline/sceneState';
 import './style.css';
 
@@ -129,7 +120,6 @@ function stateOverride(raw: string | null): unknown {
 
 const mechanismId = chooseMechanism(params.get('mech'));
 const mechanism = mechanisms[mechanismId];
-const anchors = mechanismAnchors(mechanism);
 
 const story = loadStory();
 const spans = sectionSpans(story);
@@ -178,15 +168,8 @@ try {
   showWithoutWebGl();
 }
 
-// The far plane holds Act II's wide shots (cameraRig.ts createEssayCamera).
-const camera = createEssayCamera(1);
-const scene = new Scene();
-let motes: MoteSystem | null = null;
-let ink: InkSystem | null = null;
-let galaxy: Galaxy | null = null;
-let galaxyData: BodyData | null = null;
-let galaxyBackground: GalaxySystem | null = null;
-let bodies: BodySystem | null = null;
+// Every system the page draws and one frame's update of them (src/scene/stage.ts); null without WebGL.
+let stage: Stage | null = null;
 // The probe shots load with the ambient poses they read (src/galaxy/ambient.ts searches the freeze
 // pin when it loads), so only a page that asks for a shot pays for them; it draws no frame before.
 let shots: typeof import('./timeline/netShots') | null = null;
@@ -213,44 +196,15 @@ let galaxyShown = false;
 /** Meshes hidden by the test hook's isolate(), to show again before the next frame's updates. */
 let isolated: Set<string> | null = null;
 const hiddenByIsolate: { visible: boolean }[] = [];
-/** Builds the galaxy; null once it is built, or when there is none to build. */
-let buildNetwork: (() => void) | null = null;
 /** The frame count when the galaxy was built (test hook): 0 means by the first frame. */
 let networkBuiltAt: number | null = null;
 if (renderer) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(new Color('#0B0D12'), 1);
-  const budget = moteBudget(params.get('n'));
-  motes = createMoteSystem(mechanism, budget, MOTE_SEED);
-  scene.add(motes.object);
-  // Act II's galaxy (the machine on stage reflows into its first planet and that planet's moons):
-  // generated once per page load from the essay's seed, at the galaxy's share of the mote budget.
-  // That costs a few hundred milliseconds of main thread, so it is not built before the first frame
-  // but later (ensureNetwork). It goes into a slot that holds its place in the scene, so the scene's
-  // order does not depend on when it was built.
-  const slot = new Group();
-  scene.add(slot);
-  buildNetwork = () => {
-    buildNetwork = null;
-    // The tier is the screen's at load: a resize keeps every count.
-    const g = generateGalaxy(MOTE_SEED, galaxyTier(window.innerWidth, window.innerHeight), galaxyBudget(budget));
-    const data = packBodyData(g);
-    galaxy = g;
-    galaxyData = data;
-    // One far star per unit, on its spot: a binary's on its barycentre, so from afar a pair is one star.
-    galaxyBackground = createGalaxySystem(
-      g.background,
-      g.units.map((i) => g.bodies[i].spot!),
-      (t) => bodyGalactic(data, data.n0Row, t),
-    );
-    bodies = createBodySystem(g);
-    slot.add(galaxyBackground.object, bodies.object);
-    networkBuiltAt = frameCount;
-  };
-  // The drawing and its sheet (the spec section), for a mechanism that has one.
-  ink = createInkSystem(mechanism);
-  if (ink) scene.add(ink.object);
+  stage = createStage(mechanism, moteBudget(params.get('n')), MOTE_SEED);
 }
+/** The galaxy's bodies, once built (the test hook's reads). */
+const bodiesOf = (): BodySystem | null => stage?.galaxy()?.bodies ?? null;
 
 let alive = renderer !== null;
 let raf = 0;
@@ -259,35 +213,29 @@ let progress = 0;
 const drawingBuffer = new Vector2();
 
 /**
- * Builds the galaxy if it is not built yet. It is pure, and draws nothing while `net.show` is 0, so
- * no frame depends on when this runs: it runs when the browser is first idle after the first frame,
- * when the reader nears the first section that needs it (NETWORK_LEAD), and at the latest inside the
- * first frame that needs it, which then waits for it rather than drawing another.
+ * Builds Act II's galaxy (the machine on stage reflows into its first planet and that planet's moons)
+ * if it is not built yet. That costs a few hundred milliseconds of main thread, so it is not built
+ * before the first frame. It is pure, and draws nothing while `net.show` is 0, so no frame depends on
+ * when this runs: it runs when the browser is first idle after the first frame, when the reader nears
+ * the first section that needs it (NETWORK_LEAD), and at the latest inside the first frame that needs
+ * it, which then waits for it rather than drawing another.
  */
 function ensureNetwork(): void {
-  buildNetwork?.();
-}
-
-/** A frame at `state` needs the galaxy: it shows it, carries the bike onto it, or tracks one of its bodies. */
-function needsGalaxy(state: SceneState): boolean {
-  return state.net.show > 0 || state.mech.reflow > 0 || state.camera.track.a !== 0 || state.camera.track.b !== 0;
+  // The tier is the screen's at load: a resize keeps every count.
+  if (stage?.buildGalaxy(galaxyTier(window.innerWidth, window.innerHeight))) networkBuiltAt = frameCount;
 }
 
 /**
- * Progress from which the galaxy is built ahead of need: the start of the section before the first
- * one whose end needs it. A frame that needs it earlier (a `?state=` override, say) still builds it
- * itself.
+ * Progress from which the galaxy is built ahead of need (stage.ts galaxyLead). A frame that needs it
+ * earlier (a `?state=` override, say) still builds it itself.
  */
-const NETWORK_LEAD = (() => {
-  const first = spans.findIndex((s) => needsGalaxy(sampler.sample(s.end)));
-  return first < 0 ? Infinity : spans[Math.max(0, first - 1)].start;
-})();
+const NETWORK_LEAD = galaxyLead(spans, (p) => sampler.sample(p));
 
 /** Without requestIdleCallback, the galaxy is built this long after the first frame. */
 const IDLE_FALLBACK_MS = 1000;
 
 function scheduleNetworkBuild(): void {
-  if (buildNetwork === null) return;
+  if (!stage || stage.galaxy() !== null) return;
   if ('requestIdleCallback' in window) window.requestIdleCallback(ensureNetwork);
   else setTimeout(ensureNetwork, IDLE_FALLBACK_MS);
 }
@@ -297,7 +245,7 @@ function scheduleNetworkBuild(): void {
  * the galaxy, of the ambient clock at `now`.
  */
 function draw(now: number): void {
-  if (!renderer || !motes) return;
+  if (!renderer || !stage) return;
   const state = sceneStateAt(progress);
   // A probe shot draws nothing until its module has loaded, nor a frame that needs the galaxy until
   // the clock has. The galaxy's group is visible exactly while `net.show` > 0 (bodySystem.ts); the
@@ -314,32 +262,25 @@ function draw(now: number): void {
   // the freeze pin in place of the clock, so the held frame is pure of wall time.
   const ambient = clockModule?.shown(live, state.freeze.hold) ?? live;
   if (needs) ensureNetwork();
-  const shot = shots !== null && galaxy !== null && shotName !== null && shots.isGalaxyShot(shotName) ? shots.GALAXY_SHOTS[shotName] : null;
-  if (shot && shots && galaxy) {
-    state.camera = shots.galaxyShotKeys(shot, galaxy);
-    // The shot's lamp, on its own target, and its haze (up only at the galaxy wides), unless `?state=` names them.
-    const net = { ...state.net, lamp: shot.lamp, lampAt: shots.galaxyShotLampAt(shot), haze: shot.haze ?? 0 };
-    const named = typeof override === 'object' && override !== null ? (override as { net?: unknown }).net : undefined;
-    state.net = mergeState({ ...state, net }, { net: named }).net;
-  }
-  // Act II's keys are relative to the point the camera tracks, where it is at this frame's ambient,
-  // and a shot that rides the galaxy's turn swings about it; Act I tracks nothing (track.a = track.b
-  // = 0), whose origin is the world's own.
-  composeEssayCamera(camera, state, anchors, galaxy !== null && galaxyData !== null ? { g: galaxy, data: galaxyData } : null, ambient);
+  const shot = shots !== null && shotName !== null && shots.isGalaxyShot(shotName) ? { shot: shots.GALAXY_SHOTS[shotName], shots } : null;
   renderer.getDrawingBufferSize(drawingBuffer);
   const shimmerTime = shimmerOn() ? (now / 1000) % 1000 : null;
   const viewport = { width: drawingBuffer.x, height: drawingBuffer.y, pixelRatio: renderer.getPixelRatio() };
   for (const o of hiddenByIsolate.splice(0)) o.visible = true;
-  motes.object.visible = shot === null;
-  if (ink) ink.object.visible = shot === null;
-  if (shot === null) {
-    const home = state.mech.reflow > 0 && galaxy !== null && galaxyData !== null ? reflowBodies(galaxy, galaxyData, ambient) : null;
-    motes.update(state, camera, viewport, shimmerTime, home);
-    ink?.update(state, camera, viewport);
-  }
-  galaxyBackground?.update(state, camera, viewport, ambient);
-  bodies?.update(state, camera, viewport, ambient, freezeFrame(live));
-  galaxyShown = bodies !== null && state.net.show > 0;
+  stage.draw({
+    state,
+    override,
+    shot,
+    ambient,
+    // The live ambient the freeze's twos tick on: none where it is not live (test mode, reduced motion, `?ambient=`).
+    liveAmbient: ambientClock?.live() === true ? live : null,
+    pins: clockModule?.FREEZE_PINS ?? null,
+    flashOn: shimmerOn(),
+    viewport,
+    shimmerTime,
+  });
+  galaxyShown = stage.galaxy() !== null && state.net.show > 0;
+  const { scene, camera } = stage;
   if (isolated !== null) {
     const keep = isolated;
     scene.traverse((o) => {
@@ -352,18 +293,6 @@ function draw(now: number): void {
   renderer.render(scene, camera);
   frameCount++;
   if (frameCount === 1) scheduleNetworkBuild();
-}
-
-/**
- * What the galaxy's draws need of the freeze frame beyond the story's leaves: the held piece (C1 and
- * the moon its pin caught mid-burst, and whether the hold forces C1's scatter: every path but the
- * search's `full`), the live ambient the twos tick on (none where it is not live: test mode, reduced
- * motion, `?ambient=`), and the flash, off in test mode and under reduced motion.
- */
-function freezeFrame(live: number): FreezeFrame {
-  const pin = clockModule?.FREEZE_PINS.C1;
-  const hero = pin && galaxy ? { planet: bodyIndex(galaxy, 'C1'), moon: bodyIndex(galaxy, pin.moon), forceScatter: pin.path !== 'full' } : null;
-  return { hero, live: ambientClock?.live() === true ? live : null, flashOn: shimmerOn() };
 }
 
 function frame(now: number): void {
@@ -387,7 +316,8 @@ function stopLoop(): void {
 }
 
 function resize(): void {
-  if (!renderer || !alive) return;
+  if (!renderer || !stage || !alive) return;
+  const { camera } = stage;
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -443,16 +373,17 @@ if (testMode) {
     networkBuiltAt: () => networkBuiltAt,
     mechanism: () => mechanismId,
     autoAdvance: () => (autoAdvance ? { state: autoAdvance.state(), stops: autoAdvance.stopYs() } : null),
-    lod: () => bodies?.lod() ?? null,
-    glows: () => bodies?.glows() ?? null,
-    spikes: () => bodies?.spikes() ?? null,
+    lod: () => bodiesOf()?.lod() ?? null,
+    glows: () => bodiesOf()?.glows() ?? null,
+    spikes: () => bodiesOf()?.spikes() ?? null,
     hoodLod: () => {
-      if (!bodies || !galaxyBackground) return null;
-      const far = galaxyBackground.farShares();
-      return bodies.hood().map((s) => ({ ...s, far: far[s.unit] }));
+      const built = stage?.galaxy();
+      if (!built) return null;
+      const far = built.background.farShares();
+      return built.bodies.hood().map((s) => ({ ...s, far: far[s.unit] }));
     },
     forceLod: (el, gain) => {
-      bodies?.forceLod(el, gain);
+      bodiesOf()?.forceLod(el, gain);
       requestFrame();
     },
     isolate: (names) => {
@@ -460,9 +391,9 @@ if (testMode) {
       requestFrame();
     },
     vertexStats: () => {
-      const skipped = bodies?.skipped() ?? {};
+      const skipped = bodiesOf()?.skipped() ?? {};
       const out: ReturnType<MotesTestHook['vertexStats']> = {};
-      scene.traverseVisible((o) => {
+      stage?.scene.traverseVisible((o) => {
         const g = (o as Mesh).geometry;
         if (o.name === '' || !(g instanceof InstancedBufferGeometry)) return;
         // The vertex shader runs once per vertex an instance (an index only repeats them).
@@ -475,7 +406,7 @@ if (testMode) {
     drawStats: () => {
       const visible: string[] = [];
       const instances: Record<string, number> = {};
-      scene.traverseVisible((o) => {
+      stage?.scene.traverseVisible((o) => {
         if (o.name === '') return;
         visible.push(o.name);
         const g = (o as Mesh).geometry;
