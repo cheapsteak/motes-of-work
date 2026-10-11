@@ -112,8 +112,15 @@ function evaluate(track: Track, p: number): number | Vec3 {
   const last = keys[keys.length - 1];
   if (p <= first.at) return first.value;
   if (p >= last.at) return last.value;
+  // The first key after p, by halving (the keys are strictly increasing, compile's rule; a walk from the
+  // first key was most of a sample's cost on the long tracks).
   let i = 1;
-  while (keys[i].at <= p) i++;
+  let hi = keys.length - 1;
+  while (i < hi) {
+    const mid = (i + hi) >> 1;
+    if (keys[mid].at <= p) i = mid + 1;
+    else hi = mid;
+  }
   const a = keys[i - 1];
   const b = keys[i];
   const e = b.ease((p - a.at) / (b.at - a.at));

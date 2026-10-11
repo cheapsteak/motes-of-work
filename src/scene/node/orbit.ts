@@ -137,6 +137,30 @@ export function bodyGalactic(data: BodyData, row: number, t: number): Vec3 {
  * +y, against the bearing.
  */
 export function bodyWorld(data: BodyData, row: number, t: number): Vec3 {
+  // −0 is its own ambient to the arithmetic, but not to a Map: it is never cached.
+  if (Object.is(t, -0)) return bodyWorldAt(data, row, t);
+  let byT = worldCache.get(data.bodies);
+  if (!byT) worldCache.set(data.bodies, (byT = new Map()));
+  let at = byT.get(t);
+  if (!at || at.n0Row !== data.n0Row) {
+    if (!at && byT.size >= WORLD_CACHE_AMBIENTS) byT.delete(byT.keys().next().value as number);
+    byT.set(t, (at = { n0Row: data.n0Row, rows: [] }));
+  }
+  const p = (at.rows[row] ??= bodyWorldAt(data, row, t));
+  return [p[0], p[1], p[2]];
+}
+
+/**
+ * bodyWorld's places, by the body texture they were read from and the ambient: a place is a function of
+ * the texture, N0's row and the ambient alone, and the TS twins ask for the same rows at the same few
+ * ambients (AMBIENT_GRID) over and over (each of a body's motes reads its own place and its parent's,
+ * at every sample of a sweep). Each answer is a copy, so no caller can change what is kept. The most
+ * recent WORLD_CACHE_AMBIENTS ambients per texture.
+ */
+const WORLD_CACHE_AMBIENTS = 16;
+const worldCache = new WeakMap<Float32Array, Map<number, { n0Row: number; rows: Vec3[] }>>();
+
+function bodyWorldAt(data: BodyData, row: number, t: number): Vec3 {
   const b = bodyGalactic(data, row, t);
   const n0 = bodyGalactic(data, data.n0Row, t);
   const d: Vec3 = [b[0] - n0[0], b[1] - n0[1], b[2] - n0[2]];

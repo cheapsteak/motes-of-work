@@ -1374,6 +1374,11 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: H
   const units = [...new Set(systems.map((i) => (bodies[i].host >= 0 ? bodies[i].host : i)))];
   const hoodCentroid: [number, number, number] = [0, 0, 0];
   for (const i of units) for (let k = 0; k < 3; k++) hoodCentroid[k] += bodies[i].spot![k] / units.length;
+  // The background is drawn on its first read, from the units' spots as they are now (copied): it is
+  // about three quarters of a galaxy's cost, and many readers of a galaxy never read it (the tests'
+  // many seeds above all). The same arrays whenever it is drawn: it is a function of these alone.
+  const hood = units.map((i) => [...bodies[i].spot!] as const);
+  let background: Background | null = null;
   return {
     seed,
     tier,
@@ -1385,11 +1390,9 @@ export function generateGalaxy(seed: number, tier: Tier, budget: number, mode: H
     systems,
     units,
     hoodCentroid,
-    background: generateBackground(
-      seed,
-      tier,
-      units.map((i) => bodies[i].spot!),
-    ),
+    get background(): Background {
+      return (background ??= generateBackground(seed, tier, hood));
+    },
     motes: instances.total,
     instances,
     fit,
