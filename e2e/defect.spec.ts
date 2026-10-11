@@ -151,10 +151,11 @@ for (const [k, chunk] of FLASH_PLAN.entries())
         // window. The median a swing is a share of is the chunk's own: 0.99 to 1.01 of the whole run's
         // here (the calm level, which the scatters' short rises barely move).
         //
-        // Timeout: a chunk of 98 frames takes about 2.8 min on CI by the whole run's 1.6 s a frame (8.0
-        // and 8.2 min before, run 38174324079) and took 4.1 min under a load of 12 here (2.4 s a frame:
-        // part 3, desktop). 15 min is 5.4 times CI's and 3.7 times the loaded time.
-        test.setTimeout(900_000);
+        // Timeout: a chunk of 98 frames took 2.3 to 3.7 min on CI (1.4 to 2.1 s a frame, the slower ones
+        // beside another heavy test on the shard's second worker; the whole run before took 8.0 and 8.2
+        // min, 1.6 s a frame) and 4.1 min under a load of 12 here (2.4 s a frame: part 3, desktop). 20
+        // min is 5.4 times the slowest CI time and 4.9 times the loaded one.
+        test.setTimeout(1_200_000);
         await openDf1(page);
         await hook(page, (h) => h.isolate(['net-shells', 'net-bodies', 'net-tracks']));
         const t0 = 101;

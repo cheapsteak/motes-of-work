@@ -45,7 +45,7 @@ describe('the flash guard chunk plan (flashChunks.ts, drawn by e2e/defect.spec.t
     }
   });
 
-  it('is cut for CI: no chunk over 100 frames (about 3 min at 1.6 s a frame), and the 300 frames take more than one', () => {
+  it('is cut for CI: no chunk over 100 frames (about 3 min on CI at 1.4 to 2.1 s a frame), and the 300 frames take more than one', () => {
     expect(Math.max(...plan.map((c) => c.count))).toBeLessThanOrEqual(100);
     expect(plan.length).toBeGreaterThan(1);
   });

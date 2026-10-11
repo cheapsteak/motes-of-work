@@ -12,8 +12,9 @@ import { LEAK } from './birth';
 /** The frames of the whole run: 10 s at 30 fps. */
 export const FLASH_FRAMES = 10 * LEAK.fps;
 /**
- * The chunks the run is cut into. A frame costs about 1.6 s on a CI runner and a chunk of 98 frames about
- * 2.8 min with its page set up (the whole run, 300 frames, took 8 min), under the 3 min a chunk is sized to.
+ * The chunks the run is cut into. A frame costs 1.4 to 2.1 s on a CI runner (the whole run, 300 frames,
+ * took 8 min before) and a chunk of 98 frames 2.3 to 3.7 min, 3.2 on average, with its page set up: about
+ * the 3 min a chunk is sized to. Four chunks also fall one to a shard of the 8 (e2e/defect.spec.ts).
  */
 export const FLASH_CHUNKS = 4;
 
