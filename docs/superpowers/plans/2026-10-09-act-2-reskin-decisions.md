@@ -34,6 +34,7 @@ The work moved to this public repo on 2026-10-11. Commit ids from before that li
 | Star spikes: **fewer and fainter** (2026-10-10) | The six core balls are expected until the black hole lands. | | |
 | The black hole uses the **inspector's defaults** (2026-10-09) | The disk is drawn in dots, not the shader field (dots look better and cost less on a phone). | `scratch/session/bhmock/`; published: Black hole inspector | `black-hole-inspector-defaults-phone.png` |
 | Disk motion: **Recommended**, streak lifetimes (2026-10-10) | Dots live along short arcs and are reborn (L = 3600/N), sheared, with a few hot spots. | `scratch/session/diskmotion/`; published: disk motion prototype | `disk-motion-recommended.png` |
+| The hole close is a **true 16° view** for now (2026-10-11; may switch to about 26° later) | The essay keeps elevation 16 (as the disk-motion still); the inspector-defaults still is about 26° (camera lifted), a thicker disk. Switching is one value plus a re-fit of distance and lamp steps. | | `disk-motion-recommended.png` (16°), `black-hole-inspector-defaults-phone.png` (about 26°) |
 | Plans are **schematics** of their star system, not spiked stars (2026-10-10) | Sci-fi, a plan or design, not monitoring: no sweep, no counters. **R** (bands, outlines, stalks, graduations, one dimension) for one system up close; **H** (mission plan: dashed forward arcs, nodes, chevrons) for the neighbourhood. | `scratch/session/schematic/` (`mock.html`, `port.html`); published: Schematic mocks | `schematic-close-defect-phone.png`, `schematic-neighbourhood-twelve-phone.png` |
 | The zoom hand-over is **one geometry morphing**, staggered (round 4, 2026-10-10; "Schematics look good") | H's rings become R's bands, dashes close, nodes grow into outlines, numerals arrive last; detail dissolves in by hash rank, no hard switch. Task 7b. | same, concept `RH` | `schematic-zoom-handover-strip.png` |
 | **ls-1 stays unmarked** (2026-10-10) | The outer ring's window starts at 30 s_px, so ls-1's systems draw no plan. | | |
@@ -85,3 +86,5 @@ difference the author accepts becomes a new row above.
 | Decision | What it means |
 |---|---|
 | Performance work waits until after the essay review (2026-10-10) | See `2026-10-10-performance-deferred.md`; the early-out's fix round is on branch `perf-deferred` in the archive repo `motes-of-work-private`. |
+| An **unreviewed preview** beside the reviewed essay (2026-10-11) | Rebuilt after each implementer report and fix round, for earlier feedback; the reviewed essay keeps its gate. See `2026-10-11-act-2-reskin-lanes.md`. |
+| The remaining tasks run in **two lanes**, e2e on GitHub (2026-10-11) | Lane A: 6, then 7b. Lane B: 8b first, then 7, then 8. Then 9. One PR per task; see `2026-10-11-act-2-reskin-lanes.md`. |

@@ -103,3 +103,14 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **`digestOf` hashes aligned views by word and unaligned by byte**, so equal bytes at different alignments differ (false positive only); its docstring overstates.
 - [x] **The reviewer instructions named port 4199 for reviews**; corrected to 4198 by the controller.
 - [ ] **Workers: re-measure 2, 3 and 4 on a quiet machine.** No setting met "no timeouts across two runs" on the shared machine; 2 workers kept.
+
+## Task 5 (review of fb0f69f..91a2f91: Important 1, every lamp judged by drawn pixels over the hole stretch, fixed in round 1)
+
+- [ ] **The hole vertex shader's compensation step has a TS twin but no fence** (`hole.vert.glsl`: `min(1.0, d.alpha * uComp.x)`, `d.sizeCss * uComp.y`). No `?lib=` parity case or source-text fence; a drift would move the drawn hole away from the clearance twin unseen.
+- [ ] **holeTopBound's fence is coarse:** `HOLE_REACH` x 0.5 fails only the hour sweep at 1440, and x 0.6 passes every test. The bound rests on its (sound) structural argument. Fence: assert `HOLE_REACH` is at least the largest per-axis view offset of every twin dot over a few cameras and the hour.
+- [ ] **The shadow mask is enumerated, not discovered:** the five-frag test lists files by name, and the bike motes (`mote.frag`, `ghost.frag`, `thread.frag`, N0 in Act II) carry no mask; a probe of 801 Act II samples never found N0 inside the shadow. Fence: walk every material under the galaxy groups and assert `uniforms.uShadow` is the shared object, plus a check that N0 never projects into the disc.
+- [ ] **The two netShots layers sweeps went from 300 s to 900 s** before 91a2f91's bound; re-measure and bring the timeouts back down if the bound recovered the time.
+- [ ] **The reduced-motion test waits 1000 ms before comparing** (`e2e/reducedMotion.spec.ts`); the brief says the hole stops at the pose on the next frame. The test proves it stops, not when.
+- [ ] **For the author (look):** R0's clean blue strand reads as blue arcs on the warm receding half; the shadow blanks background stars while the hole is unlit (up to 23 px radius in the move into ly-2, before its lamp step).
+- [ ] **gpuInputs does not check `updateRanges` on the index or interleaved data**, and does not read interleaved `stride` or `gpuType` (re-review of fix round 1).
+- [ ] **`assertDefaults` skips every underscore-prefixed field**, not only fields behind read getters (re-review of fix round 1).
