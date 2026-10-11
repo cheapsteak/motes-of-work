@@ -5,9 +5,11 @@
 // attributes, index, textures, render state and transform, in the scene's order, and the camera.
 //
 // Buffers and textures reach the GPU only when three.js uploads them: when a draw that uses one is
-// rendered and its `version` has moved since the last upload (`needsUpdate`). `Uploads` keeps that
-// copy, so a change made without `needsUpdate`, or made while the draw was hidden and never uploaded,
-// shows here as it would on screen: stale.
+// rendered and its `version` has moved since the last upload (`needsUpdate`). `Uploads` keeps a digest
+// of what was uploaded then (two 32-bit FNV-1a hashes of the bytes, with the byte count), so a change
+// made without `needsUpdate`, or made while the draw was hidden and never uploaded, shows here as it
+// would on screen: stale. A digest, not a copy: a stage's buffers run to megabytes, and the twin
+// builds about a hundred stages.
 import {
   type BufferAttribute,
   type BufferGeometry,
@@ -20,18 +22,33 @@ import {
   type Texture,
 } from 'three';
 
-/** A plain value: numbers compared with Object.is, bytes compared byte for byte. */
-export type Plain = number | string | boolean | null | Uint8Array | Plain[] | { [key: string]: Plain };
+/** A plain value: numbers compared with Object.is; bytes as their digest (`digestOf`). */
+export type Plain = number | string | boolean | null | Plain[] | { [key: string]: Plain };
 
 type Uploadable = { version: number } & ({ array: ArrayLike<number> & ArrayBufferView } | Texture);
 
-function bytesOf(view: ArrayBufferView): Uint8Array {
-  return new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
+/** The byte count and a 64-bit digest of a view's bytes: two FNV-1a hashes, words at a time where aligned. */
+export function digestOf(view: ArrayBufferView): string {
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  const mix = (w: number): void => {
+    a = Math.imul(a ^ w, 0x01000193) >>> 0;
+    b = Math.imul(b ^ w, 0x5bd1e995) >>> 0;
+    b = (b ^ (b >>> 15)) >>> 0;
+  };
+  if (view.byteOffset % 4 === 0 && view.byteLength % 4 === 0) {
+    const words = new Uint32Array(view.buffer, view.byteOffset, view.byteLength / 4);
+    for (let i = 0; i < words.length; i++) mix(words[i]);
+  } else {
+    const bytes = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    for (let i = 0; i < bytes.length; i++) mix(bytes[i]);
+  }
+  return `${view.byteLength} bytes #${a.toString(16).padStart(8, '0')}${b.toString(16).padStart(8, '0')}`;
 }
 
 /** The GPU's copy of each buffer and texture, as three.js would have uploaded it. */
 export class Uploads {
-  private readonly copies = new WeakMap<object, { version: number; bytes: Uint8Array }>();
+  private readonly copies = new WeakMap<object, { version: number; digest: string }>();
 
   /** Uploads what a render of `scene` would: the buffers and textures of its visible draws whose version moved. */
   render(scene: Object3D): void {
@@ -43,9 +60,9 @@ export class Uploads {
     });
   }
 
-  /** What the GPU holds for `source`: its last upload, or null before any. */
-  held(source: Uploadable): Uint8Array | null {
-    return this.copies.get(source)?.bytes ?? null;
+  /** The digest of what the GPU holds for `source`: its last upload, or null before any. */
+  held(source: Uploadable): string | null {
+    return this.copies.get(source)?.digest ?? null;
   }
 
   private upload(source: Uploadable): void {
@@ -54,7 +71,7 @@ export class Uploads {
     // a texture at version 0 has never been flagged and is not uploaded at all.
     if (seen && seen.version === source.version) return;
     if ('isTexture' in source && source.version === 0) return;
-    this.copies.set(source, { version: source.version, bytes: bytesOf(viewOf(source)) });
+    this.copies.set(source, { version: source.version, digest: digestOf(viewOf(source)) });
   }
 }
 
@@ -106,7 +123,7 @@ function plainValue(v: unknown, uploads: Uploads, at: string): Plain {
   if (v === null || v === undefined) return null;
   if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') return v;
   if (Array.isArray(v)) return v.map((x, i) => plainValue(x, uploads, `${at}[${i}]`));
-  if (ArrayBuffer.isView(v)) return bytesOf(v);
+  if (ArrayBuffer.isView(v)) return digestOf(v);
   const o = v as Record<string, unknown>;
   if ((o as unknown as Texture).isTexture) return plainTexture(o as unknown as Texture, uploads);
   // Vectors, colours and matrices: their components.
@@ -233,20 +250,11 @@ export function gpuInputs(scene: Object3D, camera: Camera, uploads: Uploads): Pl
   };
 }
 
-/** The paths at which `a` and `b` differ (numbers by Object.is, bytes byte for byte), at most `max`. */
+/** The paths at which `a` and `b` differ (numbers by Object.is, bytes by their digests), at most `max`. */
 export function differences(a: Plain, b: Plain, max = 8, at = ''): string[] {
   const out: string[] = [];
   const walk = (x: Plain, y: Plain, path: string): void => {
     if (out.length >= max) return;
-    if (x instanceof Uint8Array || y instanceof Uint8Array) {
-      if (!(x instanceof Uint8Array && y instanceof Uint8Array)) out.push(`${path}: ${describe(x)} vs ${describe(y)}`);
-      else if (x.length !== y.length) out.push(`${path}: ${x.length} bytes vs ${y.length}`);
-      else {
-        const k = firstDifference(x, y);
-        if (k >= 0) out.push(`${path}: bytes differ from byte ${k}`);
-      }
-      return;
-    }
     if (Array.isArray(x) || Array.isArray(y)) {
       if (!(Array.isArray(x) && Array.isArray(y)) || x.length !== y.length) {
         out.push(`${path}: ${describe(x)} vs ${describe(y)}`);
@@ -266,14 +274,8 @@ export function differences(a: Plain, b: Plain, max = 8, at = ''): string[] {
   return out;
 }
 
-function firstDifference(x: Uint8Array, y: Uint8Array): number {
-  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return i;
-  return -1;
-}
-
 function describe(v: Plain): string {
-  if (v instanceof Uint8Array) return `${v.length} bytes`;
-  if (typeof v === 'string') return v.length > 40 ? `"${v.slice(0, 40)}…"` : `"${v}"`;
+  if (typeof v === 'string') return v.length > 48 ? `"${v.slice(0, 48)}…"` : `"${v}"`;
   if (Array.isArray(v)) return `[${v.length} items]`;
   return String(v);
 }

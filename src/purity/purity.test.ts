@@ -2,7 +2,7 @@
 // rewind.<scene>.test.ts): the grid is whole, each scene is fenced, and gpuInputs reads what the GPU holds.
 import { DataTexture, FloatType, Group, InstancedBufferAttribute, InstancedBufferGeometry, Mesh, PerspectiveCamera, RGBAFormat, RawShaderMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
-import { differences, gpuInputs, Uploads } from './gpuInputs';
+import { differences, digestOf, gpuInputs, Uploads } from './gpuInputs';
 import { PURITY_SAMPLES } from './samples';
 import { SCENES, samplesOf } from './twin';
 
@@ -19,6 +19,8 @@ describe('the purity twin', () => {
 });
 
 describe('gpuInputs reads what the GPU holds', () => {
+  const pathsOf = (diffs: string[]): string[] => diffs.map((d) => d.slice(0, d.indexOf(': ')));
+
   function scene(): { root: Group; geo: InstancedBufferGeometry; attr: InstancedBufferAttribute; tex: DataTexture; mat: RawShaderMaterial; camera: PerspectiveCamera } {
     const attr = new InstancedBufferAttribute(new Float32Array([1, 2, 3, 4]), 1);
     const geo = new InstancedBufferGeometry();
@@ -44,10 +46,9 @@ describe('gpuInputs reads what the GPU holds', () => {
     s.attr.needsUpdate = true;
     s.tex.needsUpdate = true;
     uploads.render(s.root);
-    // float32 1 and 9 first differ in their third byte (little-endian).
-    expect(differences(before, gpuInputs(s.root, s.camera, uploads))).toEqual([
-      'draws.0 Mesh.geometry.attributes.aOne.data: bytes differ from byte 2',
-      'draws.0 Mesh.material.uniforms.uTex.data: bytes differ from byte 2',
+    expect(pathsOf(differences(before, gpuInputs(s.root, s.camera, uploads)))).toEqual([
+      'draws.0 Mesh.geometry.attributes.aOne.data',
+      'draws.0 Mesh.material.uniforms.uTex.data',
     ]);
   });
 
@@ -63,8 +64,23 @@ describe('gpuInputs reads what the GPU holds', () => {
     s.root.visible = true;
     expect(differences(before, gpuInputs(s.root, s.camera, uploads))).toEqual([]);
     uploads.render(s.root);
-    // float32 2 and 7 first differ in the second value's third byte.
-    expect(differences(before, gpuInputs(s.root, s.camera, uploads))).toEqual(['draws.0 Mesh.geometry.attributes.aOne.data: bytes differ from byte 6']);
+    expect(pathsOf(differences(before, gpuInputs(s.root, s.camera, uploads)))).toEqual(['draws.0 Mesh.geometry.attributes.aOne.data']);
+  });
+
+  it('digests bytes by their content: equal bytes the same, one changed byte or a different length not', () => {
+    const one = new Float32Array([1, 2, 3, 4]);
+    expect(digestOf(one)).toBe(digestOf(new Float32Array([1, 2, 3, 4])));
+    expect(digestOf(one)).toMatch(/^16 bytes #[0-9a-f]{16}$/);
+    for (let i = 0; i < 16; i++) {
+      const bytes = new Uint8Array(one.buffer.slice(0));
+      bytes[i] ^= 1;
+      expect(digestOf(bytes), `byte ${i}`).not.toBe(digestOf(new Uint8Array(one.buffer)));
+    }
+    expect(digestOf(one.subarray(1))).not.toBe(digestOf(one));
+    // An unaligned view is read byte by byte, and still by its content.
+    const odd = new Uint8Array(new ArrayBuffer(9), 1, 7);
+    odd.set([1, 2, 3, 4, 5, 6, 7]);
+    expect(digestOf(odd)).toBe(digestOf(Uint8Array.from([1, 2, 3, 4, 5, 6, 7])));
   });
 
   it('reads uniforms, render state, instance counts and the camera', () => {

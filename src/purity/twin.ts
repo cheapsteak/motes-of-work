@@ -22,7 +22,7 @@ import { sectionSpans } from '../scroll/progress';
 import { loadStory } from '../story/loader';
 import { KeyframeSampler, type KeyframeFile } from '../timeline/keyframeSampler';
 import keyframes from '../timeline/keyframes.json';
-import { differences, gpuInputs, Uploads, type Plain } from './gpuInputs';
+import { differences, digestOf, gpuInputs, Uploads, type Plain } from './gpuInputs';
 import { PURITY_SAMPLES, type PuritySample } from './samples';
 
 /** The browser's purity spec runs at Playwright's default screen, 1280x720 at a device pixel ratio of 1. */
@@ -43,7 +43,7 @@ const shared: StageInputs = {
   },
 };
 
-/** A digest of everything reachable from `root`: numbers, strings and every typed array's bytes (FNV-1a). */
+/** A digest of everything reachable from `root`: numbers, strings (FNV-1a) and every typed array (digestOf). */
 export function fingerprint(root: unknown): string {
   let h = 0x811c9dc5;
   const byte = (b: number): void => {
@@ -60,16 +60,8 @@ export function fingerprint(root: unknown): string {
       for (let i = 0; i < 8; i++) byte(scalar.getUint8(i));
     } else if (typeof v === 'string') text(`s${v}`);
     else if (typeof v === 'boolean' || v === null || v === undefined) text(String(v));
-    else if (ArrayBuffer.isView(v)) {
-      // Four bytes at a time where the view allows it (the attribute arrays run to megabytes).
-      if (v.byteOffset % 4 === 0 && v.byteLength % 4 === 0) {
-        const w = new Uint32Array(v.buffer, v.byteOffset, v.byteLength / 4);
-        for (let i = 0; i < w.length; i++) h = Math.imul(h ^ w[i], 0x01000193) >>> 0;
-      } else {
-        const b = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
-        for (let i = 0; i < b.length; i++) byte(b[i]);
-      }
-    } else if (typeof v === 'object') {
+    else if (ArrayBuffer.isView(v)) text(digestOf(v));
+    else if (typeof v === 'object') {
       if (seen.has(v)) return text('cycle');
       seen.add(v);
       if (v instanceof Map) [...v.entries()].forEach(walk);

@@ -49,7 +49,9 @@ const testFiles = readdirSync('e2e')
 describe('the e2e tiers', () => {
   it('every file of e2e tests runs in a tier: all of them in e2e:full, all but the full-only set in e2e:task, each whole', { timeout: 120_000 }, async () => {
     expect(scripts['e2e:full']).toBe(scripts.e2e);
-    const [full, task] = await Promise.all([listed('e2e:full'), listed('e2e:task')]);
+    // One listing at a time: each is a Playwright process that loads every spec, beside the suite's workers.
+    const full = await listed('e2e:full');
+    const task = await listed('e2e:task');
     expect(testFiles.length).toBeGreaterThan(10);
     // A file in neither tier: one the config does not collect, or one whose every test is filtered out.
     expect([...full.keys()].sort(), 'files e2e:full runs').toEqual(testFiles);
