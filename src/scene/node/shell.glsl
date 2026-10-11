@@ -115,6 +115,19 @@ vec3 shellWarp(vec2 ll, vec4 hA, vec4 hB, float t, ShellEvent ev, float A, float
   return shellWarpK(ll, hA, hB, t, ev, A, gain, cap).xyz;
 }
 
+// shellWarpK, then the leak after the scatter (shell.ts shellWarpLeak; leak.glsl, spliced before this
+// library): mote i moved by its body's wounds on its lattice point, before the spin, as far as gain
+// lets it. Returns shellWarpK's (place, how far out); `light` is the leak's on it, mix(1, its dimming,
+// gain). A body with no wound open (its first wound closed) pays one compare.
+vec4 shellWarpLeak(vec2 ll, vec4 hA, vec4 hB, float i, float t, ShellEvent ev, float A, float gain, float cap, Leak leak, out float light) {
+  vec4 w = shellWarpK(ll, hA, hB, t, ev, A, gain, cap);
+  light = 1.0;
+  if (!(leak.wound[0].w <= 1.0) || !(gain > 0.0)) return w;
+  LeakOut l = leakOffset(shellUnit(ll), i, leak);
+  light = 1.0 - (1.0 - l.gain) * gain;
+  return vec4(w.xyz + gain * l.off, w.w);
+}
+
 // The axis the lattice turns about: tilted off the vertical by a hashed angle in SHELL_SPIN_TILT
 // (degrees), at a hashed azimuth.
 vec3 spinAxis(uint seed) {

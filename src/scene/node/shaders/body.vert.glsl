@@ -30,6 +30,7 @@ flat out float vGain;
 flat out float vHi;
 flat out float vWarm;
 flat out vec4 vTint; // the freeze frame's colour (rgb) and how far toward it (a)
+flat out float vDrop; // 1 on the focused piece, whose rim and fill the dropout's lines cut (body.frag.glsl)
 
 void main() {
   int row = int(round(aBody.x));
@@ -81,4 +82,5 @@ void main() {
   vGain = gain * uShow * (1.0 + BODY_HI_GAIN * vHi) * look.gain * focusGain(row);
   vWarm = light.x * (moon ? BODY_WARM_MOON : BODY_WARM);
   vTint = look.tint;
+  vDrop = planetLampSubject(row) ? 1.0 : 0.0;
 }

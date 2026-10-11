@@ -23,6 +23,8 @@
 // four ambients and starTint() over the temperatures.
 // `?lib=freeze` compares the freeze frame's dressing (src/scene/node/freeze.ts): the copies, the limb,
 // every mote of both bursts at four states of the fix and both of the twos' length sets, and the breath.
+// `?lib=leak` compares the defect's leak, leakOffset() (src/scene/node/leak.ts), over C1's dots under
+// its forced wounds at three slots and eight moments of each (leakCases.ts), as the texture carries them.
 // `?lib=hole` compares the black hole (src/scene/hole/hole.ts): the lens, and every part's dots from two
 // cameras at four ambients (holeCases.ts).
 import {
@@ -63,7 +65,7 @@ import { BAND_MARGIN_PX, EQ_A, NODE_DERP_DUR, NODE_DERP_PERIOD, SCATTER_AMP, SCA
 import { derp, derpEvent, DerpKind, type Derp } from '../scene/node/derp';
 import { BODY_KIND, BODY_TEXELS, packBodyData } from '../scene/node/bodyData';
 import { buildTrackAttrs, packShellData, SHELL_TEXELS } from '../scene/node/bodyAttrs';
-import { bodyMote, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyMote';
+import { bodyMote, focusScatterRow, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyMote';
 import { feedGain, streamBandMask, streamDot, streamGain } from '../scene/node/stream';
 import { AMBIENT_POSE } from '../galaxy/ambient';
 import { bodyWorld } from '../scene/node/orbit';
@@ -72,6 +74,7 @@ import {
   withFreezeLibrary,
   withGalaxyLibrary,
   withHoleLibrary,
+  withLeakLibrary,
   withLodLibrary,
   withOrbitLibrary,
   withShellLibrary,
@@ -124,6 +127,8 @@ import {
   type StreamOut,
 } from './fields';
 import { allBodyMoteAttrs, BODY_AMBIENTS, BODY_CASES, sysPxAll } from './bodyCases';
+import { leakCases } from './leakCases';
+import { leakOffset } from '../scene/node/leak';
 import {
   BODY_VERTEX,
   STREAM_DOT_VERTEX,
@@ -132,6 +137,7 @@ import {
   FREEZE_VERTEX,
   HASH_VERTEX,
   HOLE_VERTEX,
+  LEAK_VERTEX,
   LOD_VERTEX,
   MOTE_VERTEX,
   ORBIT_VERTEX,
@@ -148,6 +154,8 @@ interface ParityCase {
   samples?: number;
   /** Of those, how many matched the TS only a time shift away, at a cut (the derp cases). */
   shifted?: number;
+  /** Of those, how many the TS moves (the leak cases: not vacuous). */
+  moved?: number;
 }
 
 declare global {
@@ -205,8 +213,8 @@ function pointsGeometry(count: number): InstancedBufferGeometry {
 /** Render one object into the SIZE×SIZE float target and read it back. */
 type Draw = (object: Object3D) => Float32Array;
 
-type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'lod' | 'body' | 'freeze' | 'star' | 'hole';
-const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'lod', 'body', 'freeze', 'star', 'hole'];
+type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'leak' | 'lod' | 'body' | 'freeze' | 'star' | 'hole';
+const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'leak', 'lod', 'body', 'freeze', 'star', 'hole'];
 
 function run(lib: Lib): ParityCase[] {
   const canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -293,6 +301,9 @@ function run(lib: Lib): ParityCase[] {
   } else if (lib === 'shell') {
     // --- shellWarpK() and the spin: every ShellOut field compared with the TS reference. ---
     for (const c of shellCases(draw)) cases.push(c);
+  } else if (lib === 'leak') {
+    // --- leakOffset(): the offset and the light compared with the TS reference, over C1's forced wounds. ---
+    for (const c of leakParity(draw)) cases.push(c);
   } else if (lib === 'lod') {
     // --- lodGain() and glowPx(): every LodOut field compared with the TS reference, over a grid. ---
     for (const c of lodCases(draw)) cases.push(c);
@@ -551,6 +562,8 @@ const DERP_EVENTS_PER_KIND = 2;
 const DERP_EVENT_S = [0.1, 0.3, 0.5, 0.65, 0.85];
 const DERP_EVENT_V = [1, 0.37, 0];
 const DERP_EVENT_SLOTS = 2000;
+/** And, for a cracked body, its schedule forced to a scatter in every slot (re-skin Task 8b: the focused planet's), every DERP_FORCED_STEP s over [0, DERP_GRID_END). */
+const DERP_FORCED_STEP = 0.1;
 
 interface DerpSample {
   seed: number;
@@ -561,6 +574,8 @@ interface DerpSample {
   R: number;
   omega: number;
   v: number;
+  /** The schedule forced to a scatter in every slot (derp()'s forceScatter). */
+  force: boolean;
 }
 
 /**
@@ -594,15 +609,16 @@ function derpSamples(b: Body): DerpSample[] {
     omega: f(b.orbit ? (2 * Math.PI) / b.orbit.period : 0),
   };
   const out: DerpSample[] = [];
-  for (let i = 0; i * DERP_GRID_STEP < DERP_GRID_END; i++) out.push({ ...base, t: f(i * DERP_GRID_STEP), v: 1 });
+  for (let i = 0; i * DERP_GRID_STEP < DERP_GRID_END; i++) out.push({ ...base, t: f(i * DERP_GRID_STEP), v: 1, force: false });
   if (!b.cracked) return out;
+  for (let i = 0; i * DERP_FORCED_STEP < DERP_GRID_END; i++) out.push({ ...base, t: f(i * DERP_FORCED_STEP + DERP_GRID_STEP / 2), v: 1, force: true });
   for (let kind = 0; kind <= DerpKind.Wobble; kind++) {
     let found = 0;
     for (let k = 0; found < DERP_EVENTS_PER_KIND && k < DERP_EVENT_SLOTS; k++) {
       const ev = derpEvent(base.seed, base.phase, (k - base.phase) * NODE_DERP_PERIOD + NODE_DERP_PERIOD / 2);
       if (ev.kind !== kind || ev.t0 < 0) continue;
       found++;
-      for (const s of DERP_EVENT_S) for (const v of DERP_EVENT_V) out.push({ ...base, t: f(ev.t0 + s * NODE_DERP_DUR), v: f(v) });
+      for (const s of DERP_EVENT_S) for (const v of DERP_EVENT_V) out.push({ ...base, t: f(ev.t0 + s * NODE_DERP_DUR), v: f(v), force: false });
     }
     if (found < DERP_EVENTS_PER_KIND)
       throw new Error(`derp parity: ${b.id} has ${found} ${DerpKind[kind]} events in ${DERP_EVENT_SLOTS} slots`);
@@ -629,7 +645,7 @@ function derpCases(draw: Draw): ParityCase[] {
   const bodies = derpBodies(g);
   const mat = material(withDerpLibrary(DERP_VERTEX), PARITY_FRAGMENT, { uPass: { value: 0 } });
   const passes = parityPasses(DERP_PARITY_FIELDS);
-  const ts = (x: DerpSample, t: number): Derp => derp(x.seed, x.phase, t, x.kind, x.r, x.R, x.omega, x.v);
+  const ts = (x: DerpSample, t: number): Derp => derp(x.seed, x.phase, t, x.kind, x.r, x.R, x.omega, x.v, x.force);
   const errorAgainst = (want: Derp, outs: Float32Array[], i: number): number => {
     let err = 0;
     passes.forEach((pass, j) => {
@@ -654,6 +670,7 @@ function derpCases(draw: Draw): ParityCase[] {
         new InstancedBufferAttribute(new Float32Array(chunk.flatMap((x) => [x.seed, x.phase, x.t, BODY_KIND[x.kind]])), 4),
       );
       geometry.setAttribute('aDerpB', new InstancedBufferAttribute(new Float32Array(chunk.flatMap((x) => [x.r, x.R, x.omega, x.v])), 4));
+      geometry.setAttribute('aForce', new InstancedBufferAttribute(new Float32Array(chunk.map((x) => (x.force ? 1 : 0))), 1));
       const points = new Points(geometry, mat);
       points.frustumCulled = false; // positions come from gl_InstanceID
       const outs = passes.map((_, pass) => {
@@ -790,6 +807,49 @@ function shellCases(draw: Draw): ParityCase[] {
       cases.push({ name: `shell: ${set.id}, shape ${n}`, maxError, samples: samples.length });
     }
   });
+  mat.dispose();
+  return cases;
+}
+
+/**
+ * The leak cases (leakCases.ts), one per slot and moment: every dot of C1 inside a wound open then (and a
+ * sample of those outside), leakOffset's offset (units of R) and light compared with the TS, which reads
+ * the wounds back from the same float32 texels at the same float32 ambient.
+ */
+function leakParity(draw: Draw): ParityCase[] {
+  const uniforms: Record<string, IUniform> = {
+    uWound: { value: [0, 1, 2, 3].map(() => new Vector4()) },
+    uAge: { value: new Vector4() },
+    uSeed: { value: new Vector4() },
+  };
+  const mat = material(withLeakLibrary(LEAK_VERTEX), PARITY_FRAGMENT, uniforms);
+  const cases: ParityCase[] = [];
+  for (const c of leakCases(essayGalaxy())) {
+    for (let j = 0; j < 4; j++) (uniforms.uWound.value as Vector4[])[j].fromArray(c.texels, j * 4);
+    (uniforms.uAge.value as Vector4).fromArray(c.texels, 16);
+    (uniforms.uSeed.value as Vector4).fromArray(c.texels, 20);
+    let maxError = 0;
+    let moved = 0;
+    for (let from = 0; from < c.dots.length; from += COUNT) {
+      const chunk = c.dots.slice(from, from + COUNT);
+      const geometry = pointsGeometry(chunk.length);
+      geometry.setAttribute('aU', new InstancedBufferAttribute(new Float32Array(chunk.flatMap((d) => d.u)), 3));
+      geometry.setAttribute('aI', new InstancedBufferAttribute(new Float32Array(chunk.map((d) => d.i)), 1));
+      const points = new Points(geometry, mat);
+      points.frustumCulled = false; // positions come from gl_InstanceID
+      const out = draw(points);
+      geometry.dispose();
+      chunk.forEach((d, i) => {
+        const want = leakOffset(d.u, d.i, c.t, c.wounds);
+        if (want.gain < 1) moved++;
+        [...want.off, want.gain].forEach((v, q) => {
+          const e = out[i * 4 + q] - v;
+          maxError = Math.max(maxError, Number.isNaN(e) ? Infinity : Math.abs(e));
+        });
+      });
+    }
+    cases.push({ name: `leak: ${c.name}`, maxError, samples: c.dots.length, moved });
+  }
   mat.dispose();
   return cases;
 }
@@ -1057,6 +1117,7 @@ function bodyCases(draw: Draw): ParityCase[] {
     uLamp: { value: 0 },
     uLampRow: { value: -1 },
     uForcedScatter: { value: -1 },
+    uHolding: { value: 0 },
     uDress: { value: 0 },
     uFlash: { value: 0 },
     uFlashOn: { value: 1 },
@@ -1086,7 +1147,8 @@ function bodyCases(draw: Draw): ParityCase[] {
         sysPx: clocks.sysPx,
         freeze: fz === undefined ? undefined : { ...fz, dress: f(fz.dress), flash: f(fz.flash) },
       };
-      shellData.set(packShellData(g, t));
+      // The shells as bodySystem.ts packs them for these clocks: the focus's forced row, the leak unless held.
+      shellData.set(packShellData(g, t, focusScatterRow(k, data), k.holding !== true));
       shellTex.needsUpdate = true;
       const shells = Float32Array.from(shellData);
       uniforms.uGrowth.value = k.growth;
@@ -1098,6 +1160,7 @@ function bodyCases(draw: Draw): ParityCase[] {
       uniforms.uLamp.value = k.lamp;
       uniforms.uLampRow.value = k.lampRow;
       uniforms.uForcedScatter.value = k.forcedScatter ?? -1;
+      uniforms.uHolding.value = k.holding === true ? 1 : 0;
       uniforms.uDress.value = f(k.freeze?.dress ?? 0);
       uniforms.uFlash.value = f(k.freeze?.flash ?? 0);
       uniforms.uCopy.value = k.freeze?.copy ?? 0;
@@ -1145,6 +1208,7 @@ function bodyCases(draw: Draw): ParityCase[] {
   mat.dispose();
   shellTex.dispose();
   uniforms.uForcedScatter.value = -1;
+  uniforms.uHolding.value = 0;
   uniforms.uDress.value = 0;
   uniforms.uCopy.value = 0;
   uniforms.uHeld.value = [-1, -1];

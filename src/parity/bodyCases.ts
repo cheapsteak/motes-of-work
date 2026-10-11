@@ -76,7 +76,7 @@ export const BODY_HELD_CASES: BodyCase[] = [
   {
     name: 'defect 0.33, C1 held',
     motes: (g, all) => all.filter(ofPiece(g, 'C1')).filter((a, i) => a.role !== NodeRole.Builder || i % 5 === 0),
-    clocks: (g) => ({ ...quiet, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 1, sysPx: sysPxAll(200), forcedScatter: g.ids.C1, freeze: held(g, 0) }),
+    clocks: (g) => ({ ...quiet, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 1, sysPx: sysPxAll(200), forcedScatter: g.ids.C1, holding: true, freeze: held(g, 0) }),
     ambients: [AMBIENT_POSE],
   },
   {
@@ -90,11 +90,25 @@ export const BODY_HELD_CASES: BodyCase[] = [
       focus: 1,
       sysPx: sysPxAll(200),
       forcedScatter: g.ids.C1,
+      holding: true,
       freeze: held(g, 2),
     }),
     ambients: [AMBIENT_POSE],
   },
 ];
+
+/**
+ * The leak on the focused planet (re-skin Task 8b): C1 under the planet lamp at full focus, every slot of
+ * its schedule a scatter, at two ambients of its slot 45 (onset 98.27 s, its wounds open at 98.60 and
+ * 98.90): 99.45 s, its dots curving out, and 100.2 s, lingering. leak.test.ts holds them mid-leak.
+ */
+export const BODY_LEAK_AMBIENTS = [99.45, 100.2] as const;
+export const BODY_LEAK_CASE: BodyCase = {
+  name: 'C1 leaking, focused',
+  motes: (g, all) => all.filter(ofBody(g, 'C1')).filter((a, i) => a.role === NodeRole.Builder && i % 3 === 0),
+  clocks: (g) => ({ ...quiet, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 1, sysPx: sysPxAll(200) }),
+  ambients: BODY_LEAK_AMBIENTS,
+};
 
 /** The ?lib=body cases, at each of BODY_AMBIENTS. */
 export const BODY_CASES: BodyCase[] = [
@@ -150,6 +164,7 @@ export const BODY_CASES: BodyCase[] = [
   ...BODY_DARK_CASES,
   BODY_ARMS_CASE,
   ...BODY_HELD_CASES,
+  BODY_LEAK_CASE,
 ];
 
 /** Instance k of a quad set as bodyMote() takes it, its lattice point as the float attribute carries it. */

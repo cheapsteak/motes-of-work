@@ -43,7 +43,8 @@ int derpKindOf(float h) {
   return DERP_KIND_WOBBLE;
 }
 
-DerpEvent derpEvent(float seed, float phase, float t) {
+// force: every slot's kind a scatter, nothing else changed (derp.ts derpEvent's forceScatter).
+DerpEvent derpEvent(float seed, float phase, float t, bool force) {
   // t = k0 T + r0, r0 in [0, T); then the phase carries the slot on by at most one.
   float r0 = orbitTurns(t, NODE_DERP_PERIOD) * NODE_DERP_PERIOD;
   float k0 = round((t - r0) / NODE_DERP_PERIOD);
@@ -59,7 +60,7 @@ DerpEvent derpEvent(float seed, float phase, float t) {
   ev.t0 = (k - phase) * NODE_DERP_PERIOD + off;
   ev.s = (local - off) / NODE_DERP_DUR;
   ev.on = seed != DERP_NEVER && ev.s >= 0.0 && ev.s < 1.0;
-  ev.kind = derpKindOf(hash01(useed, salt + 1u));
+  ev.kind = force ? DERP_KIND_SCATTER : derpKindOf(hash01(useed, salt + 1u));
   return ev;
 }
 
@@ -91,11 +92,12 @@ float derpSkipProfile(float s) {
 }
 
 // What a derp moves on a body at ambient t: its seed and phase, its kind (bodyData.ts's BODY_KIND),
-// its track's radius r, its own radius R, its angular speed omega and the fix's v.
-Derp derp(float seed, float phase, float t, int kind, float r, float R, float omega, float v) {
+// its track's radius r, its own radius R, its angular speed omega and the fix's v; force reads every
+// slot as a scatter (derpEvent).
+Derp derp(float seed, float phase, float t, int kind, float r, float R, float omega, float v, bool force) {
   Derp d = derpZero();
   if (seed == DERP_NEVER || !(v > 0.0)) return d;
-  DerpEvent ev = derpEvent(seed, phase, t);
+  DerpEvent ev = derpEvent(seed, phase, t, force);
   if (!ev.on) return d;
   float s = ev.s;
   float sec = s * NODE_DERP_DUR;

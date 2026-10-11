@@ -8,6 +8,7 @@ import {
   FREEZE_INCLUDE_MARKER,
   GALAXY_INCLUDE_MARKER,
   HOLE_INCLUDE_MARKER,
+  LEAK_INCLUDE_MARKER,
   LOD_INCLUDE_MARKER,
   ORBIT_INCLUDE_MARKER,
   SHELL_INCLUDE_MARKER,
@@ -114,11 +115,12 @@ ${DERP_INCLUDE_MARKER}
 in vec3 position; // the single non-instanced vertex, at the origin
 in vec4 aDerpA; // derp seed, derp phase, ambient time, body kind (bodyData.ts BODY_KIND)
 in vec4 aDerpB; // track radius r, body radius R, angular speed, the fix's v
+in float aForce; // 1: every slot a scatter (re-skin Task 8b)
 uniform int uPass;
 flat out vec4 vOut;
 
 void main() {
-  Derp o = derp(aDerpA.x, aDerpA.y, aDerpA.z, int(round(aDerpA.w)), aDerpB.x, aDerpB.y, aDerpB.z, aDerpB.w);
+  Derp o = derp(aDerpA.x, aDerpA.y, aDerpA.z, int(round(aDerpA.w)), aDerpB.x, aDerpB.y, aDerpB.z, aDerpB.w, aForce > 0.5);
   ${passSelect(parityPasses(DERP_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}
@@ -174,6 +176,37 @@ void main() {
   o.spun = spinShell(w.xyz, spinAxis(uint(round(uSpinSeed))), uT);
   ${passSelect(parityPasses(SHELL_PARITY_FIELDS))}
   else vOut = vec4(0.0);
+${PLACE_ON_TEXEL}
+}
+`;
+
+/**
+ * The leak library (`?lib=leak`, re-skin Task 8b): leakOffset() at a dot's unit lattice point and index
+ * per instance, under a body's wounds as the shell texture carries them (uniforms here: the four wound
+ * texels, the ages and the seeds). One pass: the offset (xyz) and the light (w). Carries the leak
+ * include marker: build with withLeakLibrary().
+ */
+export const LEAK_VERTEX = /* glsl */ `
+precision highp float;
+precision highp int;
+
+${LEAK_INCLUDE_MARKER}
+
+in vec3 position; // the single non-instanced vertex, at the origin
+in vec3 aU; // the dot's unit lattice point
+in float aI; // its lattice index
+uniform vec4 uWound[4];
+uniform vec4 uAge;
+uniform vec4 uSeed;
+flat out vec4 vOut;
+
+void main() {
+  Leak l;
+  for (int j = 0; j < 4; j++) l.wound[j] = uWound[j];
+  l.age = uAge;
+  l.seed = uSeed;
+  LeakOut o = leakOffset(aU, aI, l);
+  vOut = vec4(o.off, o.gain);
 ${PLACE_ON_TEXEL}
 }
 `;

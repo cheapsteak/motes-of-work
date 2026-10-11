@@ -487,6 +487,13 @@ export const LAMP_FLOOR = 0.3;
  * defect shows in its shell and its moons.
  */
 export const FOCUS_GAIN = 2.5;
+/**
+ * The forced scatter's gate (re-skin Task 8b, the controller's ruling 1): while the planet lamp's
+ * subject planet carries the defect and `net.focus` is over this, its derp is a scatter in every slot,
+ * so the reader never waits for the first (bodyMote.ts focusScatter). Its orbit derp is mostly gone
+ * there (focusDerp: 1 − focus), and its moons keep their own schedules.
+ */
+export const FOCUS_SCATTER = 0.5;
 
 /**
  * What bodyMote.glsl reads: its own constants, and the birth window and flare the stacks' flight used
@@ -515,6 +522,7 @@ const BODY_MOTE_CONSTANT_LIST: readonly [string, number][] = [
   ['SCATTER_MOON_CAP', SCATTER_MOON_CAP],
   ['SCATTER_AMP_MAX', SCATTER_AMP[0] + SCATTER_AMP[1]],
   ['FREEZE_SCATTER_S', FREEZE_SCATTER_S],
+  ['FOCUS_SCATTER', FOCUS_SCATTER],
 ];
 
 /** The constants bodyMote.glsl reads (beside light.glsl's), generated from this file. */
@@ -658,3 +666,75 @@ export function glslFreezeConstants(): string {
 export const FREEZE_CONSTANTS: ReadonlyMap<string, number> = new Map(FREEZE_CONSTANT_LIST);
 /** Every vec2 spliced into freeze.glsl by name, for its declarations test. */
 export const FREEZE_VEC2S: ReadonlyMap<string, readonly [number, number]> = new Map(FREEZE_VEC2_LIST);
+
+/**
+ * The defect's leak (re-skin Task 8b; the defect inspector's variant 18, `MOTIONS.leakBurst`): every
+ * scatter slot that fires opens two wounds on the shell, which leak dots for up to two seconds.
+ *  - Intensity: the inspector's dial at its default view, `intensity`; `amp` its ampOf (0.35 + 0.65 I).
+ *  - Timing: wound 1 opens `wound1[0] + wound1[1] h` s after the scatter's onset, wound 2
+ *    `wound2[0] + wound2[1] h` s after wound 1, each on a whole 1/`fps` s frame of the ambient.
+ *  - Size: a wound holds the dots within `cosT[0] + cosT[1] h` rad of its centre (its cosine is the
+ *    wound's `cosT`).
+ *  - Which dots: `frac` of a wound's dots leak; an edge dot starts up to `edgeDelay` s later, plus
+ *    `startJitter` h s.
+ *  - How far: out along the normal bent by `bend` of a hashed direction, `reach` × (`dist[0]` +
+ *    `dist[1]` h²) × `amp` R, dimming by `dim`.
+ *  - The motion: out over `out[0] + out[1] h` s on 1 − (1 − x)³, then a linger of `linger[0] +
+ *    linger[1] h` s creeping `creep` further with a held `shiverHz` shiver of `shiver` R, then home in
+ *    one frame.
+ * A re-tune is this line: the inspector judged at I = 1 is intensity 1, amp 1.
+ */
+export const LEAK = { intensity: 0.35, amp: 0.35 + 0.65 * 0.35, frac: 0.75, reach: 1.8, dim: 0.15,
+  wound1: [0.30, 0.10], wound2: [0.18, 0.20], cosT: [0.45, 0.15], edgeDelay: 0.25, startJitter: 0.1,
+  out: [0.5, 0.6], linger: [0.25, 0.7], creep: 0.08, shiverHz: 12, shiver: 0.012, bend: 0.5, dist: [0.12, 0.4], fps: 30 } as const;
+
+/**
+ * The defect's dropout (re-skin Task 8b; the inspector's G5 lines, GK.drop): one to three screen-space
+ * lines go dark across the focused defective piece: its dots, its rim and fill, and its moons' tracks.
+ *  - The schedule: cells of `cell` s; a cell fires with probability `p[0] + p[1] I` (I = LEAK.intensity),
+ *    for `frames[0]`..`frames[1]` frames of 1/LEAK.fps s at a hashed start inside it.
+ *  - Its lines, re-rolled every `reroll` frames: `lines[0] + floor(h · lines[1] · (0.5 + I))` of them,
+ *    at most `maxLines`, each `heightPx[0] + heightPx[1] h` CSS px tall on a piece `refRadiusPx` px in
+ *    radius (scaled by its radius on screen), within ± `spread` of its radius of its centre.
+ *  - Where: inside a box of ± `box` × its radius about its centre on screen.
+ */
+export const DROPOUT = { cell: 0.5, p: [0.25, 0.35], frames: [2, 5], reroll: 2, lines: [1, 3], maxLines: 5,
+  heightPx: [2, 6], refRadiusPx: 95, spread: 1.1, box: 3 } as const;
+
+/** A wound slot with no wound in it (bodyAttrs.ts packShellData): a cone no dot is in, its cosine over 1. */
+export const LEAK_CLOSED = 2;
+
+const LEAK_CONSTANT_LIST: readonly [string, number][] = [
+  ['LEAK_AMP', LEAK.amp],
+  ['LEAK_FRAC', LEAK.frac],
+  ['LEAK_REACH', LEAK.reach],
+  ['LEAK_DIM', LEAK.dim],
+  ['LEAK_EDGE_DELAY', LEAK.edgeDelay],
+  ['LEAK_START_JITTER', LEAK.startJitter],
+  ['LEAK_CREEP', LEAK.creep],
+  ['LEAK_SHIVER_HZ', LEAK.shiverHz],
+  ['LEAK_SHIVER', LEAK.shiver],
+  ['LEAK_BEND', LEAK.bend],
+  ['LEAK_CLOSED', LEAK_CLOSED],
+];
+
+/** The leak's pairs, which leak.glsl reads as vec2. */
+const LEAK_VEC2_LIST: readonly [string, readonly [number, number]][] = [
+  ['LEAK_OUT', LEAK.out],
+  ['LEAK_LINGER', LEAK.linger],
+  ['LEAK_DIST', LEAK.dist],
+];
+
+/** The constants leak.glsl reads, generated from this file. */
+export function glslLeakConstants(): string {
+  return [
+    '// The leak constants, generated from src/scene/node/birth.ts.',
+    ...LEAK_CONSTANT_LIST.map(([name, v]) => `const float ${name} = ${lit(v)};`),
+    ...LEAK_VEC2_LIST.map(([name, [a, b]]) => `const vec2 ${name} = vec2(${lit(a)}, ${lit(b)});`),
+  ].join('\n');
+}
+
+/** Every float constant spliced into leak.glsl by name, for its declarations test. */
+export const LEAK_CONSTANTS: ReadonlyMap<string, number> = new Map(LEAK_CONSTANT_LIST);
+/** Every vec2 spliced into leak.glsl by name, for its declarations test. */
+export const LEAK_VEC2S: ReadonlyMap<string, readonly [number, number]> = new Map(LEAK_VEC2_LIST);

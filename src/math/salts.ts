@@ -52,6 +52,17 @@ export const SALT = {
   diskHot: 48,
   hazePhase: 49, // a haze dot's phase in its lives, and each life's angle
   hazeAngle: 50,
+  // 51-54 are the plan's (Task 7b). The defect's leak (leak.ts / leak.glsl), each hash of a wound's or
+  // a leaking dot's seed (re-skin Task 8b): a wound's opening delay, its centre (z and azimuth) and its width,
+  leakOpen: 55,
+  leakDir: 56,
+  leakWidth: 57,
+  leakDot: 58, // whether a dot leaks, its start jitter, its time out and its linger
+  leakAim: 59, // its bent direction (z and azimuth)
+  leakReach: 60, // its distance
+  leakShiver: 61, // the linger's held shiver
+  dropCell: 62, // the dropout (dropout.ts, on the CPU): whether a cell fires, its length and its start frame
+  dropLine: 63, // each line's count, place and height
 } as const;
 
 export type SaltName = keyof typeof SALT;

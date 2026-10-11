@@ -11,11 +11,12 @@ import { STAR_SPIKE_DOTS, STREAM_DOTS, streamDots, SYS_MAX, TRACK_DOTS, type Bod
 import { RING } from '../../galaxy/review';
 import { hash01, pcg } from '../../math/hash';
 import { SALT } from '../../math/salts';
-import { EQ_A, FREEZE_TICK_MOON, FREEZE_TICK_PLANET, NODE_NEVER, NodeRole } from './birth';
+import { DROPOUT, EQ_A, FREEZE_TICK_MOON, FREEZE_TICK_PLANET, NODE_NEVER, NodeRole } from './birth';
 import { BODY_KIND } from './bodyData';
 import { STAR_LOOK } from './classLook';
 import { PLANET_POINT_PX, PX, TRACK_DOT_PX } from './lod';
 import { latticeLL, shapeAt, shapeUniforms, shellEvent, shellSeed, spinAxis } from './shell';
+import { LEAK_TEXELS, leakWoundsAt, packLeak } from './leak';
 
 /** At most this many glow sprites (the stars; the core's bodies had them until the re-skin's Task 5), the length of `uGlowCap`. */
 export const GLOW_MAX = SYS_MAX + 8;
@@ -263,8 +264,10 @@ export function buildTrackAttrs(g: Galaxy): { count: number; track: Float32Array
   return { count, track };
 }
 
-/** Texels per body row of the shell texture. */
-export const SHELL_TEXELS = 7;
+/** The shell texture's first leak texel: after the shapes, the axis, the motes and the sweep (T0..T6). */
+export const SHELL_LEAK_AT = 7;
+/** Texels per body row of the shell texture: T0..T6, then the leak's (leak.ts packLeak). */
+export const SHELL_TEXELS = SHELL_LEAK_AT + LEAK_TEXELS;
 
 /**
  * The shell texture, one row per body (RGBA32F, SHELL_TEXELS texels): T0 and T1 its shape at ambient
@@ -275,12 +278,19 @@ export const SHELL_TEXELS = 7;
  * the scatter's sweep and its aftershock (0 or 1). Shapes and axes are the body's own (shellSeed(id));
  * a cracked body's shape is the one its scatters have brought it to by `t` (shellEvent), a healthy
  * body's its first, which A = 0 never shows. The scatter's clock is derp()'s, which the shaders run.
+ * T7..T12 (re-skin Task 8b) the wounds it holds at `t` (leak.ts leakWoundsAt, packLeak): its centres
+ * and cones, their ages and seeds; none on a healthy body, or anywhere when `leak` is off (the freeze
+ * frame's hold: its held frame is the freeze's). `scatterRow` is the row whose every derp slot is a
+ * scatter (bodyMote.ts focusScatterRow; −1 none): its sweep, shapes and wounds are read so.
  */
-export function packShellData(g: Galaxy, t: number): Float32Array {
+export function packShellData(g: Galaxy, t: number, scatterRow = -1, leak = true): Float32Array {
   const out = new Float32Array(g.bodies.length * SHELL_TEXELS * 4);
   for (const b of g.bodies) {
     const seed = shellSeed(b.id);
-    const ev = b.cracked && b.derpSeed !== NODE_NEVER ? shellEvent(b.derpSeed, b.derpPhase, t, seed) : null;
+    const force = b.index === scatterRow;
+    const live = b.cracked && b.derpSeed !== NODE_NEVER;
+    const ev = live ? shellEvent(b.derpSeed, b.derpPhase, t, seed, force) : null;
+    const wounds = live && leak ? leakWoundsAt(b.derpSeed, b.derpPhase, seed, t, force) : [];
     const [sa, sb] = shapeUniforms(ev ? ev.shape : shapeAt(seed, 0));
     const [na, nb] = shapeUniforms(ev ? ev.next : shapeAt(seed, 0));
     const axis = spinAxis(seed);
@@ -295,6 +305,7 @@ export function packShellData(g: Galaxy, t: number): Float32Array {
         ...na,
         ...nb,
         ...sweep, ev?.aftershock ? 1 : 0,
+        ...packLeak(wounds, t), // T7..T12
       ],
       b.index * SHELL_TEXELS * 4,
     );
@@ -323,6 +334,7 @@ export function glslGalaxyConstants(): string {
     `const float PX_LIT_PLANET = ${lit(PX.litPlanet[0])};`,
     `const vec2 PX_TRACK = vec2(${TRACK_DOT_PX.map(lit).join(', ')});`,
     `const float RING_MIN_PX = ${lit(RING.minPx)}; // src/galaxy/review.ts RING.minPx: the ring's least outer radius, CSS px`,
+    `const int DROPOUT_MAX = ${DROPOUT.maxLines}; // birth.ts DROPOUT.maxLines: the dropout's most lines (uDrop)`,
     ...look,
   ].join('\n');
 }

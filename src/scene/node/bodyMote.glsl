@@ -16,13 +16,15 @@
 
 // Per body row (bodyAttrs.ts packShellData): T0, T1 the shape; T2 the spin axis and the morph's A;
 // T3 the motes' world diameter, their number and the body's own seed; T4, T5 the next shape; T6 the
-// scatter's sweep and its aftershock. The streams texture (bodyData.ts): a row per stream, the feed last.
+// scatter's sweep and its aftershock; T7..T12 its wounds (leak.ts packLeak). The streams texture (bodyData.ts): a row per stream, the feed last.
 uniform highp sampler2D uShellTex;
 uniform highp sampler2D uStreamTex;
 // The story's clocks (SceneState.net), the ambient clock, and the lamp: its focus, level and body row.
 uniform float uGrowth, uFix, uHighlight, uShow, uAmbient, uFocus, uLamp, uLampRow;
 // The row whose derp the freeze's hold replaces with a scatter FREEZE_SCATTER_S in (-1 none).
 uniform float uForcedScatter;
+// The freeze frame holds (1; 0 not): the focus's forced scatter stands down (bodyMote.ts holding).
+uniform float uHolding;
 // The freeze frame (freeze.glsl): the dressing, the flash and whether it shows, which copy of the held
 // piece this draw is (0 the base, 1 cold, 2 warm), and the held moon's and planet's rows (-1 none).
 uniform float uDress, uFlash, uFlashOn, uCopy;
@@ -187,6 +189,14 @@ float focusDerp(int row) {
   return bodyKind(row) == KIND_PLANET && planetLampSubject(row) ? 1.0 - uFocus : 1.0;
 }
 
+// Whether row's derp is a scatter in every slot (bodyMote.ts focusScatter, re-skin Task 8b): the planet
+// lamp's subject planet, carrying the defect, at focus over FOCUS_SCATTER; not while the freeze holds or
+// forces a row of its own.
+bool focusScatter(int row) {
+  return uHolding < 0.5 && uForcedScatter < 0.0 && uFocus > FOCUS_SCATTER && bodyKind(row) == KIND_PLANET && planetLampSubject(row) &&
+         bodyTexel(5, row).x != DERP_NEVER;
+}
+
 // A dotted orbit's or moon track's gain under the lamp (track.vert.glsl): its body's lampGain, save
 // that under the planet lamp the lit planet's own orbit round its star (the one planet row it lights)
 // is never drawn: it is the star's, not the piece's (bodyMote.ts trackLampGain).
@@ -220,7 +230,7 @@ Derp bodyDerp(int row, int sys) {
   vec4 t5 = bodyTexel(5, row);
   float omega = t2.z > 0.0 ? MOTE_TAU / t2.z : 0.0;
   float v = 1.0 - bodyLight(row).x;
-  Derp d = derp(t5.x, t5.y, uAmbient, bodyKind(row), t1.x, bodyTexel(3, row).y, omega, v);
+  Derp d = derp(t5.x, t5.y, uAmbient, bodyKind(row), t1.x, bodyTexel(3, row).y, omega, v, focusScatter(row));
   float g = sysGain(LOD_DERP, sys) * focusDerp(row);
   d.dNu *= g;
   d.dR *= g;
@@ -278,6 +288,19 @@ ShellEvent bodyShellEvent(int row, float sec) {
   ev.nextA = shellTexel(4, row);
   ev.nextB = shellTexel(5, row);
   return ev;
+}
+
+// The wounds a body holds (bodyMote.ts bodyLeak): T7..T12 of its shell row. A body with none (its
+// first wound closed: every healthy body) reads one texel.
+Leak bodyLeak(int row) {
+  vec4 first = shellTexel(7, row);
+  if (!(first.w <= 1.0)) return leakNone();
+  Leak l;
+  l.wound[0] = first;
+  for (int j = 1; j < 4; j++) l.wound[j] = shellTexel(7 + j, row);
+  l.age = shellTexel(11, row);
+  l.seed = shellTexel(12, row);
+  return l;
 }
 
 // The level-of-detail gain a body's shell (and its person motes) come in by.
@@ -370,6 +393,8 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
   // distance and the scatter flinging it along it.
   vec3 land;
   float k = 0.0;
+  // The leak's light on a leaking dot (re-skin Task 8b): it dims as it seeps out.
+  float leakLight = 1.0;
   if (person) {
     land = centre + R * normal;
   } else {
@@ -380,7 +405,7 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
     ShellEvent ev = bodyShellEvent(row, d.scatterS);
     float g = v * sysGain(LOD_DERP, a.sys);
     float cap = kind == KIND_MOON ? SCATTER_MOON_CAP : SCATTER_AMP_MAX;
-    vec4 warp = shellWarpK(cloud.ll, hA, hB, t, ev, axisA.w * g, g, cap);
+    vec4 warp = shellWarpLeak(cloud.ll, hA, hB, a.index, t, ev, axisA.w * g, g, cap, bodyLeak(row), leakLight);
     vec3 local = warp.xyz;
     if (star) local += (cloud.rho - 1.0) * shellHome(cloud.ll, hB.x, t, ev, axisA.w * g, g);
     land = centre + R * spinShell(local, axisA.xyz, t);
@@ -439,7 +464,7 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
   BodyMoteOut o;
   o.pos = om * om * spawn + 2.0 * om * e * ctrl + e * e * land;
   o.normal = normal;
-  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * uShow * lamp * el * look.gain * focusGain(row) * self;
+  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * leakLight * uShow * lamp * el * look.gain * focusGain(row) * self;
   o.visible = uShow > 0.0 && clock >= settle - window && lamp > 0.0 && el >= LOD_VISIBLE && look.gain > 0.0 ? 1.0 : 0.0;
   o.settled = tt;
   o.hi = max(hi, surge);

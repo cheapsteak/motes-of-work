@@ -164,6 +164,53 @@ describe('the schedule', () => {
   });
 });
 
+describe('the forced scatter (re-skin Task 8b)', () => {
+  it('the derp beat does not wait', () => {
+    // Forced, every slot is a scatter: from any ambient the next onset is at most one slot's period
+    // plus the most its event can sit inside the next (T + (T − D) = 3.4 s), so the first scatter (and
+    // its wounds) lands within 4 s of the derp beat, wherever the reader's ambient stands.
+    /** The next scatter's onset at or after ambient a: slot by slot from a's, the first whose kind is Scatter. */
+    const nextScatter = (a: number, force: boolean): number => {
+      for (let j = 0; ; j++) {
+        const ev = derpEvent(C1.derpSeed, C1.derpPhase, a + j * T, force);
+        if (ev.kind === DerpKind.Scatter && ev.t0 >= a) return ev.t0;
+      }
+    };
+    let worst = 0;
+    let unforced = 0;
+    for (let i = 0; i * 0.05 < 3596; i++) {
+      const a = i * 0.05;
+      const wait = nextScatter(a, true) - a;
+      expect(wait).toBeGreaterThanOrEqual(0);
+      worst = Math.max(worst, wait);
+      unforced = Math.max(unforced, nextScatter(a, false) - a);
+    }
+    // Measured: 3.366 s forced, 44.062 s on C1's own schedule.
+    expect(worst).toBeLessThanOrEqual(T + (T - D));
+    expect(worst).toBeLessThanOrEqual(4);
+    // Not vacuous: on its own schedule (a scatter in one slot of four) the reader could wait far longer.
+    expect(unforced).toBeGreaterThan(4);
+  });
+
+  it('forced, every slot is a scatter and the clock is the same; unforced, the schedule is unchanged', () => {
+    for (const phase of PHASES.slice(0, 10))
+      for (const t of grid(0, 300, 997)) {
+        const ev = derpEvent(SEED, phase, t);
+        expect(derpEvent(SEED, phase, t, false)).toEqual(ev);
+        expect(derpEvent(SEED, phase, t, true)).toEqual({ ...ev, kind: DerpKind.Scatter });
+        const d = derp(SEED, phase, t, 'planet', 5, 0.3, 0.7, 1, true);
+        expect(d).toEqual({ ...ZERO_DERP, wobble: [0, 0, 0], scatterS: ev.active ? ev.s * D : -1 });
+        expect(derp(SEED, phase, t, 'planet', 5, 0.3, 0.7, 1, false)).toEqual(derp(SEED, phase, t, 'planet', 5, 0.3, 0.7, 1));
+      }
+    // A healthy body and a fixed one stay still, forced or not.
+    for (const t of grid(0, 120, 400)) {
+      expect(derpEvent(NODE_NEVER, 0.3, t, true).active).toBe(false);
+      expect(derp(NODE_NEVER, 0.3, t, 'planet', 5, 0.3, 0.1, 1, true)).toEqual(ZERO_DERP);
+      expect(derp(SEED, 0.3, t, 'planet', 5, 0.3, 0.1, 0, true)).toEqual(ZERO_DERP);
+    }
+  });
+});
+
 describe('the kinds', () => {
   const r = 5;
   const R = 0.3;
@@ -427,7 +474,8 @@ describe('derp.glsl', () => {
     for (const [name, v] of Object.entries(DerpKind).filter(([, x]) => typeof x === 'number'))
       expect(lib).toContain(`const int DERP_KIND_${name.toUpperCase()} = ${v};`);
     expect(lib).not.toMatch(/#include/);
-    expect(lib).toMatch(/Derp derp\(float seed, float phase, float t, int kind, float r, float R, float omega, float v\)/);
+    expect(lib).toMatch(/Derp derp\(float seed, float phase, float t, int kind, float r, float R, float omega, float v, bool force\)/);
+    expect(lib).toMatch(/DerpEvent derpEvent\(float seed, float phase, float t, bool force\)/);
     expect(lib.match(/struct Derp\b/g)).toHaveLength(1);
   });
 

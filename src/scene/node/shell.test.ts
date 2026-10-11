@@ -49,12 +49,14 @@ import {
   shellHome,
   shellK,
   shellWarp,
+  shellWarpLeak,
   spinAxis,
   spinShell,
   type ShellEvent,
 } from './shell';
 import { shellLibraryGlsl, withShellLibrary } from './shaderSource';
 import shellGlsl from './shell.glsl?raw';
+import { leakOffset, leakWounds } from './leak';
 
 const grid = (from: number, to: number, n: number): number[] => Array.from({ length: n }, (_, i) => from + ((to - from) * i) / n);
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -509,5 +511,48 @@ describe('shell.glsl', () => {
     for (let k = 0; k < 4096; k++) for (const j of eventJ) if ([2 * k, 2 * k + 1].includes(k * SHELL_EVENT_STRIDE + j)) own.push(`slot ${k}, j ${j}`);
     expect(own).toEqual([]);
     expect(Math.min(...eventJ)).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('shellWarpLeak (re-skin Task 8b)', () => {
+  it('is shellWarp and the leak after it: the leak at the gain, its light mixed by it; no wound, shellWarp', () => {
+    const wounds = leakWounds(SEED, 0.37, BODY, 9);
+    const ev = scatterAt(0.9);
+    let moved = 0;
+    HERO.forEach((ll, i) => {
+      if (i % 7 !== 0) return;
+      const h = moteHashes(BODY, i);
+      for (const t of [wounds[0].open + 0.7, wounds[1].open + 1.1])
+        for (const gain of [1, 0.4, 0]) {
+          const base = shellWarp(ll, h, t, ev, EQ_A, gain, PLANET_CAP);
+          const l = leakOffset(llUnit(ll), i, t, wounds);
+          const got = shellWarpLeak(ll, h, i, t, ev, EQ_A, gain, PLANET_CAP, wounds);
+          const want = gain > 0 ? [0, 1, 2].map((k) => base[k] + gain * l.off[k]) : base;
+          for (let k = 0; k < 3; k++) expect(got.p[k]).toBeCloseTo(want[k], 12);
+          expect(got.light).toBeCloseTo(gain > 0 ? 1 - (1 - l.gain) * gain : 1, 12);
+          if (gain === 1 && l.gain < 1) moved++;
+          expect(shellWarpLeak(ll, h, i, t, ev, EQ_A, gain, PLANET_CAP, [])).toEqual({ p: base, light: 1 });
+        }
+    });
+    expect(moved).toBeGreaterThan(20);
+  });
+});
+
+describe('the forced scatter on the shell (re-skin Task 8b)', () => {
+  it('lands each forced scatter on a new shape and keeps it; unforced, the count is the schedule\u2019s', () => {
+    const phase = 0.37;
+    let prev = -1;
+    for (let i = 0; i < 3000; i++) {
+      const t = 0.05 + i * 0.113;
+      const ev = derpEvent(SEED, phase, t, true);
+      const n = scatterCount(SEED, phase, t, true);
+      expect(n).toBe(Math.max(0, ev.k) + (ev.s >= 1 ? 1 : 0));
+      expect(n).toBeGreaterThanOrEqual(prev);
+      prev = n;
+      const forced = shellEvent(SEED, phase, t, BODY, true);
+      expect(forced.n).toBe(n);
+      expect(forced.sec).toBe(ev.active ? ev.s * 1 : -1);
+      expect(shellEvent(SEED, phase, t, BODY, false)).toEqual(shellEvent(SEED, phase, t, BODY));
+    }
   });
 });

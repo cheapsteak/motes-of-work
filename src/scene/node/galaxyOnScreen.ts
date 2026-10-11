@@ -18,7 +18,7 @@ import { shown } from '../ambientClock';
 import { FREEZE_BREATH_PX, FREEZE_TICK_MOON, FREEZE_TICK_PLANET } from './birth';
 import { BODY_LOOK, buildPersonAttrs, buildShellAttrs, buildTrackAttrs, packShellData, shellMoteDiameter, unitIndexOf } from './bodyAttrs';
 import { packBodyData, type BodyData } from './bodyData';
-import { bodyCentre, bodyDerp, bodyLight, bodyMote, bodyPresence, lampGain, pieceOf, sysGain, trackDot, trackLampGain, type BodyClocks, type BodyMoteAttrs } from './bodyMote';
+import { bodyCentre, bodyDerp, bodyLight, bodyMote, bodyPresence, focusScatterRow, lampGain, pieceOf, sysGain, trackDot, trackLampGain, type BodyClocks, type BodyMoteAttrs } from './bodyMote';
 import { freezeCopy, freezeTick, freezeTickShow, freezeTickWarm } from './freeze';
 import { detailPx, LOD_VISIBLE, LodElement, motePx, onScreen, systemPx, TRACK_DOT_PX } from './lod';
 import { bodyWorld } from './orbit';
@@ -138,7 +138,7 @@ export function held(s: SceneState, ambient: number, g: Galaxy = galaxyOf().g): 
  * sampled motes and the shells at an ambient are fixed by these, so equal inputs are the same points.
  */
 function galaxyInputs(c: BodyClocks): number[] {
-  return [c.growth, c.fix, c.highlight, c.show, c.ambient, c.focus, c.lamp, c.lampRow, c.forcedScatter ?? -1];
+  return [c.growth, c.fix, c.highlight, c.show, c.ambient, c.focus, c.lamp, c.lampRow, c.forcedScatter ?? -1, c.holding === true ? 1 : 0];
 }
 
 /**
@@ -161,18 +161,20 @@ function galaxyRemember(inputs: number[], points: GalaxyPoint[]): void {
 }
 
 /**
- * The essay galaxy's shell texture at an ambient (packShellData), packed once per ambient: it depends
- * on the ambient alone, and the clearance sweeps ask for the same few (AMBIENT_GRID) at thousands of
- * states. The most recent 16 ambients only. −0 is packed afresh, never cached: a Map key would merge it
- * with 0, as the memo above and bodyWorld do not.
+ * The essay galaxy's shell texture at an ambient (packShellData) as bodySystem.ts packs it: the row the
+ * focus forces to scatter in every slot (−1 none) and whether the leak's wounds are packed (not while
+ * the freeze holds; re-skin Task 8b). Packed once per (ambient, row, leak): the clearance sweeps ask for
+ * the same few at thousands of states. The most recent 16 only. −0 is packed afresh, never cached: a
+ * Map key would merge it with 0, as the memo above and bodyWorld do not.
  */
-const shellsCache = new Map<number, Float32Array>();
-function shellsAt(ambient: number): Float32Array {
-  if (Object.is(ambient, -0)) return packShellData(galaxyOf().g, ambient);
-  let shells = shellsCache.get(ambient);
+const shellsCache = new Map<string, Float32Array>();
+function shellsAt(ambient: number, scatterRow: number, leak: boolean): Float32Array {
+  if (Object.is(ambient, -0)) return packShellData(galaxyOf().g, ambient, scatterRow, leak);
+  const key = `${ambient}|${scatterRow}|${leak}`;
+  let shells = shellsCache.get(key);
   if (!shells) {
-    if (shellsCache.size >= 16) shellsCache.delete(shellsCache.keys().next().value as number);
-    shellsCache.set(ambient, (shells = packShellData(galaxyOf().g, ambient)));
+    if (shellsCache.size >= 16) shellsCache.delete(shellsCache.keys().next().value as string);
+    shellsCache.set(key, (shells = packShellData(galaxyOf().g, ambient, scatterRow, leak)));
   }
   return shells;
 }
@@ -199,11 +201,14 @@ export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
     lampRow: lampFocusRow(s.net.lampAt, g),
     sysPx: new Float32Array(32).fill(1e4),
     forcedScatter: held(s, ambient, g).forcedScatter,
+    holding: s.freeze.hold >= 0.5 && s.net.focus > 0,
   };
   const inputs = galaxyInputs(clocks);
   const seen = galaxyRecall(inputs);
   if (seen) return seen;
-  const shells = { ...data, shells: shellsAt(ambient) };
+  // The shells as bodySystem.ts packs them: the focused defective planet's every slot a scatter, the
+  // leak's wounds only while the freeze does not hold (re-skin Task 8b).
+  const shells = { ...data, shells: shellsAt(ambient, focusScatterRow(clocks, data), !clocks.holding) };
   const out: GalaxyPoint[] = [];
   for (const b of g.bodies) {
     if (bodyPresence(b.index, s.net.growth, data) <= 0 || lampGain(b.index, clocks, data) <= 0) continue;
@@ -267,6 +272,7 @@ export function freezeTicks(
     lampRow: lampFocusRow(s.net.lampAt, g),
     sysPx: new Float32Array(32).fill(1e4),
     forcedScatter: hold.forcedScatter,
+    holding: s.freeze.hold >= 0.5 && s.net.focus > 0,
   };
   camera.updateMatrixWorld();
   const eye = camera.getWorldPosition(new Vector3());

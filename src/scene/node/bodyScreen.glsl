@@ -46,3 +46,25 @@ bool bodyOffScreen(int row, int role, vec4 view) {
   float reach = offScreenReachPx(view.xyz, HOSTLESS_REACH * t3.y, fx, fy, shellTexel(3, row).x);
   return offScreenSkip(css, reach, uViewport.x / uPixelRatio, uViewport.y / uPixelRatio);
 }
+
+// The defect's dropout (re-skin Task 8b; dropout.ts, set each frame by bodySystem.ts): its dark lines,
+// [top, bottom) CSS px rows from the top of the screen, how many (0 but on the focused defective piece,
+// and never under the freeze), and the box they cut in (x0, y0, x1, y1, CSS px).
+uniform vec2 uDrop[DROPOUT_MAX];
+uniform float uDropN;
+uniform vec4 uDropBox;
+
+// Whether a dot of `row` drawn at `clip` (its centre), `radius` CSS px, goes dark in a dropout line: one
+// of the focused piece's (the planet lamp's subject: its planet, its moons and their tracks) inside the
+// box, any of whose disc is on a line's rows (so the line is dark through, not only where dots centre).
+bool dropoutHides(int row, vec4 clip, float radius) {
+  if (!(uDropN > 0.0) || !planetLampSubject(row)) return false;
+  vec2 css = vec2(clip.x / clip.w + 1.0, 1.0 - clip.y / clip.w) * 0.5 * uViewport / uPixelRatio;
+  if (css.x < uDropBox.x || css.x > uDropBox.z || css.y < uDropBox.y || css.y > uDropBox.w) return false;
+  int n = int(round(uDropN));
+  for (int j = 0; j < DROPOUT_MAX; j++) {
+    if (j >= n) break;
+    if (css.y + radius >= uDrop[j].x && css.y - radius < uDrop[j].y) return true;
+  }
+  return false;
+}

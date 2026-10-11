@@ -51,6 +51,7 @@ import {
   RGBAFormat,
   Vector2,
   Vector3,
+  Vector4,
   type Blending,
   type IUniform,
   type PerspectiveCamera,
@@ -77,16 +78,17 @@ import {
   unitIndexOf,
   type QuadSet,
 } from './bodyAttrs';
-import { bodyCentre, bodyDerp, bodyLight, bodyPresence, lampGain, type BodyClocks } from './bodyMote';
+import { bodyCentre, bodyDerp, bodyLight, bodyPresence, focusScatterRow, lampGain, sysGain, type BodyClocks } from './bodyMote';
 import { STAR_LOOK } from './classLook';
 import { starSpikeShare } from './star';
-import { FREEZE_MIN_SYS_PX } from './birth';
+import { DROPOUT, FREEZE_MIN_SYS_PX } from './birth';
+import { dropoutLines } from './dropout';
 import { freezeTwos } from './freeze';
 import { BODY_TEXELS, packBodyData } from './bodyData';
 import { shellSkips, spikeSkips, streamSkips, trackSkips, type EarlyOutFrame } from './earlyOut';
 import { detailPx, glowCaps, glowPx, hoodGlowPx, hoodHold, hoodReal, LOD_COUNT, LOD_VISIBLE, LodElement, lodLevel, onScreen, systemPx, type Viewport } from './lod';
 import { bodyWorld } from './orbit';
-import { withGalaxyLibrary } from './shaderSource';
+import { withDropoutConstants, withGalaxyLibrary } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
 import bodyFrag from './shaders/body.frag.glsl?raw';
 import bodyVert from './shaders/body.vert.glsl?raw';
@@ -170,6 +172,15 @@ export interface BodySystem {
   skipped(): Record<string, number>;
   /** What the last frame's early-out read (the uniforms and the camera, earlyOut.ts), null before the first frame that drew the galaxy. */
   earlyOut(): EarlyOutFrame | null;
+  /**
+   * The defect's dropout at the last frame (re-skin Task 8b; dropout.ts): its dark lines and box (CSS
+   * px from the top left) and the focused piece's disc on screen it was drawn for (its centre and
+   * radius); null where none can be drawn (no focused defective piece, or the freeze holding). Muted,
+   * its lines are empty.
+   */
+  dropout(): { lines: [number, number][]; box: [number, number, number, number]; cx: number; cy: number; r: number } | null;
+  /** Test mode: draw no dropout (true) or let it run (false), so a frame can be compared with and without its lines. */
+  muteDropout(mute: boolean): void;
   dispose(): void;
 }
 
@@ -289,6 +300,11 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
     uLamp: { value: 0 },
     uLampRow: { value: -1 },
     uForcedScatter: { value: -1 },
+    uHolding: { value: 0 },
+    // The defect's dropout (re-skin Task 8b; bodyScreen.glsl, body.frag.glsl): its lines, how many, its box.
+    uDrop: { value: Array.from({ length: DROPOUT.maxLines }, () => new Vector2()) },
+    uDropN: { value: 0 },
+    uDropBox: { value: new Vector4() },
     uStreams: { value: 0 },
     uRing: { value: new Vector3() },
     uRingRadius: { value: 1 },
@@ -336,7 +352,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
   // that looks down on it. Drawn front-only, it was culled from every Act II shot.
   ringMaterial.side = DoubleSide;
   // Front faces only (the material's default side): a body is the faces the camera sees.
-  const bodyMaterial = material(bodyVert, bodyFrag);
+  const bodyMaterial = material(bodyVert, withDropoutConstants(bodyFrag));
 
   const shellGeometry = quadSet(shells);
   const personGeometry = quadSet(persons);
@@ -383,7 +399,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       depthWrite: false,
       transparent: true,
     });
-  const copyMaterials = ([1, 2] as const).flatMap((k) => [copyMaterial(shellVert, galaxyMoteFrag, k), copyMaterial(bodyVert, bodyFrag, k), copyMaterial(trackVert, galaxyMoteFrag, k)]);
+  const copyMaterials = ([1, 2] as const).flatMap((k) => [copyMaterial(shellVert, galaxyMoteFrag, k), copyMaterial(bodyVert, withDropoutConstants(bodyFrag), k), copyMaterial(trackVert, galaxyMoteFrag, k)]);
   const copyMeshes = copyMaterials.map((m, i) => {
     const kind = ['shells', 'bodies', 'tracks'][i % 3];
     const c = mesh(new InstancedBufferGeometry(), m, `net-copy-${kind}-${Math.floor(i / 3) + 1}`);
@@ -428,6 +444,11 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
   let lastSpikes: SpikesOnScreen[] = [];
   let lastHood: HoodOnScreen[] = [];
   let lastFrame: EarlyOutFrame | null = null;
+  let lastDropout: ReturnType<BodySystem['dropout']> = null;
+  let dropoutMuted = false;
+  // What the shell texture was last packed for: the focus's forced row and whether the leak runs.
+  let shellScatter = -1;
+  let shellLeak = true;
   const eye = new Vector3();
   const at = new Vector3();
 
@@ -455,6 +476,9 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       const held = state.freeze.hold >= 0.5 && focus > 0 && freeze.hero !== null;
       const forcedScatter = held && freeze.hero!.forceScatter ? freeze.hero!.planet : -1;
       uniforms.uForcedScatter.value = forcedScatter;
+      // While it holds, the defect's own motion stands down (re-skin Task 8b): no forced scatter by the
+      // focus, no leak, no dropout. The held frame is the freeze's.
+      uniforms.uHolding.value = held ? 1 : 0;
       // The dressing: every term is times net.focus in the shaders, so it cannot show off a focused frame.
       const { dress, flash } = state.freeze;
       uniforms.uDress.value = dress;
@@ -483,9 +507,14 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       uniforms.uFeedOn.value = feed;
       uniforms.uHoodHold.value = hoodHold(state.net.hoodHold);
       uniforms.uAmbient.value = ambient;
-      if (ambient !== shellAmbient) {
+      // The focused defective planet scatters in every slot (re-skin Task 8b): its sweep, shapes and
+      // wounds are packed so; the leak's wounds are packed only while the freeze does not hold.
+      const scatterRow = focusScatterRow({ lamp: Math.round(lamp), lampRow: uniforms.uLampRow.value as number, focus, forcedScatter, holding: held }, data);
+      if (ambient !== shellAmbient || scatterRow !== shellScatter || !held !== shellLeak) {
         shellAmbient = ambient;
-        shellTex.image.data!.set(packShellData(g, ambient));
+        shellScatter = scatterRow;
+        shellLeak = !held;
+        shellTex.image.data!.set(packShellData(g, ambient, scatterRow, !held));
         shellTex.needsUpdate = true;
       }
 
@@ -545,7 +574,23 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       // A glow sits where its star is drawn: a shivering star's, its derp on (bodyMote.ts);
       // and it is drawn only once its body is up and while the lamp lights it, so only those keep their
       // halos apart and are reported.
-      const clocks: BodyClocks = { growth, fix, highlight, show, ambient, focus, lamp: Math.round(lamp), lampRow: uniforms.uLampRow.value as number, sysPx, forcedScatter };
+      const clocks: BodyClocks = { growth, fix, highlight, show, ambient, focus, lamp: Math.round(lamp), lampRow: uniforms.uLampRow.value as number, sysPx, forcedScatter, holding: held };
+      // The defect's dropout (re-skin Task 8b): on the focused defective planet while its scatter is
+      // forced (focusScatterRow: never under the freeze), it not yet mended and its derps drawn, over its
+      // disc on screen as drawn (its derp on). Elsewhere none.
+      lastDropout = null;
+      if (scatterRow >= 0 && 1 - bodyLight(scatterRow, clocks, data).fix > 0 && sysGain(LodElement.Derp, sysOf[scatterRow], sysPx) > 0) {
+        const c = project(bodyCentre(scatterRow, bodyDerp(scatterRow, sysOf[scatterRow], clocks, data), ambient, data));
+        const r = (g.bodies[scatterRow].R * focal) / c.d;
+        if (c.front) {
+          const at = dropoutLines(ambient, c.x, c.y, r);
+          lastDropout = { lines: dropoutMuted ? [] : at.lines, box: at.box, cx: c.x, cy: c.y, r };
+        }
+      }
+      const drop = lastDropout?.lines ?? [];
+      uniforms.uDropN.value = drop.length;
+      drop.forEach(([y0, y1], j) => (uniforms.uDrop.value as Vector2[])[j].set(y0, y1));
+      if (lastDropout) (uniforms.uDropBox.value as Vector4).set(...lastDropout.box);
       const sprites = glowBodies.map((b) => {
         const sys = sysOf[b.index];
         const forced = force[LodElement.Derp];
@@ -607,6 +652,12 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
     hood: () => lastHood.map((s) => ({ ...s })),
 
     earlyOut: () => lastFrame,
+
+    dropout: () => (lastDropout === null ? null : { ...lastDropout, lines: lastDropout.lines.map(([a, b]) => [a, b] as [number, number]), box: [...lastDropout.box] }),
+
+    muteDropout(mute) {
+      dropoutMuted = mute;
+    },
 
     skipped() {
       const f = lastFrame;

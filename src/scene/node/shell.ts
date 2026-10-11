@@ -59,6 +59,7 @@ import {
   SHELL_SPIN_TILT,
 } from './birth';
 import { derpEvent, DerpKind } from './derp';
+import { leakOffset, type Wound } from './leak';
 import { orbitTurns } from './orbit';
 
 const PI = Math.PI;
@@ -244,13 +245,15 @@ function scattersBefore(seed: number, phase: number, k: number): number {
 /**
  * The body's scatters so far at ambient `t`, its shape index n: every scatter event of its schedule
  * from slot 0 that has ended (s ≥ 1). During a scatter it is still the count before it; the event's
- * motes step to shape n + 1 as they land, and the count steps when the event ends.
+ * motes step to shape n + 1 as they land, and the count steps when the event ends. Forced (re-skin
+ * Task 8b, `forceScatter`: every slot a scatter), every slot before this one counts, so each forced
+ * scatter lands on a new shape and keeps it; the shape steps once where the force comes or goes.
  */
-export function scatterCount(seed: number, phase: number, t: number): number {
+export function scatterCount(seed: number, phase: number, t: number, forceScatter = false): number {
   if (seed === NODE_NEVER) return 0;
-  const ev = derpEvent(seed, phase, t);
+  const ev = derpEvent(seed, phase, t, forceScatter);
   if (ev.k < 0) return 0;
-  return scattersBefore(seed, phase, ev.k) + (ev.kind === DerpKind.Scatter && ev.s >= 1 ? 1 : 0);
+  return (forceScatter ? ev.k : scattersBefore(seed, phase, ev.k)) + (ev.kind === DerpKind.Scatter && ev.s >= 1 ? 1 : 0);
 }
 
 /**
@@ -269,10 +272,11 @@ export function shellSeed(id: string): number {
  * A body's scatter at ambient `t` (its derp seed and phase): how far into it, the event's sweep and
  * aftershock (`hash01(seed, k · 64 + j)`), and its shapes, hashed from the body's own `bodySeed`
  * (shellSeed). The body seed is required: the derp seed is shared by every cracked body.
+ * `forceScatter` reads every slot as a scatter (derpEvent).
  */
-export function shellEvent(seed: number, phase: number, t: number, bodySeed: number): ShellEvent {
-  const n = scatterCount(seed, phase, t);
-  const ev = derpEvent(seed, phase, t);
+export function shellEvent(seed: number, phase: number, t: number, bodySeed: number, forceScatter = false): ShellEvent {
+  const n = scatterCount(seed, phase, t, forceScatter);
+  const ev = derpEvent(seed, phase, t, forceScatter);
   const on = ev.active && ev.kind === DerpKind.Scatter;
   const h = (j: number) => hash01(seed, ev.k * SHELL_EVENT_STRIDE + j);
   const z = 2 * h(SHELL_EVENT_SWEEP_Z) - 1;
@@ -360,4 +364,27 @@ export function shellWarp(
   const jit = (c: number) => (2 * hash01(jseed, tick * SHELL_JITTER_STRIDE + c) - 1) * SCATTER_JITTER_AXIS;
   const out = gain * k;
   return [p[0] + out * (d[0] * amp + jit(0)), p[1] + out * (d[1] * amp + jit(1)), p[2] + out * (d[2] * amp + jit(2))];
+}
+
+/**
+ * shellWarp, then the leak after the scatter (re-skin Task 8b, leak.ts): mote `i` at `ll` moved by its
+ * body's `wounds` at ambient `t` on its lattice point, before the spin, as far as `gain` (the scatter's:
+ * the fix's v and the level of detail) lets it; and the leak's light on it, mix(1, its dimming, gain).
+ * A body with no wound open is shellWarp's, and its light 1.
+ */
+export function shellWarpLeak(
+  ll: { lat: number; lon: number },
+  h: readonly number[],
+  i: number,
+  t: number,
+  ev: ShellEvent,
+  A: number,
+  gain: number,
+  cap: number,
+  wounds: readonly Wound[],
+): { p: Vec3; light: number } {
+  const p = shellWarp(ll, h, t, ev, A, gain, cap);
+  if (wounds.length === 0 || !(gain > 0)) return { p, light: 1 };
+  const l = leakOffset(llUnit(ll), i, t, wounds);
+  return { p: [p[0] + gain * l.off[0], p[1] + gain * l.off[1], p[2] + gain * l.off[2]], light: 1 - (1 - l.gain) * gain };
 }

@@ -8,7 +8,8 @@
 // derp.glsl (the derps) needs its generated constants and Derp struct, with the mote library and
 // orbit.glsl before it (hash01, moteSinCos, orbitTurns). shell.glsl (the shells) needs only its
 // generated constants, with the same two before it; a shader that also takes derp.glsl appends
-// shellLibraryGlsl() to withDerpLibrary()'s splice. lod.glsl (the level of detail) needs only its
+// shellLibraryGlsl() to withDerpLibrary()'s splice. leak.glsl (the defect's leak, which shell.glsl's
+// warp reads) needs its generated constants and the mote library, and goes before shell.glsl. lod.glsl (the level of detail) needs only its
 // generated constants. freeze.glsl (the freeze frame's dressing) needs its generated constants, with
 // the mote library (hash01) and light.glsl (the palette) before it. The galaxy's own draws
 // (bodySystem.ts) put their libraries together once: the mote library, orbit.glsl, shell.glsl,
@@ -19,8 +20,9 @@
 // (pcg, hash01, the SALT constants, moteSinCos) and orbit.glsl (orbitTurns) before it.
 import { glslBodyMoteOutStruct, glslDerpStruct } from '../../parity/fields';
 import { instanceChunk, moteLibraryGlsl, splice, spliceAll } from '../mote/shaderSource';
-import { glslBodyMoteConstants, glslDerpConstants, glslFreezeConstants, glslLightConstants, glslOrbitConstants, glslShellConstants } from './birth';
+import { glslBodyMoteConstants, glslDerpConstants, glslFreezeConstants, glslLeakConstants, glslLightConstants, glslOrbitConstants, glslShellConstants } from './birth';
 import { glslGalaxyConstants } from './bodyAttrs';
+import { DROPOUT } from './birth';
 import { glslClassLookConstants } from './classLook';
 import { glslHoleConstants } from '../hole/holeLook';
 import holeGlsl from '../hole/hole.glsl?raw';
@@ -31,6 +33,7 @@ import bodyMoteGlsl from './bodyMote.glsl?raw';
 import bodyScreenGlsl from './bodyScreen.glsl?raw';
 import derpGlsl from './derp.glsl?raw';
 import freezeGlsl from './freeze.glsl?raw';
+import leakGlsl from './leak.glsl?raw';
 import lightGlsl from './light.glsl?raw';
 import lodGlsl from './lod.glsl?raw';
 import orbitGlsl from './orbit.glsl?raw';
@@ -92,6 +95,22 @@ export function withDerpLibrary(vertex: string): string {
   return splice(vertex, DERP_INCLUDE_MARKER, WITH_DERP, 'derp vertex shader');
 }
 
+const LEAK_CONSTANTS_MARKER = '// #include LEAK constants (generated from src/scene/node/birth.ts by shaderSource.ts)';
+/** The line a vertex shader (the leak parity shader) carries where the mote library and leak.glsl go. */
+export const LEAK_INCLUDE_MARKER = '// #include mote.glsl + leak.glsl (spliced in by src/scene/node/shaderSource.ts)';
+
+const LEAK_LIBRARY = spliceAll(leakGlsl, 'leak.glsl', [[LEAK_CONSTANTS_MARKER, glslLeakConstants()]]);
+
+/** leak.glsl with its generated constants: leakOffset() alone, without the mote library it reads. */
+export function leakLibraryGlsl(): string {
+  return LEAK_LIBRARY;
+}
+
+/** Splice the mote library (pcg, hash01, the SALT constants, moteSinCos) and leak.glsl into a vertex shader at its marker (the leak parity shader). */
+export function withLeakLibrary(vertex: string): string {
+  return splice(vertex, LEAK_INCLUDE_MARKER, `${moteLibraryGlsl()}\n${LEAK_LIBRARY}`, 'leak vertex shader');
+}
+
 const SHELL_CONSTANTS_MARKER = '// #include SHELL constants (generated from src/scene/node/birth.ts by shaderSource.ts)';
 /** The line a vertex shader (the shell parity shader) carries where the mote library, orbit.glsl and shell.glsl go. */
 export const SHELL_INCLUDE_MARKER = '// #include mote.glsl + orbit.glsl + shell.glsl (spliced in by src/scene/node/shaderSource.ts)';
@@ -103,9 +122,9 @@ export function shellLibraryGlsl(): string {
   return SHELL_LIBRARY;
 }
 
-const WITH_SHELL = `${WITH_ORBIT}\n${SHELL_LIBRARY}`;
+const WITH_SHELL = `${WITH_ORBIT}\n${LEAK_LIBRARY}\n${SHELL_LIBRARY}`;
 
-/** Splice the mote library, orbit.glsl (for orbitTurns) and shell.glsl into a vertex shader at its marker. */
+/** Splice the mote library, orbit.glsl (for orbitTurns), leak.glsl (the leak the shell's warp reads) and shell.glsl into a vertex shader at its marker. */
 export function withShellLibrary(vertex: string): string {
   return splice(vertex, SHELL_INCLUDE_MARKER, WITH_SHELL, 'shell vertex shader');
 }
@@ -195,6 +214,7 @@ const WITH_GALAXY = [
   moteLibraryGlsl(),
   ORBIT_LIBRARY,
   DERP_LIBRARY,
+  LEAK_LIBRARY,
   SHELL_LIBRARY,
   STAR_LIBRARY,
   LOD_LIBRARY,
@@ -219,4 +239,12 @@ const WITH_GALAXY = [
  */
 export function withGalaxyLibrary(vertex: string): string {
   return splice(vertex, GALAXY_INCLUDE_MARKER, WITH_GALAXY, 'galaxy vertex shader');
+}
+
+/** The line body.frag.glsl carries where the dropout's constants go. */
+const DROPOUT_FRAGMENT_MARKER = '// #include DROPOUT constants (generated from src/scene/node/bodyAttrs.ts by shaderSource.ts)';
+
+/** body.frag.glsl (or any fragment shader carrying the marker) with the dropout's constants: its most lines (re-skin Task 8b). */
+export function withDropoutConstants(fragment: string): string {
+  return splice(fragment, DROPOUT_FRAGMENT_MARKER, `const int DROPOUT_MAX = ${DROPOUT.maxLines}; // birth.ts DROPOUT.maxLines`, 'body fragment shader');
 }

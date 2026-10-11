@@ -17,6 +17,7 @@ import {
   FREEZE_GREY_MIX,
   FREEZE_SCATTER_S,
   hexToRgb,
+  LEAK,
   SCATTER_AMP,
   LAMP_FLOOR,
   LIGHT_CONSTANTS,
@@ -30,14 +31,18 @@ import { buildPersonAttrs, buildShellAttrs, packShellData, type QuadSet } from '
 import {
   bodyCentre,
   bodyDerp,
+  bodyLeak,
   bodyMote,
   bodyMoteFlight,
   bodyMoteSettle,
   bodyShellEvent,
   focusDerp,
   focusGain,
+  focusScatter,
+  focusScatterRow,
   freezeLook,
   lampGain,
+  pieceOf,
   shellTexel,
   trackDot,
   trackLampGain,
@@ -48,10 +53,10 @@ import {
 import { packBodyData } from './bodyData';
 import { GALAXY_INCLUDE_MARKER, bodyMoteLibraryGlsl, withGalaxyLibrary } from './shaderSource';
 import bodyMoteGlsl from './bodyMote.glsl?raw';
-import { derp } from './derp';
+import { derp, derpEvent } from './derp';
 import { LOD_BANDS, LodElement } from './lod';
 import { bodyWorld, elementsAt, orbitLocal, orbitTurns } from './orbit';
-import { moteHashes, shellSeed, shellWarp, spinShell } from './shell';
+import { moteHashes, shellSeed, shellWarp, shellWarpLeak, spinShell } from './shell';
 import { streamControl } from './stream';
 
 // Task 6 step 1: the galaxy's motes in motion (bodyMote.ts), in TypeScript (the parity page holds
@@ -210,8 +215,9 @@ describe('a cracked body', () => {
     }
   });
 
-  it('leaves it only through derp (its centre) and shellWarp (its shell), and only at lodGain(Derp) > 0', () => {
+  it('leaves it only through derp (its centre) and shellWarpLeak (its shell and its leak), and only at lodGain(Derp) > 0', () => {
     let off = 0;
+    let leaked = 0;
     for (const t of T50) {
       const data = dataAt(t);
       const c = clocks({ ambient: t });
@@ -222,13 +228,16 @@ describe('a cracked body', () => {
       for (const a of motes) {
         const o = bodyMote(a, c, data);
         const h = moteHashes(shellSeed(c1.id), a.index);
-        const warp = shellWarp(a.ll, h, t, ev, f32(EQ_A), 1, SCATTER_AMP[0] + SCATTER_AMP[1]);
+        const wounds = bodyLeak(c1.index, t, data);
+        const warp = shellWarpLeak(a.ll, h, a.index, t, ev, f32(EQ_A), 1, SCATTER_AMP[0] + SCATTER_AMP[1], wounds).p;
         const want = [0, 1, 2].map((k) => centre[k] + f32(c1.R) * spinShell(warp, axis, t)[k]) as Vec3;
         expect(dist(o.pos, want)).toBeLessThan(1e-6);
+        if (dist(warp, shellWarp(a.ll, h, t, ev, f32(EQ_A), 1, SCATTER_AMP[0] + SCATTER_AMP[1])) > 0) leaked++;
         if (Math.abs(dist(o.pos, bodyWorld(data, c1.index, t)) - f32(c1.R)) > 1e-3 * c1.R) off++;
       }
     }
     expect(off, 'the defect moves C1 off its sphere somewhere in 50 ambients').toBeGreaterThan(100);
+    expect(leaked, 'and its wounds leak some of its motes').toBeGreaterThan(0);
   });
 
   it('is a sphere again once fixed: v takes every term to 0', () => {
@@ -242,13 +251,15 @@ describe('a cracked body', () => {
     }
   });
 
-  it('a cracked moon’s leap is capped at SCATTER_MOON_CAP', () => {
+  it('a cracked moon’s leap is capped at SCATTER_MOON_CAP (its leak reaches no further than a planet’s)', () => {
     const m = byId('C1-m1');
     for (const t of T50) {
       const data = dataAt(t);
       const c = clocks({ ambient: t });
       const centre = bodyCentre(m.index, bodyDerp(m.index, sys, c, data), t, data);
-      for (const a of motesOf(shells, m.index)) expect(dist(bodyMote(a, c, data).pos, centre)).toBeLessThan(m.R * (1 + EQ_A + SCATTER_MOON_CAP + 0.1));
+      // The leak's farthest: reach × (dist[0] + dist[1]) × amp R, crept LEAK.creep further, and its shiver.
+      const leak = LEAK.reach * (LEAK.dist[0] + LEAK.dist[1]) * LEAK.amp * (1 + LEAK.creep) + LEAK.shiver;
+      for (const a of motesOf(shells, m.index)) expect(dist(bodyMote(a, c, data).pos, centre)).toBeLessThan(m.R * (1 + EQ_A + Math.max(SCATTER_MOON_CAP + 0.1, leak)));
     }
   });
 });
@@ -573,5 +584,43 @@ describe('the focused piece under the planet lamp', () => {
     // Its moons keep theirs.
     for (const tt of [t, ts]) expect(bodyDerp(moon, sys, clocks({ ambient: tt, ...lamp(1) }), base)).toEqual(bodyDerp(moon, sys, clocks({ ambient: tt }), base));
     expect(focusDerp(away, lamp(1), base)).toBe(1);
+  });
+});
+
+describe('the forced scatter (re-skin Task 8b)', () => {
+  const C1 = bodyIndex(g, 'C1');
+  const sys = motesOf(shells, C1)[0].sys;
+  const healthy = g.bodies.find((b) => b.kind === 'planet' && !b.cracked)!.index;
+  const cracked = g.bodies.filter((b) => b.cracked && b.kind === 'planet' && b.index !== C1).map((b) => b.index);
+
+  it('is on only for the planet lamp’s subject planet that carries the defect, at focus over 0.5, and not under the freeze', () => {
+    const rows = g.bodies.map((b) => b.index);
+    for (const lamp of [Lamp.Off, Lamp.Planet, Lamp.Star, Lamp.Hood, Lamp.Core, Lamp.Lineage, Lamp.Arms])
+      for (const on of [C1, healthy, cracked[0], g.bodies.find((b) => b.kind === 'moon' && b.host === C1)!.index])
+        for (const focus of [0, 0.4, 0.5, 0.51, 1])
+          for (const freeze of [{}, { forcedScatter: C1 }, { holding: true }, { forcedScatter: cracked[1] }]) {
+            const c = clocks({ lamp, lampRow: on, focus, ...freeze });
+            const subject = lamp === Lamp.Planet ? pieceOf(base, on) : -1;
+            const want = subject >= 0 && g.bodies[subject].cracked && focus > 0.5 && !('forcedScatter' in freeze) && !('holding' in freeze) ? subject : -1;
+            expect(focusScatterRow(c, base), `${Lamp[lamp]} on ${g.bodies[on].id} at ${focus}, ${JSON.stringify(freeze)}`).toBe(want);
+            for (const row of rows) expect(focusScatter(row, c, base)).toBe(row === want);
+          }
+  });
+
+  it('makes every slot of its planet a scatter, and leaves its moons and every other body their own schedule', () => {
+    const moon = g.bodies.find((b) => b.kind === 'moon' && b.host === C1)!.index;
+    const c = (t: number) => clocks({ ambient: t, lamp: Lamp.Planet, lampRow: C1, focus: 1 });
+    let scatters = 0;
+    for (let i = 0; i < 400; i++) {
+      const t = 0.11 + i * 0.37;
+      const ev = derpEvent(byId('C1').derpSeed, f32(byId('C1').derpPhase), t, true);
+      const d = bodyDerp(C1, sys, c(t), base);
+      expect(d.scatterS).toBe(ev.active ? ev.s * 1 : -1);
+      if (d.scatterS >= 0) scatters++;
+      expect(bodyDerp(moon, sys, c(t), base)).toEqual(bodyDerp(moon, sys, clocks({ ambient: t }), base));
+      for (const row of cracked.slice(0, 3)) expect(bodyDerp(row, sys, c(t), base)).toEqual(bodyDerp(row, sys, clocks({ ambient: t }), base));
+    }
+    // A scatter in every slot: its event runs 1 s of every 2.2.
+    expect(scatters / 400).toBeGreaterThan(0.4);
   });
 });

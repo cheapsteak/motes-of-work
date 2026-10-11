@@ -25,7 +25,9 @@
 // own `v` (the fix): a planet's and a moon's orbit derp goes on ν, r and the lift after Kepler, in
 // the galaxy's plane about its host, on its own (possibly quantised) clock; a star and a core body
 // shiver; every one of them offsets by the wobble; the shell takes the morph (A·v·gain) and the
-// scatter (its leap and ring at v·gain). A star's dot cloud takes them as a shell does, each dot by
+// scatter (its leap and ring at v·gain), and after the scatter the leak (leak.ts, re-skin Task 8b: its
+// wounds move and dim their dots, at v·gain), the focused planet's every slot a scatter
+// (focusScatter). A star's dot cloud takes them as a shell does, each dot by
 // its own direction: the morph scales its distance from the centre, the scatter flings it along it. Its host is where its host would be without the derp, so a
 // moon keeps its track while its planet stutters (src/galaxy/ambient.ts pinnedMoon is this
 // composition; bodyMote.test.ts holds the two together).
@@ -66,15 +68,18 @@ import {
   SCATTER_AMP,
   SCATTER_MOON_CAP,
   SCATTER_OUT_GAIN,
+  FOCUS_SCATTER,
+  NODE_NEVER,
 } from './birth';
-import { SHELL_TEXELS } from './bodyAttrs';
+import { SHELL_LEAK_AT, SHELL_TEXELS } from './bodyAttrs';
 import { BODY_KIND, bodyTexel, type BodyData } from './bodyData';
 import { derp, type Derp } from './derp';
 import { freezeCopy, type FreezeCopyIndex } from './freeze';
 import { nodeArrival, nodeLight, nodeSettle, nodeSpread } from './light';
 import { LOD_VISIBLE, LodElement, lodGain } from './lod';
 import { bodyWorld, elementsAt, galaxyTurn, orbitLocal, orbitTurns } from './orbit';
-import { llUnit, moteHashes, shellHome, shellK, shellWarp, spinShell, type Shape, type ShellEvent } from './shell';
+import { llUnit, moteHashes, shellHome, shellK, shellWarpLeak, spinShell, type Shape, type ShellEvent } from './shell';
+import { unpackLeak, type Wound } from './leak';
 import { starBreath, starDot, starDotPolar } from './star';
 import { streamControl } from './stream';
 import type { StarLook } from '../../galaxy/body';
@@ -116,6 +121,12 @@ export interface BodyClocks {
    * absent, none (`uForcedScatter`).
    */
   forcedScatter?: number;
+  /**
+   * The freeze frame holds (`freeze.hold` up in a focused frame, the pin shown): the focus's forced
+   * scatter, the leak and the dropout stand down, so the held frame is the freeze's (re-skin Task 8b;
+   * `uHolding`). Absent: not held.
+   */
+  holding?: boolean;
   /** The freeze frame's dressing (absent: none, as every frame outside the defect's close-up). */
   freeze?: FreezeClocks;
 }
@@ -283,6 +294,27 @@ export function focusDerp(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 
 }
 
 /**
+ * The row whose derp is a scatter in every slot (re-skin Task 8b, the controller's ruling 1), −1 none:
+ * the planet lamp's subject planet, while it carries the defect and `net.focus` is over FOCUS_SCATTER,
+ * so a scatter (and its wounds) lands within NODE_DERP_PERIOD + (NODE_DERP_PERIOD − NODE_DERP_DUR) s
+ * wherever the ambient stands. Its orbit derps are mostly gone there (focusDerp) and its moons keep
+ * their own schedules. Not under the freeze: while it holds, or forces a row of its own, the held
+ * frame is the freeze's.
+ */
+export function focusScatterRow(c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'focus' | 'forcedScatter' | 'holding'>, data: BodyData): number {
+  if (c.holding === true || (c.forcedScatter !== undefined && c.forcedScatter >= 0)) return -1;
+  if (Math.round(c.lamp) !== Lamp.Planet || c.lampRow < 0 || !(c.focus > FOCUS_SCATTER)) return -1;
+  const planet = pieceOf(data, c.lampRow);
+  if (planet < 0 || kindOf(data, planet) !== BODY_KIND.planet || bodyTexel(data.bodies, 5, planet)[0] === NODE_NEVER) return -1;
+  return planet;
+}
+
+/** Whether `row`'s derp is a scatter in every slot (focusScatterRow; bodyMote.glsl focusScatter). */
+export function focusScatter(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'focus' | 'forcedScatter' | 'holding'>, data: BodyData): boolean {
+  return row === focusScatterRow(c, data);
+}
+
+/**
  * A dotted orbit's or moon track's gain under the lamp (track.vert.glsl's, bodyMote.glsl
  * trackLampGain): the gain of the body in its row (a planet's orbit round its star, a moon's track
  * round its planet), save that under the planet lamp the lit planet's own orbit (the one planet row
@@ -315,6 +347,7 @@ export function bodyPresence(row: number, growth: number, data: BodyData): numbe
  * A body's derp at the ambient, its terms scaled by lodGain(Derp) (or `gain`) on top of derp()'s own
  * `v`; scatterS is a clock and is not. The freeze's forced row (`c.forcedScatter`) is a scatter
  * FREEZE_SCATTER_S in and nothing else, whatever its schedule says: the shell scales it by `v` itself.
+ * The focused defective planet (focusScatter) scatters in every slot of its schedule.
  */
 export function bodyDerp(row: number, sys: number, c: BodyClocks, data: BodyData, gain = sysGain(LodElement.Derp, sys, c.sysPx)): Derp {
   if (c.forcedScatter !== undefined && c.forcedScatter >= 0 && row === c.forcedScatter)
@@ -326,7 +359,7 @@ export function bodyDerp(row: number, sys: number, c: BodyClocks, data: BodyData
   const omega = o.period > 0 ? (2 * Math.PI) / o.period : 0;
   const v = 1 - bodyLight(row, c, data).fix;
   const name = kind === BODY_KIND.core ? 'core' : kind === BODY_KIND.star ? 'star' : kind === BODY_KIND.planet ? 'planet' : 'moon';
-  const d = derp(seed, phase, c.ambient, name, o.a, R, omega, v);
+  const d = derp(seed, phase, c.ambient, name, o.a, R, omega, v, focusScatter(row, c, data));
   const g = gain * focusDerp(row, c, data);
   return {
     dNu: d.dNu * g,
@@ -413,6 +446,11 @@ export function bodyShellEvent(row: number, sec: number, data: BodyMoteData): Sh
   };
 }
 
+/** The wounds a body holds at ambient `t`, as the shell texture holds them (T7..T12, leak.ts packLeak): none on a healthy body. */
+export function bodyLeak(row: number, t: number, data: BodyMoteData): Wound[] {
+  return unpackLeak((j) => shellTexel(data.shells, SHELL_LEAK_AT + j, row), t);
+}
+
 /** The level-of-detail element a body's shell (and its person motes) come in by: a moon's, a planet's shell, or none (1). */
 function shellElement(kind: number, sys: number, sysPx: Float32Array): number {
   if (kind === BODY_KIND.moon) return sysGain(LodElement.Moon, sys, sysPx);
@@ -495,6 +533,8 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
   // the scatter flinging it along it; a person mote on its host's sphere.
   let land: Vec3;
   let k = 0;
+  // The leak's light on a leaking dot (re-skin Task 8b): it dims as it seeps out.
+  let leakLight = 1;
   if (person) {
     land = add(centre, scale(normal, R));
   } else {
@@ -503,10 +543,12 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
     const ev = bodyShellEvent(row, d.scatterS, data);
     const g = v * sysGain(LodElement.Derp, a.sys, c.sysPx);
     const cap = kind === BODY_KIND.moon ? SCATTER_MOON_CAP : SCATTER_AMP[0] + SCATTER_AMP[1];
-    let warp = shellWarp(ll, h, t, ev, axisA[3] * g, g, cap);
+    const leaked = shellWarpLeak(ll, h, a.index, t, ev, axisA[3] * g, g, cap, bodyLeak(row, t, data));
+    let warp = leaked.p;
     if (dot) warp = add(warp, scale(shellHome(ll, h, t, ev, axisA[3] * g, g), dot.rho - 1));
     land = add(centre, scale(spinShell(warp, axis, t), R));
     k = shellK(ll, h, ev) * g;
+    leakLight = leaked.light;
   }
 
   // 3. Where it sets out, through what, and when.
@@ -528,7 +570,7 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
   const star = dot ? bodyStarLook(data, row) : null;
   const self = star ? star.brightness * starDot(a.index, a.seed).gain * starBreath(star, t) : 1;
   const brightness =
-    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * c.show * lamp * el * look.gain * focusGain(row, c, data) * self;
+    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * leakLight * c.show * lamp * el * look.gain * focusGain(row, c, data) * self;
   return {
     pos,
     normal,

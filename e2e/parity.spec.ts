@@ -7,6 +7,7 @@ interface ParityCase {
   maxError: number;
   samples?: number;
   shifted?: number;
+  moved?: number;
 }
 
 // Every case renders the production vertex path (the real instanced attributes, instanceAttrs(),
@@ -82,7 +83,8 @@ test('GLSL bodyWorld() matches the TS reference', async ({ page }) => {
 // phases, and a healthy planet (NODE_NEVER), every 0.0137 s over 0–20 s and at each kind's first two
 // events at s 0.1, 0.3, 0.5, 0.65 and 0.85. A sample within a few float32 units of the ambient of a
 // hard cut may match the TS only across the cut: the page counts those (`shifted`), and they must
-// stay rare. The derps are held to DERP_TOLERANCE, tighter than the other libraries' 1e-3: a moon's
+// stay rare. A cracked body's schedule is also sampled forced to a scatter in every slot (re-skin
+// Task 8b: the focused planet's), every 0.1 s over 0-20 s. The derps are held to DERP_TOLERANCE, tighter than the other libraries' 1e-3: a moon's
 // wobble is a few thousandths of a unit, so 1e-3 would pass most errors in it. Measured: under 5e-6.
 const DERP_CASES = ['C1 (planet)', 'C1-m1 (moon)', 'P1 (star)', 'R0 (core)', 'a healthy planet'];
 const DERP_TOLERANCE = 1e-4;
@@ -96,8 +98,8 @@ test('GLSL derp() matches the TS reference', async ({ page }) => {
   for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(DERP_TOLERANCE);
   for (const name of DERP_CASES) {
     const c = byName.get(`derp: ${name}`)!;
-    // The grid, and for a cracked body 6 kinds × 2 events × 5 values of s × 3 values of v.
-    expect(c.samples, name).toBe(name === 'a healthy planet' ? 1460 : 1460 + 6 * 2 * 5 * 3);
+    // The grid, and for a cracked body 6 kinds × 2 events × 5 values of s × 3 values of v, and the forced grid.
+    expect(c.samples, name).toBe(name === 'a healthy planet' ? 1460 : 1460 + 200 + 6 * 2 * 5 * 3);
     expect(c.shifted, name).toBeLessThanOrEqual(c.samples! / 100);
   }
 });
@@ -231,6 +233,8 @@ test('GLSL starDot(), starSpike(), starBreath() and starTint() match the TS refe
  * GLSL agree there at the very ambient: no sample needs the time shift.
  */
 const HELD_CASES = ['defect 0.33, C1 held', '0.39, C1 held and fixing'].map((c) => `body: ${c} at the pose`);
+/** The leak on the focused planet (re-skin Task 8b): C1 at full focus, its forced slot 45 curving out (99.45 s) and lingering (100.2 s). */
+const LEAK_BODY_CASES = ['99.45 s', '100.2 s'].map((at) => `body: C1 leaking, focused at ${at}`);
 // Measured: under 1e-5 for C1, its moons, P1 and R0, and 1.3e-4 for the hashed motes (far systems,
 // a hundred units out, where float32 keeps 8e-6 of a unit). A wrong term (a morph at 0.02 R of a
 // 0.3-unit planet, a moon's skip) is ten times this or more.
@@ -246,7 +250,8 @@ test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   expect(errors).toEqual([]);
   expect(parity.error).toBeUndefined();
   const byName = new Map(parity.cases.map((c) => [c.name, c]));
-  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, TRACK_LAMP_CASE, 'hash01', 'pcg goldens'].sort());
+  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, ...LEAK_BODY_CASES, TRACK_LAMP_CASE, 'hash01', 'pcg goldens'].sort());
+  for (const name of LEAK_BODY_CASES) expect(byName.get(name)!.samples, name).toBeGreaterThan(1000);
   for (const name of HELD_CASES) {
     expect(byName.get(name)!.samples, name).toBeGreaterThan(100);
     expect(byName.get(name)!.shifted, name).toBe(0);
@@ -260,6 +265,30 @@ test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   expect(byName.get('body: 64 hashed motes at the pose')!.samples).toBe(64);
   // Every track row under seven lamps at three foci (the planet's own orbit and the moon tracks).
   expect(byName.get(TRACK_LAMP_CASE)!.samples).toBeGreaterThan(7 * 3 * 100);
+});
+
+// The defect's leak, leakOffset() (`?lib=leak`, re-skin Task 8b): C1's dots under its wounds, its
+// schedule forced to a scatter in every slot, at slots 45, 46 and 1200 (98 s to 2,640 s in), each 0.05,
+// 0.4, 0.8, 1.2, 1.6, 2.0, 2.4 and 2.9 s after its first wound opens (curving out, lingering, coming
+// home, home): every dot inside an open wound and every 97th outside, the wounds as the shell texture
+// carries them (float32 texels; the TS reads them back). The offset is in R and the light a share: held
+// to 1e-4 (the brief's), far under a dot's leak (0.07-0.6 R) or its dimming (0.15).
+const LEAK_CASES = [45, 46, 1200].flatMap((k) => [0.05, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.9].map((s) => `leak: slot ${k} at +${s} s`));
+const LEAK_TOLERANCE = 1e-4;
+
+test('GLSL leakOffset() matches the TS reference', async ({ page }) => {
+  const { errors, ...parity } = await runParity(page, '&lib=leak');
+  expect(errors).toEqual([]);
+  expect(parity.error).toBeUndefined();
+  const byName = new Map(parity.cases.map((c) => [c.name, c]));
+  expect([...byName.keys()].sort()).toEqual([...LEAK_CASES, 'hash01', 'pcg goldens'].sort());
+  for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(LEAK_TOLERANCE);
+  for (const name of LEAK_CASES) {
+    const c = byName.get(name)!;
+    expect(c.samples, name).toBeGreaterThan(500);
+    // Not vacuous: while the slot's wounds leak (0.4-1.6 s after the first opens) dots are out.
+    if (['+0.4 s', '+0.8 s', '+1.2 s', '+1.6 s'].some((s) => name.endsWith(s))) expect(c.moved, name).toBeGreaterThan(50);
+  }
 });
 
 // The black hole's twins (`?lib=hole`, re-skin Task 4): holeLens() over both images, in front of and

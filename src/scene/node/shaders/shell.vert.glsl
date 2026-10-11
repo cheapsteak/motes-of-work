@@ -48,6 +48,11 @@ const int FORM_GLOW = 3;
 void emit(vec4 view, float pxCss, float brightness, int form, float hi, float warm, FreezeLook look) {
   float px = pxCss * uPixelRatio;
   vec4 clip = projectionMatrix * view;
+  // The defect's dropout (bodyScreen.glsl): the focused piece's dots in a dark line go out.
+  if (dropoutHides(int(round(aMote.x)), clip, 0.5 * pxCss)) {
+    gl_Position = MOTE_HIDDEN;
+    return;
+  }
   float off = look.offPx + (uCopy > 0.5 ? freezeBreath(uTwos) : 0.0);
   clip.xy += (aCorner * px + 2.0 * uOffPx * off * uPixelRatio) / uViewport * clip.w;
   gl_Position = clip;

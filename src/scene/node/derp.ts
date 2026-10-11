@@ -118,8 +118,12 @@ function kindOf(h: number): DerpKind {
   return DerpKind.Wobble;
 }
 
-/** The derp schedule at ambient `t`: which slot, when its event starts, how far into it, and its kind. */
-export function derpEvent(seed: number, phase: number, t: number): DerpEvent {
+/**
+ * The derp schedule at ambient `t`: which slot, when its event starts, how far into it, and its kind.
+ * `forceScatter` makes every slot's kind a scatter and changes nothing else (re-skin Task 8b: the
+ * focused defective planet, bodyMote.ts focusScatter); without it the schedule is today's.
+ */
+export function derpEvent(seed: number, phase: number, t: number, forceScatter = false): DerpEvent {
   const T = NODE_DERP_PERIOD;
   const D = NODE_DERP_DUR;
   // t = k0 T + r0, r0 in [0, T); then the phase carries the slot on by at most one.
@@ -131,7 +135,7 @@ export function derpEvent(seed: number, phase: number, t: number): DerpEvent {
   const k = k0 + k1;
   const off = hash01(seed, 2 * k) * (T - D);
   const s = (local - off) / D;
-  return { active: seed !== NODE_NEVER && s >= 0 && s < 1, k, t0: (k - phase) * T + off, s, kind: kindOf(hash01(seed, 2 * k + 1)) };
+  return { active: seed !== NODE_NEVER && s >= 0 && s < 1, k, t0: (k - phase) * T + off, s, kind: forceScatter ? DerpKind.Scatter : kindOf(hash01(seed, 2 * k + 1)) };
 }
 
 /** One value of event k's lattice, in [−1, 1]: point i of axis `axis`. */
@@ -171,11 +175,12 @@ function skipProfile(s: number): number {
 /**
  * What a derp moves on a body at ambient `t` (see the head of this file): its seed and phase, its
  * kind, its track's radius `r`, its own radius `R`, its angular speed `omega` (rad/s, for the stall)
- * and the fix's `v` (1 unfixed, 0 fixed). A healthy seed, a fixed body (`v` 0) or no event: ZERO_DERP.
+ * and the fix's `v` (1 unfixed, 0 fixed); `forceScatter` reads every slot as a scatter (derpEvent). A
+ * healthy seed, a fixed body (`v` 0) or no event: ZERO_DERP.
  */
-export function derp(seed: number, phase: number, t: number, kind: BodyKind, r: number, R: number, omega: number, v: number): Derp {
+export function derp(seed: number, phase: number, t: number, kind: BodyKind, r: number, R: number, omega: number, v: number, forceScatter = false): Derp {
   if (seed === NODE_NEVER || !(v > 0)) return zero();
-  const ev = derpEvent(seed, phase, t);
+  const ev = derpEvent(seed, phase, t, forceScatter);
   if (!ev.active) return zero();
   const s = ev.s;
   const sec = s * NODE_DERP_DUR;

@@ -52,6 +52,11 @@ void main() {
   vec4 view = toView(pos);
   float px = clamp(LOOK_TRACK_DOT * pxPerUnit(view) / uPixelRatio, PX_TRACK.x, PX_TRACK.y) * uPixelRatio;
   vec4 clip = projectionMatrix * view;
+  // The defect's dropout (bodyScreen.glsl): the focused piece's moon tracks go dark in its lines.
+  if (dropoutHides(row, clip, 0.5 * px / uPixelRatio)) {
+    gl_Position = MOTE_HIDDEN;
+    return;
+  }
   float off = look.offPx + (uCopy > 0.5 ? freezeBreath(uTwos) : 0.0);
   clip.xy += (aCorner * px + 2.0 * uOffPx * off * uPixelRatio) / uViewport * clip.w;
   gl_Position = clip;
