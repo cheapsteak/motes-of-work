@@ -70,6 +70,7 @@ difference the author accepts becomes a new row above.
 | `schematic-neighbourhood-twelve-phone.png` | df-5 | 7b | |
 | `schematic-zoom-handover-strip.png` | df-3, the step back (scrub it) | 7b | |
 | `defect-v18-burst-leak-dropout-strip.png` | df-1, df-2 (motion: watch it live) | 8b | |
+| `ly5-opening-compare-phone.png` (row B) | ly-5's opening, phone, layers 3.50 to 3.58: the first plan in frame by 3.52, no empty sky | 1e | 1e task review: matches the B row |
 | (no still) fewer, fainter star spikes | ly-3, fr-1 | 1b and later | v21 judge: matches (2 faint spiked stars of 25 at ly-3, none at fr-1) |
 
 ## Published versions
