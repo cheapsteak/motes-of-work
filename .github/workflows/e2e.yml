@@ -7,8 +7,7 @@ name: e2e
 # @playwright/test), so the Chromium build that draws the pages is the one the stills were shot with.
 on:
   push:
-    # test-speed: this branch's own CI run; removed by the next commit, before it merges.
-    branches: [main, reskin-wip, test-speed]
+    branches: [main, reskin-wip]
   workflow_dispatch:
 
 permissions:
