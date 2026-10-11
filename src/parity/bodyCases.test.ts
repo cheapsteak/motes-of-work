@@ -5,7 +5,7 @@ import { packShellData } from '../scene/node/bodyAttrs';
 import { packBodyData } from '../scene/node/bodyData';
 import { bodyMote, lampGain } from '../scene/node/bodyMote';
 import { Lamp } from '../timeline/netTrack';
-import { allBodyMoteAttrs, BODY_AMBIENTS, BODY_CASES, BODY_DARK_CASES } from './bodyCases';
+import { allBodyMoteAttrs, BODY_AMBIENTS, BODY_ARMS_CASE, BODY_CASES, BODY_DARK_CASES } from './bodyCases';
 
 // The ?lib=body parity page compares the GLSL with the TS on these cases (parity.ts). The dark cases
 // are there to compare the lamp's dark side: a case that drew no mote the lamp darkens would compare
@@ -50,4 +50,24 @@ describe('the dark ?lib=body parity cases', () => {
       }
     });
   }
+});
+
+describe('the arms lamp ?lib=body parity case', () => {
+  it('samples the arms lamp (ly-4’s and the zoom-out’s) on the hashed motes, every drawn one of them lit, at each parity ambient', () => {
+    expect(BODY_CASES).toContain(BODY_ARMS_CASE);
+    const clocks = BODY_ARMS_CASE.clocks(g);
+    expect(clocks.lamp).toBe(Lamp.Arms);
+    const motes = BODY_ARMS_CASE.motes(g, all);
+    for (const ambient of BODY_AMBIENTS) {
+      const shells = packShellData(g, Math.fround(ambient));
+      const at = { ...clocks, ambient };
+      const drawn = motes.filter((a) => bodyMote(a, { ...at, lamp: Lamp.Off }, { ...data, shells }).visible);
+      // Not vacuous: most of the 64 drawn, and every one of them lit under the lamp.
+      expect(drawn.length, `at ${ambient}`).toBeGreaterThanOrEqual(8);
+      for (const a of drawn) {
+        expect(lampGain(a.row, at, data), `row ${a.row} at ${ambient}`).toBeGreaterThan(0);
+        expect(bodyMote(a, at, { ...data, shells }).visible).toBe(true);
+      }
+    }
+  });
 });

@@ -36,12 +36,12 @@ const quiet = { growth: 1, fix: 0, highlight: 0, show: 1, focus: 0, lamp: Lamp.O
  * bodyCases.test.ts holds each to at least 8 motes the lamp alone darkens.
  */
 export const BODY_DARK_CASES: BodyCase[] = ([
-  ['the planet lamp on C1', Lamp.Planet, 'C1', false],
-  ['the star lamp on C1', Lamp.Star, 'C1', false],
-  ['the core lamp', Lamp.Core, null, false],
+  ['the planet lamp on C1', Lamp.Planet, 'C1'],
+  ['the star lamp on C1', Lamp.Star, 'C1'],
+  ['the core lamp', Lamp.Core, null],
   ['the lineage lamp on P1', Lamp.Lineage, 'P1'],
-  // (The arms lamp darkened only the core's motes, half of its case's; the core rows draw nothing since
-  // the re-skin's Task 5, so no drawn mote is dark under it, and its case went.)
+  // (The arms lamp darkened only the core's motes; the core rows draw nothing since the re-skin's Task 5,
+  // so no drawn mote is dark under it: it is a lit case, BODY_ARMS_CASE.)
 ] as const).map(
   ([label, lamp, focus]): BodyCase => ({
     name: `64 hashed motes, ${label}`,
@@ -49,6 +49,16 @@ export const BODY_DARK_CASES: BodyCase[] = ([
     clocks: (g) => ({ ...quiet, growth: 0.55, highlight: 0.95, fix: 0.6, lamp, lampRow: focus === null ? -1 : g.ids[focus], focus: 0.5, sysPx: sysPxSpread() }),
   }),
 );
+
+/**
+ * The arms lamp (ly-4's and the zoom-out's), the only sample of it: the same hashed motes, every one lit
+ * (it darkened only the core rows, which draw nothing since the re-skin's Task 5).
+ */
+export const BODY_ARMS_CASE: BodyCase = {
+  name: '64 hashed motes, the arms lamp',
+  motes: (_, all) => Array.from({ length: BODY_HASHED }, (_, k) => all[Math.floor(hash01(MOTE_SEED, 0x5000 + k) * all.length)]),
+  clocks: () => ({ ...quiet, growth: 0.55, highlight: 0.95, fix: 0.6, lamp: Lamp.Arms, focus: 0.5, sysPx: sysPxSpread() }),
+};
 
 /**
  * The freeze frame's held cases (freeze-frame §4 parity): C1's piece under the close shot's lamp at
@@ -138,6 +148,7 @@ export const BODY_CASES: BodyCase[] = [
     clocks: () => ({ ...quiet, growth: 0.55, highlight: 0.95, fix: 0.6, lamp: Lamp.Hood, sysPx: sysPxSpread() }),
   },
   ...BODY_DARK_CASES,
+  BODY_ARMS_CASE,
   ...BODY_HELD_CASES,
 ];
 
