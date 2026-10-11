@@ -39,6 +39,17 @@ regenerated after a rebase, never merged by hand.
 3. v23 (the black hole) is published from that `main` after the pre-publish judge.
 4. `e2e.yml` gains `task-*` branches as push triggers (keep `main`, `reskin-wip`, on demand), so every task branch
    gets the 8-shard run.
+5. `e2e.yml`'s on-demand trigger gains two optional inputs, `specs` (spec files) and `grep` (a test-name filter),
+   for **focused runs on GitHub**: one shard when the selection is small, 8 when it is large; same image, font check
+   and tolerances. Author-approved 2026-10-11, and the author asked that everyone know about it and how to use it:
+   - the implementer and reviewer instructions get a "Focused tests on GitHub" paragraph: when to use it (a heavy
+     spec such as clearance, galaxy or network; a re-run of a test that timed out; anything while the machine is
+     loaded) and when not to (a quick single test while iterating: run it locally, since CI spends about 3 to 4 min
+     before the first test), with the exact call (the GitHub tools' `actions_run_trigger`, `run_workflow`, workflow
+     `e2e.yml`, ref = the task branch, inputs `specs` / `grep`) and how to read the result (list the branch's runs,
+     then the job logs);
+   - every lane dispatch names it in one line;
+   - the controller proves it once (a focused run of one spec on a task branch) before the first lane dispatch.
 
 ## How a task runs in a lane
 
