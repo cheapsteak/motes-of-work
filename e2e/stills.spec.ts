@@ -332,6 +332,19 @@ const STILLS: Still[] = [
       ['fx-4', 'fix', 0.82],
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R6', name, query: '&mech=bike', at: { section, local } })),
+  // The re-skin's Task 8 (re-skin §4.5): the freeze frame to its mock. Live before the cut, dressed, held
+  // (the copies added, C1 cyan, its fill halved while the hold has its scatter out), the bursts part-way
+  // retracted, the release (the hold let go, the dressing fading, the mended piece whole) and the mended rest.
+  ...(
+    [
+      ['0.250-live', 0.25],
+      ['0.292-dressed', 0.292],
+      ['0.330-held', 0.33],
+      ['0.390-retracting', 0.39],
+      ['0.413-release', 0.413],
+      ['0.437-mended', 0.437],
+    ] as const
+  ).map(([name, local]) => ({ tag: 'R8', name, query: '&mech=bike', at: { section: 'defect', local } })),
   // The re-skin's Task 7 (re-skin §4.4): the planets and moons lit from their own star, cool and tinted
   // by it, glowing only when lit. N0 and its moons as the zoom-out pulls out (zo-0.25), P_a's system
   // (ly-1), ly-4's hold, C1 at df-1 (and leaking: Task 8b's motion under the shading), the live close

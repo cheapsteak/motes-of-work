@@ -116,8 +116,9 @@ export const PURITY_SAMPLES: PuritySample[] = [
     ] as const
   ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit))),
   // The freeze frame (Task 12; freeze-frame §4), each at the pose and at 101 s: the dressing mid-snap,
-  // the fix landing on the held piece, and the release mid-peel (0.33, held, is above). The hold shows
-  // the pin whatever the clock; the release runs on it again.
+  // the fix landing on the held piece, and the release mid-peel (0.33, held, is above: re-skin Task 8's
+  // added copies and the held planet's halved fill are the hold's, a step on the scroll). The hold shows
+  // the pin whatever the clock; the release runs on it again (the focus's own motion back, times C1's v = 0).
   ...[0.265, 0.395, 0.413].flatMap((l) => [AMBIENT_POSE, 101].map((ambient) => at('defect', l, ambient, MIN_LIT_PIXELS, l === 0.413 && ambient === 101 ? FENCE : undefined))),
   // The defect's motion (re-skin Task 8b), df-1's close shot before the cut, at the pose and at 101 s:
   // the forced scatter, the leak's wounds (packed per frame into the shell texture) and the dropout's

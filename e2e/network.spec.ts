@@ -7,7 +7,7 @@ import { AMBIENT_POSE, FREEZE_PINS } from '../src/galaxy/ambient';
 import { galaxyBudget, generateGalaxy } from '../src/galaxy/generate';
 import { galaxyTier } from '../src/galaxy/background';
 import type { SectionSpan } from '../src/scroll/progress';
-import { FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
+import { FREEZE_SCATTER_FILL, FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
 import { bodyCentre, bodyDerp, bodyGhost, bodyLeak, focusScatterRow, type BodyClocks } from '../src/scene/node/bodyMote';
 import { dropoutEvent } from '../src/scene/node/dropout';
 import { leakOffset } from '../src/scene/node/leak';
@@ -232,6 +232,82 @@ const TWOS_PX = 12_000;
 const dist = (x: number, y: number, c: { x: number; y: number }) => Math.hypot(x - c.x, y - c.y);
 const angleApart = (a: number, b: number) => Math.abs(((((a - b + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI);
 
+/** Mean light over the ground (each channel less BG's) of the pixels whose centres `keep` selects. */
+function meanLight(png: PNG, keep: (x: number, y: number) => boolean): [number, number, number] {
+  const sum = [0, 0, 0];
+  let n = 0;
+  for (let y = 0; y < png.height; y++)
+    for (let x = 0; x < png.width; x++) {
+      if (!keep(x + 0.5, y + 0.5)) continue;
+      const i = (y * png.width + x) * 4;
+      for (let c = 0; c < 3; c++) sum[c] += png.data[i + c] - BG[c];
+      n++;
+    }
+  return sum.map((v) => v / Math.max(1, n)) as [number, number, number];
+}
+/** The mean HSV saturation, (max − min) / max, of the lit pixels whose centres `keep` selects. */
+function meanSaturation(png: PNG, keep: (x: number, y: number) => boolean): { mean: number; n: number } {
+  let sum = 0;
+  let n = 0;
+  for (let y = 0; y < png.height; y++)
+    for (let x = 0; x < png.width; x++) {
+      if (!keep(x + 0.5, y + 0.5) || !litAt(png, x, y)) continue;
+      const i = (y * png.width + x) * 4;
+      const ch = [png.data[i], png.data[i + 1], png.data[i + 2]];
+      const hi = Math.max(...ch);
+      sum += hi === 0 ? 0 : (hi - Math.min(...ch)) / hi;
+      n++;
+    }
+  return { mean: sum / Math.max(1, n), n };
+}
+/** Ember-dominant and blue-dominant: one channel 40 over both others (a copy's own hue; C1's cyan is neither). */
+const EMBER_DOMINANT = (r: number, g: number, b: number) => r > g + 40 && r > b + 40;
+const BLUE_DOMINANT = (r: number, g: number, b: number) => b > g + 40 && b > r + 40;
+const DOUBLE_LAG = 12;
+const DOUBLE_BAND = 12;
+/**
+ * How the ember-dominant image lies on the blue-dominant one through `planet`'s disc: for each row, the
+ * count of blue-dominant px whose px `lag` to the right (−12..12) is ember-dominant. The lag that counts
+ * most, pooled over every row (`lag`), and its contrast (its count over the mean count more than 2 px from
+ * it, less 1); and, in 12-row bands that hold both colours, how many bands' own best lag is 5-7 px.
+ */
+function doubleImage(png: PNG, planet: { x: number; y: number; r: number }): { lag: number; contrast: number; bands: number; bandsOk: number } {
+  const at = (x: number, y: number) => {
+    const i = (y * png.width + x) * 4;
+    return [png.data[i], png.data[i + 1], png.data[i + 2]] as const;
+  };
+  const rows: { corr: number[]; ember: number; blue: number }[] = [];
+  for (let y = Math.ceil(planet.y - planet.r); y <= Math.floor(planet.y + planet.r); y++) {
+    const half = Math.sqrt(Math.max(0, planet.r * planet.r - (y + 0.5 - planet.y) ** 2));
+    const corr = new Array(2 * DOUBLE_LAG + 1).fill(0);
+    let ember = 0;
+    let blue = 0;
+    for (let x = Math.floor(planet.x - half); x <= Math.ceil(planet.x + half); x++) {
+      if (EMBER_DOMINANT(...at(x, y))) ember++;
+      if (!BLUE_DOMINANT(...at(x, y))) continue;
+      blue++;
+      for (let lag = -DOUBLE_LAG; lag <= DOUBLE_LAG; lag++) if (EMBER_DOMINANT(...at(x + lag, y))) corr[lag + DOUBLE_LAG]++;
+    }
+    rows.push({ corr, ember, blue });
+  }
+  const best = (c: number[]) => c.indexOf(Math.max(...c)) - DOUBLE_LAG;
+  const pooled = rows.reduce((acc, r) => acc.map((v, k) => v + r.corr[k]), new Array(2 * DOUBLE_LAG + 1).fill(0) as number[]);
+  const lag = best(pooled);
+  const off = pooled.filter((_, k) => Math.abs(k - DOUBLE_LAG - lag) > 2);
+  const contrast = pooled[lag + DOUBLE_LAG] / (off.reduce((a, b) => a + b, 0) / off.length) - 1;
+  let bands = 0;
+  let bandsOk = 0;
+  for (let i = 0; i + DOUBLE_BAND <= rows.length; i += DOUBLE_BAND) {
+    const band = rows.slice(i, i + DOUBLE_BAND);
+    if (band.every((r) => r.ember === 0) || band.every((r) => r.blue === 0)) continue;
+    const c = band.reduce((acc, r) => acc.map((v, k) => v + r.corr[k]), new Array(2 * DOUBLE_LAG + 1).fill(0) as number[]);
+    bands++;
+    const l = best(c);
+    if (Math.max(...c) > 0 && l >= 5 && l <= 7) bandsOk++;
+  }
+  return { lag, contrast, bands, bandsOk };
+}
+
 /** The moon's burst's annulus (1.8-3.4 moon radii) and the planet's (from its dashes' start, 50 px out), as pixel tests. */
 function annuli(twin: Frame['twin']) {
   const inner = (FREEZE_TICK_PLANET.r0 + FREEZE_TICK_PLANET.out * twin.scatterOut) * twin.planet.r;
@@ -242,9 +318,16 @@ function annuli(twin: Frame['twin']) {
   };
 }
 
+/**
+ * The freeze frame's thresholds per screen. The bursts' were set on the mocks (freeze-frame §4). The double
+ * image's (re-skin Task 8) are 0.6 × measured on SwiftShader at 1x: its contrast DOUBLE_CONTRAST_MEASURED, and
+ * the ember-dominant px over C1's disc where the copies add (ADDED_EMBER_MEASURED; 33 / 47 on 8b's screen blend).
+ */
+const DOUBLE_CONTRAST_MEASURED = { phone: 0.87, desktop: 1.1 };
+const ADDED_EMBER_MEASURED = { phone: 106, desktop: 112 };
 const FREEZE_SIZES = [
-  { width: 390, height: 844, label: 'phone', moonLit: 60, planetLit: 160 },
-  { width: 1440, height: 900, label: 'desktop', moonLit: 120, planetLit: 300 },
+  { width: 390, height: 844, label: 'phone', moonLit: 60, planetLit: 160, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.phone, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.phone) },
+  { width: 1440, height: 900, label: 'desktop', moonLit: 120, planetLit: 300, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.desktop, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.desktop) },
 ] as const;
 
 for (const size of FREEZE_SIZES) {
@@ -357,6 +440,68 @@ for (const size of FREEZE_SIZES) {
       note('split amber', `the whole frame at 0.395: ${fixingFrameAmber} amber-hued px`);
       expect(fixingFrameAmber, 'the whole frame amber as it lands').toBeGreaterThanOrEqual(SPLIT.frameAmber);
       expect(fixingWarm, 'the warm half turned amber, not ember').toBeGreaterThan(fixingEmber);
+    });
+
+    // ---- The freeze frame to its mock (re-skin Task 8, §4.5): the copies add, C1 cyan, the scatter in its hue ----
+
+    test(`the copies read as a double image (${size.label})`, async ({ page }) => {
+      // The held frame as drawn. The warm copy stands FREEZE_COPY_PX right of the base and the cold one as
+      // far left (along the rolled screen x, 4°), so the ember-dominant image is the blue-dominant one moved
+      // 6 px right. Measured as the displacement that best lays one image on the other in each row through
+      // C1's disc: a row holds two or three motes' worth of each colour, so its own best lag is noise (the
+      // brief's per-row centroid read 0-4 % on this frame, on 8b's screen blend and on the mock alike), and
+      // the rows are pooled in 12-row bands (twice the copies' spread) and over the whole disc.
+      const held = await defectFrame(page, 0.33);
+      const { planet } = held.twin;
+      const lags = doubleImage(held.png, planet);
+      note('double image', `${size.label}: pooled lag ${lags.lag} px, contrast ${lags.contrast.toFixed(2)}, bands ${lags.bandsOk}/${lags.bands}`);
+      expect(lags.lag, 'the warm image 5-7 px right of the cold').toBeGreaterThanOrEqual(5);
+      expect(lags.lag).toBeLessThanOrEqual(7);
+      expect(lags.contrast, 'a distinct double, not a smear').toBeGreaterThanOrEqual(size.doubleContrast);
+      expect(lags.bandsOk / lags.bands, 'in 60 % of the bands that hold both').toBeGreaterThanOrEqual(0.6);
+      // The copies add (One + One, as the mock): over the planet the warm copy sums with what is drawn
+      // under it to an ember-dominant px brighter than 200 in red, which the screen blend never reached.
+      const embers = colourWhere(held.png, EMBER, (x, y) => dist(x, y, planet) <= planet.r);
+      note('double image', `${size.label}: ${embers} ember-dominant px (r > 200) in C1's disc`);
+      expect(embers, 'the copies add up over the planet').toBeGreaterThanOrEqual(size.addedEmber);
+    });
+
+    test(`the held planet is cyan (${size.label})`, async ({ page }) => {
+      // Task 7's rule (galaxy.spec.ts "C1 is cyan", at df-1) on the held frame: C1's own shells and body
+      // (the copies are the double image, judged above), its disc's mean light within 0.9 R has
+      // B ≥ 0.95 G and G ≥ 2 R. Neither the dressing nor the flash may turn it pale.
+      const held = await defectFrame(page, 0.33, { only: ['net-shells', 'net-bodies'] });
+      const { planet } = held.twin;
+      const [R, G, B] = meanLight(held.png, (x, y) => dist(x, y, planet) <= 0.9 * planet.r);
+      note('cyan', `${size.label}: C1's disc mean light R ${R.toFixed(1)}, G ${G.toFixed(1)}, B ${B.toFixed(1)}`);
+      expect(B).toBeGreaterThanOrEqual(0.95 * G);
+      expect(G).toBeGreaterThanOrEqual(2 * R);
+    });
+
+    test(`the scatter keeps its hue (${size.label})`, async ({ page }) => {
+      // The scatter haze round C1, as drawn: the lit px 1.05-1.5 R about it have a mean saturation of at
+      // least 0.35 (C1's hue, not a pile of white).
+      const held = await defectFrame(page, 0.33);
+      const { planet } = held.twin;
+      const sat = meanSaturation(held.png, (x, y) => dist(x, y, planet) >= 1.05 * planet.r && dist(x, y, planet) <= 1.5 * planet.r);
+      note('scatter hue', `${size.label}: mean saturation ${sat.mean.toFixed(3)} over ${sat.n} lit px`);
+      expect(sat.n, 'a haze to judge').toBeGreaterThan(1000);
+      expect(sat.mean).toBeGreaterThanOrEqual(0.35);
+      // And its means: while the hold has the scatter out, C1's icosphere fill is half its own. Its body
+      // alone, in its disc clear of the moons, against the same moment live before the cut (test mode
+      // stands both at the pin's ambient; at 0.25 the focus forces C1's scatter, unheld, at its full fill).
+      const bodies = { only: ['net-bodies'] };
+      const fill = async (local: number) => {
+        const f = await defectFrame(page, local, bodies);
+        const moons = pieceMoons(f);
+        return meanLight(f.png, (x, y) => dist(x, y, f.twin.planet) <= 0.9 * f.twin.planet.r && moons.every((m) => dist(x, y, m) > m.r + 2));
+      };
+      const [heldFill, liveFill] = [await fill(0.33), await fill(0.25)];
+      const ratio = (heldFill[1] + heldFill[2]) / (liveFill[1] + liveFill[2]);
+      note('scatter hue', `${size.label}: C1's body G+B ${(heldFill[1] + heldFill[2]).toFixed(1)} held, ${(liveFill[1] + liveFill[2]).toFixed(1)} live: ${ratio.toFixed(3)}`);
+      expect(liveFill[1] + liveFill[2], 'the body draws').toBeGreaterThan(4);
+      expect(ratio, 'the held fill is FREEZE_SCATTER_FILL of the live one').toBeGreaterThanOrEqual(FREEZE_SCATTER_FILL - 0.1);
+      expect(ratio).toBeLessThanOrEqual(FREEZE_SCATTER_FILL + 0.1);
     });
   });
 }
