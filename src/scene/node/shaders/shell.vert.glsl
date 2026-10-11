@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The galaxy's shell motes, the person's warm motes and the glow sprites (bodySystem.ts: net-shells,
 // net-persons, net-glow), one quad per instance, drawn by galaxyMote.frag.glsl over its body's base
 // colour (vBase, the bodies texture's T6: a star's tint, a planet's or moon's colour). A shell or person mote is
@@ -203,10 +203,14 @@ void main() {
   }
   // No camera light (re-skin Task 7): a star's dots are their own light, and a planet's and a moon's
   // are shaded by their terminator toward their own star, in o.brightness (bodyMote.glsl bodyShade).
+  // Their far hemisphere, seen through the lattice, is dimmed (terminator.glsl farSide, on the mote's
+  // rest normal as its terminator is, so a scattered or leaking dot keeps its side's light), unless lit.
+  float far = 1.0;
+  if (kind == KIND_PLANET || kind == KIND_MOON) far = mix(farSide(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz)), 1.0, o.hi);
   // Where the shell is small on screen its motes overlap: each carries no more than its share of the disc.
   // A lit shell's gain shows where its motes stand apart; where they pile up it is spent within the
   // same share, so a lit disc is the same light in ember, not a white blot.
   float lit = 1.0 + NODE_HI_GAIN * o.hi;
   float density = min(1.0, LOOK_DENSITY * 3.14159265 * bodyPx * bodyPx / (0.5 * max(dots.y, 1.0) * px * px) / lit);
-  emit(view, px * ink, LOOK_SHELL_BRIGHTNESS * o.brightness * gain * density, FORM_POINT, o.hi, o.warm, look);
+  emit(view, px * ink, LOOK_SHELL_BRIGHTNESS * o.brightness * far * gain * density, FORM_POINT, o.hi, o.warm, look);
 }

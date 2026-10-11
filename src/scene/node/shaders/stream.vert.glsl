@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The galaxy's streams and the reviewer's feed (bodySystem.ts: net-streams, net-feed; galaxy §15),
 // one quad per dot, drawn by galaxyMote.frag.glsl. The lineage streams are shown only where the story's
 // line is about lineage (uStreams, `net.streams`), the feed only where it is the subject (uFeedOn,

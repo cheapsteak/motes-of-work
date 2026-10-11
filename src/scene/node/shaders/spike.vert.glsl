@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The stars' spikes (bodySystem.ts: net-spikes; re-skin §4.3), one 1 CSS px dot per instance, drawn
 // by galaxyMote.frag.glsl. A spike dot stands in screen space off its star's centre as drawn (its derp
 // on, as its glow sprite: shell.vert.glsl), by starSpike() of the star's look (T7) at the glow sprite's

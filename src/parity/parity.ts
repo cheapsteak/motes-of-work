@@ -26,8 +26,8 @@
 // `?lib=leak` compares the defect's leak, leakOffset() (src/scene/node/leak.ts), over C1's dots under
 // its forced wounds at three slots and eight moments of each (leakCases.ts), as the texture carries them.
 // `?lib=terminator` compares the planets' light (src/scene/node/terminator.ts): lightDir() of every
-// planet and moon of the essay's galaxy at four ambients, and terminator() over a sphere of normals,
-// four light directions and both nights (terminatorCases).
+// planet and moon of the essay's galaxy at four ambients, and terminator() and farSide() over a sphere
+// of normals, four light (or eye) directions and both nights (terminatorCases).
 // `?lib=hole` compares the black hole (src/scene/hole/hole.ts): the lens, and every part's dots from two
 // cameras at four ambients (holeCases.ts).
 import {
@@ -84,7 +84,7 @@ import {
   withStarLibrary,
   withTerminatorLibrary,
 } from '../scene/node/shaderSource';
-import { lightDir, terminator } from '../scene/node/terminator';
+import { farSide, lightDir, terminator } from '../scene/node/terminator';
 import { PLANET_LOOK } from '../scene/node/classLook';
 import { buildHoleAttrs } from '../scene/hole/holeAttrs';
 import { HOLE_CAMERAS, HolePart, holeParityCases, holeParityView, holeReference, lensInput, type HoleCamera, type HoleSample } from './holeCases';
@@ -1114,7 +1114,7 @@ function terminatorCases(draw: Draw): ParityCase[] {
       // The TS reference takes the inputs as the attributes carry them: float32.
       batch.forEach((b, i) => {
         const v = (x: readonly number[]) => x.map(f) as [number, number, number];
-        const want: TerminatorOut = { lightDir: lightDir(data, b.term[0], f(b.term[1])), terminator: terminator(v(b.n), v(b.toStar), f(b.term[2])) };
+        const want: TerminatorOut = { lightDir: lightDir(data, b.term[0], f(b.term[1])), terminator: terminator(v(b.n), v(b.toStar), f(b.term[2])), farSide: farSide(v(b.n), v(b.toStar)) };
         passes.forEach((pass, j) => {
           for (const { field, offset } of pass) {
             fieldValues(want, field.name).forEach((x, q) => {
@@ -1127,7 +1127,7 @@ function terminatorCases(draw: Draw): ParityCase[] {
     }
     return { name, maxError: err, samples: inputs.length };
   };
-  const cases = [run(dirs, 'terminator: lightDir of every planet and moon'), run(shades, 'terminator: terminator over the sphere')];
+  const cases = [run(dirs, 'terminator: lightDir of every planet and moon'), run(shades, 'terminator: terminator and farSide over the sphere')];
   mat.dispose();
   bodiesTex.dispose();
   return cases;

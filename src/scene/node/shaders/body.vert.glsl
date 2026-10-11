@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The galaxy's bodies (bodySystem.ts: net-bodies): one icosphere per body but a star, where it is drawn (its derp
 // on), scaled by its radius and bent by its shell's equation (the morph, at A·v·gain, from the vertex's
 // own lattice point: the spin undone), and after them a ghost per planet or moon that carries the

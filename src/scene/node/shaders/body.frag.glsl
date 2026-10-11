@@ -1,7 +1,7 @@
 precision highp float;
 
 // The galaxy's bodies (body.vert.glsl): a planet's or moon's faint fill (PLANET_LOOK.fill) in its
-// colour (vBase, T6), lit by its terminator toward its own star and unshaded while lit (re-skin §4.4:
+// colour (vBase, T6), lit by its terminator toward its own star, its far side dimmed, and unshaded while lit (re-skin §4.4:
 // no rim, so a planet does not glow), tinted toward the person's amber once fixed and mixed toward
 // ember while lit, then toward the freeze frame's colour (vTint: a copy's, the grey, the flash's
 // white), premultiplied for the screen blend. A burst's ghost keeps its rim, (1 - |n.v|)^GHOST_RIM_POW
@@ -60,7 +60,8 @@ void main() {
       }
     }
   }
-  float lit = mix(terminator(normalize(vNormal), vToStar, vNight), 1.0, vHi);
+  // Its terminator toward its star and its far side away from the camera (terminator.glsl), unless lit.
+  float lit = mix(terminator(normalize(vNormal), vToStar, vNight) * farSide(normalize(vViewNormal), normalize(vToEye)), 1.0, vHi);
   float f = 1.0 - abs(dot(normalize(vViewNormal), normalize(vToEye)));
   float a = min(1.0, (vFill * lit + vRim * GHOST_RIM * pow(f, GHOST_RIM_POW)) * vGain);
   vec3 colour = mix(mix(vBase, HUMAN, vWarm), EMBER, EMBER_MIX * vHi);

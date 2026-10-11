@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The galaxy's dotted orbits and tracks (bodySystem.ts: net-tracks), one quad per dot, drawn by
 // galaxyMote.frag.glsl. A dot marks the ellipse of the body in its row (a planet's orbit round its star, or
 // a moon track round its planet, which the track's moons share) at its own mean anomaly: orbitLocal

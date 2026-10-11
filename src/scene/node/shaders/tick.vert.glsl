@@ -1,7 +1,7 @@
 precision highp float;
 precision highp int;
 
-// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
+// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)
 // The freeze frame's two bursts (bodySystem.ts: net-ticks; freeze-frame §2.1 items 2 and 2b), one
 // quad per mote, drawn by galaxyMote.frag.glsl: straight dotted dashes in the view plane round the moon the
 // pin caught mid-burst and round its planet caught mid-scatter. Each source is where the twin draws it

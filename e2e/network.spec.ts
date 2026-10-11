@@ -7,9 +7,12 @@ import { AMBIENT_POSE, FREEZE_PINS } from '../src/galaxy/ambient';
 import { galaxyBudget, generateGalaxy } from '../src/galaxy/generate';
 import { galaxyTier } from '../src/galaxy/background';
 import type { SectionSpan } from '../src/scroll/progress';
-import { FOCUS_SCATTER, FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
+import { FREEZE_TICK_MOON, FREEZE_TICK_PLANET, FREEZE_TICK_PX } from '../src/scene/node/birth';
 import { bodyCentre, bodyDerp, bodyGhost, bodyLeak, focusScatterRow, type BodyClocks } from '../src/scene/node/bodyMote';
-import { packShellData } from '../src/scene/node/bodyAttrs';
+import { dropoutEvent } from '../src/scene/node/dropout';
+import { leakOffset } from '../src/scene/node/leak';
+import { llUnit } from '../src/scene/node/shell';
+import { buildShellAttrs, packShellData } from '../src/scene/node/bodyAttrs';
 import { bodyWorld } from '../src/scene/node/orbit';
 import { KeyframeSampler, type KeyframeFile } from '../src/timeline/keyframeSampler';
 import { mergeState, type SceneState } from '../src/timeline/sceneState';
@@ -201,8 +204,18 @@ const AMBERISH = (r: number, g: number, b: number) => r > 120 && g > 0.55 * r &&
  * darkened half (258 / 294 held, 269 / 328 as the fix lands). It is the piece's own now (its shells,
  * persons, bodies and tracks, the copies left out): 0 held and 51 / 55 as the fix lands (36 / 41 on
  * 8831f96, before it), so 0.6 × 51. With the terminator the blue-dominant count is 2,189 / 2,553.
+ * With the far side (fix round 1), phone / desktop: ember 165 / 194, blue-dominant 1,943 / 2,256, the warm
+ * copy 1,968 / 2,287 and the cold 2,742 / 3,285 (the copies' far hemisphere dimmed with the base's), the
+ * piece's amber 0 held and 58 / 62 as the fix lands. And the whole frame's amber as the fix lands (review
+ * m3, the copies' with the piece's): 209 / 248, so 0.6 × 209.
  */
-const SPLIT = { ember: 120, blue: 300, copy: 1_800, amberRise: 30 };
+const SPLIT = { ember: 120, blue: 300, copy: 1_800, amberRise: 30, frameAmber: 125 };
+/**
+ * The limb test's calm ambient: C1 focused at 1 with the hold let go scatters in every slot (Task 8b); at
+ * 19.6 s it is between two scatters, no wound holds a dot and no dropout line is up (19.5-19.8 s are all
+ * calm, by the twin; the test asserts it). The pose itself is never calm at focus 1.
+ */
+const LIMB_CALM = 19.6;
 /**
  * The mended piece's warm-hued pixels, measured at 1x on the phone: the planet 33, the moons 8, 12, 8,
  * 10, 22 (the one caught mid-burst, which took 20 of the person's motes), 6. The person's dust is six
@@ -339,6 +352,10 @@ for (const size of FREEZE_SIZES) {
       expect(liveEmber, 'no ember before the cut').toBeLessThanOrEqual(20);
       expect(fixingEmber, 'the ember gone as the fix lands').toBeLessThanOrEqual(40);
       expect(fixingAmber, 'the amber up as it lands').toBeGreaterThanOrEqual(heldWarm + SPLIT.amberRise);
+      // And the whole frame's amber as it lands, the copies' with the piece's (review m3).
+      const fixingFrameAmber = colourWhere(fixing.png, AMBERISH, inRect);
+      note('split amber', `the whole frame at 0.395: ${fixingFrameAmber} amber-hued px`);
+      expect(fixingFrameAmber, 'the whole frame amber as it lands').toBeGreaterThanOrEqual(SPLIT.frameAmber);
       expect(fixingWarm, 'the warm half turned amber, not ember').toBeGreaterThan(fixingEmber);
     });
   });
@@ -455,26 +472,37 @@ test.describe('the freeze frame, 390x844', () => {
       return mean((x, y) => d(x, y) >= 0.8 && d(x, y) <= 1) / mean((x, y) => d(x, y) < 0.8);
     };
     // The held frame with its hold let go, so the shell is not scattered (every mote is on its rest
-    // place: the limb is the rest normal's), dressed; and the live frame before the cut. Let go at full
-    // focus, the focused planet's own motion (re-skin Task 8b: a scatter in every slot, its leak and the
-    // dropout, over FOCUS_SCATTER) would scatter it again: the focus is held at FOCUS_SCATTER, where that
-    // motion stands down, and the dressing at 2, so the shaders' dress × focus is the held frame's 1.
-    const calm = { freeze: { hold: 0, dress: 1 / FOCUS_SCATTER }, net: { focus: FOCUS_SCATTER } };
-    const dressedFrame = await defectFrame(page, 0.33, { ...shells, extra: calm });
-    // Truly unscattered, by the twin: no forced or focused scatter, C1's own schedule calm, no wound open.
+    // place: the limb is the rest normal's), dressed; and the live frame before the cut. Let go, the
+    // focused planet's own motion runs (re-skin Task 8b: a scatter in every slot at focus over
+    // FOCUS_SCATTER, its leak and the dropout), so the frame is drawn at LIMB_CALM, an ambient between two
+    // of its scatters where no wound moves a dot and no line is dark: at the keyed focus (1, the held
+    // frame's FOCUS_GAIN 2.5) and dressing (1), as the held frame is.
+    const dressedFrame = await defectFrame(page, 0.33, { ...shells, extra: { freeze: { hold: 0 } }, ambient: LIMB_CALM });
+    // Truly unscattered at LIMB_CALM, by the twin: C1 is the focus's scatter row, but between scatters;
+    // no wound holds any of its dots; no dropout line is up.
     const { g, data } = galaxyOf();
     const c1 = g.ids.C1;
-    const t = AMBIENT_POSE;
+    const t = LIMB_CALM;
+    expect(dressedFrame.state.net.focus).toBe(1);
     const clocks: BodyClocks = { ...dressedFrame.state.net, ambient: t, lamp: Math.round(dressedFrame.state.net.lamp), lampRow: c1, sysPx: new Float32Array(32).fill(200), holding: false };
-    expect(focusScatterRow(clocks, data)).toBe(-1);
-    expect(bodyDerp(c1, 0, clocks, data, 1).scatterS, 'C1 not mid-scatter').toBe(-1);
-    expect(bodyLeak(c1, t, { ...data, shells: packShellData(g, t, -1, true) }), 'no wound open on C1').toEqual([]);
+    expect(focusScatterRow(clocks, data), 'C1 scatters in every slot here').toBe(c1);
+    expect(bodyDerp(c1, 0, clocks, data, 1).scatterS, 'C1 between scatters').toBe(-1);
+    const wounds = bodyLeak(c1, t, { ...data, shells: packShellData(g, t, c1, true) });
+    const shellSet = buildShellAttrs(g);
+    let leaking = 0;
+    for (let k = 0; k < shellSet.count; k++) {
+      if (shellSet.mote[k * 4] !== c1) continue;
+      const o = leakOffset(llUnit({ lat: shellSet.ll[k * 2], lon: shellSet.ll[k * 2 + 1] }), shellSet.mote[k * 4 + 3], t, wounds);
+      if (o.gain !== 1 || o.off.some((x) => x !== 0)) leaking++;
+    }
+    expect(leaking, 'no dot of C1 leaking').toBe(0);
+    expect(dropoutEvent(t), 'no dropout line').toBeNull();
     const dressed = ratio(dressedFrame);
     const live = ratio(await defectFrame(page, 0.25, shells));
     note('limb', `dressed ${dressed.toFixed(2)}, live ${live.toFixed(2)}`);
-    // Measured under the terminator (re-skin Task 7), the dressed frame truly unscattered: 2.63 and
-    // 2.02 on SwiftShader at 1x (8b's report had 2.43 and 2.08, its dressed frame scattered by its own
-    // motion). The floors are unchanged.
+    // Measured under the terminator and its far side (re-skin Task 7, fix round 1), the dressed frame
+    // truly unscattered at the held frame's gain (2.5): dressed 2.92, live 2.31 (2.63 and 2.02 at gain
+    // 1.75 before the far side). The floors are unchanged.
     expect(dressed).toBeGreaterThanOrEqual(2.4);
     expect(live).toBeGreaterThanOrEqual(1.8);
   });

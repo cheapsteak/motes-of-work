@@ -80,8 +80,8 @@ describe('glslMoteOutStruct', () => {
 });
 
 describe('TERMINATOR_PARITY_FIELDS', () => {
-  it('compares lightDir and terminator, each written by the terminator parity shader', () => {
-    expect(TERMINATOR_PARITY_FIELDS.map((f) => f.name)).toEqual(['lightDir', 'terminator']);
+  it('compares lightDir, terminator and farSide, each written by the terminator parity shader', () => {
+    expect(TERMINATOR_PARITY_FIELDS.map((f) => f.name)).toEqual(['lightDir', 'terminator', 'farSide']);
     expect(TERMINATOR_VERTEX).toContain(glslTerminatorOutStruct());
     for (const f of TERMINATOR_PARITY_FIELDS) expect(TERMINATOR_VERTEX).toContain(`o.${f.name} = `);
   });

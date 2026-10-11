@@ -3,7 +3,7 @@
 // raw: take it from withTerminatorLibrary() or withGalaxyLibrary() in shaderSource.ts (this folder),
 // which splice in the generated planet constants (classLook.ts PLANET_LOOK) at the marker below and
 // put the mote library and orbit.glsl (bodyTexel, bodyWorld) before it. A fragment shader takes only
-// terminator() (withTerminatorFragment: TERMINATOR_FRAGMENT defined, so lightDir, which reads the
+// terminator() and farSide() (withTerminatorFragment: TERMINATOR_FRAGMENT defined, so lightDir, which reads the
 // bodies texture, is left out). The parity page (src/parity, ?lib=terminator) renders it and
 // compares it with the TS reference.
 
@@ -13,6 +13,12 @@
 // mix(night, 1, smoothstep(-PLANET_EDGE, PLANET_EDGE, n.L)).
 float terminator(vec3 n, vec3 toStar, float night) {
   return mix(night, 1.0, smoothstep(-PLANET_EDGE, PLANET_EDGE, dot(n, toStar)));
+}
+
+// The far side's light on a surface of unit normal n seen along the unit direction toEye (both in one
+// space): mix(PLANET_FAR_DIM, 1, smoothstep(-PLANET_FAR_SOFT, 0, n.V)). Whole on the near side and the limb.
+float farSide(vec3 n, vec3 toEye) {
+  return mix(PLANET_FAR_DIM, 1.0, smoothstep(-PLANET_FAR_SOFT, 0.0, dot(n, toEye)));
 }
 
 #ifndef TERMINATOR_FRAGMENT

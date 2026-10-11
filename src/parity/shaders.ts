@@ -357,6 +357,7 @@ void main() {
   TerminatorOut o;
   o.lightDir = lightDir(int(round(aTermIn.x)), aTermIn.y);
   o.terminator = terminator(aNormalIn, aToStarIn, aTermIn.z);
+  o.farSide = farSide(aNormalIn, aToStarIn); // the light's direction stands in for the eye's
   ${passSelect(parityPasses(TERMINATOR_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}

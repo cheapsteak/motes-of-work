@@ -62,10 +62,14 @@ export const STAR_LOOK = {
  *  - every shell mote and icosphere fragment is lit by its terminator toward its own star:
  *    mix(night, 1, smoothstep(−`edge`, `edge`, n·L)), `night` the planet lamp's subject's or the rest's;
  *    a lit (ember) body is unshaded;
- *  - the icosphere has no rim: its `fill` alone, lit by the same terminator.
+ *  - the icosphere has no rim: its `fill` alone, lit by the same terminator;
+ *  - the hemisphere facing away from the camera is dimmed to `farSide.dim`, rising to full over
+ *    `farSide.soft` of n·V up to the limb (n·V = 0, kept whole), so a lattice lit from behind reads as a
+ *    crescent rather than its lit far side seen through it (the controller's ruling, fix round 1:
+ *    spec df-1, "the moons are crescents"); a lit body is not dimmed.
  */
 export const PLANET_LOOK = { cool: ['#4DA3FF', '#3D8BFF', '#5BC0EB', '#46C2C9', '#6FA8DC'], hero: '#1FB0FF', starTint: 0.25,
-  night: { rest: 0.15, subject: 0.5 }, edge: 0.2, fill: 0.035 } as const;
+  night: { rest: 0.15, subject: 0.5 }, edge: 0.2, fill: 0.035, farSide: { dim: 0.2, soft: 0.3 } } as const;
 
 /** The share of the halo's exponential law that lies inside its cut at haloMax (star.ts draws inside it). */
 export const STAR_HALO_CUT = 1 - Math.exp(-(STAR_LOOK.haloMax - STAR_LOOK.haloFrom) / STAR_LOOK.haloScale);
@@ -107,5 +111,7 @@ export function glslPlanetLookConstants(): string {
     `const float PLANET_NIGHT_REST = ${lit(PLANET_LOOK.night.rest)};`,
     `const float PLANET_NIGHT_SUBJECT = ${lit(PLANET_LOOK.night.subject)};`,
     `const float PLANET_FILL = ${lit(PLANET_LOOK.fill)};`,
+    `const float PLANET_FAR_DIM = ${lit(PLANET_LOOK.farSide.dim)};`,
+    `const float PLANET_FAR_SOFT = ${lit(PLANET_LOOK.farSide.soft)};`,
   ].join('\n');
 }

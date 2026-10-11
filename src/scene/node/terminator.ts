@@ -2,7 +2,7 @@
 // terminator toward their own star, and their colour. A planet is lit on the side facing its star and
 // dark on the far side, a crescent made by dimming its dots; a moon is lit from its planet's star. Its
 // colour is one of PLANET_LOOK's cool hues tinted by that star, C1's pinned to its luminous cyan. The
-// GLSL in terminator.glsl mirrors terminator() and lightDir() (the parity page, `?lib=terminator`);
+// GLSL in terminator.glsl mirrors terminator(), farSide() and lightDir() (the parity page, `?lib=terminator`);
 // planetTint() is packed into the bodies texture's T6 on the CPU (bodyData.ts), so it has no twin.
 // Only operations GLSL has are used, and both mirrors read PLANET_LOOK (classLook.ts, spliced).
 import type { Vec3 } from '../../math/vec';
@@ -27,6 +27,18 @@ export function terminator(n: Vec3, toStar: Vec3, night: number): number {
   const d = n[0] * toStar[0] + n[1] * toStar[1] + n[2] * toStar[2];
   const s = smoothstep(-PLANET_LOOK.edge, PLANET_LOOK.edge, d);
   return night * (1 - s) + s;
+}
+
+/**
+ * The far side's light on a surface of unit normal `n` seen along the unit direction `toEye` (from the
+ * surface to the camera), both in one space: mix(PLANET_LOOK.farSide.dim, 1, smoothstep(−soft, 0, n·V)).
+ * 1 facing the camera and on the limb, `dim` on the hemisphere facing away, so a dotted planet lit from
+ * behind reads as a crescent, not as its lit far side seen through its lattice.
+ */
+export function farSide(n: Vec3, toEye: Vec3): number {
+  const d = n[0] * toEye[0] + n[1] * toEye[1] + n[2] * toEye[2];
+  const s = smoothstep(-PLANET_LOOK.farSide.soft, 0, d);
+  return PLANET_LOOK.farSide.dim * (1 - s) + s;
 }
 
 /**

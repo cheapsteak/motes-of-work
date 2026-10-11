@@ -222,7 +222,7 @@ export function withFreezeLibrary(vertex: string): string {
 
 /** The line each of the galaxy's vertex shaders (bodySystem.ts, galaxySystem.ts) carries where its libraries go. */
 export const GALAXY_INCLUDE_MARKER =
-  '// #include mote.glsl + orbit.glsl + derp.glsl + shell.glsl + star.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)';
+  '// #include mote.glsl + orbit.glsl + derp.glsl + leak.glsl + shell.glsl + star.glsl + terminator.glsl + lod.glsl + light.glsl + freeze.glsl + bodyMote.glsl + instance.glsl + bodyScreen.glsl (spliced in by src/scene/node/shaderSource.ts)';
 
 const BODY_MOTE_CONSTANTS_MARKER = '// #include BODY MOTE constants (generated from src/scene/node/birth.ts by shaderSource.ts)';
 const BODY_MOTE_OUT_MARKER = '// #include BodyMoteOut struct (generated from src/parity/fields.ts by shaderSource.ts)';

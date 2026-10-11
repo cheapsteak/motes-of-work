@@ -1880,11 +1880,22 @@ for (const size of SIZES) {
 // composed camera (machine.ts essayCameraAt) at the frame's ambient (the test mode's pose).
 
 /**
- * ly-1's day half against its night half: the brief's 3, where the geometry gives it, else 0.6 × the
- * least measured (the floors rule). Measured at 11-12 px across (phone / desktop): N0 3.36 / 3.65, B1
- * 2.38 / 2.52 (a disc this small blurs its terminator over a third of its width): 0.6 × 2.38.
+ * ly-1's day half against its night half, per planet: the brief's 3, or, for a planet whose geometry gives
+ * less, 0.6 × its own measured ratio (the floors rule). Measured with the far side (fix round 1),
+ * phone / desktop: N0 3.83 / 4.25 (3.36 / 3.65 before it), so the brief's 3; B1 2.70 / 2.52 (2.38 / 2.52
+ * before), so 0.6 × 2.52. B1 has the same lattice (14 × 36, 324 motes) and radius as N0, no moons over its
+ * disc (N0 has 7, 34-36 px of its disc under them, left out) and is not cracked: its night half is
+ * brighter (42 / 40 against N0's 32 / 28). Not its moons, then; likely its colour (#4DA3FF, its blue at
+ * full, against N0's #5BC0EB), whose blue channel clips where its day side's dots overlap.
  */
-const TERMINATOR_DAY = 1.4;
+const TERMINATOR_DAY = 3;
+const TERMINATOR_DAY_FLOOR: Record<string, number> = { B1: 1.5 };
+/**
+ * df-1's C1, its half toward its light against the other: 0.6 × the measured 1.81 / 1.75 (phone / desktop;
+ * 1.71 / 1.68 without the far side). The brief gives no number for df-1: C1's night is the planet lamp
+ * subject's 0.5, so a day of 1 against it is a ratio of about 2 at most.
+ */
+const DF1_DAY = 1.05;
 /**
  * The smallest planet ly-1's tests judge, CSS px across. The brief's 25 px leaves none: P_a's largest
  * planets at ly-1 are N0 and B1, 11.3 and 11.5 px on a phone, 11.9 and 12.2 on a desktop (measured).
@@ -1969,7 +1980,8 @@ for (const size of SIZES) {
     test('a planet is lit from its star', async ({ page }) => {
       // ly-1: for each of P_a's planets at least LY1_MIN_ACROSS px across whose light direction is within 45° of the
       // screen plane, the mean of its disc's half toward P_a on screen is at least TERMINATOR_DAY times
-      // the other half's (its shells and bodies alone; its moons' discs left out).
+      // the other half's (its shells and bodies alone; its moons' discs left out), or its own floor
+      // (TERMINATOR_DAY_FLOOR) where its geometry gives less.
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       const f = await essayFrame(page, 'layers', 0.45 / 4.3, size);
@@ -1985,8 +1997,9 @@ for (const size of SIZES) {
         const disc = (x: number, y: number) => Math.hypot(x - p.x, y - p.y) <= p.r && off(x, y);
         const day = meanLight(png, p.x, p.y, p.r, (x, y) => disc(x, y) && side(x, y) > 0);
         const night = meanLight(png, p.x, p.y, p.r, (x, y) => disc(x, y) && side(x, y) < 0);
-        measured(p.b.id, `day ${day.mean.toFixed(1)} (${day.n} px), night ${night.mean.toFixed(1)} (${night.n} px), ratio ${(day.mean / night.mean).toFixed(2)}`);
-        expect(day.mean / Math.max(night.mean, 1e-6), `${p.b.id}: its half toward P_a against the other`).toBeGreaterThanOrEqual(TERMINATOR_DAY);
+        const covered = meanLight(png, p.x, p.y, p.r, (x, y) => Math.hypot(x - p.x, y - p.y) <= p.r && !off(x, y)).n;
+        measured(p.b.id, `day ${day.mean.toFixed(1)} (${day.n} px), night ${night.mean.toFixed(1)} (${night.n} px), ratio ${(day.mean / night.mean).toFixed(2)}; ${p.moons.length} moons, ${covered} px of its disc under them`);
+        expect(day.mean / Math.max(night.mean, 1e-6), `${p.b.id}: its half toward P_a against the other`).toBeGreaterThanOrEqual(TERMINATOR_DAY_FLOOR[p.b.id] ?? TERMINATOR_DAY);
       }
       expect(errors).toEqual([]);
     });
@@ -2055,6 +2068,65 @@ for (const size of SIZES) {
         expect(h.day, `${h.id} is drawn`).toBeGreaterThan(20);
         expect(h.night / h.day, `${h.id}: its night half against its day half`).toBeGreaterThanOrEqual(0.6);
       }
+      expect(errors).toEqual([]);
+    });
+
+    test('C1 is shaded toward P1 at df-1', async ({ page }) => {
+      // df-1's row (spec section 6): "C1: cyan, shaded toward P1, its night side at 0.5; the moons are
+      // crescents". P1's light stands 6° behind the screen plane there, so the lattice's far hemisphere is
+      // dimmed (the far side, fix round 1) and the near one carries the terminator. The half of C1's disc
+      // toward its light on screen (the projection of lightDir) against the other half, its moons' discs
+      // left out, at least DF1_DAY; each of its moons' halves is measured and kept on the test.
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'defect', 0.13, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const c1 = g.bodies[bodyIndex(g, 'C1')];
+      const c = twinClocks({ ...f.state.net, lamp: Math.round(f.state.net.lamp), lampRow: c1.index }, f.ambient, f.sysPx);
+      const sysOfC1 = g.systems.indexOf(c1.star);
+      const centre = bodyCentre(c1.index, bodyDerp(c1.index, sysOfC1, c, data), f.ambient, data);
+      const at = f.project(centre);
+      const r = (c1.R * f.focal) / at.d;
+      const L = lightDir(data, c1.index, f.ambient);
+      const toward = f.project(centre.map((x, k) => x + c1.R * L[k]));
+      const sx = toward.x - at.x;
+      const sy = toward.y - at.y;
+      const sl = Math.hypot(sx, sy);
+      const w = bodyWorld(data, c1.index, f.ambient);
+      const view = [w[0] - f.camera.position.x, w[1] - f.camera.position.y, w[2] - f.camera.position.z];
+      const behind = (L[0] * view[0] + L[1] * view[1] + L[2] * view[2]) / Math.hypot(...view);
+      const moons = g.bodies
+        .filter((m) => m.kind === 'moon' && m.planet === c1.index)
+        .map((m) => {
+          const q = f.project(bodyCentre(m.index, bodyDerp(m.index, sysOfC1, c, data), f.ambient, data));
+          return { x: q.x, y: q.y, r: (m.R * f.focal) / q.d + 3 };
+        });
+      const off = (x: number, y: number) => moons.every((m) => Math.hypot(x - m.x, y - m.y) > m.r);
+      const side = (x: number, y: number) => ((x - at.x) * sx + (y - at.y) * sy) / sl;
+      const disc = (x: number, y: number) => Math.hypot(x - at.x, y - at.y) <= 0.95 * r && off(x, y);
+      const day = meanLight(png, at.x, at.y, r, (x, y) => disc(x, y) && side(x, y) > 0);
+      const night = meanLight(png, at.x, at.y, r, (x, y) => disc(x, y) && side(x, y) < 0);
+      measured('C1', `${(2 * r).toFixed(0)} px across, its light ${(Math.asin(Math.min(1, Math.abs(behind))) * 180 / Math.PI).toFixed(0)}° out of the screen plane (${behind > 0 ? 'behind' : 'before'} it): day ${day.mean.toFixed(1)} (${day.n} px), night ${night.mean.toFixed(1)} (${night.n} px), ratio ${(day.mean / night.mean).toFixed(2)}`);
+      // Its moons, each where the twin draws it, its own light's halves (its own far side and night alike).
+      const moonHalves = g.bodies
+        .filter((m) => m.kind === 'moon' && m.planet === c1.index)
+        .map((m) => {
+          const mc = bodyCentre(m.index, bodyDerp(m.index, sysOfC1, c, data), f.ambient, data);
+          const q = f.project(mc);
+          const mr = (m.R * f.focal) / q.d;
+          const Lm = lightDir(data, m.index, f.ambient);
+          const tq = f.project(mc.map((x, k) => x + m.R * Lm[k]));
+          const [mx, my] = [tq.x - q.x, tq.y - q.y];
+          const inMoon = (x: number, y: number) => Math.hypot(x - q.x, y - q.y) <= 0.9 * mr && Math.hypot(x - at.x, y - at.y) > r + 2;
+          const mDay = meanLight(png, q.x, q.y, mr, (x, y) => inMoon(x, y) && (x - q.x) * mx + (y - q.y) * my > 0);
+          const mNight = meanLight(png, q.x, q.y, mr, (x, y) => inMoon(x, y) && (x - q.x) * mx + (y - q.y) * my < 0);
+          return `${m.id} ${(2 * mr).toFixed(0)} px: ${(mDay.mean / Math.max(mNight.mean, 1e-6)).toFixed(2)}`;
+        });
+      measured('moons', `day / night halves: ${moonHalves.join('; ')}`);
+      expect(sl, 'its light leans across the screen').toBeGreaterThan(0.2 * r);
+      expect(day.n + night.n).toBeGreaterThan(1000);
+      expect(day.mean / night.mean, 'C1: its half toward its light against the other').toBeGreaterThanOrEqual(DF1_DAY);
       expect(errors).toEqual([]);
     });
 

@@ -208,12 +208,13 @@ const BODY_CASES = [
 ].flatMap((c) => [`body: ${c} at the pose`, `body: ${c} at 101 s`]);
 // The planets' light (`?lib=terminator`, re-skin Task 7): lightDir() of every planet and moon of the
 // essay's galaxy at 0, the pose, 101 and 3599.9 s, and terminator() over 160 normals on the sphere,
-// four light directions and both nights. A unit direction and a share: held to 1e-4 (a float32
+// four light directions and both nights, and farSide() over the same normals seen from those directions.
+// A unit direction and a share: held to 1e-4 (a float32
 // normalize is good to a few 1e-7; the terminator's ramp is 0.4 of n.L wide).
-const TERMINATOR_CASES = ['terminator: lightDir of every planet and moon', 'terminator: terminator over the sphere'];
+const TERMINATOR_CASES = ['terminator: lightDir of every planet and moon', 'terminator: terminator and farSide over the sphere'];
 const TERMINATOR_TOLERANCE = 1e-4;
 
-test('GLSL lightDir() and terminator() match the TS reference', async ({ page }) => {
+test('GLSL lightDir(), terminator() and farSide() match the TS reference', async ({ page }) => {
   const { errors, ...parity } = await runParity(page, '&lib=terminator');
   expect(errors).toEqual([]);
   expect(parity.error).toBeUndefined();
@@ -222,7 +223,7 @@ test('GLSL lightDir() and terminator() match the TS reference', async ({ page })
   for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(TERMINATOR_TOLERANCE);
   // Every planet and moon of the essay's galaxy (245 of them) at the four ambients.
   expect(byName.get('terminator: lightDir of every planet and moon')!.samples).toBe(4 * 245);
-  expect(byName.get('terminator: terminator over the sphere')!.samples).toBe(160 * 4 * 2);
+  expect(byName.get('terminator: terminator and farSide over the sphere')!.samples).toBe(160 * 4 * 2);
 });
 
 // A star's look (`?lib=star`): starDot() over the 160 dot indices of four seeds, starSpike() over six

@@ -218,17 +218,19 @@ export const STAR_PARITY_FIELDS: readonly ParityField<StarOut>[] = [
 /**
  * What the terminator parity mode (`?lib=terminator`) computes per sample (src/scene/node/terminator.ts):
  * a body's light direction toward its own star (lightDir) and the terminator's light on a normal
- * (terminator).
+ * (terminator), and the far side's light on it seen from a direction (farSide).
  */
 export interface TerminatorOut {
   lightDir: Vec3;
   terminator: number;
+  farSide: number;
 }
 
 /** What the terminator parity mode compares. Its shader's TerminatorOut struct is generated from this list (glslTerminatorOutStruct). */
 export const TERMINATOR_PARITY_FIELDS: readonly ParityField<TerminatorOut>[] = [
   { name: 'lightDir', size: 3 },
   { name: 'terminator', size: 1 },
+  { name: 'farSide', size: 1 },
 ];
 
 function glslOutStruct<Out>(name: string, list: string, fields: readonly ParityField<Out>[]): string {

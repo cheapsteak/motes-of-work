@@ -7,7 +7,7 @@ import { bodyTexel, LIGHT_MODE, packBodyData } from './bodyData';
 import { PLANET_LOOK } from './classLook';
 import { bodyWorld } from './orbit';
 import { starTint } from './star';
-import { lightDir, planetTint, terminator } from './terminator';
+import { farSide, lightDir, planetTint, terminator } from './terminator';
 
 // The planets' and moons' light (re-skin §4.4): a terminator toward their own star, a moon's its
 // planet's, and their cool colours tinted by that star; C1 pinned to its luminous cyan.
@@ -72,6 +72,39 @@ describe('the terminator (re-skin §4.4)', () => {
       const want = unit(bodyWorld(data, planet!.host, t).map((x, k) => x - bodyWorld(data, planet!.index, t)[k]));
       d.forEach((x, k) => expect(x).toBeCloseTo(want[k], 9));
     }
+  });
+});
+
+describe('the far side (fix round 1: a crescent from behind)', () => {
+  it('is whole facing the camera and on the limb, PLANET_LOOK.farSide.dim facing away, rising over its soft band', () => {
+    const { dim, soft } = PLANET_LOOK.farSide;
+    expect(farSide([0, 0, 1], [0, 0, 1])).toBe(1);
+    expect(farSide([1, 0, 0], [0, 0, 1])).toBe(1);
+    expect(farSide([0, 0, -1], [0, 0, 1])).toBe(dim);
+    const at = (d: number) => farSide([Math.sqrt(1 - d * d), 0, d], [0, 0, 1]);
+    expect(at(-soft - 1e-9)).toBe(dim);
+    expect(at(-soft / 2)).toBeCloseTo((dim + 1) / 2, 12);
+    let last = -Infinity;
+    for (let d = -1; d <= 1; d += 0.01) {
+      expect(at(d)).toBeGreaterThanOrEqual(last);
+      last = at(d);
+    }
+  });
+
+  it('makes a planet lit from behind a crescent: its far hemisphere, lit, under its near one at the rest night', () => {
+    // Lit from straight behind (toStar away from the eye): the near hemisphere is at its night, the far
+    // one lit but seen through the lattice. With the far side dimmed, no far dot outshines the near ones'
+    // night by more than dim / rest.
+    const toEye: [number, number, number] = [0, 0, 1];
+    const toStar: [number, number, number] = [0, 0, -1];
+    const far = terminator([0, 0, -1], toStar, PLANET_LOOK.night.rest) * farSide([0, 0, -1], toEye);
+    const near = terminator([0, 0, 1], toStar, PLANET_LOOK.night.rest) * farSide([0, 0, 1], toEye);
+    expect(near).toBe(PLANET_LOOK.night.rest);
+    expect(far).toBe(PLANET_LOOK.farSide.dim);
+    // The crescent: the limb toward the star stays whole and lit.
+    const limb: [number, number, number] = [0, 1, -0.05];
+    const n = Math.hypot(...limb);
+    expect(terminator(limb.map((x) => x / n) as [number, number, number], toStar, PLANET_LOOK.night.rest) * farSide(limb.map((x) => x / n) as [number, number, number], toEye)).toBeGreaterThan(0.6);
   });
 });
 
