@@ -1669,6 +1669,13 @@ function litNear(png: PNG, mask: Uint8Array, x: number, y: number, r: number): n
 for (const size of SIZES) {
   test.describe(`the neighbourhood’s dissolve at ${size.width}x${size.height}`, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
+    // Each test here ends with a readback, which waits for the GPU: the frames it queued are its own
+    // time, not the next test's. The dissolve's walk (31 scroll-and-settle steps at full budget, no
+    // readback) left about 1.6 min of GPU work queued, and with tests interleaved the next test in the
+    // worker (a looks.spec.ts one) waited it out past its 2 min timeout.
+    test.afterEach(async ({ page }) => {
+      await canvasShot(page);
+    });
 
     test('the neighbourhood dissolves at the wides and is whole at the hood', async ({ page }) => {
       const errors: string[] = [];
