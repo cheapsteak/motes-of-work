@@ -27,10 +27,11 @@ test.describe('reduced motion', { tag: FULL_ONLY }, () => {
   // costs it about 20 s alone, and more beside another worker: the live-galaxy test (three pages, one a
   // running galaxy) took 45-60 s alone and 1.7-2.5 min in a loaded run. It is the price of checking
   // the live clock, so it is bounded, not avoided. Measured since: 2.2 min on CI (run 38153043664),
-  // 2.5-3.0 min run alone at load 15-19, and 3 min (the old timeout) ran out at load 11-20. 10 min is
-  // 4.5 times the CI time and over 3 times the loaded one. The black hole's test (re-skin Task 5, below):
-  // 1.5 min on CI (run 38166992199), 2.7 min run to completion at load 11-13; 10 min holds it too.
-  test.setTimeout(600_000);
+  // 2.5-3.0 min run alone at load 15-19, and 3 min (the old timeout) ran out at load 11-20; 1.5-1.9 min
+  // on CI since (runs 38166992199 and 38170079659). The black hole's test (re-skin Task 5, below): the same
+  // 1.5-1.9 min on CI, 2.7 min run to completion at load 11-13. 12 min is over 5 times the slowest CI time
+  // and 4 times the loaded one (10 min before: 4.5 times CI's 2.2 min).
+  test.setTimeout(720_000);
 
   const GAP_MS = 3000;
   // `?n=` lowers the mote budget so frames are cheap under SwiftShader.

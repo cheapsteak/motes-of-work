@@ -529,6 +529,10 @@ test.describe('the freeze frame, 390x844', () => {
   });
 
   test('twos: in test mode the held frame is still; live, it breathes only in the piece and its bursts', async ({ page }) => {
+    // Measured: 56-102 s on CI beside a shard's other tests (runs 38166992199 and 38170079659); run to
+    // completion at load 14-17 beside two unit suites, 2.3 min. 9 min is nearly 4 times the loaded time and
+    // over 5 times the slower CI run's (the file's 5 min before: under 5 times CI's).
+    test.setTimeout(540_000);
     await openStage(page, '&mech=bike&n=500');
     const spans = await readSpans(page);
     const p = progressAt(spans, 'defect', 0.33);

@@ -18,10 +18,10 @@ test.describe('the pages', { tag: FULL_ONLY }, () => {
   // galaxy's last sections (1-2.4 s a sample). That is what a deep link costs, so the check is split
   // rather than thinned: each part takes every third sample (so each its share of the costly ones), and
   // the parts run in parallel: 1.6-1.9 min each, three at once, 3.6 min for both screens' six.
-  // Measured since: 0.9-1.1 min a part on CI (run 38166992199; 1.7-1.9 min in run 38153043664); at load
-  // 14-19 the three 1440x900 parts ran out of the old 4 min, and run to completion at load 11-13 (beside
-  // two full unit suites) part 1 of 1440x900 took 2.3 min. 10 min is over 4 times that loaded time and 5
-  // times the slowest CI time.
+  // Measured since: 0.9-1.9 min a part on CI (runs 38166992199 and 38170079659; 1.7-1.9 min in run
+  // 38153043664); at load 14-19 the three 1440x900 parts ran out of the old 4 min, and run to completion at
+  // load 11-13 (beside two full unit suites) part 1 of 1440x900 took 2.3 min. 10 min is over 4 times that
+  // loaded time and 5 times the slowest CI time.
   test.setTimeout(600_000);
   test.describe.configure({ mode: 'parallel' });
 

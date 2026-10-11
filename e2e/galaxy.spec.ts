@@ -241,6 +241,10 @@ for (const size of SIZES) {
     });
 
     test('a system held under full detail draws no moon or track mote', async ({ page }) => {
+      // Measured: 55-66 s on CI beside a shard's other tests (runs 38166992199 and 38170079659); at
+      // 1440x900, run to completion at load 14-17 beside two unit suites, 1.5 min. 6 min is 4 times the
+      // loaded time and 5.5 times CI's (the file's 5 min before: under 5 times CI's).
+      test.setTimeout(360_000);
       // Where more systems than FULL_DETAIL_MAX are full size on screen, all but two are held just under
       // full detail (lod.ts detailPx). Forcing the moons, tracks and derps off may change pixels only
       // inside the systems the page reports at full detail: how far each one's outer sphere reaches on
@@ -1822,6 +1826,10 @@ for (const size of SIZES) {
     });
 
     test('the beats whose shots name the neighbourhood hold it whole: ly-3, up-2, tr-1, the surge, fx-3, fx-4 and ls-1 draw all 30 stars as themselves', async ({ page }) => {
+      // Measured with the drain (afterEach): 59-66 s on CI beside a shard's other tests (runs 38166992199
+      // and 38170079659); at 390x844, run to completion at load 14-17 beside two unit suites, 2.0 min. 7
+      // min is 3.5 times the loaded time and over 6 times CI's (the file's 5 min before: under 5 times CI's).
+      test.setTimeout(420_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       // Each at the middle of its hold (the stills' places). Held by net.hoodHold whatever the band says:
