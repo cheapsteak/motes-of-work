@@ -35,9 +35,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # A selection of at most this many tests runs on one shard: the heaviest tests take 2 to 4 min on a
-  # runner (clearance.spec.ts's 8 tests took 3.7 min on its 2 workers, run 38155417859), so a dozen
-  # stays within about a quarter of an hour, and 8 shards' setup (3 to 4 min each) would buy little.
+  # A selection of at most this many tests runs on one shard. Each shard costs about 1.2-1.5 min of setup
+  # before its first test (the image, npm ci, the fonts, the build: run 38155417859), which 8 shards would
+  # pay over a few tests' worth of work. On one shard, on its 2 workers, a dozen light or mixed tests run in
+  # a few minutes (clearance.spec.ts's 8 tests took 3.7 min); a dozen of the heaviest (2 to 4 min each)
+  # take 12 to 24 min there.
   FOCUSED_MAX: 12
 
 jobs:
@@ -176,8 +178,9 @@ jobs:
 
   report:
     name: merge the shards' reports
-    needs: [e2e]
-    if: ${{ !cancelled() }}
+    needs: [plan, e2e]
+    # Not when the plan rejected the inputs: no shard ran, so there is nothing to merge.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble

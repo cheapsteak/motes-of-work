@@ -1674,7 +1674,11 @@ for (const size of SIZES) {
     // readback) left about 1.6 min of GPU work queued, and with tests interleaved the next test in the
     // worker (a looks.spec.ts one) waited it out past its 2 min timeout.
     test.afterEach(async ({ page }) => {
-      await canvasShot(page);
+      // A page that crashed or never drew has no canvas to drain: leave at once, so the test's own error
+      // is reported without waiting out its timeout. The drain itself waits out the queued frames: about
+      // 1.7-1.9 min on CI (the dissolve's time with it, less without), so 10 min is over 5 times that.
+      if (page.isClosed() || (await page.locator('#stage').count()) === 0) return;
+      await page.locator('#stage').screenshot({ timeout: 600_000 });
     });
 
     test('the neighbourhood dissolves at the wides and is whole at the hood', async ({ page }) => {

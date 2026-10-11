@@ -142,8 +142,9 @@ function galaxyInputs(c: BodyClocks): number[] {
 }
 
 /**
- * visibleGalaxy's most recent answers, by their inputs (compared with Object.is, so 0 and −0 and every
- * NaN stay apart as the arithmetic may keep them apart). The clearance sweeps ask at thousands of
+ * visibleGalaxy's most recent answers, by their inputs (compared with Object.is, so 0 and −0 stay apart
+ * as the arithmetic may keep them apart; every NaN is one input, Object.is(NaN, NaN) being true, which
+ * is sound since equal inputs give equal points). The clearance sweeps ask at thousands of
  * places a camera move apart, where the clocks hold still, each at the AMBIENT_GRID poses on two
  * screens: the bodies' motes are most of a margin's cost, and the camera moves none of them. The most
  * recent GALAXY_MEMO only (each answer is a few thousand points).
@@ -162,10 +163,12 @@ function galaxyRemember(inputs: number[], points: GalaxyPoint[]): void {
 /**
  * The essay galaxy's shell texture at an ambient (packShellData), packed once per ambient: it depends
  * on the ambient alone, and the clearance sweeps ask for the same few (AMBIENT_GRID) at thousands of
- * states. The most recent 16 ambients only.
+ * states. The most recent 16 ambients only. −0 is packed afresh, never cached: a Map key would merge it
+ * with 0, as the memo above and bodyWorld do not.
  */
 const shellsCache = new Map<number, Float32Array>();
 function shellsAt(ambient: number): Float32Array {
+  if (Object.is(ambient, -0)) return packShellData(galaxyOf().g, ambient);
   let shells = shellsCache.get(ambient);
   if (!shells) {
     if (shellsCache.size >= 16) shellsCache.delete(shellsCache.keys().next().value as number);
@@ -202,7 +205,6 @@ export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
   if (seen) return seen;
   const shells = { ...data, shells: shellsAt(ambient) };
   const out: GalaxyPoint[] = [];
-  galaxyRemember(inputs, out);
   for (const b of g.bodies) {
     if (bodyPresence(b.index, s.net.growth, data) <= 0 || lampGain(b.index, clocks, data) <= 0) continue;
     const diameter = shellMoteDiameter(b);
@@ -212,6 +214,8 @@ export function visibleGalaxy(s: SceneState, ambient: number): GalaxyPoint[] {
     }
     if (b.kind === 'star') out.push({ pos: bodyWorld(data, b.index, ambient), glow: { R: b.R, cap: GLOW_CAP.star, look: b.look! } });
   }
+  // Remembered once whole: a throw above leaves no partial answer to recall.
+  galaxyRemember(inputs, out);
   return out;
 }
 
