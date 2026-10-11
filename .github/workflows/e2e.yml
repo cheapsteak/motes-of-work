@@ -1,25 +1,97 @@
 name: e2e
 
-# The full e2e (`npm run e2e:full`), sharded over 8 jobs, on every push to main and reskin-wip and on
-# demand; typecheck and the unit tests run beside it. Each shard builds the site once (the Playwright
-# config's web server) and writes a blob report; the last job merges them into one HTML report.
-# The shards run in the Playwright image of this repo's pinned version (package.json
-# @playwright/test), so the Chromium build that draws the pages is the one the stills were shot with.
+# The full e2e (`npm run e2e:full`), sharded over 8 jobs, on every push to main, reskin-wip and a task
+# branch (task-*), and on demand. Typecheck and the unit tests run beside it. Each shard builds the
+# site once (the Playwright config's web server) and writes a blob report; the last job merges them
+# into one HTML report. The shards run in the Playwright image of this repo's pinned version
+# (package.json @playwright/test), so the Chromium build that draws the pages is the one the stills
+# were shot with.
+#
+# On demand it can run a selection instead: `specs` (space-separated e2e/*.spec.ts files) and/or `grep`
+# (a test-name filter for --grep). A selection runs the e2e only, on 1 shard when it holds at most
+# FOCUSED_MAX tests, else on 8. Both inputs are untrusted text: they reach scripts only through `env:`,
+# and `specs` must name existing e2e/*.spec.ts files.
 on:
   push:
-    branches: [main, reskin-wip]
+    branches: [main, reskin-wip, 'task-*']
   workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Spec files to run, space-separated (e2e/x.spec.ts); empty for every spec'
+        required: false
+        default: ''
+      grep:
+        description: 'Only tests whose title matches this (playwright --grep); empty for every test'
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
+# A push cancels the run of an older push to the same branch; a run on demand is never cancelled.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'push' }}
   cancel-in-progress: true
 
+env:
+  # A selection of at most this many tests runs on one shard: the heaviest specs run about 2 to 4 min a
+  # test on a runner's 2 workers (clearance.spec.ts's 8 tests take about 10 min there), so a dozen stays
+  # within a quarter of an hour, and 8 shards' setup (about 3 to 4 min each) would buy little.
+  FOCUSED_MAX: 12
+
 jobs:
+  plan:
+    name: what to run
+    runs-on: ubuntu-latest
+    outputs:
+      specs: ${{ steps.plan.outputs.specs }}
+      shards: ${{ steps.plan.outputs.shards }}
+      total: ${{ steps.plan.outputs.total }}
+      focused: ${{ steps.plan.outputs.focused }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: plan
+        name: Validate the selection and size it
+        shell: bash
+        env:
+          SPECS: ${{ inputs.specs }}
+          GREP: ${{ inputs.grep }}
+        run: |
+          set -euo pipefail
+          set -f # the specs are split on whitespace, never globbed
+          specs=()
+          for s in $SPECS; do
+            if [[ ! "$s" =~ ^e2e/[A-Za-z0-9_-]+\.spec\.ts$ ]] || [[ ! -f "$s" ]]; then
+              echo "::error::specs: not an e2e/*.spec.ts file in this branch"
+              exit 1
+            fi
+            specs+=("$s")
+          done
+          if [[ ${#specs[@]} -eq 0 && -z "$GREP" ]]; then
+            echo "Every spec, on 8 shards."
+            { echo "specs="; echo "shards=[1,2,3,4,5,6,7,8]"; echo "total=8"; echo "focused=false"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          args=("${specs[@]}")
+          if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
+          n=$(npx playwright test "${args[@]}" --list | sed -n 's/^Total: \([0-9]*\) tests\? in .*/\1/p')
+          if [[ -z "$n" || "$n" -eq 0 ]]; then
+            echo "::error::the selection holds no test"
+            exit 1
+          fi
+          if [[ "$n" -le "$FOCUSED_MAX" ]]; then total=1; shards='[1]'; else total=8; shards='[1,2,3,4,5,6,7,8]'; fi
+          echo "$n tests selected, on $total shard(s)."
+          { echo "specs=${specs[*]}"; echo "shards=$shards"; echo "total=$total"; echo "focused=true"; } >> "$GITHUB_OUTPUT"
+
   unit:
     name: typecheck and unit tests
+    needs: [plan]
+    if: ${{ needs.plan.outputs.focused != 'true' }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
@@ -35,7 +107,8 @@ jobs:
       - run: npm test
 
   e2e:
-    name: e2e shard ${{ matrix.shard }}/8
+    name: e2e shard ${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+    needs: [plan]
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
@@ -44,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,8 +142,20 @@ jobs:
             DejaVuSans.ttf:*) ;;
             *) echo "::error::system-ui resolves to $face, not DejaVu Sans" >&2; exit 1 ;;
           esac
-      - name: e2e:full, shard ${{ matrix.shard }} of 8
-        run: npm run e2e:full -- --shard=${{ matrix.shard }}/8 --reporter=blob,list
+      - name: e2e:full (or the selection), shard ${{ matrix.shard }} of ${{ needs.plan.outputs.total }}
+        shell: bash
+        env:
+          SPECS: ${{ needs.plan.outputs.specs }}
+          GREP: ${{ inputs.grep }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ needs.plan.outputs.total }}
+        run: |
+          set -euo pipefail
+          set -f
+          args=()
+          for s in $SPECS; do args+=("$s"); done
+          if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
+          npm run e2e:full -- "${args[@]}" "--shard=$SHARD/$TOTAL" --reporter=blob,list
       - name: Upload the blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
