@@ -38,6 +38,8 @@ out the specs tagged `@full-only` (purity, reduced motion and the pages), and a 
 (`src/e2eTiers.test.ts`) fails if a spec file falls out of both. The rewind invariant is checked in two
 places: the purity twin (`src/purity/`) drives the page's own stage in Node through every sample of the
 grid and compares what each path leaves for the GPU, and `e2e/purity.spec.ts` is its browser fence.
+CI (`.github/workflows/e2e.yml`) runs `e2e:full` in 8 shards in the Playwright image of the pinned version,
+and merges their reports into one HTML report (the `playwright-report` artifact).
 
 ### URL parameters
 

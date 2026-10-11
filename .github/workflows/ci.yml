@@ -1,6 +1,10 @@
 name: CI
+
+# Typecheck and the unit tests on every other branch and on pull requests. main and reskin-wip run
+# them, with the sharded full e2e, in e2e.yml, which also runs on demand on any branch.
 on:
   push:
+    branches-ignore: [main, reskin-wip]
   pull_request:
 
 permissions:
@@ -18,25 +22,3 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-      - name: Upload e2e artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-artifacts
-          path: |
-            shots/
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore

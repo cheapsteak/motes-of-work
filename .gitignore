@@ -2,6 +2,7 @@ node_modules
 dist
 test-results
 playwright-report
+blob-report
 shots
 content-denylist.local.txt
 .superpowers/
