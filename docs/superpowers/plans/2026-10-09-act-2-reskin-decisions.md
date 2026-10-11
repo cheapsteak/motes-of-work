@@ -78,6 +78,7 @@ difference the author accepts becomes a new row above.
 | Version | Commit | What it shows | Look check |
 |---|---|---|---|
 | 21 (2026-10-10) | 62ed247 (branch `reskin-v21` in the archive repo `motes-of-work-private`) | the wisps galaxy, the late dissolve, the hold at ly-3, up-2, fx-3 and ls-1 | independent judge: PUBLISH; every built row matches |
+| 22 (2026-10-11) | a6c9dd7 (public `main`) | the wider neighbourhood, one S-type binary pair near its middle, ly-4's push-in on a planet being born, ly-5 opening on the first plan | independent judge: PUBLISH; every built row matches (pair orbits its barycentre, 15 degrees a minute riding the turn) |
 
 ## Process
 
