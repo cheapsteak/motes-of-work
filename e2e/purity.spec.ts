@@ -20,7 +20,11 @@ test.describe('purity', { tag: FULL_ONLY }, () => {
   // A frame costs about 2.4 s under SwiftShader (100k instanced motes, vertex-bound at any viewport
   // size), and every wheel event renders one. Step counts are kept small so a run stays in minutes;
   // the invariant is about the frames along the way, not how many there are.
-  test.setTimeout(240_000);
+  // Measured: a fence sample takes 0.8-1.1 min on CI beside a shard's other tests (run 38166992199; the
+  // slowest fix@0.82, 66 s), about 2.3 min a sample locally at load 11-20 (the test-speed report), and the
+  // hole close's 2.2 min at load 10-12 beside a full unit suite. 8 min is over 3 times the loaded time and
+  // 7 times the slowest CI one (4 min before, under 5 times CI's since the hole's fence).
+  test.setTimeout(480_000);
 
   const SCROLL_STEPS = 8;
   const HOP_STEPS = 4;

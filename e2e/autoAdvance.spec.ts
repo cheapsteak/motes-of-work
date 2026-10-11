@@ -7,9 +7,10 @@ import { readSpans, scrollY } from './helpers';
 // scroll intent and resumes from its ring. A small floor, a fast reading pace and a fast transit pace
 // keep each run short; `n=` keeps frames cheap under SwiftShader.
 
-// Measured: the end stop (the slowest) 4.9 s on CI (run 38153043664), 10.5-17.5 s in loaded local
-// runs; it ran out of this once, at load 17-20, the run in which every test ran at half speed or worse.
-// 90 s is 18 times the CI time and 5 times the loaded one.
+// Measured: the end stop (the slowest) 4.9 s and 15.2 s on CI (runs 38153043664 and 38166992199),
+// 10.5-17.5 s in loaded local runs, and 22.7 s run to completion at load 11.7-13 beside two full unit
+// suites; it ran out of this once, at load 17-20, the run in which every test ran at half speed or worse.
+// 90 s is nearly 6 times the CI time and nearly 4 times the slowest completed loaded one.
 test.setTimeout(90_000);
 
 const FAST = '&auto=1&dwell=0.4&wps=100&pace=4&mech=bike&n=3000';

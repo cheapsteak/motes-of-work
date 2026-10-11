@@ -129,11 +129,11 @@ for (const viewport of [
     test.use({ viewport });
 
     test(`the visible machine stays below the text in every page (${size})`, async ({ page }) => {
-      // Measured: 2.2-2.5 min on CI on 1 shard (run 38158922552; 2.6-2.8 min before this branch's twin
-      // speedups, and 4.4 min beside a shard's other tests in run 38153043664); locally 5.8 min at load
-      // about 19, and over the file's 4 min at load 19-25 (both sizes, 4.5-4.7 min, this branch). 15 min is
-      // 6 times the CI time and 2.6 times the slowest local pass.
-      test.setTimeout(900_000);
+      // Measured since the hole (re-skin Task 5): 2.8-3.1 min on CI beside a shard's other tests (run
+      // 38166992199; 2.2-2.5 min on 1 shard before it, run 38158922552), and 10.8 min locally at 390x844 at
+      // load 10.5-14, run to completion beside two full unit suites (5.8 min at load about 19 before it). 33
+      // min is over 3 times the loaded time and 10 times CI's (15 min before).
+      test.setTimeout(1_980_000);
       const errors = await open(page);
       const story = await sections(page);
       const spans = await readSpans(page);
@@ -204,6 +204,10 @@ for (const viewport of [
     });
 
     test(`every fix's warm motes land clear of the text (${size})`, async ({ page }) => {
+      // Measured: 45-50 s on CI beside a shard's other tests (run 38166992199); at 390x844, run to
+      // completion at load 9-15.7 beside a full unit suite, 2.3 min. 8 min is over 3 times the loaded time
+      // and 9 times CI's (the file's 4 min before: under 5 times CI's).
+      test.setTimeout(480_000);
       // A fix's warm motes fall onto its piece from above and all count as landed at the same
       // instant, half way through their window (net.fix = fixAt - NODE_FIX_WINDOW / 2), when they
       // still stand above it: the highest they are counted. The page grid steps over it.

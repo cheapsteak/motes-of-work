@@ -345,7 +345,9 @@ describe('a moon lands no brighter or denser than the planet (fix round 1, rulin
       const g = groups[end.a.part];
       expect(end.o.brightness === 0, `mote ${k}`).toBe(hash01(end.a.seed, SALT.bodyKeep) >= home.keep[g]);
     }
-  }, 60_000);
+    // Measured: 5.6 s on CI (run 38166992199), 8.4 s locally at load about 4, 28.1 s at load 10-14 beside a
+    // full unit suite. 120 s is over 4 times the loaded time and 21 times CI's (60 s before).
+  }, 120_000);
 });
 
 describe('one source for both mirrors (test 1: the shader)', () => {

@@ -231,6 +231,11 @@ const FREEZE_SIZES = [
 for (const size of FREEZE_SIZES) {
   test.describe(`the freeze frame, ${size.width}x${size.height}`, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
+    // Measured: the bursts 1.3-1.4 min and the split 0.9-1.0 min on CI beside a shard's other tests (run
+    // 38166992199); at 1440x900, run to completion at load 9-15.7 beside a full unit suite, the bursts 2.6
+    // min and the split 1.4 min. 8 min is 3 times the loaded time and over 5 times CI's (the file's 5 min
+    // before: under 5 times CI's).
+    test.setTimeout(480_000);
 
     test(`the bursts read, as two (${size.label})`, async ({ page }) => {
       const ticksOnly = { only: ['net-ticks'] };

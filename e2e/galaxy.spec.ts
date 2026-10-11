@@ -1675,17 +1675,20 @@ for (const size of SIZES) {
     // worker (a looks.spec.ts one) waited it out past its 2 min timeout.
     test.afterEach(async ({ page }) => {
       // A page that crashed or never drew has no canvas to drain: leave at once, so the test's own error
-      // is reported without waiting out its timeout. The drain itself waits out the queued frames: about
-      // 1.7-1.9 min on CI (the dissolve's time with it, less without), so 10 min is over 5 times that.
+      // is reported without waiting out its timeout. The drain waits out the queued frames: at most the
+      // whole dissolve's 1.7-1.9 min on CI (run 38166992199), and 1.6-1.9 min at load 13 (the wait the next
+      // test took before the drain, the test-speed report). 10 min is over 5 times either.
       if (page.isClosed() || (await page.locator('#stage').count()) === 0) return;
       await page.locator('#stage').screenshot({ timeout: 600_000 });
     });
 
     test('the neighbourhood dissolves at the wides and is whole at the hood', async ({ page }) => {
-      // Measured with the drain (afterEach): 3.4-3.5 min on CI (run 38158924920; 1.5-1.8 min before it,
-      // the queued work then the next test's), 5.7 min locally at load 13. 15 min is over 4 times the
-      // CI time and 2.6 times the loaded one; the file's 5 min ran out at load 17-19 even without the drain.
-      test.setTimeout(900_000);
+      // Measured with the drain (afterEach): 1.7-1.9 min on CI beside a shard's other tests (run
+      // 38166992199) and 3.4-3.5 min on 1 shard (run 38158924920; 1.5-1.8 min before the drain, the queued
+      // work then the next test's); locally 5.7 min at load 13 and 4.5 min at 390x844 at load 10.5-12. 18
+      // min is over 3 times the slowest loaded time and 5 times CI's (15 min before); the file's 5 min ran
+      // out at load 17-19 even without the drain.
+      test.setTimeout(1_080_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       // real + far is 1 for every star: a binary's two dissolve at their barycentre, where the pair's one
