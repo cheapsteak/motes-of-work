@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { MECHANISM_IDS } from '../src/mechanisms';
+import { LOD_COUNT } from '../src/scene/node/lod';
 
 interface ParityCase {
   name: string;
@@ -149,7 +150,8 @@ test('GLSL lodGain(), glowPx(), the moon handover, motePx(), the early-out and t
   const byName = new Map(parity.cases.map((c) => [c.name, c]));
   expect([...byName.keys()].sort()).toEqual([...LOD_CASES, 'hash01', 'pcg goldens'].sort());
   for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(c.name === 'lod: offScreenReachPx' ? REACH_TOLERANCE : LOD_TOLERANCE);
-  expect(byName.get('lod: lodGain')!.samples).toBe(5 * 561);
+  // Every element: the bodies' five and the plan's fourteen since re-skin Task 7b (LOD_COUNT 19).
+  expect(byName.get('lod: lodGain')!.samples).toBe(LOD_COUNT * 561);
   expect(byName.get('lod: glowPx')!.samples).toBe(2 * 3 * 4 * 96);
   expect(byName.get('lod: motePx')!.samples).toBe(3 * 64);
   expect(byName.get('lod: lodSkip')!.samples).toBe(4 * 5 * 2 * 4 * 401);
