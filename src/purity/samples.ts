@@ -122,8 +122,10 @@ export const PURITY_SAMPLES: PuritySample[] = [
   // The defect's motion (re-skin Task 8b), df-1's close shot before the cut, at the pose and at 101 s:
   // the forced scatter, the leak's wounds (packed per frame into the shell texture) and the dropout's
   // lines (uniforms set per frame) all run on the ambient. A fence at 101 s, where the browser proves
-  // the page draws the wounds and the lines the twin computes.
-  ...[AMBIENT_POSE, 101].map((ambient) => at('defect', 0.22, ambient, MIN_LIT_PIXELS, ambient === 101 ? FENCE : undefined)),
+  // the page draws the wounds and the lines the twin computes. Its floor is half the least measured
+  // since the planets' far side (re-skin Task 7, fix round 1) dims C1's far hemisphere: 4,889 at the pose
+  // and 5,155 at 101 s, under the generic MIN_LIT_PIXELS (5,000) that held before it.
+  ...[AMBIENT_POSE, 101].map((ambient) => at('defect', 0.22, ambient, halfOf(4889), ambient === 101 ? FENCE : undefined)),
   // Reviewer, trace and fix keyed (Task 11), each at the pose and at 101 s: the ring moving over P5's
   // planets under re-2, the surge running out along R0's lineage, and the sweep from the neighbourhood.
   ...(
