@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { REST_WINDOW_SCREENS, STOP_MARGIN_SCREENS } from '../src/autoAdvance/plan';
 import { NET_MOVES } from '../src/timeline/netShots';
-import { readSpans, scrollY } from './helpers';
+import { readSpans, scrollY, settle } from './helpers';
 
 // Auto-advance (src/autoAdvance/): it holds at each stop, scrolls to the next, pauses on any manual
 // scroll intent and resumes from its ring. A small floor, a fast reading pace and a fast transit pace
@@ -244,6 +244,12 @@ test('at the end it stops and the ring fades away; scrolled back up, it is there
   await expect(ring(page)).toBeHidden();
   await page.mouse.move(400, 300);
   await page.mouse.wheel(0, -400);
+  // The scroll event that brings the ring back is dispatched after the frame the wheel asks for, and
+  // at the galaxy the essay ends on one SwiftShader frame takes about 5 s at 1280x720 (measured
+  // 2026-10-12: 5.0-5.5 s on main, 5.5-6.1 s with the plan's schematic; the ring came back 6.4 s after
+  // the wheel on main and 12-13 s on the plan's branch when that frame was a full one). A fixed 5 s
+  // raced it; the test waits for the page's frames to settle instead, then for the ring.
+  await settle(page);
   await expect(ring(page)).toBeVisible();
   expect((await auto(page))?.state).toBe('paused');
   await expect(ring(page)).toHaveAttribute('aria-label', 'Resume auto-advance');
