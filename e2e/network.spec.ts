@@ -272,7 +272,9 @@ const DOUBLE_BAND = 12;
  * it, less 1); and, in 12-row bands that hold both colours, how many bands' own best lag is 5-7 px.
  */
 function doubleImage(png: PNG, planet: { x: number; y: number; r: number }): { lag: number; contrast: number; bands: number; bandsOk: number } {
+  // Off the canvas reads as the ground (neither colour), never as the next or previous row.
   const at = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= png.width || y >= png.height) return [BG[0], BG[1], BG[2]] as const;
     const i = (y * png.width + x) * 4;
     return [png.data[i], png.data[i + 1], png.data[i + 2]] as const;
   };
@@ -308,6 +310,48 @@ function doubleImage(png: PNG, planet: { x: number; y: number; r: number }): { l
   return { lag, contrast, bands, bandsOk };
 }
 
+/** The piece's own draws at the held frame (its bursts among them), and its two copies'. */
+const PIECE_MESHES = ['net-shells', 'net-persons', 'net-bodies', 'net-tracks', 'net-ticks'];
+const COPY_MESHES = ['net-copy-shells-1', 'net-copy-bodies-1', 'net-copy-tracks-1', 'net-copy-shells-2', 'net-copy-bodies-2', 'net-copy-tracks-2'];
+/**
+ * How the copies lift the piece, over the px `keep` selects where the piece (`base`) and the copies drawn
+ * alone (`copies`) are both lit: per channel under 255 in the full frame, the full frame's light above the
+ * piece's, over the copies' own light above the ground. `lift` pools it, `share` is the share of those px
+ * whose own lift is at least 0.9 of their copies' light, and `raw` pools every channel, clipped ones too.
+ */
+function copiesLift(base: PNG, copies: PNG, full: PNG, keep: (x: number, y: number) => boolean): { lift: number; share: number; raw: number; px: number; channels: number } {
+  let added = 0;
+  let own = 0;
+  let rawAdded = 0;
+  let rawOwn = 0;
+  let px = 0;
+  let lifted = 0;
+  let channels = 0;
+  for (let y = 0; y < full.height; y++)
+    for (let x = 0; x < full.width; x++) {
+      if (!keep(x + 0.5, y + 0.5) || !litAt(base, x, y) || !litAt(copies, x, y)) continue;
+      const i = (y * full.width + x) * 4;
+      let a = 0;
+      let o = 0;
+      for (let c = 0; c < 3; c++) {
+        const lift = full.data[i + c] - base.data[i + c];
+        const mine = copies.data[i + c] - BG[c];
+        rawAdded += lift;
+        rawOwn += mine;
+        if (full.data[i + c] >= 255 || mine <= 0) continue;
+        a += lift;
+        o += mine;
+        channels++;
+      }
+      if (o <= 0) continue;
+      px++;
+      added += a;
+      own += o;
+      if (a >= 0.9 * o) lifted++;
+    }
+  return { lift: added / Math.max(1, own), share: lifted / Math.max(1, px), raw: rawAdded / Math.max(1, rawOwn), px, channels };
+}
+
 /** The moon's burst's annulus (1.8-3.4 moon radii) and the planet's (from its dashes' start, 50 px out), as pixel tests. */
 function annuli(twin: Frame['twin']) {
   const inner = (FREEZE_TICK_PLANET.r0 + FREEZE_TICK_PLANET.out * twin.scatterOut) * twin.planet.r;
@@ -329,9 +373,16 @@ function annuli(twin: Frame['twin']) {
  */
 const DOUBLE_CONTRAST_MEASURED = { phone: 2.07, desktop: 2.13 };
 const ADDED_EMBER_MEASURED = { phone: 54, desktop: 66 };
+/**
+ * The copies add (re-skin Task 8 fix round 1): the share of C1's px, where the piece and its copies are both
+ * lit, that the copies lift by at least 0.9 of their own light. Measured 95.1 % / 96.7 % (phone / desktop);
+ * floors 0.6 × measured. With the copies screen-blended (the blend they replace) the same frame reads
+ * 13.5 % / 13.4 %, its pooled lift 0.734 / 0.729 against additive's 0.975 / 0.981.
+ */
+const ADDED_SHARE_MEASURED = { phone: 0.951, desktop: 0.967 };
 const FREEZE_SIZES = [
-  { width: 390, height: 844, label: 'phone', moonLit: 60, planetLit: 160, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.phone, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.phone) },
-  { width: 1440, height: 900, label: 'desktop', moonLit: 120, planetLit: 300, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.desktop, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.desktop) },
+  { width: 390, height: 844, label: 'phone', moonLit: 60, planetLit: 160, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.phone, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.phone), addedShare: 0.6 * ADDED_SHARE_MEASURED.phone },
+  { width: 1440, height: 900, label: 'desktop', moonLit: 120, planetLit: 300, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.desktop, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.desktop), addedShare: 0.6 * ADDED_SHARE_MEASURED.desktop },
 ] as const;
 
 for (const size of FREEZE_SIZES) {
@@ -468,6 +519,22 @@ for (const size of FREEZE_SIZES) {
       const embers = colourWhere(held.png, EMBER, (x, y) => dist(x, y, planet) <= planet.r);
       note('double image', `${size.label}: ${embers} ember-dominant px (r > 200) in C1's disc`);
       expect(embers, 'the copies add up over the planet').toBeGreaterThanOrEqual(size.addedEmber);
+    });
+
+    test(`the copies add, wherever C1 is lit (${size.label})`, async ({ page }) => {
+      // The held frame drawn three ways over C1's disc: the piece alone (its shells, persons, bodies,
+      // tracks and bursts), its two copies alone, and both. Where the copies add (One + One, as the mock),
+      // what they lift the piece's px by is their own light; the screen blend they replace lifts it by only
+      // (1 − the piece's) of it, so least where C1 is brightest. Px clipped at 255 lift by nothing either
+      // way, so a channel counts only where the full frame is under 255.
+      const base = await defectFrame(page, 0.33, { only: PIECE_MESHES });
+      const copies = await defectFrame(page, 0.33, { only: COPY_MESHES });
+      const full = await defectFrame(page, 0.33, { only: [...PIECE_MESHES, ...COPY_MESHES] });
+      const { planet } = full.twin;
+      const lift = copiesLift(base.png, copies.png, full.png, (x, y) => dist(x, y, planet) <= planet.r);
+      note('copies add', `${size.label}: lift ${lift.lift.toFixed(3)} of the copies' own light over ${lift.channels} channels in ${lift.px} px; px lifted by ≥ 0.9 of it: ${(100 * lift.share).toFixed(1)} %; raw lift ${lift.raw.toFixed(3)}`);
+      expect(lift.px, 'px where the piece and its copies are both lit').toBeGreaterThan(500);
+      expect(lift.share, 'px the copies lift by ≥ 0.9 of their own light').toBeGreaterThanOrEqual(size.addedShare);
     });
 
     test(`the held planet is cyan (${size.label})`, async ({ page }) => {
