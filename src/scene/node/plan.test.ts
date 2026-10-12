@@ -15,20 +15,26 @@ import { LOD_COUNT, LOD_VISIBLE, LodElement } from './lod';
 import { bodyWorld, elementsAt, galaxyTurn, orbitLocal } from './orbit';
 import {
   planActual,
+  planArcPitch,
   planArcPoint,
   planBodyRow,
   planDash,
+  planDashDots,
+  planDashPeriod,
+  planDashSlot,
   planDeparture,
   planDot,
   planE0,
   planNode,
   planNumeral,
   planOrbitPoint,
+  planRankPiece,
   planResolve,
   planRun,
+  planRunRank,
   type PlanFrame,
 } from './plan';
-import { PLAN_GLYPH_CELLS, PLAN_MARK, PLAN_STRIDE, PLAN_TABLE_TEXELS } from './planAttrs';
+import { PLAN_GLYPH_CELLS, PLAN_MARK, PLAN_RUN_ARC, PLAN_RUNS, PLAN_STRIDE, PLAN_TABLE_TEXELS } from './planAttrs';
 import { planClocksOf, planFrameAt, planPixels, planStatic, type PlanClocks } from './planOnScreen';
 import { sampler, spans } from '../../purity/twin';
 
@@ -136,7 +142,7 @@ describe('the plan is the orbit, without the derp', () => {
     // Dashes: on for 7 of every 11 parts of a period, fixed in angle.
     let on = 0;
     const N = 11_000;
-    for (let i = 0; i < N; i++) on += planDash((i / N) * 10 * PLAN_LOOK.arc.dashPeriod, 0) > 0.5 ? 1 : 0;
+    for (let i = 0; i < N; i++) on += planDash((i / N) * 10 * PLAN_LOOK.arc.dashPeriod, 0, PLAN_LOOK.arc.dashPeriod) > 0.5 ? 1 : 0;
     expect(on / N).toBeCloseTo(7 / 11, 2);
     // The chevron's two legs meet at the arc's end: its first dot of each leg is the tip.
     const force = new Float32Array(LOD_COUNT).fill(-1);
@@ -240,6 +246,53 @@ describe('a run of dots at its pitch', () => {
     expect(planRun(0, 20, 600, 7).share).toBeCloseTo(0.7, 12);
     // A run of no dots (a chevron's leg when the pool gave its run one dot) lights none, and is finite.
     expect(planRun(0, 0, 40, 7)).toEqual({ u: 0, light: 0, share: 1 });
+  });
+});
+
+describe('H read on a phone (Task 7b fix round 2, review I2)', () => {
+  const L = PLAN_LOOK.arc;
+  it('dashes a small orbit in strokes of whole dots: the period at least dashDots pitches, the arc at least minDots', () => {
+    // At df-5 on a phone the orbits are 10-45 px: 12.5° of 15 px is 3 px, one pitch, so a dash fixed in
+    // angle was a dot or none. On the floor a period is dashDots pitches, 4 of its 6 dots lit.
+    for (const rPx of [8, 15, 30, 45, 70]) {
+      const pitch = planArcPitch(rPx);
+      expect(pitch).toBeGreaterThanOrEqual(L.pitchMin);
+      expect(pitch).toBeLessThanOrEqual(PLAN_LOOK.marks.arc[2]);
+      expect((L.span * rPx) / pitch).toBeGreaterThanOrEqual(Math.min(L.minDots, (L.span * rPx) / L.pitchMin) - 1e-9);
+      const period = planDashPeriod(rPx, pitch);
+      expect(period).toBeGreaterThanOrEqual(L.dashPeriod);
+      const lit = Array.from({ length: 4 * L.dashDots }, (_, s) => (planDash((s * pitch) / rPx, 0, period) > 0.5 ? 1 : 0));
+      expect(lit.join(''), `${rPx} px`).toBe('111100'.repeat(4));
+    }
+    // Over the angle period (a large orbit, the arc closing past s_px 75) the dash is fixed in angle again.
+    expect(planDashPeriod(200, 3)).toBe(L.dashPeriod);
+  });
+
+  it('lays the open arc out on its dashes only: dot j to its lit slot, the run’s slots past its last dash', () => {
+    const on = (s: number) => s % L.dashDots < 4;
+    for (const want of [0.4, 3, 5.99, 6, 10.5, 23, 47.2]) {
+      const n = planDashDots(want);
+      const slots = Array.from({ length: n }, (_, j) => planDashSlot(j));
+      const lit = Array.from({ length: Math.floor(want) + 1 }, (_, s) => s).filter(on);
+      expect(slots, `${want}`).toEqual(lit);
+      // Its run never reads as short of its pitch (planRun's stretch): its slots cover the ask.
+      expect(planDashSlot(n)).toBeGreaterThanOrEqual(Math.floor(want) + 1);
+    }
+  });
+
+  it('dissolves H by whole pieces: a node cross, a chevron, a dash, each one rank', () => {
+    const run = (name: string) => PLAN_RUNS.findIndex((r) => r[0] === name);
+    expect(PLAN_RUN_ARC).toBe(run('arc'));
+    // A dash's dots, open (seated: planDashSlot) or closing (j its slot), share their dash's rank.
+    for (let dash = 0; dash < 5; dash++) {
+      const ranks = new Set(Array.from({ length: 4 }, (_, i) => planRunRank(3, PLAN_RUN_ARC, 2, planDashSlot(4 * dash + i))));
+      expect(ranks.size).toBe(1);
+      expect(planRankPiece(PLAN_MARK.arc, planDashSlot(4 * dash))).toBe(dash);
+    }
+    expect(new Set(Array.from({ length: 8 }, (_, j) => planRunRank(3, run('chevron'), 2, j))).size).toBe(1);
+    for (let k = 0; k < L.nodes; k++) expect(new Set(Array.from({ length: 5 }, (_, arm) => planRunRank(3, run('node'), 2, arm * L.nodes + k))).size).toBe(1);
+    // Every other mark dissolves dot by dot.
+    expect(new Set(Array.from({ length: 8 }, (_, j) => planRunRank(3, run('ring'), 2, j))).size).toBe(8);
   });
 });
 

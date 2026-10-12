@@ -127,7 +127,11 @@ export function glslPlanetLookConstants(): string {
  *  - `centreCircle`: R's small circle round the star (units); no crosshair (the spikes are the star's mark);
  *  - `arc`: H's forward arc, `span` rad of eccentric anomaly ahead of the planned place; node k at
  *    t + k·period·`nodeStep` (k < `nodes`); a dash is on for dash[0] of every dash[1] parts of a
- *    `dashPeriod` (rad), fixed in angle so it never crawls as the camera zooms; a `chevron` at its end,
+ *    `dashPeriod` (rad), fixed in angle so it never crawls as the camera zooms, or of `dashDots` of the
+ *    arc's pitch where that is longer (a small orbit's dash a stroke of whole dots, not a speck: at df-5
+ *    on a phone a 12.5° period on a 15 px orbit is 3 px, one pitch); its dots its mark's pitch apart, or
+ *    closer, to `pitchMin`, where that leaves its 100° under `minDots` (a small orbit's arc then holds
+ *    two dashes and more, so the window's dissolve, dash by dash, leaves it an arc); a `chevron` at its end,
  *    two legs `len` units long (at least `lenPx` CSS px on screen, so it reads in the neighbourhood: at
  *    df-5 on a phone 0.7 units are 3 px), `spread` rad off the arc's tangent;
  *  - `deviation`: H's departure, from the body's drawn place curving out `out` units over `span` rad;
@@ -157,7 +161,7 @@ export const PLAN_LOOK = {
   bold: 1.2,
   bandHalfWidth: 0.45,
   centreCircle: 1.3,
-  arc: { span: 1.75, nodes: 3, nodeStep: 1 / 12, dash: [7, 11], dashPeriod: 0.2182, chevron: { len: 0.7, lenPx: 5, spread: 0.6 } },
+  arc: { span: 1.75, nodes: 3, nodeStep: 1 / 12, dash: [7, 11], dashPeriod: 0.2182, dashDots: 6, minDots: 24, pitchMin: 2, chevron: { len: 0.7, lenPx: 6, spread: 0.6 } },
   deviation: { span: 1.2, out: 0.8 },
   edge: { span: 0.3, size: 2.0 },
   graduations: { count: 24, major: 6, len: [1.2, 0.5], dots: [4, 2], out: 1.2 },
@@ -177,7 +181,7 @@ export const PLAN_LOOK = {
     bandFill: [0.27, 1.43, 11],
     arc: [0.85, 1.5, 3],
     node: [1.0, 1.8, 0],
-    chevron: [0.95, 1.6, 3],
+    chevron: [0.95, 1.5, 2],
     deviation: [0.95, 1.5, 3],
     stalk: [0.72, 1.1, 4],
     outline: [0.9, 1.4, 4],
@@ -227,6 +231,9 @@ export function glslPlanConstants(): string {
   out.push(`const float PLAN_ARC_NODE_STEP = ${lit(L.arc.nodeStep)};`);
   out.push(`const vec2 PLAN_ARC_DASH = vec2(${L.arc.dash.map(lit).join(', ')});`);
   out.push(`const float PLAN_ARC_DASH_PERIOD = ${lit(L.arc.dashPeriod)};`);
+  out.push(`const float PLAN_ARC_DASH_DOTS = ${lit(L.arc.dashDots)};`);
+  out.push(`const int PLAN_ARC_DASH_ON = ${Math.ceil((L.arc.dashDots * L.arc.dash[0]) / L.arc.dash[1])}; // a dash's lit slots of its dashDots`);
+  out.push(`const vec2 PLAN_ARC_PITCH = vec2(${lit(L.arc.minDots)}, ${lit(L.arc.pitchMin)}); // minDots, pitchMin`);
   out.push(`const vec3 PLAN_CHEVRON = vec3(${lit(L.arc.chevron.len)}, ${lit(L.arc.chevron.spread)}, ${lit(L.arc.chevron.lenPx)}); // len, spread, lenPx`);
   out.push(`const vec2 PLAN_DEVIATION = vec2(${lit(L.deviation.span)}, ${lit(L.deviation.out)}); // span, out`);
   out.push(`const vec2 PLAN_EDGE = vec2(${lit(L.edge.span)}, ${lit(L.edge.size)}); // span, size`);

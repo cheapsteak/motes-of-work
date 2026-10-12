@@ -52,9 +52,18 @@ int planBodyRow(int s, int k) {
   return int(round(planTexel(s, k / 4)[k - 4 * (k / 4)]));
 }
 
-// A run's dot's arrival rank (plan.ts planRunRank): hash01 of its place with SALT_PLAN_RANK (a node's SALT_PLAN_NODE).
+// The piece of its mark a run's dot arrives with (plan.ts planRankPiece): a node's cross, a chevron
+// whole, a dash of an arc or a departure, every other dot alone.
+int planRankPiece(int mark, int j) {
+  if (mark == PLAN_MARK_NODE) return j - PLAN_ARC_NODES * (j / PLAN_ARC_NODES);
+  if (mark == PLAN_MARK_CHEVRON) return 0;
+  if (mark == PLAN_MARK_ARC || mark == PLAN_MARK_DEVIATION) return int(floor(float(j) / PLAN_ARC_DASH_DOTS));
+  return j;
+}
+
+// A run's dot's arrival rank (plan.ts planRunRank): hash01 of its place, by piece, with SALT_PLAN_RANK (a node's SALT_PLAN_NODE).
 float planRunRank(int s, int r, int k, int j) {
-  uint seed = uint(((s * 32 + r) * 16 + max(k, 0)) * 4096 + min(j, 4095));
+  uint seed = uint(((s * 32 + r) * 16 + max(k, 0)) * 4096 + min(planRankPiece(PLAN_RUN_MARK[r], j), 4095));
   if (PLAN_RUN_MARK[r] == PLAN_MARK_NODE) return hash01(seed, SALT_PLAN_NODE);
   return hash01(seed, SALT_PLAN_RANK);
 }
@@ -240,8 +249,21 @@ vec3 planRun(int j, int n, float lenPx, float pitch) {
   return vec3(u, 1.0 - (1.0 - smoothstep(0.0, 0.15 * share, end)) * (1.0 - share), share);
 }
 
-float planDash(float a, float phase) {
-  float x = fract(a / PLAN_ARC_DASH_PERIOD + phase);
+float planArcPitch(float rPx) {
+  return min(PLAN_LOOK_ARC.z, max(PLAN_ARC_PITCH.y, PLAN_ARC_SPAN * rPx / PLAN_ARC_PITCH.x));
+}
+
+// The open arc's dot j's slot (plan.ts planDashSlot): its dashes' dots only, PLAN_ARC_DASH_ON a dash.
+int planDashSlot(int j) {
+  return (j / PLAN_ARC_DASH_ON) * int(PLAN_ARC_DASH_DOTS) + (j - PLAN_ARC_DASH_ON * (j / PLAN_ARC_DASH_ON));
+}
+
+float planDashPeriod(float rPx, float pitch) {
+  return max(PLAN_ARC_DASH_PERIOD, PLAN_ARC_DASH_DOTS * pitch / max(rPx, 1e-6));
+}
+
+float planDash(float a, float phase, float period) {
+  float x = fract(a / period + phase);
   float on = PLAN_ARC_DASH.x / PLAN_ARC_DASH.y;
   return 1.0 - smoothstep(on - 0.02, on, x) * (1.0 - smoothstep(0.98, 1.0, x));
 }
@@ -321,8 +343,9 @@ bool planWorldMark(PlanAttrs d, PlanCtx c, inout vec3 pos, inout float alpha, in
   float lit = c.lit;
   if (d.mark == PLAN_MARK_RING) {
     float E0 = c.E0;
-    vec3 r = planRun(d.j, d.n, PLAN_TAU * bodyTexel(1, row).x * ppu, PLAN_LOOK_RING.z);
-    pos = planOrbitPoint(c.host, row, E0 + PLAN_TAU * (r.x - 0.5 * r.z), 0.0, t);
+    float rest = PLAN_TAU - PLAN_ARC_SPAN;
+    vec3 r = planRun(d.j, d.n, rest * bodyTexel(1, row).x * ppu, PLAN_LOOK_RING.z);
+    pos = planOrbitPoint(c.host, row, E0 + PLAN_ARC_SPAN + rest * (r.x + 0.5 * (1.0 - r.z)), 0.0, t);
     alpha = PLAN_LOOK_RING.x * planRank(1.0 - planWin(LOD_PLAN_CLOSE, sv), d.rank) * r.y;
     size = PLAN_LOOK_RING.y;
     return true;
@@ -332,10 +355,11 @@ bool planWorldMark(PlanAttrs d, PlanCtx c, inout vec3 pos, inout float alpha, in
     float close = planWin(LOD_PLAN_CLOSE, sv);
     float peel = planWin(LOD_PLAN_BAND, sv);
     float span = PLAN_ARC_SPAN + (PLAN_TAU - PLAN_ARC_SPAN) * close;
-    vec3 r = planRun(d.j, d.n, span * bodyTexel(1, row).x * ppu, mix(PLAN_LOOK_ARC.z, PLAN_LOOK_BAND_FILL.z, peel));
+    float pitch = mix(planArcPitch(bodyTexel(1, row).x * ppu), PLAN_LOOK_BAND_FILL.z, peel);
+    vec3 r = planRun(d.j, d.n, span * bodyTexel(1, row).x * ppu, pitch);
     float phi = span * r.x;
     pos = planOrbitPoint(c.host, row, E0 + phi, 0.0, t);
-    float on = planDash(phi, hash01(uint(row), SALT_PLAN_DASH));
+    float on = close > 0.0 ? planDash(phi, 0.0, planDashPeriod(bodyTexel(1, row).x * ppu, pitch)) : 1.0;
     alpha = mix(PLAN_LOOK_ARC.x, PLAN_LOOK_BAND_FILL.x, peel) * mix(planRank(close, d.rank), 1.0, on) * r.y;
     size = mix(PLAN_LOOK_ARC.y, PLAN_LOOK_BAND_FILL.y, peel);
     ember = lit;
@@ -394,7 +418,7 @@ bool planWorldMark(PlanAttrs d, PlanCtx c, inout vec3 pos, inout float alpha, in
     } else {
       vec3 r = planRun(d.j, d.n, span * r0 * ppu, PLAN_LOOK_DEVIATION.z);
       pos = planDeviationAt(host, dirA, n, r0, span, grow, a0, r.x);
-      alpha = PLAN_LOOK_DEVIATION.x * dep * mix(planRank(pe, d.rank), 1.0, planDash(span * r.x, 0.0)) * r.y;
+      alpha = PLAN_LOOK_DEVIATION.x * dep * mix(planRank(pe, d.rank), 1.0, planDash(span * r.x, 0.0, planDashPeriod(r0 * ppu, PLAN_LOOK_DEVIATION.z))) * r.y;
       size = PLAN_LOOK_DEVIATION.y + (PLAN_EDGE.y - PLAN_LOOK_DEVIATION.y) * pe;
     }
     ember = lit;

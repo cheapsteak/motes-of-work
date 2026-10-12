@@ -82,6 +82,9 @@ export const PLAN_RUNS = [
   ['numeralActual', PLAN_MARK.numeral, 1, false],
 ] as const;
 
+/** H's arc's run (PLAN_RUNS), whose dots plan.ts planDot re-seats on its dashes while the arc is open. */
+export const PLAN_RUN_ARC = PLAN_RUNS.findIndex((r) => r[0] === 'arc');
+
 /** The marks drawn in screen space (net-plan-screen, planScreen.glsl); every other is a world mark (net-plan). */
 export const PLAN_SCREEN_MARKS: readonly number[] = [PLAN_MARK.silhouette, PLAN_MARK.numeral];
 
@@ -227,6 +230,7 @@ export function glslPlanLayoutConstants(): string {
     `const int PLAN_BODY_MAX = ${PLAN_BODY_MAX};`,
     `const int PLAN_TABLE_AT = ${PLAN_TABLE_AT};`,
     `const int PLAN_RUN_COUNT = ${PLAN_RUNS.length};`,
+    `const int PLAN_RUN_ARC = ${PLAN_RUN_ARC};`,
     `const int PLAN_GLYPH_CELLS = ${PLAN_GLYPH_CELLS};`,
     `const int PLAN_NODE_DOTS = ${PLAN_NODE_DOTS};`,
     `const int PLAN_DIM_TICK_DOTS = ${PLAN_DIM_TICK_DOTS};`,

@@ -104,6 +104,12 @@ PlanDot planDotOf(PlanAttrs d, int marks) {
   c.star = int(round(T4.w));
   c.ppu = c.sv.x / T4.x;
   int el = planElement(d.mark, d.aux, d.ord, c.planets);
+  if (d.mark == PLAN_MARK_ARC && !(planWin(LOD_PLAN_CLOSE, c.sv) > 0.0)) {
+    // H's open arc: its dashes' dots only, each to its slot, its rank its dash's (plan.ts planSeat).
+    d.rank = planRunRank(c.s, PLAN_RUN_ARC, d.ord, planDashSlot(d.j));
+    d.j = planDashSlot(d.j);
+    d.n = planDashSlot(d.n);
+  }
   float gain = planGain(el, c.sv.x, d.rank, c.sv.y, c.sv.z, c.sv.w, uLodForce[el]);
   c.row = planMarkRow(d, c.s);
   if (c.row < 0) return planHidden();

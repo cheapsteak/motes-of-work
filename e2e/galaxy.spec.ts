@@ -2236,25 +2236,28 @@ for (const size of SIZES) {
 // ---- The plan's schematic (re-skin §4.7, Task 7b) ----
 
 interface PlanHook {
-  plan(): { dots: number; brightness: number; slots: [number, number]; byMark: Record<string, number>; ember: number } | null;
+  plan(): { dots: number; brightness: number; slots: [number, number]; byMark: Record<string, number>; ember: number; shapes: { dashes: number; chevrons: number } } | null;
 }
 const planStats = (page: Page) => page.evaluate(() => (window as unknown as { __motes: PlanHook }).__motes.plan()!);
 const PLAN_MESHES = ['net-plan', 'net-plan-screen'];
 /** H's marks and R's (planAttrs.ts PLAN_MARK): a system drawn in H lights only the first, one in R the second too. */
 const H_MARKS = ['ring', 'arc', 'node', 'chevron', 'deviation'];
 /**
- * The floors, 0.6 × measured (Task 7b, 2026-10-12; the phone's hood and df-5 re-measured in fix round 1,
- * H brightened): the plan's lit px at the hood probe (1,514 phone, 1,593 desktop) and the system shot
- * (2,357, 3,788), and its ember px at df-5 (136 of 690, 238 of 1,396).
+ * The floors, 0.6 × measured (Task 7b; all four re-measured in fix round 2, 2026-10-12, H's dashes and
+ * chevrons redrawn): the plan's lit px at the hood probe (1,607 phone, 1,832 desktop) and the system
+ * shot (2,357, 3,788), and its ember px at df-5 (186 of 754, 381 of 1,717).
  */
-const HOOD_PLAN_PX = { phone: 908, desktop: 955 };
+const HOOD_PLAN_PX = { phone: 964, desktop: 1099 };
 const SYSTEM_PLAN_PX = { phone: 1414, desktop: 2272 };
-const DF5_EMBER_PX = { phone: 82, desktop: 142 };
+const DF5_EMBER_PX = { phone: 112, desktop: 229 };
 /**
- * H read at df-5 on a phone (Task 7b fix round 1, review I2): its node crosses' dots and its chevrons'
- * dots lit by the page, 0.6 × measured (127 and 60, the page's twin, 2026-10-12).
+ * H read at df-5 on a phone (Task 7b, review I2), 0.6 × measured (fix round 2, 2026-10-12): its node
+ * crosses' dots and its chevrons' dots lit by the page (133, 107), and its shapes (planMeshes.ts
+ * PlanStats.shapes): the arcs' dashes that read as strokes, 3 lit dots and 4 px long and more (26), and
+ * the arcs' chevrons that read as a ^, both legs 3 lit dots and more (9). The shapes are the reading:
+ * fix round 1's H lit its dots as specks, a dash fixed in angle on a 15 px orbit one dot or none.
  */
-const DF5_H_PHONE = { node: 76, chevron: 36 };
+const DF5_H_PHONE = { node: 80, chevron: 64, dashes: 16, chevrons: 5 };
 // Timing (each test's own setTimeout), phone and desktop: locally at a load of 5-9, one worker, the wides
 // 62 s and 121 s, H and R 77 s and 78 s, the ember 127 s and 135 s, the defect 46 s and 45 s, ls-1 339 s
 // and 332 s, the zoom-out 39 s and 37 s; on CI (run 38209082401) the wides 60 s and 72 s, H and R 49 s
@@ -2348,9 +2351,11 @@ for (const size of SIZES) {
       testInfo.annotations.push({ type: 'df-5', description: `${df5.ember} ember dots of ${df5.dots}, ${px.ember} ember px of ${px.lit}` });
       expect(df5.ember, 'df-5: ember dots').toBeGreaterThan(0);
       if (size.label === 'phone') {
-        testInfo.annotations.push({ type: 'df-5 H', description: `${df5.byMark.node ?? 0} node dots, ${df5.byMark.chevron ?? 0} chevron dots` });
+        testInfo.annotations.push({ type: 'df-5 H', description: `${df5.byMark.node ?? 0} node dots, ${df5.byMark.chevron ?? 0} chevron dots, ${df5.shapes.dashes} dashes, ${df5.shapes.chevrons} chevrons` });
         expect(df5.byMark.node ?? 0, 'df-5: H’s node crosses').toBeGreaterThanOrEqual(DF5_H_PHONE.node);
         expect(df5.byMark.chevron ?? 0, 'df-5: H’s chevrons').toBeGreaterThanOrEqual(DF5_H_PHONE.chevron);
+        expect(df5.shapes.dashes, 'df-5: H’s arcs read as dashes').toBeGreaterThanOrEqual(DF5_H_PHONE.dashes);
+        expect(df5.shapes.chevrons, 'df-5: H’s chevrons read as ^').toBeGreaterThanOrEqual(DF5_H_PHONE.chevrons);
       }
       expect(px.ember, 'df-5: ember px').toBeGreaterThanOrEqual(DF5_EMBER_PX[size.label]);
       await openPlanAt(page, 'fix', 0.99);

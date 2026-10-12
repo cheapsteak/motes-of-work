@@ -40,6 +40,7 @@ import {
   PLAN_MARK,
   PLAN_NODE_DOTS,
   PLAN_POOL,
+  PLAN_RUN_ARC,
   PLAN_RUNS,
   PLAN_STRIDE,
   PLAN_TABLE_AT,
@@ -134,10 +135,24 @@ export function planBodyRow(table: Float32Array, s: number, k: number): number {
   return k < 0 || k >= PLAN_BODY_MAX ? -1 : Math.round(planTexel(table, s, k >> 2)[k & 3]);
 }
 
-/** A run's dot's arrival rank: hash01 of its place (system, run, body, index) with SALT.planRank (a node's with SALT.planNode), so a mark dissolves alike however the pools are laid out. */
+/**
+ * The piece of its mark a run's dot `j` arrives with: a node's cross (its five dots one rank), a chevron
+ * whole, a dash of an arc or a departure (dashDots dots: on planDashPeriod's floor, where the window
+ * dissolves H at df-5, exactly one dash), and every other dot alone. So a mark coming in by its window
+ * arrives as crosses, chevrons and dashes, not as specks of them.
+ */
+export function planRankPiece(mark: number, j: number): number {
+  if (mark === PLAN_MARK.node) return j % L.arc.nodes;
+  if (mark === PLAN_MARK.chevron) return 0;
+  if (mark === PLAN_MARK.arc || mark === PLAN_MARK.deviation) return Math.floor(j / L.arc.dashDots);
+  return j;
+}
+
+/** A run's dot's arrival rank: hash01 of its place (system, run, body, piece: planRankPiece) with SALT.planRank (a node's with SALT.planNode), so a mark dissolves alike however the pools are laid out. */
 export function planRunRank(s: number, r: number, k: number, j: number): number {
-  const seed = ((s * 32 + r) * 16 + Math.max(k, 0)) * 4096 + Math.min(j, 4095);
-  return PLAN_RUNS[r][1] === PLAN_MARK.node ? hash01(seed >>> 0, SALT.planNode) : hash01(seed >>> 0, SALT.planRank);
+  const mark = PLAN_RUNS[r][1];
+  const seed = ((s * 32 + r) * 16 + Math.max(k, 0)) * 4096 + Math.min(planRankPiece(mark, j), 4095);
+  return mark === PLAN_MARK.node ? hash01(seed >>> 0, SALT.planNode) : hash01(seed >>> 0, SALT.planRank);
 }
 
 /** A mark's reach in world units: `units`, or `px` CSS px on screen at `ppu` CSS px a unit, whichever is longer. */
@@ -350,9 +365,41 @@ export function planRun(j: number, n: number, lenPx: number, pitch: number): { u
   return { u, light, share };
 }
 
-/** Whether angle `a` (rad, along a dashed curve from its start, plus the curve's phase in periods) is on a dash: 1 on, 0 in a gap, a 2 % soft edge. */
-export function planDash(a: number, phase: number): number {
-  const x = fract(a / L.arc.dashPeriod + phase);
+/**
+ * A dashed curve's dash period (rad) on a radius of `rPx` CSS px, its dots `pitch` px apart: PLAN_LOOK's
+ * `dashPeriod`, fixed in angle, or `dashDots` pitches where that is longer. A run's dot j stands j pitches
+ * along (planRun), so on the floor a dash is whole dots, never a dot or none between two.
+ */
+export function planDashPeriod(rPx: number, pitch: number): number {
+  return Math.max(L.arc.dashPeriod, (L.arc.dashDots * pitch) / Math.max(rPx, 1e-6));
+}
+
+/** Of a dash's PLAN_LOOK `dashDots` slots, the lit ones: the first ⌈dashDots · dash[0] / dash[1]⌉ (6 → 4). */
+const DASH_ON = Math.ceil((L.arc.dashDots * L.arc.dash[0]) / L.arc.dash[1]);
+
+/**
+ * The open arc's (PlanClose 0) dot `j`'s slot along it: its dots are its dashes' only, DASH_ON a dash,
+ * so dot j is on dash ⌊j / DASH_ON⌋ (slot j a pitch along it where the arc closes, the gaps' dots then
+ * laid out too). planDashSlot(n) is a run of n dots' slots, the gap after its last whole dash with them.
+ */
+export function planDashSlot(j: number): number {
+  return Math.floor(j / DASH_ON) * L.arc.dashDots + (j % DASH_ON);
+}
+
+/** The open arc's dots: of a run asking `want` dots a pitch apart (planLayout's floor + 1 slots), those on its dashes. */
+export function planDashDots(want: number): number {
+  const slots = Math.floor(want) + 1;
+  return Math.floor(slots / L.arc.dashDots) * DASH_ON + Math.min(slots % L.arc.dashDots, DASH_ON);
+}
+
+/** H's arc's pitch (CSS px) on an orbit `rPx` CSS px in radius: its mark's, or closer, to PLAN_LOOK's `pitchMin`, so its 100° holds `minDots`. */
+export function planArcPitch(rPx: number): number {
+  return Math.min(M.arc[2], Math.max(L.arc.pitchMin, (L.arc.span * rPx) / L.arc.minDots));
+}
+
+/** Whether angle `a` (rad, along a dashed curve from its start, plus the curve's phase in periods) is on a dash of `period` rad: 1 on, 0 in a gap, a 2 % soft edge. */
+export function planDash(a: number, phase: number, period: number): number {
+  const x = fract(a / period + phase);
   const on = L.arc.dash[0] / L.arc.dash[1];
   return 1 - smoothstep(on - 0.02, on, x) * (1 - smoothstep(1 - 0.02, 1, x));
 }
@@ -423,6 +470,18 @@ function pairSys(d: PlanAttrs, f: PlanFrame): number {
   return f.sys[d.sys2 * 4] > f.sys[d.sys * 4] ? d.sys2 : d.sys;
 }
 
+/**
+ * A resolved dot as it is drawn: H's open arc (PlanClose 0) lays out its dashes' dots only (planLayout,
+ * planDashDots), so each goes to its slot (planDashSlot) with its dash's rank, as the closing arc's dot
+ * of the same place has. Every other dot as it is.
+ */
+export function planSeat(d: PlanAttrs, f: Pick<PlanFrame, 'sys' | 'force'>): PlanAttrs {
+  if (d.mark !== PLAN_MARK.arc || d.sys < 0) return d;
+  if (planWindow(LodElement.PlanClose, f.sys[d.sys * 4], f.sys[d.sys * 4 + 1], f.force[LodElement.PlanClose]) > 0) return d;
+  const slot = planDashSlot(d.j);
+  return { ...d, j: slot, n: planDashSlot(d.n), rank: planRunRank(d.sys, PLAN_RUN_ARC, d.ord, slot) };
+}
+
 /** The row a mark's lamp, light and freeze are read from: its body's; the system's star's for the graduations and the centre; its focused planet's for a dimension or value. */
 function markRow(d: PlanAttrs, f: Pick<PlanFrame, 'table'>, s: number): number {
   if (d.mark === PLAN_MARK.dimension || d.mark === PLAN_MARK.numeral) return Math.round(planTexel(f.table, s, 5)[0]);
@@ -437,7 +496,7 @@ function markRow(d: PlanAttrs, f: Pick<PlanFrame, 'table'>, s: number): number {
  */
 export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: BodyData): PlanDot {
   if (planSkips(a, i, f, data)) return HIDDEN;
-  const d = planResolve(a, i, f);
+  const d = planSeat(planResolve(a, i, f), f);
   const pair = d.mark >= PLAN_MARK.binaryCross;
   const s = pair ? pairSys(d, f) : d.sys;
   const [sPx, full, cull, real] = sysOf(f, s);
@@ -464,8 +523,10 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
   switch (d.mark) {
     case PLAN_MARK.ring: {
       const E0 = planE0(data, row, t);
-      const r = runOf(TAU * elementsAt(data, row).a * ppu, M.ring[2]);
-      pos = planOrbitPoint(data, row, E0 + TAU * (r.u - 0.5 * r.share), 0, t);
+      // The orbit but the open arc's 100° (its dashes' gaps clear), centred opposite it where it is short.
+      const rest = TAU - L.arc.span;
+      const r = runOf(rest * elementsAt(data, row).a * ppu, M.ring[2]);
+      pos = planOrbitPoint(data, row, E0 + L.arc.span + rest * (r.u + 0.5 * (1 - r.share)), 0, t);
       // Out by rank as the arc closes over it (a fade would take every ring dot under LOD_VISIBLE at once).
       alpha = M.ring[0] * planRank(1 - win(LodElement.PlanClose), d.rank) * r.light;
       size = M.ring[1];
@@ -476,10 +537,11 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
       const close = win(LodElement.PlanClose);
       const peel = win(LodElement.PlanBand);
       const span = L.arc.span + (TAU - L.arc.span) * close;
-      const r = runOf(span * elementsAt(data, row).a * ppu, mix(M.arc[2], M.bandFill[2], peel));
+      const pitch = mix(planArcPitch(elementsAt(data, row).a * ppu), M.bandFill[2], peel);
+      const r = runOf(span * elementsAt(data, row).a * ppu, pitch);
       const phi = span * r.u;
       pos = planOrbitPoint(data, row, E0 + phi, 0, t);
-      const on = planDash(phi, hash01(row >>> 0, SALT.planDash));
+      const on = close > 0 ? planDash(phi, 0, planDashPeriod(elementsAt(data, row).a * ppu, pitch)) : 1;
       // The gaps fill by rank as the arc closes.
       alpha = mix(M.arc[0], M.bandFill[0], peel) * mix(planRank(close, d.rank), 1, on) * r.light;
       size = mix(M.arc[1], M.bandFill[1], peel);
@@ -545,7 +607,7 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
         const r = runOf(span * r0 * ppu, M.deviation[2]);
         const u = r.u;
         pos = at(u);
-        alpha = M.deviation[0] * dep * mix(planRank(pe, d.rank), 1, planDash(span * u, 0)) * r.light;
+        alpha = M.deviation[0] * dep * mix(planRank(pe, d.rank), 1, planDash(span * u, 0, planDashPeriod(r0 * ppu, M.deviation[2]))) * r.light;
         size = M.deviation[1] + (L.edge.size - M.deviation[1]) * pe;
       }
       ember = lit;
@@ -942,11 +1004,14 @@ export function planLayout(
         const bad = cracked(row);
         switch (name) {
           case 'ring':
-            ask(r, k, (TAU * a * ppu) / M.ring[2], win(k === planets - 1 ? LodElement.PlanRingOuter : LodElement.PlanRingInner) * (1 - close));
+            ask(r, k, ((TAU - L.arc.span) * a * ppu) / M.ring[2], win(k === planets - 1 ? LodElement.PlanRingOuter : LodElement.PlanRingInner) * (1 - close));
             break;
           case 'arc': {
             const span = L.arc.span + (TAU - L.arc.span) * close;
-            ask(r, k, (span * a * ppu) / mix(M.arc[2], M.bandFill[2], peel), win(LodElement.PlanArc));
+            const want = (span * a * ppu) / mix(planArcPitch(a * ppu), M.bandFill[2], peel);
+            // Open, its dashes' dots only (planDot re-seats them); closing, every slot's, the gaps filling.
+            if (close > 0) ask(r, k, want, win(LodElement.PlanArc));
+            else ask(r, k, planDashDots(want), win(LodElement.PlanArc), true);
             break;
           }
           case 'edgeIn':

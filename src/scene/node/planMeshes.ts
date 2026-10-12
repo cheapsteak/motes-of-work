@@ -26,7 +26,7 @@ import { SYS_MAX, systemOuter, type Galaxy } from '../../galaxy/generate';
 import type { BodyData } from './bodyData';
 import type { BodyClocks } from './bodyMote';
 import { LOD_VISIBLE } from './lod';
-import { planDot, planFrameOf, planResolve, planSkips, type PlanFrame } from './plan';
+import { planDot, planFrameOf, planRankPiece, planResolve, planSeat, planSkips, type PlanFrame } from './plan';
 import { buildPlanAttrs, PLAN_MARK, PLAN_STRIDE, PLAN_TABLE_TEXELS, planTable } from './planAttrs';
 import { withPlanLibrary } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
@@ -40,6 +40,12 @@ export interface PlanStats {
   slots: [number, number];
   byMark: Record<string, number>;
   ember: number;
+  /**
+   * H's shapes, as the page draws them: its arcs' dashes read as strokes (3 lit dots and more, 4 CSS px
+   * long and more), and its arcs' chevrons as a ^ (each of the two legs 3 lit dots and more, the tip's
+   * one of them).
+   */
+  shapes: { dashes: number; chevrons: number };
 }
 
 export interface PlanMeshes {
@@ -143,8 +149,9 @@ export function createPlanMeshes(g: Galaxy, data: BodyData, shared: Record<strin
     frame: () => last,
 
     stats() {
-      const out: PlanStats = { dots: 0, brightness: 0, slots: [-1, -1], byMark: {}, ember: 0 };
+      const out: PlanStats = { dots: 0, brightness: 0, slots: [-1, -1], byMark: {}, ember: 0, shapes: { dashes: 0, chevrons: 0 } };
       if (last === null) return out;
+      const pieces = new Map<string, { mark: number; legs: [number, number]; px: [number, number][] }>();
       const inR = Array.from({ length: last.sys.length / 4 }, (_, i) => i).filter((i) => last!.sys[i * 4 + 1] > 0);
       out.slots = [inR[0] ?? -1, inR[1] ?? -1];
       for (const a of [attrs.world, attrs.screen]) {
@@ -154,10 +161,27 @@ export function createPlanMeshes(g: Galaxy, data: BodyData, shared: Record<strin
           if (!(p.alpha >= LOD_VISIBLE)) continue;
           out.dots++;
           out.brightness += p.alpha * p.sizeCss * p.sizeCss;
-          const name = MARK_NAMES[planResolve(a, i, last).mark];
+          const d = planSeat(planResolve(a, i, last), last);
+          const name = MARK_NAMES[d.mark];
           out.byMark[name] = (out.byMark[name] ?? 0) + 1;
           if (p.rgb[0] > p.rgb[1]) out.ember++;
+          if (d.mark === PLAN_MARK.arc || (d.mark === PLAN_MARK.chevron && d.aux < 0.5)) {
+            const key = `${d.sys},${d.ord},${d.mark},${planRankPiece(d.mark, d.j)}`;
+            const piece = pieces.get(key) ?? { mark: d.mark, legs: [0, 0], px: [] };
+            piece.px.push(p.px);
+            piece.legs[d.j % 2]++;
+            pieces.set(key, piece);
+          }
         }
+      }
+      for (const { mark, legs, px } of pieces.values()) {
+        if (mark === PLAN_MARK.chevron) {
+          if (legs[0] >= 3 && legs[1] >= 3) out.shapes.chevrons++;
+          continue;
+        }
+        let long = 0;
+        for (const q of px) for (const r of px) long = Math.max(long, Math.hypot(q[0] - r[0], q[1] - r[1]));
+        if (px.length >= 3 && long >= 4) out.shapes.dashes++;
       }
       return out;
     },
