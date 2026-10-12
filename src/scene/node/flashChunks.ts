@@ -67,29 +67,36 @@ export const FLASH_PLAN: FlashChunk[] = flashChunks(FLASH_FRAMES, FLASH_CHUNKS, 
 
 /**
  * How far from the reference the median of a chunk's part may lie, and how far the line is moved the strict
- * way for it. The measured parts lie within 1.1 % of the reference; 3 % leaves room for a render that
- * differs a little, and moves the line less than the swings sit from it (swings at 0.100 to 0.139 of the
- * median are measured, 0.097 is the lowest line judged).
+ * way for it. The measured parts lay within 1.1 % of the reference; on the render with the planets'
+ * terminator and far side (re-skin Task 7) they lie within 2.8 % (phone 1.0084, 1.0221, 0.9869, 0.9725;
+ * desktop 1.0088, 1.0217, 0.9889, 0.9720). 3 % leaves room for a render that differs a little, and moves the
+ * line less than the swings sit from it (swings at 0.100 to 0.139 of the median were measured, 0.097 is the
+ * lowest line judged).
  */
 export const FLASH_TOLERANCE = 0.03;
 
 /**
  * The median of the summed luminance of C1's box over all 300 frames of the size (the series of
- * e2e/defect.spec.ts), measured by drawing the whole run in one test before it was cut into chunks; its
- * swings (8 phone, 10 desktop), flashes (0, 1) and luminance range (0.922-1.274, 0.918-1.282 of the median)
- * were the ones CI's whole-run test printed (run 38174324079). Each chunk prints its part's median on the
- * test, to read the reference off a CI run again.
+ * e2e/defect.spec.ts), measured by drawing the whole run in one test. First measured before it was cut into
+ * chunks (911861 phone, 1051373 desktop: swings 8 and 10, flashes 0 and 1, range 0.922-1.274 and
+ * 0.918-1.282 of the median; CI's run 38174324079). Re-measured for the planets' terminator and far side
+ * (re-skin Task 7), which shade C1 by design and lower its box's light by about a third: every frame of the
+ * run drawn in one throwaway test at 1x on SwiftShader, as the chunks draw them. The whole run, at its own
+ * line: phone 11 swings, 1 flash, range 0.920-1.294; desktop 10 swings, 1 flash, range 0.912-1.303. Each
+ * chunk prints its part's median on the test, to read the reference off a CI run again.
  */
-export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 911861, desktop: 1051373 };
+export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 603061, desktop: 695806 };
 
 /**
  * The swings (changes over 10 % of the reference x (1 + FLASH_TOLERANCE)) each chunk must own, per size.
- * Measured at that line over the four chunks: phone 3, 3, 2, 0; desktop 2, 3, 2, 1 (the whole run, at its
- * own line: 8 and 10). Each floor is the measured count less one, kept at 1 where the count is 1, so that
- * a size's floors sum to 5, over the whole run's bar of 4. The phone's last stretch has no swing (the
- * scatter rises there more slowly than a swing a frame): its floor is 0, and the rise check guards it.
+ * Measured at that line over the four chunks, on the render with the planets' terminator and far side
+ * (re-skin Task 7; before it, phone 3, 3, 2, 0 and desktop 2, 3, 2, 1): phone 4, 3, 3, 0; desktop 3, 3, 3, 0
+ * (the whole run, at its own line: 11 and 10). Each floor is the measured count less one, kept at 1 where
+ * the count is 1, so that a size's floors sum to 7 (phone) and 6 (desktop), over the whole run's bar of 4.
+ * The last stretch has no swing at either size (the scatter rises there more slowly than a swing a frame):
+ * its floor is 0, and the rise check guards it.
  */
-export const FLASH_SWINGS: Record<'phone' | 'desktop', number[]> = { phone: [2, 2, 1, 0], desktop: [1, 2, 1, 1] };
+export const FLASH_SWINGS: Record<'phone' | 'desktop', number[]> = { phone: [3, 2, 2, 0], desktop: [2, 2, 2, 0] };
 
 /** What a chunk's frames read as, judged against `reference`. */
 export interface ChunkReading {
