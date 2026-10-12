@@ -20,7 +20,7 @@ Its report: `.superpowers/sdd/2026-10-08-act-2-galaxy/backlog-sweep-report.md`.
 
 ## For Task 11 (reviewer, trace, fix, lesson keys)
 
-- [ ] **The haze under PROVISIONAL** (Task 8 review M4). → re-skin
+- [x] **The haze under PROVISIONAL** (Task 8 review M4). → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
   - The holding shot (the neighbourhood at 390/610) draws the 56 px core haze on unkeyed sections, but the
     haze is meant for the galaxy wides only.
   - It goes when PROVISIONAL is removed. Check this when Task 11 removes it.
@@ -38,19 +38,19 @@ Its report: `.superpowers/sdd/2026-10-08-act-2-galaxy/backlog-sweep-report.md`.
 
 ## For Task 13 (pixels and the phone pass)
 
-- [ ] **Twelve, lit shells ember** (Task 7 ruling 2, round 4). → re-skin
+- [x] **Twelve, lit shells ember** (Task 7 ruling 2, round 4). → re-skin: done in 4390bcb (re-skin Task 9): both twelve tests count with the shells on, on both screens; a lit planet's dust is drawn round its ember point, never over it (shell.vert.glsl), so the point stays ember (the desktop's C10 was 7 px² with the dust over it, 12 now); the plan's marks are left out of the count
   - "The twelve light as twelve" counts lit points with the planet shells forced off.
   - At phone 93 and desktop 82, lit mid-size shells must stay ember-dominant. Restore the shells-on
     classifier, and run it on the desktop too.
-- [ ] **Moon see-through** (moon fix, concern 5). → re-skin
+- [x] **Moon see-through** (moon fix, concern 5). → re-skin: done in 5659f7e (re-skin Task 9): a moon's far hemisphere takes PLANET_LOOK.night.rest × LIGHTING.backfaceDim (`MOON_FAR_DIM`, 0.075; a planet's stays 0.2); at df-1 the lit share of C1's 16-24 px moons' night halves falls from 0.317 / 0.347 to 0.266 / 0.285 (phone / desktop), held at most 0.3
   - At 16–24 px a moon's far side faintly shows through.
-- [ ] **Coarse moons** (moon fix, concern 2). → re-skin
+- ✗ **Coarse moons** (moon fix, concern 2). → re-skin: ✗ ruled closed, nothing raised (re-skin Task 9): after Task 5's budget, 107 of 135 moons sit at the 3×6 floor on both tiers (was 113 of 138); C1's six are 8×21 to 12×32 and N0's seven 3×6 to 5×13. On the R7 stills N0's moons (zo-0.25, 15-17 px) and C1's (df-1) read as dotted spheres with clean lattices; no framing shows a floor moon close enough to look coarse, so no measurement asks for more motes
   - 113 of 138 moons sit at the 3×6 lattice floor. N0 and C1 are full density. Judge them up close.
-- [ ] **Motes near the camera** (Task 5 concern 5). → re-skin
+- [x] **Motes near the camera** (Task 5 concern 5). → re-skin: done in 9e846e3 (re-skin Task 9): `motePx` is capped at `MOTE_PX_MAX` 6 CSS px in both mirrors; at the desktop close with every body lit, P1's star dots stood 26 px across (32 on a phone); the essay's own frames never pass 4.2 px
   - `PX.mote` has no cap, so a body next to the camera draws 30–40 px motes (desktop close).
-- [ ] **Dotted orbits** (Task 5 concern 5). → re-skin
+- ✗ **Dotted orbits** (Task 5 concern 5). → re-skin: ✗ ruled closed, `BODY_LOOK.trackBrightness` unchanged (re-skin Task 9): at DPR 1, net-tracks isolated, the dots' mean peak over the background is 67 / 68 at ly-1 and 54 / 54 at re-1 (phone / desktop), over the 40 at which a dot reads
   - They are faint at DPR 1.
-- [ ] **The galaxy wide** (Task 5 stills). → re-skin
+- ✗ **The galaxy wide** (Task 5 stills). → re-skin: ✗ ruled closed (re-skin Task 9): `frame` cannot raise or enlarge it. Frame 0 already puts the core at the rig's highest placement (portrait y 0.62); `frame` only lowers it toward the close's 0.76. On a phone the wide's light is centred at row 524 of 844, its lit rows from 330 (the band ends at 362), 89-299 across; enlarging it needs `GALAXY_WIDE`'s distance or fov, which set the background's halo placement and Task 1b's fingerprints. Nothing changed, so ZOOM_OUT.far, FAR_SHOT and the probe keep their keys. For the author: a larger phone wide needs a portrait distance that galaxyWideView does not read
   - It reads as a spiral but dim, and sits low and small in the phone frame.
 - [x] **Streams** (author, 2026-10-09). → done in 4fdf329 (every STREAM_BEATS beat at both sizes: lit on the twin's flowing dots, 34-72 % of pixels moving in 0.5 s; how they read stays the author's, live)
   - Faint is fine if they animate.
@@ -81,7 +81,7 @@ Each review from Task 9 on appends its Minor findings below, under the task's na
 
 ### Task 9
 
-- [ ] **ly-4's planets are 2–4 px points** (Task 9 round 1, concern 1). They read as points beside their stars; → re-skin
+- ✗ **ly-4's planets are 2–4 px points** (Task 9 round 1, concern 1). They read as points beside their stars; → re-skin: ✗ reported, nothing changed (re-skin Task 9): on R7-ly-4 (layers 3.45/4.3, the hold on star-4) the planets are 1-2 px points, each on its node cross of the system's drawing; they read as marks on the plan more than as planets. The author judges it live
   a closer framing shows fewer than four systems. The author judges it live.
 - [x] **A slow Act I key test** (Task 9 round 1, concern 4). `keyframes.test.ts` "builds the bike in five → done in 45791a8 (4.8 s to 0.19 s)
   held stages" takes 3.4–4.6 s against a 5 s limit and times out under a shared CPU. This predates the
@@ -99,15 +99,15 @@ From the Task 9 review:
 
 ### Task 10
 
-- [ ] **Haze in up-2 on desktop** (Task 10 concern 7). At 442 the core's haze shows. The haze is meant only for the galaxy wides. → re-skin
+- [x] **Haze in up-2 on desktop** (Task 10 concern 7). At 442 the core's haze shows. The haze is meant only for the galaxy wides. → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
 - [x] **A src test imports e2e code** (Task 10 concern 7). A unit test under src imports `visibleGalaxy` from `e2e/machine.ts`. Move the shared projection into src. → done in 59a9ea8 (src/scene/node/galaxyOnScreen.ts)
 - [x] **The push-in leans on an implicit rule** (Task 10 concern 7). It extends Task 9 M6's equal-distance rule. Mark it explicitly. → done in ea99e9e
-- [ ] **Twelve test with shells off** (Task 10 concern 5). With shells on, a pale lit shell drops C9 below 8 px² on desktop. This is the same item as "Twelve, lit shells ember" above. → re-skin
+- [x] **Twelve test with shells off** (Task 10 concern 5). With shells on, a pale lit shell drops C9 below 8 px² on desktop. This is the same item as "Twelve, lit shells ember" above. → re-skin: done in 4390bcb (re-skin Task 9): both twelve tests count with the shells on, on both screens; a lit planet's dust is drawn round its ember point, never over it (shell.vert.glsl), so the point stays ember (the desktop's C10 was 7 px² with the dust over it, 12 now); the plan's marks are left out of the count
 - ✗ **df-2b's stop is at 0.4398, not 0.437** (Task 10 concern 1). The pull-out leaves at 0.4392. Task 12 re-times the close-up for the freeze; settle it there. → ✗ settled in Task 12: the controller ruled the stop as built (0.4398), progress.md
 
 From the Task 10 review:
 
-- [ ] M1: the core haze is drawn on up-2's desktop frame (landscape 442 > `HAZE_FROM`). That breaks "galaxy wides only", and the PROVISIONAL ruling's "gone with Task 11" premise is now false (netShots.ts:938, galaxySystem.ts:183). → re-skin
+- [x] M1: the core haze is drawn on up-2's desktop frame (landscape 442 > `HAZE_FROM`). That breaks "galaxy wides only", and the PROVISIONAL ruling's "gone with Task 11" premise is now false (netShots.ts:938, galaxySystem.ts:183). → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
 - [x] M2: the follow's rationale ("lamp 1 on C7 lights its stream in to R1") is not on screen. The C7 → R1 up-stream arrives at growth 0.385, about spread 0.08, after the follow ends (netShots.ts:982, galaxy-orbits.md:771, storyboard:153). → done in fcefd15 (the docs say the stream comes up after the follow)
 - [x] M3: a src unit test imports the clearance twin from e2e/machine.ts (netShots.test.ts:75). Move the twin to a shared src module. → done in 59a9ea8
 - [x] M4: `oneMotion` infers a push-in from equal target and bearings, widening Task 9 M6. Mark ride and push on the move (netShots.ts `oneMotion`). → done in ea99e9e
@@ -115,7 +115,7 @@ From the Task 10 review:
 
 ### Task 11
 
-- [ ] The core haze at re-3 and ls-1 on desktop (Concern 4): gate it by shot, not eye distance. → re-skin
+- [x] The core haze at re-3 and ls-1 on desktop (Concern 4): gate it by shot, not eye distance. → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
 - [x] `moveShares` infers a one-motion push-in from equal target and bearings; `inOnR1` relies on it again (the review's M4, Task 9's M6). → done in ea99e9e
 - [x] `visibleTracks` is in the unit close-shot twin only; e2e `machineOnScreen` (clearance.spec) still does not count tracks. → done in 59a9ea8
 - [x] `src/timeline/netShots.test.ts` imports more from `e2e/machine.ts` (`visibleTracks`; the review's M3). → done in 59a9ea8
@@ -123,11 +123,11 @@ From the Task 10 review:
 - [x] The feed e2e test tolerates one wrapped dot (Deviation 4); the twin could model float32 `fract`. → done in 4fdf329 (the wrap modelled at either end; no stray pixel allowed)
 - [x] The re-3 stage direction "the camera starts to follow it inward" is the pull-back to the hub; the inward follow is the climb over the page turn. → done in fcefd15 (netShots.ts comments)
 - [x] **Purity floors** (Task 11 concern 4). The three new purity samples use the 1,000 floor; measure their real lit counts and set honest floors. → done in 75452b7 (half the measured lit count)
-- [ ] **Core haze on desktop** at re-3 and ls-1 (Task 11 concern 4; the same family as the Task 10 review M1). → re-skin
+- [x] **Core haze on desktop** at re-3 and ls-1 (Task 11 concern 4; the same family as the Task 10 review M1). → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
 
 From the Task 11 review:
 
-- [ ] M1: the core haze draws on the phone at ls-1 (eye 375 > `HAZE_FROM` 300) and on desktop at re-3, tr-1, the surge, fx-3, fx-4 and ls-1. That breaks "galaxy wides only" and widens Task 10 M1 (galaxySystem.ts:183). → re-skin
+- [x] M1: the core haze draws on the phone at ls-1 (eye 375 > `HAZE_FROM` 300) and on desktop at re-3, tr-1, the surge, fx-3, fx-4 and ls-1. That breaks "galaxy wides only" and widens Task 10 M1 (galaxySystem.ts:183). → re-skin: done in 18b1f40 (re-skin Task 1a, archive repo): the haze is drawn only while the story leaf `net.haze` is up, which the keys raise at the galaxy wides alone; `HAZE_FROM`, the eye-distance gate, is gone (netShots.test.ts "net.haze", galaxySystem.test.ts)
 - [x] M2: ls-1's hold is missing from `HOLDS`, so the holds test and the per-hold late clearance test skip it. Only the dense sweep covers it (netShots.test.ts:706, :1263). → done in 67c7f9c
 - [x] M3: the three new purity samples use `MIN_LIT_PIXELS_SMALL` unmeasured; measure them and raise the floor where it holds (e2e/purity.spec.ts:138-140). → done in 75452b7
 - [ ] M4: no pixel check sees the feed's brightness or its being unfaded; only parity and shader regexes do (e2e/galaxy.spec.ts, the feed test). → T13
@@ -135,8 +135,8 @@ From the Task 11 review:
 
 ### Task 12
 
-- [ ] **The held frame reads weaker than the mock** (Task 12 concern 1). The copies show as fine red/blue fringes rather than a strong double image, and the scatter's white haze dominates the planet. Tune the copy offset and gain, and the scatter haze. → re-skin
-- [ ] **C1 is pale blue, not the mock's luminous cyan** (Task 12 concern 3). Raising the gain only whitens it; it needs a hue change. Fold this into the class re-skin (the black hole, stars and planets workshop). → re-skin
+- [x] **The held frame reads weaker than the mock** (Task 12 concern 1). The copies show as fine red/blue fringes rather than a strong double image, and the scatter's white haze dominates the planet. Tune the copy offset and gain, and the scatter haze. → re-skin: done in 2104009 (re-skin Task 8): the copies add, as the mock's; the held planet's fill is halved while its scatter is out, which keeps C1's hue (softer than the mock: a pending author call)
+- [x] **C1 is pale blue, not the mock's luminous cyan** (Task 12 concern 3). Raising the gain only whitens it; it needs a hue change. Fold this into the class re-skin (the black hole, stars and planets workshop). → re-skin: done in 7a5d2fb (re-skin Task 7: C1 pinned to `#1FB0FF`) and 2104009 (Task 8: the held planet cyan)
 - [x] **No still shows the ticks part-way** (Task 12 concern 2). They are gone by 0.395. Add a still mid-retraction, around 0.39. → done in aad5070 (0.390-retracting)
 - [ ] **e2e thresholds measured at 1x on SwiftShader** (Task 12 concern 5). The limb test's margin is thin (2.29 against 2.4). Revisit with real-device stills. → T13
 - [x] **Flake: autoAdvance "from the top"** (Task 12 concern 7). It fails 3 to 6 times in 8 runs, before and after Task 12. Root-cause it alongside the other autoAdvance flake. → done in 24848ca (the page records its holds; the test polled past 0.4 s holds)
@@ -157,7 +157,7 @@ From the Task 12 review:
 
 ### Post-12 batch (cuts and stream mask)
 
-- [ ] C5's hero flag, its FULL_DENSITY entry (a full lattice no shot visits now), its pinned radius and three moons, and its TRACK_TARGETS entry (index 11) have had no story use since the second fix was deleted. Removing them changes the generated galaxy's budget fit and the shots. Separately, `HERO_PLANET`'s comment still calls R0 and R1 the other heroes. → re-skin
+- [x] C5's hero flag, its FULL_DENSITY entry (a full lattice no shot visits now), its pinned radius and three moons, and its TRACK_TARGETS entry (index 11) have had no story use since the second fix was deleted. Removing them changes the generated galaxy's budget fit and the shots. Separately, `HERO_PLANET`'s comment still calls R0 and R1 the other heroes. → re-skin: the budget part done in 91f546a (re-skin Task 2, archive repo): C5 left `FULL_DENSITY` and lost its hero flag (generate.test.ts "C5 is an ordinary planet in the budget"). The layout part ruled closed (re-skin spec §7): its pinned radius and three moons set P2's system radius, which places the neighbourhood, and its `TRACK_TARGETS` slot stays (append only). `HERO_PLANET`'s comment no longer names R0 and R1
 - ✗ The explicit page `out` (loader, reveal, markup, plan, the storyboard fence) no longer has a user in the essay. It is kept and tested on made-up stories. → ✗ kept: one of the text engine's two ways to end a page, tested on made-up stories, no cost to the reader; removing it is a text-engine change with nothing to gain here
 - [x] Storyboard intro line 15 still says "thirty screens" (now 28.508). This is the stacks-era overview, left as written. → done in fcefd15
 - ✗ Layers and spread now mix `layersAt`/`spreadAt` places (exact fractions) with thousandth lamp steps (spread) and 8-place beat `at`s in the markdown. Several tests needed 1e-6 tolerances for that. A shared "places in screens" convention for every section would remove them. → ✗ not worth it in this sweep: it would re-key every section's beats and lamp steps (keyframes.json and the markdown ats) to drop 1e-6 tolerances from a few tests

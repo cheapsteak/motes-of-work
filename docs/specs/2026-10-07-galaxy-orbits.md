@@ -103,6 +103,8 @@ the moving moon. Landings flare as before.
 
 ### 2.1 Thousands of stars
 
+*Superseded by the re-skin (docs/specs/2026-10-09-act-2-reskin.md §4.1): the background is the tuner's "Wisps (reviewed)", its arms gathering out of wisps over a visible old disc, and the neighbourhood dissolves into it from afar; the core's haze is 64 px, warm, and shows only while `net.haze` is up, at the galaxy wides. The counts per tier and the turn stand.*
+
 `src/network/galaxy.ts` (new, pure): `generateGalaxy(seed, tier)` draws `N_STARS` (2,400 phone /
 4,000 desktop) background stars and `N_DUST` (4,000 / 8,000) dust motes in the galaxy's frame:
 
@@ -203,6 +205,8 @@ Measured in the mock (§9): 36,000 neighbourhood instances plus 6,400 background
 far-glow quads of the old design are gone; the glow sprites are six points.
 
 ## 4. Glow, bounded
+
+*Superseded by the re-skin (docs/specs/2026-10-09-act-2-reskin.md §3, §4.3, §4.4, plan-constraints "No soft discs"): the only glows are capped sprites. A star keeps its glow (`clamp(5 R focal / d, 5, 18)` px) and gains spikes; the core bodies' glow went with the bodies (the hole draws hard dots); planets and moons lose their rim. Background halos may overlap.*
 
 The author: "some amount of glow might make sense." Where it makes the galaxy read as a galaxy, and
 nowhere that it could fog:
@@ -691,6 +695,8 @@ its planets (19) → the neighbourhood (90) → the galaxy with its core (440).
   from it, out on the arm.
 
 ### 14.5 Each beat (replaces §8's table)
+
+*The centre rows below (ly-2, up-1, tr-2, fx-1 and fx-2, and "the core" wherever it is framed) are superseded by the re-skin (docs/specs/2026-10-09-act-2-reskin.md §6, §8): the core is a black hole, and those five beats are its close shot `HOLE_CLOSE`, with fx-1 to fx-2 one hold and no pan.*
 
 | Beat | On screen | Camera (bearing, elevation, distance, fov, frame; target) · lamp |
 |---|---|---|

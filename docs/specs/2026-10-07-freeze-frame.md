@@ -167,6 +167,8 @@ frame 1, the planet's centre at 76 % of the height; about 170 px per world unit,
 
 ### 2.1 Kept
 
+*Item 3's copies and the held planet's colour are superseded by the re-skin (docs/specs/2026-10-09-act-2-reskin.md §4.5): the copies blend additively, as the mock's, the offsets and gains unchanged; C1 is cyan (`#1FB0FF`); while the scatter is out the held planet's fill is halved and its motes keep C1's hue.*
+
 | # | Element | The mote version, with numbers |
 |---|---|---|
 | 1 | **The hold, on twos** | The cut (§1.2). During the hold the picture breathes at 12 Hz: `twos = floor(12 · ambient)`; the ticks alternate between two hashed length sets (`variant = twos mod 2`); the two copies shift by `(hash(twos) − 0.5) · 0.6 px`. The base draw never moves. The burst's own held jitter and the scatter's are frozen with the pin. |
