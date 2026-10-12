@@ -1,5 +1,7 @@
-import { mkdirSync } from 'node:fs';
-import { test } from '@playwright/test';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { extname } from 'node:path';
+import { test, type Page } from '@playwright/test';
+import { PNG } from 'pngjs';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../src/config';
 import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { starMass } from '../src/galaxy/body';
@@ -13,7 +15,9 @@ import { bodyGalactic, galacticToWorld } from '../src/scene/node/orbit';
 import { galaxyShotKeys } from '../src/timeline/netShots';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
 import { defaultSceneState, mergeState } from '../src/timeline/sceneState';
+import type { SectionSpan } from '../src/scroll/progress';
 import { beatMiddles, canvasShot, openStage, readSpans, settle, targetScrollY } from './helpers';
+import { blank, grid, GUTTER, row, stack, toHeight } from './sheet';
 
 // Named stills of the galaxy for human review (the plan's Close-out B): `npm run stills` writes
 // shots/galaxy/<tag>-<name>-<w>x<h>.png for every row of STILLS, at the phone size first and then
@@ -469,5 +473,147 @@ test('Act II beats, phone first', async ({ page }) => {
       await canvasShot(page, `${DIR}/beats-${id}-${size.width}x${size.height}.png`);
     }
   }
+  if (errors.length > 0) throw new Error(`page errors: ${errors.join('; ')}`);
+});
+
+// ---- The re-skin's Task 9: the contact sheet and the look sheet, for the author ----
+
+/** A frame of a sheet: a stage query, scrolled to a section-local place when `at` is given (as STILLS). */
+type Frame = Pick<Still, 'query' | 'at'>;
+const at = (section: string, local: number, query = '&mech=bike'): Frame => ({ query, at: { section, local } });
+
+/** The frame `f` on the stage at the page's size, canvas only, read with pngjs. */
+async function frame(page: Page, spans: SectionSpan[], f: Frame): Promise<PNG> {
+  let query = f.query;
+  if (f.at) {
+    const span = spans.find((x) => x.id === f.at!.section)!;
+    query += `&p=${span.start + f.at.local * (span.end - span.start)}`;
+  }
+  await openStage(page, query);
+  return PNG.sync.read(await canvasShot(page));
+}
+
+/** The contact sheet's columns. */
+const CONTACT_COLUMNS = 5;
+
+test('R9 contact sheet: every Act II beat at its full-ink middle, phone first', async ({ page }) => {
+  // 26 beats a size, each opened by deep link and shot: measured 11.5 min for both sizes, one worker, at a
+  // load of 3 here; 40 min is over 3x that. Skipped in CI (SHOTS unset), so there is no CI time.
+  test.setTimeout(2_400_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  mkdirSync(DIR, { recursive: true });
+  let order: string[] = [];
+  for (const size of SIZES) {
+    await page.setViewportSize(size);
+    await openStage(page, '&mech=bike&n=500');
+    const spans = await readSpans(page);
+    const from = spans.findIndex((s) => s.id === ACT_TWO_FROM);
+    const beats = (await beatMiddles(page)).flatMap((section, i) => (i < from ? [] : section.map((b) => ({ ...b, section: spans[i].id }))));
+    if (beats.length !== ACT_TWO_BEATS) throw new Error(`Act II has ${beats.length} beats, not ${ACT_TWO_BEATS}`);
+    const cells: PNG[] = [];
+    for (const b of beats) cells.push(await frame(page, spans, at(b.section, b.local)));
+    writeFileSync(`${DIR}/R9-contact-${size.width}x${size.height}.png`, PNG.sync.write(grid(cells, CONTACT_COLUMNS)));
+    order = beats.map((b) => b.id);
+  }
+  // The beat ids in grid order, a line a row (there are no labels in the images).
+  const lines: string[] = [];
+  for (let i = 0; i < order.length; i += CONTACT_COLUMNS) lines.push(order.slice(i, i + CONTACT_COLUMNS).join('\t'));
+  writeFileSync(`${DIR}/R9-contact.txt`, `${lines.join('\n')}\n`);
+  if (errors.length > 0) throw new Error(`page errors: ${errors.join('; ')}`);
+});
+
+/** Where the decided looks' stills are (the decisions page's "Look check" table). */
+const LOOKS_DIR = 'docs/superpowers/plans/2026-10-09-act-2-reskin-looks';
+/** The look sheet's row height: a phone frame at half its height. */
+const LOOK_HEIGHT = 422;
+
+/**
+ * The look sheet's rows: the decisions page's "Look check" table, in its order, each row's essay frames
+ * at the framing the table names and its decided still (none for the spikes); and the freeze frame at
+ * df-2 against the approved mock's held state (local 0.33, the freeze on, UI hidden), a row the table
+ * does not have yet.
+ */
+function lookRows(): { name: string; still: string | null; frames: Frame[] }[] {
+  return [
+    { name: 'wisps: fr-1', still: 'galaxy-wisps-reviewed-phone.png', frames: [at('far', 0.53125)] },
+    { name: 'dissolve: the galaxy wide, fr-1', still: 'galaxy-hood-dissolve-late-phone.png', frames: [{ query: shot('galaxyWide') }, at('far', 0.53125)] },
+    { name: 'dissolve mid: zo 0.80, 0.84, 0.88', still: 'galaxy-hood-dissolve-late-mid-phone.png', frames: [0.8, 0.84, 0.88].map((l) => at('zoom-out', l)) },
+    { name: 'spacing (b): the hood probe, ly-3', still: 'binaries-four-options-sheet.png', frames: [{ query: shot('hood') }, at('layers', 2.35 / 4.3)] },
+    {
+      name: 'S-type pair close, at the pose and 120 s on',
+      still: 'binaries-s-type-close-phone.png',
+      frames: [AMBIENT_POSE, AMBIENT_POSE + 120].map((t) => ({ query: pairClose(t), at: { section: 'lesson', local: 0.5 } })),
+    },
+    { name: 'inspector defaults: up-1 stop, tr-2 (trace 0.57)', still: 'black-hole-inspector-defaults-phone.png', frames: [at('spread', 0.4779), at('trace', 0.57)] },
+    { name: 'disk motion: ly-2', still: 'disk-motion-recommended.png', frames: [at('layers', 1.35 / 4.3)] },
+    { name: 'R close: df-1, df-2', still: 'schematic-close-defect-phone.png', frames: [at('defect', 0.13), at('defect', 0.31)] },
+    { name: 'H, the twelve: df-5', still: 'schematic-neighbourhood-twelve-phone.png', frames: [at('defect', 0.9)] },
+    {
+      name: 'the hand-over: zo 0.58, 0.66, 0.74; df-3 0.455, 0.47',
+      still: 'schematic-zoom-handover-strip.png',
+      frames: [...[0.58, 0.66, 0.74].map((l) => at('zoom-out', l)), ...[0.455, 0.47].map((l) => at('defect', l))],
+    },
+    {
+      name: 'v18: df-1 at a wound, at a dropout; df-2 held',
+      still: 'defect-v18-burst-leak-dropout-strip.png',
+      frames: [at('defect', 0.22, '&mech=bike&ambient=99.45'), at('defect', 0.22, `&mech=bike&ambient=${DROPOUT_AT}`), at('defect', 0.31)],
+    },
+    { name: 'ly-5 opening (B): 3.50, 3.52, 3.55, 3.58', still: 'ly5-opening-compare-phone.png', frames: [3.5, 3.52, 3.55, 3.58].map((l) => at('layers', l / 4.3)) },
+    { name: 'fewer, fainter spikes: ly-3, fr-1 (no still)', still: null, frames: [at('layers', 2.35 / 4.3), at('far', 0.53125)] },
+    { name: 'the freeze frame: df-2 held (defect 0.33) against the mock held (proposed row)', still: FREEZE_MOCK, frames: [at('defect', 0.33)] },
+  ];
+}
+
+/** The freeze frame's approved mock, as a look row's still: shot held (freezeMock), not read from LOOKS_DIR. */
+const FREEZE_MOCK = 'docs/mocks/freeze-frame.html';
+
+/** The freeze frame's mock held (local 0.33, the freeze on, UI hidden), served from the working tree by route. */
+async function freezeMock(page: Page): Promise<PNG> {
+  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
+  await page.route('http://mock.local/**', (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname).slice(1);
+    if (!existsSync(path)) return route.fulfill({ status: 404, body: '' });
+    return route.fulfill({ status: 200, body: readFileSync(path), contentType: types[extname(path)] ?? 'application/octet-stream' });
+  });
+  await page.goto(`http://mock.local/${FREEZE_MOCK}`);
+  await page.waitForFunction(() => (window as unknown as { __mock?: unknown }).__mock !== undefined);
+  await page.click('#bFreeze');
+  await page.evaluate(() => {
+    const s = document.getElementById('scrub') as HTMLInputElement;
+    s.value = '0.33';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.addStyleTag({ content: '#ui,#label{display:none!important}' });
+  // The mock draws on its own frames; two seconds lets the held frame come up (it holds once there).
+  await page.waitForTimeout(2_000);
+  return PNG.sync.read(await page.screenshot());
+}
+
+test('R9 look sheet: each look row, the essay beside its decided still, phone', async ({ page }) => {
+  // 31 frames and the mock: measured 8.5 min, one worker, at a load of 6-8 here; 30 min is over 3x that.
+  // Skipped in CI (SHOTS unset), so there is no CI time.
+  test.setTimeout(1_800_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  mkdirSync('shots/look', { recursive: true });
+  await page.setViewportSize(SIZES[0]);
+  await openStage(page, '&mech=bike&n=500');
+  const spans = await readSpans(page);
+  const rows: PNG[] = [];
+  const names: string[] = [];
+  for (const look of lookRows()) {
+    const cells: PNG[] = [];
+    for (const f of look.frames) cells.push(toHeight(await frame(page, spans, f), LOOK_HEIGHT));
+    if (look.still !== null) {
+      const still = look.still === FREEZE_MOCK ? await freezeMock(page) : PNG.sync.read(readFileSync(`${LOOKS_DIR}/${look.still}`));
+      // A wider gutter between the essay's frames and the decided still.
+      cells.push(blank(4 * GUTTER, 1), toHeight(still, LOOK_HEIGHT));
+    }
+    rows.push(row(cells));
+    names.push(`${look.name}: ${look.still ?? '(no still)'}`);
+  }
+  writeFileSync('shots/look/R9-look-390x844.png', PNG.sync.write(stack(rows)));
+  writeFileSync('shots/look/R9-look.txt', `${names.join('\n')}\n`);
   if (errors.length > 0) throw new Error(`page errors: ${errors.join('; ')}`);
 });
