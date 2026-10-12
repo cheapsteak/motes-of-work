@@ -24,8 +24,10 @@ test.describe('purity', { tag: FULL_ONLY }, () => {
   // 38170079659; the slowest fix@0.82, 66-114 s), about 2.3 min a sample locally at load 11-20 (the
   // test-speed report), the hole close 2.2 min at load 10-12 and fix@0.82 2.6 min at load 14-17, run to
   // completion beside unit suites; the plan's fence, reviewer@0.5 at 101 s (re-skin Task 7b), 3.4 min alone
-  // at load 5-7. 12 min is over 3 times the slowest loaded time and 5 times the slowest CI one (4 min
-  // before: under 5 times CI's; 10 min before the plan's fence: under 3 times its loaded time).
+  // at load 5-7. With the plan's schematic the fences took 1.6-2.9 min on CI (run 38209082401: its two
+  // shaders linked in 8-9 s each on every Act II load); once they linked in about 1 s (Task 7b fix round
+  // 1), 1.1-2.1 min (run 38218428560; main 1.0-1.8 min, run 38194436807). 12 min is over 3 times the
+  // slowest loaded time (3.4 min) and 5 times the slowest CI one (2.1 min: 10.5 min).
   test.setTimeout(720_000);
 
   const SCROLL_STEPS = 8;
