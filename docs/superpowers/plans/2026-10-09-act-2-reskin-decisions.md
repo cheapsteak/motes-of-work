@@ -63,7 +63,7 @@ difference the author accepts becomes a new row above.
 | `galaxy-wisps-reviewed-phone.png` | fr-1, the galaxy wide | 1b, 1c | 2026-10-10 task review and v21 judge: matches (lighter blue, paler warm stars, core balls: allowed) |
 | `galaxy-hood-dissolve-late-phone.png` | the galaxy wide and fr-1: the 30 read as ordinary arm stars, no lattice | 1c | 2026-10-10 task review and v21 judge: matches |
 | `galaxy-hood-dissolve-late-mid-phone.png` | the zoom-out at about zo-0.84 on a phone (the hand-over runs 0.80 to 0.88): the real forms fading | 1c | v21 judge: matches (real 1.00 to zo 0.80, 0.46 at 0.84, 0 from 0.87) |
-| `binaries-four-options-sheet.png` (b) | the hood shot, ly-3 | 1d | |
+| `binaries-four-options-sheet.png` (b) | the hood shot, ly-3 | 1d | 2026-10-12 Task 9 sheet: matches (the spacing is as decided; the hood probe carries H). The hood shot is 120, which crops the core's six at the phone's left edge; no reader keys it, so it is a look-check framing only |
 | `binaries-s-type-close-phone.png` | the closest framing of a paired system (ly-3 or ly-4) | 1e, 7b | |
 | `black-hole-inspector-defaults-phone.png` | up-1 and tr-2 | 4, 5, 6 | |
 | `disk-motion-recommended.png` | ly-2, the hole at rest (motion: watch it live) | 4, 5 | |

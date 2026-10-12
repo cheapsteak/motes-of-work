@@ -58,7 +58,7 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 
 ## Task 1d (review of 73062e0..da7f631: spec compliant but for ly-4, fixed in round 1)
 
-- [ ] **The hood probe at 120 cuts the core's six bodies at the phone's left edge** (`netShots.ts:142`). No reader sees `GALAXY_SHOTS.hood` (it is not keyed), but it is the look-check framing for the binaries row: set it to 146 or note the crop on the decisions page.
+- [x] **The hood probe at 120 cuts the core's six bodies at the phone's left edge** (`netShots.ts:148`). No reader sees `GALAXY_SHOTS.hood` (it is not keyed), but it is the look-check framing for the binaries row: set it to 146 or note the crop on the decisions page. Done in the final fix: the probe stays at 120, because the §13.3 hood floors were measured there; the crop is noted in spec §13.5 (which wrongly said 146) and on the decisions page's binaries row.
 - [ ] **`keyframes.json` grew** from 6,640 to 11,377 keys (60.6 to 102.4 KB gzipped, +42 KB on a phone's first load) with the correct `moveKeyCount` fix. Listed on the deferred performance page.
 - [ ] **The stream-flow step still aliases one count** (`e2e/galaxy.spec.ts:984`): a stream of about 26.7 dots would stand still between the two frames. Sampling two incommensurate steps would make it robust.
 - [ ] **Stale text:** `generate.test.ts:158` still asserts the old `outer + outer + 1` gap (redundant beside the 1.5 test); `background.test.ts:50`'s `wideProjector` doc still says distance 640 for both tiers.
