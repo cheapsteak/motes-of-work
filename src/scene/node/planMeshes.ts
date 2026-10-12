@@ -1,6 +1,6 @@
 // The plan's two meshes (re-skin §4.7, Task 7b), part of the galaxy's body set (bodySystem.ts):
-//   net-plan          the world marks: every system's H pool, the two slots' R and H, a pair's marks (plan.vert.glsl)
-//   net-plan-screen   the screen marks: the slots' silhouettes and numerals (planScreen.vert.glsl)
+//   net-plan          the world marks: the world pool (H and R of the systems on screen), a pair's marks (plan.vert.glsl)
+//   net-plan-screen   the screen marks: the screen pool (the systems in R: silhouettes and numerals) (planScreen.vert.glsl)
 // Both draw with galaxyMote.frag.glsl over the body set's uniforms, and read the plan's own, all from
 // plan.ts planFrameOf, a pure function of the frame: the layout table (uPlanTex: its bodies fixed, each
 // system's focused planet and its runs in the two pools the frame's), each system's s_px, full-detail

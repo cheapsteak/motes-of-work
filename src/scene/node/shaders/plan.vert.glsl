@@ -6,11 +6,11 @@ precision highp int;
 // galaxyMote.frag.glsl as a hard point in the plan's colour: the rings, arcs, nodes, chevrons and
 // departures of H, and the bands, stalks, wireframes, graduations, centre circle and dimensions of R,
 // and a binary pair's marks. planDot (planScreen.glsl, its twin plan.ts) places and lights it; a dot
-// whose early-out holds (planSkips: its window, cull or real share 0, its slot empty, its star not up,
+// whose early-out holds (planSkips: its window, cull or real share 0, its pool dot unused, its star not up,
 // its lamp dark) skips it, and a dot under LOD_VISIBLE is not drawn.
 
 in vec2 aCorner; // quad corner in [-1, 1]^2
-in vec4 aPlan0; // owner (a system, or -1 - slot), mark, body ordinal, index in its run
+in vec4 aPlan0; // owner (a pair's dot: a system; a pool's dot: -1, the world pool), mark, body ordinal, index in its run
 in vec4 aPlan1; // variant, rank, run, a pair's second system
 
 out vec2 vUv;

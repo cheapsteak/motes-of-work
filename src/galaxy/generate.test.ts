@@ -724,11 +724,9 @@ describe('generateGalaxy', () => {
     expect(c5.personMotes).toBe(24);
   });
 
-  it('draws the hole: nothing is reserved, and no core row has an instance', () => {
+  it('draws the hole, and no core row has an instance', () => {
     for (const x of [g, generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP))]) {
       const i = x.instances;
-      // Reserved while nothing drew the hole (Tasks 2-4); 0 from Task 5, which draws it.
-      expect(i.reserved).toBe(0);
       expect(i.hole).toBe(holeInstances());
       expect(i.hole).toBe(27_610);
       expect(i.total).toBe(i.shells + i.persons + i.tracks + i.bodies + i.glow + i.streams + i.spikes + i.hole + i.plan);

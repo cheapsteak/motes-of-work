@@ -491,7 +491,7 @@ function markRow(d: PlanAttrs, f: Pick<PlanFrame, 'table'>, s: number): number {
 
 /**
  * Dot `i` of a plan pool `a` (planAttrs.ts) at frame `f` (re-skin §4.7): its place, colour, alpha and
- * size, world marks and screen marks alike (planScreenDot is the screen pool's name for it). Hidden
+ * size, world marks and screen marks alike. Hidden
  * (alpha 0) where planSkips holds or its mark leaves it unlit.
  */
 export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: BodyData): PlanDot {
@@ -835,9 +835,6 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
 function starOf(s: number, f: Pick<PlanFrame, 'table'>): number {
   return Math.round(planTexel(f.table, s, 4)[3]);
 }
-
-/** The screen pool's name for planDot: its silhouettes and numerals, placed in CSS px (`px`). */
-export const planScreenDot = planDot;
 
 /** What planFrameOf reads beside the galaxy: the camera, the screen (CSS px), the clocks, each system's real share, and the level-of-detail overrides. */
 export interface PlanFrameInput {

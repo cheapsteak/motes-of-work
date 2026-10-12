@@ -191,7 +191,7 @@ export interface BodySystem {
   dropout(): { lines: [number, number][]; box: [number, number, number, number]; cx: number; cy: number; r: number } | null;
   /** Test mode: draw no dropout (true) or let it run (false), so a frame can be compared with and without its lines. */
   muteDropout(mute: boolean): void;
-  /** The plans' schematics at the last frame (re-skin §4.7; planMeshes.ts): their lit dots by the TS twin, the slots' systems. */
+  /** The plans' schematics at the last frame (re-skin §4.7; planMeshes.ts): their lit dots by the TS twin, the systems in R. */
   plan(): PlanStats;
   dispose(): void;
 }

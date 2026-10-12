@@ -214,11 +214,9 @@ export interface GalaxyInstances {
   streams: number;
   spikes: number;
   hole: number;
-  /** The plans' schematics (re-skin §4.7, Task 7b): planAttrs.ts PLAN_DOTS, the neighbourhood's H pools, the two slots and each binary pair's marks. */
+  /** The plans' schematics (re-skin §4.7, Task 7b): planAttrs.ts PLAN_DOTS, the world and screen pools (H in the neighbourhood, R for the systems in R) and each binary pair's marks. */
   plan: number;
-  /** The hole's count while nothing drew it (the re-skin's Tasks 2-4); 0 since Task 5 draws it, so the drawn sets are the total. */
-  reserved: number;
-  /** Every field above but `reserved`: at most the budget. */
+  /** Every field above: at most the budget. */
   total: number;
 }
 
@@ -1536,6 +1534,5 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   }
   const shells = bodies.reduce((n, b) => n + b.motes, 0);
   const persons = bodies.reduce((n, b) => n + b.personMotes, 0);
-  // The hole is drawn (re-skin Task 5): nothing is reserved.
-  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, plan, reserved: 0, total: shells + persons + fixed };
+  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, plan, total: shells + persons + fixed };
 }

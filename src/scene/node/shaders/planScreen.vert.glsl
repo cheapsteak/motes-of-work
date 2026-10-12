@@ -9,7 +9,7 @@ precision highp int;
 // streamBandMask). planDot (planScreen.glsl, its twin plan.ts) places and lights it.
 
 in vec2 aCorner; // quad corner in [-1, 1]^2
-in vec4 aPlan0; // owner (-1 - slot), mark, body ordinal, index in its pool
+in vec4 aPlan0; // owner (-2, the screen pool), mark, body ordinal, index in its pool
 in vec4 aPlan1; // variant, rank, run, -1
 
 out vec2 vUv;

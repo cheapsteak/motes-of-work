@@ -347,9 +347,8 @@ for (const size of SIZES) {
       });
       // Every instance the galaxy draws, the ghosts, the person motes, the spikes, the stream dots and
       // the hole's dots too, is one Galaxy.instances counts (the ring is one quad, not instanced), within
-      // the budget: Σ net-* + Σ hole-*, nothing reserved since the hole is drawn.
+      // the budget: Σ net-* + Σ hole-*.
       const drawn = [...net, ...hole].reduce((n, [, k]) => n + k, 0);
-      expect(g.instances.reserved).toBe(0);
       expect(drawn).toBe(g.instances.total);
       expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
       // The neighbourhood's far form moves one star per unit (a binary's on its barycentre, re-skin Task

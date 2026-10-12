@@ -132,7 +132,7 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 
 - [ ] **The plan's parity bar is looser than the brief's 1e-3** (`src/parity/parity.ts`, `e2e/parity.spec.ts`): least error over 256 time shifts with `shifted` unbounded (the body cases cap it at samples/50), and `px` relative to the screen's larger side (up to 1.44 CSS px passes on a desktop). Bound `shifted`; hold `px` in absolute CSS px.
 - [ ] **Magic numbers in the plan shaders and twin, not in `PLAN_LOOK`**: the tick's `smoothstep(0.85, 1, lf)`, the extension's 0.7 alpha, a 0.95, `0.15 * share`, `planDash`'s 0.02 edge, the dimension's literal 6/10/16 (constants exist), `d.j / 14`, the ellipses' 60 and 90 in `planAttrs.ts`.
-- [ ] **Stale slot wording** after the pools replaced the slots: `planMeshes.ts` header, `plan.vert.glsl`, `planScreen.vert.glsl`.
+- [x] **Stale slot wording** after the pools replaced the slots: `planMeshes.ts` header, `plan.vert.glsl`, `planScreen.vert.glsl`. Done in the final fix, with the two comments the final review added (`generate.ts` `GalaxyInstances.plan`, `main.ts` `plan()`) and `bodySystem.ts`'s; `PlanStats.slots` (the next item) keeps its name.
 - [ ] **`PlanStats.slots`** reports the first two systems in index order with full > 0, not the two in R by size, as its doc says.
 - [ ] **ls-1 on a desktop stands at s_px 30.7**, past the outer ring's window start of 30; unmarked only because the ramp's first 0.4 % stays under `LOD_VISIBLE`. The brief asked for 40. Thin margin.
 - [ ] **No purity fence asserts a chevron** any more (P5's system at 149 px is past PlanLeave 75-105); only the plan parity page covers the chevron GLSL.

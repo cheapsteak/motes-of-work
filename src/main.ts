@@ -77,7 +77,7 @@ interface MotesTestHook {
   muteDropout(mute: boolean): void;
   /**
    * The plans' schematics at the last frame (re-skin §4.7, Task 7b; BodySystem.plan, by the TS twin
-   * plan.ts): the lit plan dots (alpha at least LOD_VISIBLE), Σ alpha × size², the two slots' systems (in
+   * plan.ts): the lit plan dots (alpha at least LOD_VISIBLE), Σ alpha × size², the systems in R (in
    * g.systems, −1 none), the lit dots by mark and how many are ember. Null before the galaxy is built.
    */
   plan(): ReturnType<BodySystem['plan']> | null;

@@ -114,14 +114,13 @@ describe('the body set, counted', () => {
 
   it('draws every instance Galaxy.instances counts with the hole’s, and no more, within the budget', () => {
     const { shells, persons, bodies, glow, spikes, tracks, streams, feed, plan, planScreen } = system.counts;
-    // Σ every net-* count and Σ the hole's (re-skin Task 5: it is drawn, so nothing is reserved).
+    // Σ every net-* count and Σ the hole's.
     const hole = createHoleSystem(g, packBodyData(g), shadow);
     const holeDrawn = Object.values(hole.counts).reduce((n, c) => n + c, 0);
     expect(holeDrawn).toBe(27_610);
     // The plans' two meshes (re-skin §4.7, Task 7b): the world pool with the pairs' marks, and the screen pool.
     expect(plan + planScreen).toBe(g.instances.plan);
     expect(shells + persons + bodies + glow + spikes + tracks + streams + feed + plan + planScreen + holeDrawn).toBe(g.instances.total);
-    expect(g.instances.reserved).toBe(0);
     hole.dispose();
     expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
     const sets = system.object.children.filter((o) => o.name.startsWith('net-') && !o.name.startsWith('net-copy') && o.name !== 'net-ring' && o.name !== 'net-ticks');

@@ -74,9 +74,8 @@ for (const size of SIZES) {
       const stats = await page.evaluate(() => (window as unknown as { __motes: { drawStats(): { instances: Record<string, number> } } }).__motes.drawStats());
       for (const name of GALAXY_MESHES) expect(stats.instances[name], name).toBeGreaterThan(0);
       const drawn = GALAXY_MESHES.reduce((n, name) => n + stats.instances[name], 0);
-      // Every set drawn, the hole's among them, is the galaxy's count: nothing is reserved once the hole is drawn.
+      // Every set drawn, the hole's among them, is the galaxy's count.
       const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
-      expect(g.instances.reserved).toBe(0);
       expect(drawn).toBe(g.instances.total);
       expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
       expect(stats.instances.motes).toBe(MOTE_BUDGET_DESKTOP);
