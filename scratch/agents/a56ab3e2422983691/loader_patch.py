@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/loader.ts'
+p = 'src/story/loader.ts'
 s = open(p).read()
 old_iface = s[s.index('export interface StorySection {'):s.index('function fail(')]
 new_iface = '''/** One line of a page: a short paragraph, or the brief (a `document` beat). */

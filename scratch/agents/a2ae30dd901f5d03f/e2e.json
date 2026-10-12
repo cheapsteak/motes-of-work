@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "/home/user/mow-steam/playwright.config.ts",
-    "rootDir": "/home/user/mow-steam/e2e",
+    "configFile": "<mow-steam checkout>/playwright.config.ts",
+    "rootDir": "<mow-steam checkout>/e2e",
     "forbidOnly": false,
     "fullyParallel": false,
     "globalSetup": null,
@@ -26,7 +26,7 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "/home/user/mow-steam/test-results",
+        "outputDir": "<mow-steam checkout>/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -34,7 +34,7 @@
         },
         "id": "chromium",
         "name": "chromium",
-        "testDir": "/home/user/mow-steam/e2e",
+        "testDir": "<mow-steam checkout>/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"

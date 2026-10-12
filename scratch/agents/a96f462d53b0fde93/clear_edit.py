@@ -1,4 +1,4 @@
-p='/home/user/motes-of-work/e2e/clearance.spec.ts'
+p='e2e/clearance.spec.ts'
 s=open(p).read()
 s=s.replace("import { machineOnScreen } from './machine';","""import { machineOnScreen, networkTop } from './machine';
 import { NODE_FIX_WINDOW } from '../src/scene/node/birth';

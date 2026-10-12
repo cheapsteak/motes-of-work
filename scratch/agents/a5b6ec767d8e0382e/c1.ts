@@ -1,5 +1,5 @@
-import { essayNetwork, NET_SHOTS, crackCentre } from '/home/user/motes-of-work/src/timeline/netShots';
-import { nodeIndex } from '/home/user/motes-of-work/src/network/generate';
+import { essayNetwork, NET_SHOTS, crackCentre } from '../../../src/timeline/netShots';
+import { nodeIndex } from '../../../src/network/generate';
 const net = essayNetwork();
 for (const id of ['C1','C5','R0','R1']) {
   const n = net.nodes[nodeIndex(net, id)];

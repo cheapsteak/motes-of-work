@@ -4,7 +4,7 @@ import re
 
 import subprocess
 
-REPO = "/home/user/motes-of-work"
+REPO = "."
 HERE = "<scratchpad>/agents/ad93228c9556cd48d"
 FINAL = f"{HERE}/final"
 

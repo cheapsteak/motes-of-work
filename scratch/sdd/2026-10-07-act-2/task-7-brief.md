@@ -1,6 +1,6 @@
 # Act II, Task 7: pixels and the phone pass
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. Read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. Read global-constraints.md and
 implementer-instructions.md in this folder, and the repo's CLAUDE.md first. **Phone first**: judge every change at
 390×844 before 1440×900.
 

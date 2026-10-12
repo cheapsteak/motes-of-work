@@ -1,6 +1,6 @@
 # Task 16: Act I copy and timing edits from the author
 
-Repo /home/user/motes-of-work, branch main (HEAD d6158c5 or later); commit there, do not push. Read
+Repo <repo>, branch main (HEAD d6158c5 or later); commit there, do not push. Read
 global-constraints.md, implementer-instructions.md and task-14-report.md / task-15-report.md in this folder.
 
 The author's words (2026-10-05):

@@ -1,6 +1,6 @@
 # Task 18 report: auto-advance, with a faint countdown you can pause
 
-Worktree /home/user/mow-auto, branch `auto-advance`, on main 3e4d03e. Not pushed.
+Worktree <mow-auto checkout>, branch `auto-advance`, on main 3e4d03e. Not pushed.
 
 ## Commits
 - 98b3ad0 auto-advance: stops, dwells and transits from the beat data
@@ -74,7 +74,7 @@ one-line URL change in e2e/reducedMotion.spec.ts (see below). No story, keyframe
 - e2e RED on the way: the first run of the wheel test failed ("Expected paused, Received dwell") because
   `mouse.wheel` reaches the page asynchronously; the assertion now polls.
 
-## Screenshots (/home/user/mow-auto/shots/task18/, script shots/task18-shots.mjs, gitignored)
+## Screenshots (<mow-auto checkout>/shots/task18/, script shots/task18-shots.mjs, gitignored)
 `{desktop,portrait}-{brief,reveal}-{dwell,paused,transit}.png`, each with a `-ring.png` crop (120x100 around the ring).
 Taken with `?test=1&auto=1&n=15000`, a fresh page per shot; "brief" is the second brief line's stop, "reveal" is rv-3.
 - Mid-dwell: a thin open arc of about 60 % of the circle, faint grey, over the faint full track; clearly readable once

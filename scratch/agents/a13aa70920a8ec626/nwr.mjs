@@ -1,4 +1,4 @@
-import { PNG } from '/home/user/motes-of-work/node_modules/pngjs/lib/png.js';
+import { PNG } from '../../../node_modules/pngjs/lib/png.js';
 import { readFileSync } from 'node:fs';
 const img = PNG.sync.read(readFileSync(process.argv[2]));
 const t = Math.tan(20*Math.PI/180), ppu = img.height/(2*8*t);

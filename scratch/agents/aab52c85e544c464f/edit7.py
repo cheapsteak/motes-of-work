@@ -7,7 +7,7 @@ def edit(p, pairs):
 
 
 edit(
-    "/home/user/mow-compare/src/compare/controls.ts",
+    "<mow-compare checkout>/src/compare/controls.ts",
     [
         (
             """  preset('Exploded', 'Mid-assembly: parts hang just off their places, against the ghost of the finished machine.', {""",
@@ -42,7 +42,7 @@ edit(
     ],
 )
 edit(
-    "/home/user/mow-compare/src/compare/compare.ts",
+    "<mow-compare checkout>/src/compare/compare.ts",
     [
         (
             """  onChange,
@@ -56,7 +56,7 @@ edit(
     ],
 )
 edit(
-    "/home/user/mow-compare/src/compare/compare.css",
+    "<mow-compare checkout>/src/compare/compare.css",
     [
         (
             """/* The Mechanism heading, with the one budget selector at its right. */

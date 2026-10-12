@@ -1,5 +1,5 @@
 // file:// load, purity (a frame is a function of t alone), motion between t values, and the swipe gesture.
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../../../node_modules/playwright/index.mjs';
 const [fileUrl, httpUrl] = process.argv.slice(2);
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const out = {};

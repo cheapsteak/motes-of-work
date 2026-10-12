@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/script/act-2.md'
+p = 'docs/script/act-2.md'
 s = open(p).read()
 
 

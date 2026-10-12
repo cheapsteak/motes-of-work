@@ -1,6 +1,6 @@
-PATH = "/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md"
+PATH = "docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md"
 s = open(PATH).read()
-cur = open("/home/user/motes-of-work/src/story/01-vibe-build.md").read()
+cur = open("src/story/01-vibe-build.md").read()
 body = cur.split("---\n", 2)[2]
 a = s.index("```markdown\n---\nid: vibe-build\nlength: 8\n")
 b = s.index("```\n", a + 12)

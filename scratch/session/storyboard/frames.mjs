@@ -1,7 +1,7 @@
 // Canvas-only frames of the running essay at given progress values, desktop and phone, for the
 // storyboard mocks. Usage: node frames.mjs <baseURL> <outDir> p,p,...
 import { mkdirSync } from 'node:fs';
-import { chromium } from '/home/user/motes-of-work/node_modules/@playwright/test/index.mjs';
+import { chromium } from '../../../node_modules/@playwright/test/index.mjs';
 
 const [base, out, ps = '0.05'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });

@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/specs/2026-10-07-freeze-frame.md'
+p = 'docs/specs/2026-10-07-freeze-frame.md'
 s = open(p).read()
 rep = [
  ("*Status: design for review, with mocks; revision 3 (the author's notes on the mock: no border, the planet\nbursts too, no danger lines after the fix; revision 2 folded in the beat split, the colour comparison, the galaxy's revisions 3–4 and\nthe scatter). Date: 2026-10-07. Sits on the galaxy design\n(docs/specs/2026-10-07-galaxy-orbits.md: §1 star = rule, planet = plan, moon = code; §5 and §12.3 the\nderps and the burst;",

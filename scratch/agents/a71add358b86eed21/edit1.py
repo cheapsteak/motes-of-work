@@ -1,4 +1,4 @@
-p='/home/user/motes-of-work/src/scene/mote/mote.test.ts'
+p='src/scene/mote/mote.test.ts'
 s=open(p).read()
 s=s.replace("import { mote, SETTLE_WINDOW, SETTLED_BRIGHTNESS, spawnPoint } from './mote';",
 "import { FLARE_GAIN, FLARE_WIDTH, mote, SETTLE_WINDOW, SETTLED_BRIGHTNESS, spawnPoint } from './mote';")
@@ -71,7 +71,7 @@ describe('the landing flare', () => {
 s=s.replace(old,new)
 open(p,'w').write(s)
 
-p='/home/user/motes-of-work/src/scene/mote/attributes.test.ts'
+p='src/scene/mote/attributes.test.ts'
 s=open(p).read()
 s=s.replace('if (role === "core") return SETTLE_WINDOW + (0.45 - SETTLE_WINDOW) * h1;\n  return role === "body" ? 0.35 + 0.6 * h1 : 0.5 + 0.45 * h1;',
  'if (role === "core") return SETTLE_WINDOW + (0.44 - SETTLE_WINDOW) * h1;\n  return role === "body" ? 0.35 + 0.62 * h1 : 0.5 + 0.45 * h1;')

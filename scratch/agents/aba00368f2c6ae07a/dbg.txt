@@ -49,8 +49,8 @@ DBG hood R_a star-1 [["0.08","43.5","406.9",60,1],["0.11","45.5","414.1",58,1],[
       627 |         }
       628 |         return compared;
       629 |       };
-        at gradient (/home/user/motes-of-work/e2e/galaxy.spec.ts:626:160)
-        at /home/user/motes-of-work/e2e/galaxy.spec.ts:635:14
+        at gradient (e2e/galaxy.spec.ts:626:160)
+        at e2e/galaxy.spec.ts:635:14
 
     Error Context: test-results/galaxy-Task-6-at-390x844-streams-are-quiet-when-shown-chromium/error-context.md
 

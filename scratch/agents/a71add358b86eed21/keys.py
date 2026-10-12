@@ -3,7 +3,7 @@
 import json
 import math
 
-P = '/home/user/motes-of-work/src/timeline/keyframes.json'
+P = 'src/timeline/keyframes.json'
 d = json.load(open(P))
 t = d['tracks']
 

@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { riderSkeleton, CHEST_AT } from '/home/user/motes-of-work/src/mechanisms/bike/rider';
+import { riderSkeleton, CHEST_AT } from '../../../src/mechanisms/bike/rider';
 it('dump', () => {
   const k = riderSkeleton();
   const f = (v: number[]) => v.map((x) => x.toFixed(3)).join(',');

@@ -1,4 +1,4 @@
-q = '/home/user/motes-of-work/src/galaxy/generate.test.ts'
+q = 'src/galaxy/generate.test.ts'
 t = open(q).read()
 old = """  it('a smaller budget thins the shells, never the layout', () => {
     const small = generateGalaxy(MOTE_SEED, 'desktop', 30_000);

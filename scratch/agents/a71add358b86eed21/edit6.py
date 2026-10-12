@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/reveal.ts'
+p = 'src/story/reveal.ts'
 s = open(p).read()
 s = s.replace("""/**
  * How far a beat has dimmed at `l`:""", """/**

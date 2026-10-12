@@ -1,4 +1,4 @@
-import pw from "/home/user/motes-of-work/node_modules/playwright/index.js";
+import pw from "../../../node_modules/playwright/index.js";
 const b = await pw.chromium.launch(); const p = await b.newPage();
 for (const f of ['desktop-0.08.png','desktop-0.42.png']) {
   await p.goto(`file://<scratchpad>/mobile/${f}`);

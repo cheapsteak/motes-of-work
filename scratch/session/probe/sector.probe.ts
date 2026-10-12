@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import { it } from 'vitest';
-import { generateGalaxy, galaxyBudget } from '/home/user/motes-of-work/src/galaxy/generate';
-import { generateBackground } from '/home/user/motes-of-work/src/galaxy/background';
-import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '/home/user/motes-of-work/src/config';
+import { generateGalaxy, galaxyBudget } from '../../../src/galaxy/generate';
+import { generateBackground } from '../../../src/galaxy/background';
+import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../../src/config';
 it('sector', () => {
   for (const tier of ['phone', 'desktop'] as const) {
     const g = generateGalaxy(MOTE_SEED, tier, galaxyBudget(MOTE_BUDGET_DESKTOP));

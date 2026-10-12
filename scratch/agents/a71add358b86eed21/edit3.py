@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/loader.test.ts'
+p = 'src/story/loader.test.ts'
 s = open(p).read()
 s = s.replace('''<li data-parts="saddle">A seat.</li>
 </ul>''', '''<li data-parts="saddle" data-at="0.3">A seat.</li>

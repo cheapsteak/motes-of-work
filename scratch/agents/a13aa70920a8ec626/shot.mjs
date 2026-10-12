@@ -1,4 +1,4 @@
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../../node_modules/playwright/index.mjs';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = []; page.on('console', m => { if (m.type()==='error' || m.type()==='warning') errs.push(m.type()+': '+m.text()); }); page.on('pageerror', e => errs.push('pageerror '+e.message));

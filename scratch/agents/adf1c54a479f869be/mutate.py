@@ -15,7 +15,7 @@ if src.count(old) != 1:
     sys.exit(f'mutation target found {src.count(old)} times')
 open(path, 'w', encoding='utf-8').write(src.replace(old, new))
 try:
-    out = subprocess.run(cmd, capture_output=True, text=True, cwd='/home/user/motes-of-work')
+    out = subprocess.run(cmd, capture_output=True, text=True, cwd='.')
     lines = [l for l in (out.stdout + out.stderr).splitlines() if any(w in l for w in ('Tests ', 'passed', 'failed', 'FAIL', 'AssertionError', 'maxError', 'Expected', 'Received'))]
     print('\n'.join(lines[:14]))
     print('exit', out.returncode)

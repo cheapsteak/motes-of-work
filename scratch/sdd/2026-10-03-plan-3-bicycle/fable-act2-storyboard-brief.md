@@ -1,6 +1,6 @@
 # Design brief: the Act II storyboard and the network scene
 
-You are the art director and technical designer for "Motes of Work". Repo /home/user/motes-of-work (read-only for
+You are the art director and technical designer for "Motes of Work". Repo <repo> (read-only for
 you except your output file). Do not edit source code.
 
 ## Read first
@@ -13,8 +13,8 @@ you except your output file). Do not edit source code.
   sections), src/story/*.md (beat markers), src/timeline/keyframes.json, src/timeline/sceneState.ts,
   src/scene/cameraRig.ts, src/scene/mote/ (mote.glsl + its TS mirror mote.ts with a parity test; attributes, settle
   windows, partTransforms), src/mechanisms/types.ts (the Mechanism contract), src/autoAdvance/ (stops per scene).
-- The node spike (throwaway, but it proved the crack): worktree /home/user/mow-nodes, src/mechanisms/nodes/ and its
-  shots in /home/user/mow-nodes/shots/nodes/{far,near}.png. Lesson recorded: a plain gap is invisible even up close
+- The node spike (throwaway, but it proved the crack): worktree <mow-nodes checkout>, src/mechanisms/nodes/ and its
+  shots in <mow-nodes checkout>/shots/nodes/{far,near}.png. Lesson recorded: a plain gap is invisible even up close
   because the cloud is see-through; motes must sit on the crack's own faces.
 - CLAUDE.md in the repo: phone first (390x844 before 1440x900), pure function of scroll, publication-safe copy.
 

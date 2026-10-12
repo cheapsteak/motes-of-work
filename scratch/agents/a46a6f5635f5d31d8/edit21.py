@@ -1,4 +1,4 @@
-g = '/home/user/motes-of-work/src/galaxy/generate.ts'
+g = 'src/galaxy/generate.ts'
 s = open(g).read()
 
 

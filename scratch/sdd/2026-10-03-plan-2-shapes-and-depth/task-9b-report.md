@@ -1,6 +1,6 @@
 # Task 9 part B: comparison page polish (report)
 
-Worktree `/home/user/mow-compare`, branch `polish-compare`, base `ee4f09c`. E2E port 4177. Commit `31414c8` "feat: comparison page polish (twin pair, camera row, one budget, dev lighting)". Not merged.
+Worktree `<mow-compare checkout>`, branch `polish-compare`, base `ee4f09c`. E2E port 4177. Commit `31414c8` "feat: comparison page polish (twin pair, camera row, one budget, dev lighting)". Not merged.
 
 ## What I implemented (visual-review.md §4 items 1–7, plus carried items)
 
@@ -68,7 +68,7 @@ Test hook: `__compare.paneStates()` returns each drawn pane's scene state. `nan(
 - RED: fitFov tests → 3 failed. GREEN: 28/28.
 - E2E first run: 18 passed and 1 failed. The orbit-hint test waited for a redraw after checking the already-checked "Single" radio, which renders nothing, so it timed out. I fixed the test to check labels without waiting for a frame. Full suite green afterwards.
 
-## Screenshots (`/home/user/mow-compare/shots/compare-*.png`, 1280×720, 100k)
+## Screenshots (`<mow-compare checkout>/shots/compare-*.png`, 1280×720, 100k)
 
 I looked at all of them:
 - **compare-twin-steam.png:** Correct (left) has the warm governor upright and linked above a cool engine body. Wrong twin (right) is cool throughout, with the governor balls flung wide and the lever reversed. Both are fully in frame with the widened portrait fov. This is the clearest "different machine" read of the four.

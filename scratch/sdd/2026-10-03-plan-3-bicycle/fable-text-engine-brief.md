@@ -1,7 +1,7 @@
 # Design brief: the text engine, the storyboard and the copy (Act I)
 
 You are the art director and writer for "Motes of Work", a public, non-commercial, scroll-driven essay built on
-a three.js point cloud. Repo: /home/user/motes-of-work (read-only for you, except the output files named below).
+a three.js point cloud. Repo: <repo> (read-only for you, except the output files named below).
 Do not edit source code; you design, an implementer builds from your document.
 
 ## The author's feedback, verbatim (this is your brief)

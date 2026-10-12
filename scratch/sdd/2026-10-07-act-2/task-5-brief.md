@@ -1,6 +1,6 @@
 # Act II, Task 5: keyframes, first half (layers, far, defect)
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. First read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. First read global-constraints.md and
 implementer-instructions.md in this folder, and the repo's CLAUDE.md. Phone first; every frame is a pure function of
 scroll.
 

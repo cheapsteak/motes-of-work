@@ -1,4 +1,4 @@
-p = "/home/user/mow-compare/e2e/compare.spec.ts"
+p = "<mow-compare checkout>/e2e/compare.spec.ts"
 s = open(p).read()
 start = s.index("test('the controls fit a 1280x720 window without scrolling, for every preset, view and mechanism'")
 end = s.index("test('the preset blurb is set off from the mechanism blurb")

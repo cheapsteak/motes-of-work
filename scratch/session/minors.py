@@ -1,5 +1,5 @@
 from pathlib import Path
-r = Path('/home/user/motes-of-work')
+r = Path('.')
 p = r/'src/scene/mote/reflow.test.ts'
 s = p.read_text()
 s = s.replace("import { firstStack, type Box } from '../../network/cluster';", "import { boxCorners, firstStack, type Box } from '../../network/cluster';")

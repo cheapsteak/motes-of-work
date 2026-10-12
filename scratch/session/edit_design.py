@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
+p = 'docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
 s = open(p).read()
 old_copy = s[s.index('### Section 3: rewind (2 screens)'):s.index('### Section 4: spec')]
 new_copy = '''### Section 3: rewind (1 screen)

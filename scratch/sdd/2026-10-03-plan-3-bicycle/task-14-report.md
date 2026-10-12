@@ -239,7 +239,7 @@ asks (§3.7). This overrides the global constraint that they stay unchanged; the
 
 ## Screenshots
 `?test=1`, a fresh page per shot, full page (text and canvas), at 1440x900 (`desktop-`) and 390x844
-(`portrait-`). They are in `/home/user/motes-of-work/shots/task14/`, made by
+(`portrait-`). They are in `shots/task14/`, made by
 `.superpowers/sdd/2026-10-03-plan-3-bicycle/task14-at.mjs` with a preview server on 4205 (since
 stopped). Local values are vibe-build's.
 

@@ -1,7 +1,7 @@
 # Task 5 report: `watch` mechanism
 
 Status: DONE_WITH_CONCERNS (the concerns are about looks only; every test passes).
-Branch `mech-watch`, worktree /home/user/mow-watch. Commit `14321b7 feat: watch mechanism`. Not pushed.
+Branch `mech-watch`, worktree <mow-watch checkout>. Commit `14321b7 feat: watch mechanism`. Not pushed.
 
 ## What I built
 

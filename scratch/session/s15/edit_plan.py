@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/superpowers/plans/2026-10-08-act-2-galaxy.md'
+p = 'docs/superpowers/plans/2026-10-08-act-2-galaxy.md'
 s = open(p).read()
 
 

@@ -160,7 +160,7 @@ Everything else is untouched and stretches with the new lengths:
 - Curves, markup and e2e: written alongside the code. They passed on their first run, and I did not run them against the old code. The storyboard fence was mutation-checked instead (see above).
 
 ## Screenshots
-`?test=1`, a fresh page per shot, at the middle of each beat's hold. Script: `.superpowers/sdd/2026-10-03-plan-3-bicycle/task12-shots.mjs`. Output: `/home/user/motes-of-work/shots/task12/{desktop,portrait}-<beat>.png`, 40 files: 20 beats at 1440x900 and at 390x844.
+`?test=1`, a fresh page per shot, at the middle of each beat's hold. Script: `.superpowers/sdd/2026-10-03-plan-3-bicycle/task12-shots.mjs`. Output: `shots/task12/{desktop,portrait}-<beat>.png`, 40 files: 20 beats at 1440x900 and at 390x844.
 
 What I saw:
 - **Each line appears only on its turn.**

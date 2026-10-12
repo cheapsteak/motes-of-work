@@ -1,6 +1,6 @@
 import re
 
-p = '/home/user/motes-of-work/e2e/brief.spec.ts'
+p = 'e2e/brief.spec.ts'
 s = open(p).read()
 s = s.replace('[false, false, false, false, false]', '[false, false, false, false]')
 s = s.replace('[true, true, true, true, true]', '[true, true, true, true]')
@@ -118,7 +118,7 @@ for (const viewport of [
 '''
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/e2e/text.spec.ts'
+p = 'e2e/text.spec.ts'
 s = open(p).read()
 s = s.replace('    expect(looks.length).toBe(5);', '    expect(looks.length).toBe(4);')
 s = s.replace('  expect(unmet.length).toBe(5);', '  expect(unmet.length).toBe(4);')

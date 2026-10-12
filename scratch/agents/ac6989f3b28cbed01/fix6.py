@@ -1,6 +1,6 @@
 import os
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 p = 'src/compare/compare.css'
 s = open(p).read()
 

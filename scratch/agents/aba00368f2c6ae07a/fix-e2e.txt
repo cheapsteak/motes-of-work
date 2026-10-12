@@ -68,8 +68,8 @@ Running 35 tests using 2 workers
       624 |         }
       625 |         return compared;
       626 |       };
-        at gradient (/home/user/motes-of-work/e2e/galaxy.spec.ts:623:160)
-        at /home/user/motes-of-work/e2e/galaxy.spec.ts:632:14
+        at gradient (e2e/galaxy.spec.ts:623:160)
+        at e2e/galaxy.spec.ts:632:14
 
     Error Context: test-results/galaxy-Task-6-at-390x844-streams-are-quiet-when-shown-chromium/error-context.md
 

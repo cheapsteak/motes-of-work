@@ -1,6 +1,6 @@
 # Task 13: the storyboard — every line's camera shot and motion
 
-Repo /home/user/motes-of-work, branch main (after Task 12, 808f6e9); commit there, do not push. Read
+Repo <repo>, branch main (after Task 12, 808f6e9); commit there, do not push. Read
 global-constraints.md and implementer-instructions.md in this folder. Do not change mote.glsl / mote.ts.
 
 Requirements: docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md §2 (all of it) and the §4 tests that

@@ -1,11 +1,11 @@
-import { test } from '/home/user/motes-of-work/node_modules/vitest/dist/index.js';
+import { test } from '../../../node_modules/vitest/dist/index.js';
 import { InstancedBufferAttribute } from 'three';
-import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '/home/user/motes-of-work/src/config';
-import { generateNetwork, networkBudget } from '/home/user/motes-of-work/src/network/generate';
-import { buildNodeAttrs } from '/home/user/motes-of-work/src/scene/node/nodeAttrs';
-import { packNodeData } from '/home/user/motes-of-work/src/scene/node/nodeData';
-import { NODE_ATTRIBUTES, nodeInstancedAttributes, type NodeAttrs } from '/home/user/motes-of-work/src/scene/node/nodeLayout';
-import { createNodeSystem } from '/home/user/motes-of-work/src/scene/node/nodeSystem';
+import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../../src/config';
+import { generateNetwork, networkBudget } from '../../../src/network/generate';
+import { buildNodeAttrs } from '../../../src/scene/node/nodeAttrs';
+import { packNodeData } from '../../../src/scene/node/nodeData';
+import { NODE_ATTRIBUTES, nodeInstancedAttributes, type NodeAttrs } from '../../../src/scene/node/nodeLayout';
+import { createNodeSystem } from '../../../src/scene/node/nodeSystem';
 
 const ms = (t0: number) => performance.now() - t0;
 

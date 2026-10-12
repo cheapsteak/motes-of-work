@@ -1,5 +1,5 @@
-P = '/home/user/motes-of-work/docs/superpowers/plans/2026-10-08-act-2-galaxy.md'
-C = '/home/user/motes-of-work/.superpowers/sdd/2026-10-08-act-2-galaxy/plan-constraints.md'
+P = 'docs/superpowers/plans/2026-10-08-act-2-galaxy.md'
+C = '.superpowers/sdd/2026-10-08-act-2-galaxy/plan-constraints.md'
 
 OLD_GC = '- **No soft discs.** The only glows are capped star sprites: 3.5 px for background stars, 6 px for the brightest 15 %, `clamp(5 R focal / d, 5, 18)` px for neighbourhood stars and `clamp(5 R focal / d, 5, 24)` px for core bodies.'
 NEW_GC = '- **No soft discs.** The only glows are capped star sprites: 2 px for background stars and 3 px for the brightest 15 % (crisp points with at most a 1 px halo, `HALO_PX`; ruled in Task 1 fix round 2 so the galaxy wide keeps its halos apart at the full counts, superseding galaxy §4\'s 3.5 / 6 px), `clamp(5 R focal / d, 5, 18)` px for neighbourhood stars and `clamp(5 R focal / d, 5, 24)` px for core bodies (`glowPx`, src/galaxy/body.ts).'

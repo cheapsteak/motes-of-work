@@ -1,6 +1,6 @@
 // Renders a.html/b.html/c.html at desktop 1280x800 (1x) and portrait 390x844 (2x) for the brief
 // mid-build and the reveal, then composes one contact sheet per viewport.
-import pw from "/home/user/motes-of-work/node_modules/playwright/index.js";
+import pw from "../../../node_modules/playwright/index.js";
 const { chromium } = pw;
 import { writeFileSync } from 'node:fs';
 

@@ -1,6 +1,6 @@
 """Task 16: rewrite the storyboard's §2.1 (vibe-build) and §2.2 (reveal) tables for the new timing."""
 
-PATH = "/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md"
+PATH = "docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md"
 text = open(PATH).read()
 
 

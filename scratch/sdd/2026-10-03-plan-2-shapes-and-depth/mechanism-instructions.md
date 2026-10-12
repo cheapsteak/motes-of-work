@@ -3,9 +3,9 @@
 You are building ONE mechanism module in your own git worktree (path and branch in your dispatch). Three mechanisms are being built in parallel in separate worktrees; stay inside your own files so they merge cleanly.
 
 ## Read first
-- Implementer rules: /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/implementer-instructions.md — but your repo/working directory is YOUR WORKTREE, not /home/user/motes-of-work, and your branch is `mech-<id>`.
-- Plan 2 global constraints (licensing rule!): /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/global-constraints.md
-- The brief for Tasks 5–7 (your mechanism's paragraph + the shared checklist): /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/task-5-7-brief.md
+- Implementer rules: .superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/implementer-instructions.md — but your repo/working directory is YOUR WORKTREE, not <repo>, and your branch is `mech-<id>`.
+- Plan 2 global constraints (licensing rule!): .superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/global-constraints.md
+- The brief for Tasks 5–7 (your mechanism's paragraph + the shared checklist): .superpowers/sdd/2026-10-03-plan-2-shapes-and-depth/task-5-7-brief.md
 - Spec §5 (visual language) and §6.3 (mechanism contract) in docs/specs/2026-10-02-motes-of-work-design.md (in your worktree).
 
 ## The essay's needs (why the mechanism exists)

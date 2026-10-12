@@ -1,4 +1,4 @@
-p='/home/user/motes-of-work/e2e/machine.ts'
+p='e2e/machine.ts'
 s=open(p).read()
 s=s.replace("""/** World positions of the visible machine at `s` (the network's included, for the bike: it is the essay's machine). */
 export function visibleMachine(mech: Mechanism, s: SceneState): Vec3[] {""","""/** World positions of the visible machine at `s` (the bike's motes, its ghost and its drawing; not the network). */

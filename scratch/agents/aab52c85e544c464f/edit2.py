@@ -1,4 +1,4 @@
-p = '/home/user/mow-compare/src/compare/compare.ts'
+p = '<mow-compare checkout>/src/compare/compare.ts'
 s = open(p).read()
 
 

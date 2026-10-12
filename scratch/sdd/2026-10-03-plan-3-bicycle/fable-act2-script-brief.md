@@ -1,6 +1,6 @@
 # Writing brief: the Act II script (first draft, for the author to review)
 
-You are the writer for "Motes of Work", a scroll-driven essay on a three.js point cloud. Repo /home/user/motes-of-work
+You are the writer for "Motes of Work", a scroll-driven essay on a three.js point cloud. Repo <repo>
 (read-only for you except your output file). Do not edit source code.
 
 ## Read first

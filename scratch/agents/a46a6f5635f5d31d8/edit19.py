@@ -1,6 +1,6 @@
 import re
 
-g = '/home/user/motes-of-work/src/galaxy/generate.ts'
+g = 'src/galaxy/generate.ts'
 s = open(g).read()
 
 
@@ -54,7 +54,7 @@ rep('largest((f) => apply(f, 1) <= budget)', 'largestFit((f) => apply(f, 1) <= b
 rep('largest((f) => apply(0, f) <= budget)', 'largestFit((f) => apply(0, f) <= budget)')
 open(g, 'w').write(s)
 
-b = '/home/user/motes-of-work/src/galaxy/background.ts'
+b = 'src/galaxy/background.ts'
 t = open(b).read()
 a0 = t.index('/** One seeded stream per (concern, point).')
 a1 = t.index('/** A draw at radius')

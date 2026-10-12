@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/vite.config.ts'
+p = 'vite.config.ts'
 s = open(p).read()
 old_head = """import { defineConfig } from 'vite';
 
@@ -54,7 +54,7 @@ assert s.count(old_head) == 1
 s = s.replace(old_head, new_head)
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/index.html'
+p = 'index.html'
 s = open(p).read()
 s = s.replace('<html lang="en">', '<html lang="en" class="no-js">')
 s = s.replace("""    <title>Motes of work</title>

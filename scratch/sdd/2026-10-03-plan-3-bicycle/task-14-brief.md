@@ -1,6 +1,6 @@
 # Task 14: the opening build in order, the frame laid tube by tube, and the "Done" orbit
 
-Repo /home/user/motes-of-work, branch main (HEAD 484f248 or later); commit there, do not push. Read
+Repo <repo>, branch main (HEAD 484f248 or later); commit there, do not push. Read
 global-constraints.md and implementer-instructions.md in this folder.
 
 Requirements: docs/specs/2026-10-05-act-1-build-and-orbit.md — read it whole; the author approved it ("Go") and chose

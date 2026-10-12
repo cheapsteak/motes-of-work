@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/mechanisms/bike/index.ts'
+p = 'src/mechanisms/bike/index.ts'
 s = open(p).read()
 s = s.replace("""// Settle windows: the core lands first (its role default, done by 0.45); then the wheels, cranks and
 // chain; then the fork; then the brakes; and last the frame, mudguards and ground. The spec section

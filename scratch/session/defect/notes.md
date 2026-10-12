@@ -46,7 +46,7 @@
   peak px (incl. split), and a flash guard (luminance swings >10 % of calm, flips/s). First run: all
   variants <= 2 flashes/s; today itself swings 0.6 in luminance (its scatter brightens dots x1.6).
 - Server: python http.server on 127.0.0.1:8765 from defect/, PID in agents/aec64dec061d096a3/server.pid.
-- Playwright scripts: /home/user/motes-of-work/shots/_defect_shot.mjs and _defect_probe.mjs (delete at end).
+- Playwright scripts: shots/_defect_shot.mjs and _defect_probe.mjs (delete at end).
 
 - Status 2: full evidence rendered; then lumps enlarged (0.24/0.12/-0.2) and block snap draws one block-dot per grid node (no white stacking); v04, v10, v13, v16 re-rendered.
 

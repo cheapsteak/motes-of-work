@@ -1,7 +1,7 @@
 import json
 import os
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 S = '<scratchpad>/agents/ad1850844a10c699f'
 orbit = json.load(open(f'{S}/orbit.json'))
 LAP_FROM = 0.86111111

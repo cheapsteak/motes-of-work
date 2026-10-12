@@ -1,5 +1,5 @@
 // Render mock.html at the two test sizes. Usage: node mockshots.mjs
-import { chromium } from '/home/user/motes-of-work/node_modules/@playwright/test/index.mjs';
+import { chromium } from '../../../node_modules/@playwright/test/index.mjs';
 
 const here = '<scratchpad>/storyboard';
 const browser = await chromium.launch();

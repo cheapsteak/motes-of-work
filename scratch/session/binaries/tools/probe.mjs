@@ -1,5 +1,5 @@
 // Probes the page's camera and the projected spread of the spots.
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../../../node_modules/playwright/index.mjs';
 const [url] = process.argv.slice(2);
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });

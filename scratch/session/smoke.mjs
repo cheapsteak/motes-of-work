@@ -1,4 +1,4 @@
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../node_modules/playwright/index.mjs';
 const base = 'http://127.0.0.1:4198/';
 const out = process.argv[2];
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

@@ -1,6 +1,6 @@
 # Task 9: the frame is built around the mistake (twin option A), a seated rider, and an ending that lands
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. Read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. Read global-constraints.md and
 implementer-instructions.md in this folder. Purity invariant: every frame is a pure function of scroll.
 Do not change src/scene/mote/mote.glsl or mote.ts. Read docs/adding-a-mechanism.md (contract, lessons:
 "blend parameters, not rotations"; "twin normals").

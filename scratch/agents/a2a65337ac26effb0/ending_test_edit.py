@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/keyframes.test.ts'
+p = 'src/timeline/keyframes.test.ts'
 s = open(p).read()
 
 

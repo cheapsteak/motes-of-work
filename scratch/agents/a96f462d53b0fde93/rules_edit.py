@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/netShots.ts'
+p = 'src/timeline/netShots.ts'
 s = open(p).read()
 old = """  /**
    * fx-1: R0's cracked cube again, a little round. Distance 12, not the design's 5.5: a fix's warm
@@ -21,7 +21,7 @@ new = """  /**
 assert old in s
 s = s.replace(old, new)
 open(p, 'w').write(s)
-p = '/home/user/motes-of-work/src/timeline/keyframes.json'
+p = 'src/timeline/keyframes.json'
 s = open(p).read()
 old = '{ "at": "fix@0.08", "value": 1, "ease": "inOutCubic" },\n      { "at": "fix@0.4", "value": 1 },'
 assert old in s

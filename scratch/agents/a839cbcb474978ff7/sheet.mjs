@@ -1,7 +1,7 @@
 // usage: node sheet.mjs out.png cols in1.png in2.png ...  (each input halved, box filter)
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'node:fs';
-const require = createRequire('/home/user/motes-of-work/package.json');
+const require = createRequire('package.json');
 const { PNG } = require('pngjs');
 const [out, colsS, ...ins] = process.argv.slice(2);
 const cols = Number(colsS);

@@ -1,7 +1,7 @@
 # Design brief (round 2b): the blueprint drawing and the build from it
 
 You are the art director for "Motes of Work", a scroll-driven essay on a three.js point cloud. Repo
-/home/user/motes-of-work (read-only for you except your output file). Current design:
+<repo> (read-only for you except your output file). Current design:
 docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md (§1 Section 4 "the drawing first", §2.4 and §2.7 as
 built). Look at shots/task13/*-sp-*.png. Another designer is working in parallel on the cold-open build and an
 orbit; stay out of the vibe-build and reveal sections.

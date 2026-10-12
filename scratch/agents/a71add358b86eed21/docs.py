@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/specs/2026-10-05-act-1-build-and-orbit.md'
+p = 'docs/specs/2026-10-05-act-1-build-and-orbit.md'
 s = open(p).read()
 s = s.rstrip('\n') + '''
 
@@ -38,7 +38,7 @@ not hold or a test could not be met as worded:
 '''
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
+p = 'docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
 s = open(p).read()
 old = "- The steer swings ease in and out (`inOutQuad`); every other key is as §2.1–§2.4 give it.\n"
 assert old in s

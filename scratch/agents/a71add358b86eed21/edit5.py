@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/reveal.test.ts'
+p = 'src/story/reveal.test.ts'
 s = open(p).read()
 s = s.replace("import { beatDim, beatReveal, fadeWidth, pageOpacity, smoothstep, storyLooks, type StoryShape } from './reveal';",
               "import { beatDim, beatReveal, fadeWidth, lineReveal, pageOpacity, smoothstep, storyLooks, type StoryShape } from './reveal';")

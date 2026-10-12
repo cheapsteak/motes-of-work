@@ -1,5 +1,5 @@
 import sys
-p='/home/user/motes-of-work/src/style.css'
+p='src/style.css'
 s=open(p).read()
 a=s.index("/*\n * Auto-advance (src/autoAdvance/indicator.ts)")
 b=s.index("/* Credits */")

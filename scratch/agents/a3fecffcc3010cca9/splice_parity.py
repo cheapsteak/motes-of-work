@@ -1,6 +1,6 @@
 import sys
 
-p = '/home/user/motes-of-work/src/parity/parity.ts'
+p = 'src/parity/parity.ts'
 mid = open(sys.argv[1]).read()
 s = open(p).read()
 start = s.index('function run(): ParityCase[] {')

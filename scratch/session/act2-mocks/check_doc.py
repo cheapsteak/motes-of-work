@@ -2,7 +2,7 @@
 the dwell lint in src/story/content.test.ts, plus the count of twelve from the lineage table."""
 import re
 
-DOC = "/home/user/motes-of-work/docs/specs/2026-10-06-act-2-storyboard-and-network.md"
+DOC = "docs/specs/2026-10-06-act-2-storyboard-and-network.md"
 text = open(DOC, encoding="utf-8").read()
 
 

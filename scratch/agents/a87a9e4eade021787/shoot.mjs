@@ -1,5 +1,5 @@
 // Shoot story frames (with panel) and camera experiments on the twin. Read-only against the repo.
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../../node_modules/playwright/index.mjs';
 import fs from 'node:fs';
 
 const OUT = '<scratchpad>/agents/a87a9e4eade021787/frames';

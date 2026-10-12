@@ -1,5 +1,5 @@
 import os
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 
 
 def sub(path, old, new):

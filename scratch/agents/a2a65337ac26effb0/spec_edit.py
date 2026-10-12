@@ -1,6 +1,6 @@
 import sys
 
-p = '/home/user/motes-of-work/docs/specs/2026-10-02-motes-of-work-design.md'
+p = 'docs/specs/2026-10-02-motes-of-work-design.md'
 s = open(p).read()
 
 

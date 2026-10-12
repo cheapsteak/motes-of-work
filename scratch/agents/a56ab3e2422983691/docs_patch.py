@@ -6,7 +6,7 @@ def patch(p, pairs):
     open(p, 'w').write(s)
 
 
-D = '/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
+D = 'docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
 patch(D, [
     ("""A beat's **hold** is the local span in which it is full ink and nothing on the page changes:
 `hold_i = at_{i+1} − (at_i + FADE)` for a beat followed by another on its page, and
@@ -42,7 +42,7 @@ timings were authored to the dwell above; if readers miss lines, the lever is th
   it is its own story rather than rendering it."""),
 ])
 
-M = '/home/user/motes-of-work/docs/specs/2026-10-02-motes-of-work-design.md'
+M = 'docs/specs/2026-10-02-motes-of-work-design.md'
 patch(M, [
     ("""Each section is one idea with a text panel of ≤ ~80 words. Copy below is the *gist*, not final text — final copy is the author's (voice and taste are high-touch).""",
      """Each section is one idea, told as a picture book: a few pages of short lines, each line coming up when it is its turn to be read. Act I's copy, storyboard and text engine are designed in `docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md` (the storyboard doc below); elsewhere the copy here is the *gist*, not final text — final copy is the author's (voice and taste are high-touch)."""),
@@ -81,7 +81,7 @@ patch(M, [
 - Text sits above the machine on every screen, over a scrim at the top of the stage (storyboard doc §3.4)."""),
 ])
 
-R = '/home/user/motes-of-work/README.md'
+R = 'README.md'
 patch(R, [
     ("""npm run shots       # screenshots of every story section, and of every mechanism""",
      """npm run shots       # screenshots of every story beat, and of every mechanism"""),

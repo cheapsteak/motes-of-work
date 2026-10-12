@@ -2,7 +2,7 @@
 // share of machine pixels that clip (>= 250 on all three channels, i.e. blown to white) or are
 // desaturated-bright (>= 230 on all channels). Plus a 1.5x gain preview of two shots.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { PNG } from '/home/user/motes-of-work/node_modules/pngjs/lib/png.js';
+import { PNG } from '../../../node_modules/pngjs/lib/png.js';
 
 const BG = [0x0b, 0x0d, 0x12];
 

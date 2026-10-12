@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/netShots.ts'
+p = 'src/timeline/netShots.ts'
 s = open(p).read()
 old = """   * zo-1: the first stack small and low under the text, the dark round it. Elevation 14, not the
    * design's 12: at 12 the first stack's plan, born above it at zoom-out 0.5, shows inside the text

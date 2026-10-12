@@ -1,6 +1,6 @@
 # Final-review fix wave (Plan 1)
 
-Repo /home/user/motes-of-work, branch plan-1-foundation. Apply all items below in one wave; separate commits per item are fine.
+Repo <repo>, branch plan-1-foundation. Apply all items below in one wave; separate commits per item are fine.
 
 1. Pages deploy must not publish untested code: in .github/workflows/pages.yml run `npm ci`, `npm run typecheck` and `npm test` (unit tests, includes the content lint) in the build job before `npm run build`. Do not add e2e there.
 2. `applyCamera` (src/scene/cameraRig.ts) must call `camera.updateMatrixWorld()` (and keep updateProjectionMatrix). Add an assertion in src/scene/cameraRig.test.ts that camera.matrixWorld reflects the new position immediately after applyCamera, without a render.

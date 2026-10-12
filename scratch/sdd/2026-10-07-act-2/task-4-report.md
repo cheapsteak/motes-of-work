@@ -12,7 +12,7 @@ carries a product name, which the publication-safe rule forbids.
 
 ## What was built
 
-Files (all in `/home/user/motes-of-work`):
+Files (all in `<repo>`):
 
 - New `src/story/06-layers.md`, `07-far.md`, `08-defect.md`, `09-spread.md`, `10-reviewer.md`, `11-trace.md`,
   `12-fix.md`, `13-lesson.md`. Frontmatter (`id`, `length`, `alt`, `draft: true`) and beat markers in

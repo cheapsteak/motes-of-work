@@ -1,4 +1,4 @@
-PATH = "/home/user/motes-of-work/src/timeline/keyframes.test.ts"
+PATH = "src/timeline/keyframes.test.ts"
 s = open(PATH).read()
 R = [
     (

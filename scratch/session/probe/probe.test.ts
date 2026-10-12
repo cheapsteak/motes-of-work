@@ -1,6 +1,6 @@
 import { it } from 'vitest';
 import { appendFileSync } from 'node:fs';
-const R = '/home/user/motes-of-work/src';
+const R = 'src';
 it('probe2', async () => {
   const { generateGalaxy, galaxyBudget } = await import(R + '/galaxy/generate');
   const { MOTE_SEED, MOTE_BUDGET_DESKTOP } = await import(R + '/config');

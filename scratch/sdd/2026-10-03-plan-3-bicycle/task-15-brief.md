@@ -1,6 +1,6 @@
 # Task 15: the ink drawing on parchment, the lift into 3D, and two fixes from Task 14
 
-Repo /home/user/motes-of-work, branch main (HEAD 1665537 or later); commit there, do not push. Read
+Repo <repo>, branch main (HEAD 1665537 or later); commit there, do not push. Read
 global-constraints.md and implementer-instructions.md in this folder, and task-14-report.md.
 
 ## A. Two fixes first (small)

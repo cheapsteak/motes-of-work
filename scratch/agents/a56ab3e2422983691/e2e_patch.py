@@ -10,7 +10,7 @@ def patch(p, pairs):
 
 
 # ---- app.spec.ts
-app = '/home/user/motes-of-work/e2e/app.spec.ts'
+app = 'e2e/app.spec.ts'
 s = open(app).read()
 start = s.index("// Panels and progress agree: just inside each end of a section's progress span")
 end = s.index("test('the scroll range equals the summed section heights'")
@@ -92,7 +92,7 @@ const showing = async (page: Page): Promise<string[]> =>
 ])
 
 # ---- brief.spec.ts
-brief = '/home/user/motes-of-work/e2e/brief.spec.ts'
+brief = 'e2e/brief.spec.ts'
 patch(brief, [
     ("""  // One progress with nothing met, one mid-build, one with everything met.
   const targets = [
@@ -117,7 +117,7 @@ patch(brief, [
 ])
 
 # ---- portrait.spec.ts
-portrait = '/home/user/motes-of-work/e2e/portrait.spec.ts'
+portrait = 'e2e/portrait.spec.ts'
 s = open(portrait).read()
 start = s.index("// The spec section frames the core close")
 s = s[:start].rstrip() + '\n'
@@ -163,7 +163,7 @@ test('the portrait rig draws the machine in the upper part of the screen', async
 open(portrait, 'a').close()
 
 # ---- shots.spec.ts
-shots = '/home/user/motes-of-work/e2e/shots.spec.ts'
+shots = 'e2e/shots.spec.ts'
 patch(shots, [
     ("""// Human-review screenshots of the stage canvas: `npm run shots` writes shots/<id>-<local>.png for
 // every story section at local progress 0.1, 0.5 and 0.9, and shots/mech-<mech>-<look>.png for every""",

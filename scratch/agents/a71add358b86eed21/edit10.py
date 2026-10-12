@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/content.test.ts'
+p = 'src/story/content.test.ts'
 s = open(p).read()
 start = s.index("const spans = sectionSpans(story);")
 end = s.index("const dwellBudget = (b: Beat) =>")

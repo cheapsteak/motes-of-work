@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
+p = 'docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
 s = open(p).read()
 for a, b in [
     ('hand the list to an agent. (14)', 'hand the list to an agent. (15)'),

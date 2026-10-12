@@ -1,6 +1,6 @@
 # Task 11: remove the mannequin, the running labels and the text switcher; text style C only
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. Read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. Read global-constraints.md and
 implementer-instructions.md in this folder. Purity invariant holds. Do not change mote.glsl / mote.ts.
 
 The author's words: "Remove the mannequin, I don't feel like it's adding anything besides distraction."

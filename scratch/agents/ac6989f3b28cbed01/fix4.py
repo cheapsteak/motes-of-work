@@ -1,6 +1,6 @@
 import os
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 p = 'e2e/compare.spec.ts'
 s = open(p).read()
 

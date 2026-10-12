@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/e2e/network.spec.ts'
+p = 'e2e/network.spec.ts'
 s = open(p).read()
 
 old = """//   11. the crack reads close and not far: a cracked stack's whole and cracked builds differ in many

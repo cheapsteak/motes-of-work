@@ -1,4 +1,4 @@
-p = '/home/user/mow-compare/src/compare/compare.ts'
+p = '<mow-compare checkout>/src/compare/compare.ts'
 s = open(p).read()
 old = s[:s.index("import { marked }")]
 new = """// Mechanism comparison page: one mechanism, one mechanism as correct | wrong twin ("Twin pair"), or

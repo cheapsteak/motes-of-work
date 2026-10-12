@@ -1,4 +1,4 @@
-import { PNG } from '/home/user/mow-steam/node_modules/pngjs/lib/png.js';
+import { PNG } from '<mow-steam checkout>/node_modules/pngjs/lib/png.js';
 import { readFileSync } from 'node:fs';
 for (const f of process.argv.slice(2)) {
   const img = PNG.sync.read(readFileSync(f));

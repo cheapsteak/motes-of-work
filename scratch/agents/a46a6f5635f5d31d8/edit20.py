@@ -1,4 +1,4 @@
-b = '/home/user/motes-of-work/src/galaxy/background.ts'
+b = 'src/galaxy/background.ts'
 s = open(b).read()
 
 
@@ -60,7 +60,7 @@ rep('''    hood.some((s) => Math.hypot(p[0] - s[0], p[2] - s[2]) < gap(px, HALO_
 rep("import { streamFor } from './seeds';", "import { GLOW_CAP, STAR_R, glowPx } from './body';\nimport { streamFor } from './seeds';")
 open(b, 'w').write(s)
 
-y = '/home/user/motes-of-work/src/galaxy/body.ts'
+y = 'src/galaxy/body.ts'
 t = open(y).read()
 t += '''
 /** The glow sprites' caps in CSS px (galaxy §4): a star's (a plan's) and a core body's (a rule's). */
@@ -77,7 +77,7 @@ export function glowPx(R: number, d: number, focalPx: number, cap: number): numb
 '''
 open(y, 'w').write(t)
 
-q = '/home/user/motes-of-work/src/galaxy/background.test.ts'
+q = 'src/galaxy/background.test.ts'
 u = open(q).read()
 u = u.replace('''  const others = hood.map((p) => [...project(p), HALO_PX.hood]);''', '''  const others = hood.map((p) => [...project(p), hoodGlowPx(tier, p)]);''')
 u = u.replace('''  galaxyWidePxPerUnit,

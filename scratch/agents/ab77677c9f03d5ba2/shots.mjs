@@ -1,6 +1,6 @@
 // Review-only screenshots against the preview on :4190. Every SceneState leaf is pinned so nothing
 // leaks from the timeline at scroll 0 (the ?state= JSON is merged over the sampled state).
-import { chromium } from '/home/user/motes-of-work/node_modules/@playwright/test/index.mjs';
+import { chromium } from '../../../node_modules/@playwright/test/index.mjs';
 import { mkdirSync } from 'node:fs';
 
 const OUT = '<scratchpad>/agents/ab77677c9f03d5ba2/review-after';

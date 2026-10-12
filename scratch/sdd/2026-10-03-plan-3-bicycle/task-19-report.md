@@ -1,6 +1,6 @@
 # Task 19 report: one stop per scene, at its end; the ring in the bottom-right corner
 
-Repo /home/user/motes-of-work, branch main, on 84d5c33 (a docs commit that landed after 93a2d19). Not pushed.
+Repo <repo>, branch main, on 84d5c33 (a docs commit that landed after 93a2d19). Not pushed.
 
 ## Commits
 - 71a968b auto-advance: one stop per scene, at its end

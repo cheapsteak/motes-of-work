@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { it } from 'vitest';
-import { generateGalaxy, galaxyBudget } from '/home/user/motes-of-work/src/galaxy/generate';
-import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '/home/user/motes-of-work/src/config';
+import { generateGalaxy, galaxyBudget } from '../../../src/galaxy/generate';
+import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../../src/config';
 it('bud', () => {
   const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
   const planets = g.bodies.filter(b => b.kind === 'planet');

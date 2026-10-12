@@ -29,7 +29,7 @@ Note: carry to Tasks 5-7 — machines face +z toward the key light (looks test c
 Task 3: complete (commits b1c214e..cc216b3, review clean)
 Task 3: minor (deferred): depthRange uses euclidean distance vs view-axis depth; NORMAL_EPS duplicated TS/GLSL; doc comments (normal space, looks test wording); per-vertex mat3 work could be uniforms; shaderSource imports parity/fields
 Ruling: controller committed a 3-line test-infra change (E2E_PORT in playwright.config.ts) so Tasks 5-7 can run e2e in parallel worktrees — setup only, no product code — cost if wrong: trivial revert.
-Tasks 5-7: dispatched in parallel worktrees (/home/user/mow-{watch,strandbeest,steam}, branches mech-*, ports 4174-4176), base f3421f1.
+Tasks 5-7: dispatched in parallel worktrees (<mow-{watch,strandbeest,steam} checkout>, branches mech-*, ports 4174-4176), base f3421f1.
 Ruling: run Tasks 5-7 and Task 8 concurrently despite the one-implementer rule — disjoint files (each mechanism folder + one registry line; Task 8 in src/compare/), separate worktrees and ports; controller merges — cost if wrong: merge conflicts in src/mechanisms/index.ts, resolved by hand.
 Task 8 base: f3421f1 (main tree)
 Ruling: Task 8 camera orbits in machine-relative space mapped per pane via applyCamera (equivalent to world orbit about whole anchor); shared orbit in 2x2; mechanism switch keeps angle, Reset view returns to 3/4 — acceptable — cost: one line if the author prefers reset on switch.
@@ -55,7 +55,7 @@ Task 8: minor (carry to Task 9 polish): buildThenDraw lacks try/finally (stuck o
 Task 9: Fable visual review dispatched (all e2e green: 61 passed 6 skipped; 49 shots generated). Worktrees removed (branches merged).
 Task 9 visual review: recommendation steam, runner-up watch (author decides). 15 ranked changes + 7 comparison-page items in visual-review.md.
 Ruling: implement review changes 1-6, 8, 9(a,b,c optional), 10, 12-15 and watch items from 11 (pallet fork radius x2, solid comb); defer 7 (steam-specific story cameras) until the author chooses a mechanism, except keyframes ghost 1 -> 0.6; skip strandbeest floor; skip pallet-as-Dialogue typing — cost if wrong: another polish pass after the author picks.
-Ruling: compare page items 1-7 implemented in parallel worktree /home/user/mow-compare (branch polish-compare, port 4177); visual polish in main tree (port 4173).
+Ruling: compare page items 1-7 implemented in parallel worktree <mow-compare checkout> (branch polish-compare, port 4177); visual polish in main tree (port 4173).
 Task 9 polish base: ee4f09c
 Task 9b: implementer done (polish-compare 31414c8). Ruling: accept fitFov for tall twin-pair panes, first-word mechanism button labels, modified budget/jitter assertions (behaviour removed by brief), in-page fit measurement — cost: small.
 Note: ghost alpha dev slider needs the ghost alpha to become a uniform (9a owns ghost shaders) — follow-up after merge.

@@ -1,4 +1,4 @@
-p = '/home/user/mow-compare/src/compare/compare.css'
+p = '<mow-compare checkout>/src/compare/compare.css'
 s = open(p).read()
 def rep(old, new):
     global s

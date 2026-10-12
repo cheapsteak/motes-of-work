@@ -1,7 +1,7 @@
 # Task 7 report: `steam` mechanism
 
 **Status:** DONE_WITH_CONCERNS (minor; see Concerns)
-**Worktree / branch:** /home/user/mow-steam, `mech-steam`
+**Worktree / branch:** <mow-steam checkout>, `mech-steam`
 **Commit:** `8cf9117 feat: steam mechanism` (not pushed, not merged)
 
 ## What was built

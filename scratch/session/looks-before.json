@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "/home/user/motes-of-work/playwright.config.ts",
-    "rootDir": "/home/user/motes-of-work/e2e",
+    "configFile": "playwright.config.ts",
+    "rootDir": "e2e",
     "forbidOnly": false,
     "fullyParallel": false,
     "globalSetup": null,
@@ -26,7 +26,7 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "/home/user/motes-of-work/test-results",
+        "outputDir": "test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -34,7 +34,7 @@
         },
         "id": "chromium",
         "name": "chromium",
-        "testDir": "/home/user/motes-of-work/e2e",
+        "testDir": "e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"

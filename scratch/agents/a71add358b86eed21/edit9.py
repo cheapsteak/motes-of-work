@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/keyframes.test.ts'
+p = 'src/timeline/keyframes.test.ts'
 s = open(p).read()
 start = s.index("    expect(sampler.sample(at('vibe-build', 0)).mech.assembly).toBe(0);\n    expect(sampler.sample(at('vibe-build', 0.85)).mech.assembly).toBe(1);")
 end = s.index("  it.each([\n    [1440, 900],\n    [390, 844],\n  ])('frames the whole reveal twin")

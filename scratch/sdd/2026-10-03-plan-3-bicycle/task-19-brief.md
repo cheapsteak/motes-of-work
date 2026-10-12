@@ -1,6 +1,6 @@
 # Task 19: auto-advance stops at the end of each scene; the indicator bottom-right
 
-Repo /home/user/motes-of-work, branch main (HEAD 93a2d19 or later); commit there, do not push. Read global-constraints.md,
+Repo <repo>, branch main (HEAD 93a2d19 or later); commit there, do not push. Read global-constraints.md,
 implementer-instructions.md and task-18-report.md (auto-advance as built) in this folder.
 
 The author (2026-10-05):

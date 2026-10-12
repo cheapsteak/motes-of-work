@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "/home/user/motes-of-work/playwright.config.ts",
-    "rootDir": "/home/user/motes-of-work/e2e",
+    "configFile": "playwright.config.ts",
+    "rootDir": "e2e",
     "forbidOnly": false,
     "fullyParallel": false,
     "globalSetup": null,
@@ -26,7 +26,7 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "/home/user/motes-of-work/test-results",
+        "outputDir": "test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -34,7 +34,7 @@
         },
         "id": "chromium",
         "name": "chromium",
-        "testDir": "/home/user/motes-of-work/e2e",
+        "testDir": "e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -193,9 +193,9 @@
                       "duration": 6470,
                       "error": {
                         "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n    at /home/user/motes-of-work/e2e/looks.spec.ts:153:19",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n    at e2e/looks.spec.ts:153:19",
                         "location": {
-                          "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                          "file": "e2e/looks.spec.ts",
                           "column": 19,
                           "line": 153
                         },
@@ -204,11 +204,11 @@
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                            "file": "e2e/looks.spec.ts",
                             "column": 19,
                             "line": 153
                           },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n\n  151 |       const away = light(back, around(back, anchors.core));\n  152 |       test.info().annotations.push({ type: 'core brightness front / back', description: `${lit} / ${away}` });\n> 153 |       expect(lit).toBeGreaterThan(1.5 * away);\n      |                   ^\n  154 |     });\n  155 |\n  156 |     test('misallocated machine with invisible motes renders without errors', async ({ page }) => {\n    at /home/user/motes-of-work/e2e/looks.spec.ts:153:19"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m21196816.5\u001b[39m\nReceived:   \u001b[31m20130124\u001b[39m\n\n  151 |       const away = light(back, around(back, anchors.core));\n  152 |       test.info().annotations.push({ type: 'core brightness front / back', description: `${lit} / ${away}` });\n> 153 |       expect(lit).toBeGreaterThan(1.5 * away);\n      |                   ^\n  154 |     });\n  155 |\n  156 |     test('misallocated machine with invisible motes renders without errors', async ({ page }) => {\n    at e2e/looks.spec.ts:153:19"
                         }
                       ],
                       "stdout": [],
@@ -223,7 +223,7 @@
                       ],
                       "attachments": [],
                       "errorLocation": {
-                        "file": "/home/user/motes-of-work/e2e/looks.spec.ts",
+                        "file": "e2e/looks.spec.ts",
                         "column": 19,
                         "line": 153
                       }

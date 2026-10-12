@@ -1,4 +1,4 @@
-p = '/home/user/mow-compare/src/compare/controls.ts'
+p = '<mow-compare checkout>/src/compare/controls.ts'
 s = open(p).read()
 old_presets = s[s.index("export const PRESETS: readonly Preset[] = ["):s.index("export interface RelativeCamera")]
 new_presets = '''// Ghost is never 1 in a preset: a full ghost washes the pane and hides the provenance colouring

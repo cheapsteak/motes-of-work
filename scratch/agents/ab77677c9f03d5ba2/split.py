@@ -1,6 +1,6 @@
 # Writes intermediate versions for commit N into the working tree. Final versions in FINAL dir.
 import sys, subprocess, os
-R='/home/user/motes-of-work'
+R='.'
 FINAL=sys.argv[1]
 step=sys.argv[2]
 def fin(p): return open(os.path.join(FINAL,p)).read()

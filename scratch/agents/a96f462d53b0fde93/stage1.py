@@ -1,6 +1,6 @@
 import subprocess
 
-ROOT = '/home/user/motes-of-work'
+ROOT = '.'
 
 
 def head(path):

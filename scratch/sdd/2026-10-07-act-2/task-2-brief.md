@@ -1,6 +1,6 @@
 # Act II, Task 2: the reflow (the bike becomes the first stack)
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. First read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. First read global-constraints.md and
 implementer-instructions.md in this folder, and the repo's CLAUDE.md (phone first, pure function of scroll).
 
 **Requirements:** docs/specs/2026-10-06-act-2-storyboard-and-network.md. Read §0, §1 (the zoom-out copy), §2's

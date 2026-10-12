@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { it } from 'vitest';
-import { generateGalaxy, galaxyBudget } from '/home/user/motes-of-work/src/galaxy/generate';
-import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '/home/user/motes-of-work/src/config';
+import { generateGalaxy, galaxyBudget } from '../../../src/galaxy/generate';
+import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../../src/config';
 it('probe', () => {
   for (const seed of [MOTE_SEED, 2, 3]) {
     const g = generateGalaxy(seed, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));

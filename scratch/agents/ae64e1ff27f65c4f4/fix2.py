@@ -1,6 +1,6 @@
 import re
 
-R = '/home/user/motes-of-work/'
+R = './'
 
 
 def edit(path, old, new, count=1):

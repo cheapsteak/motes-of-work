@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/netShots.ts'
+p = 'src/timeline/netShots.ts'
 s = open(p).read()
 old = """  /**
    * fx-1: R0's cracked cube again, a little round. Distance 10 and frame 0.5, not the design's 5.5
@@ -24,13 +24,13 @@ new = """  /**
 assert old in s
 s = s.replace(old, new)
 open(p, 'w').write(s)
-p = '/home/user/motes-of-work/src/timeline/keyframes.json'
+p = 'src/timeline/keyframes.json'
 s = open(p).read()
 old = '{ "at": "fix@0.08", "value": 0.5, "ease": "inOutCubic" },\n      { "at": "fix@0.4", "value": 0.5 },'
 assert old in s
 s = s.replace(old, '{ "at": "fix@0.08", "value": 0.75, "ease": "inOutCubic" },\n      { "at": "fix@0.4", "value": 0.75 },')
 open(p, 'w').write(s)
-p = '/home/user/motes-of-work/docs/specs/2026-10-06-act-2-storyboard-and-network.md'
+p = 'docs/specs/2026-10-06-act-2-storyboard-and-network.md'
 s = open(p).read()
 old = """- N15′ and N17: distance 10 and frame 0.5, not 5.5 and 1: nearer than about 9 the warm motes cross a
   desktop band as they land, and at frame 1 the rule's body ran off the bottom of a phone."""

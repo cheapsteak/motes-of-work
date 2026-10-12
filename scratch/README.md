@@ -28,7 +28,9 @@ into `docs/specs/`.
 - **`sdd/`** holds the build plans' records: ledgers (`progress.md`), task briefs, reports and
   reviews. The review diffs are left out, because `git diff` regenerates them.
 - **`tools/`**:
-  - `collect_scratch.py` refreshes this folder from a session scratchpad.
+  - `collect_scratch.py` refreshes this folder from a session scratchpad. It writes repo-relative
+    paths (`<repo>`, `<scratchpad>` and `<mow-<name> checkout>` where a relative path would not do),
+    because `tools/check-public.sh` fails on machine paths.
   - `preview-build.patch` is the preview-only change used to publish galaxy previews. It reads
     the page's settings from the `#hash`, allows `?shot=` outside test mode, and hides the text in
     shot views. Apply it to a throwaway worktree, never to main.

@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/timeline/keyframes.json'
+p = 'src/timeline/keyframes.json'
 s = open(p).read()
 old_assembly = '''      { "at": "vibe-build@0", "value": 0 },
       { "at": "vibe-build@0.7", "value": 1, "ease": "outCubic" },

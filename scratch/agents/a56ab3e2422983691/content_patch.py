@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/content.test.ts'
+p = 'src/story/content.test.ts'
 s = open(p).read()
 
 s = s.replace(

@@ -1,4 +1,4 @@
-import { PNG } from '/home/user/motes-of-work/node_modules/pngjs/lib/png.js';
+import { PNG } from '../../../node_modules/pngjs/lib/png.js';
 import { readFileSync } from 'node:fs';
 const img = PNG.sync.read(readFileSync(process.argv[2]));
 let nw = 0, sat = 0, amber = 0;

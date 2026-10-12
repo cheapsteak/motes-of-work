@@ -1,5 +1,5 @@
 import os
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 fonts = """/*
  * Self-hosted type (SIL Open Font License 1.1; notices in CREDITS.md). Vite fingerprints the files
  * and rewrites these urls, relative to the built stylesheet under BASE_PATH=./, so nothing is

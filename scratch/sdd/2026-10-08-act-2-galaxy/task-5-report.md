@@ -100,7 +100,7 @@ TDD, honestly: I wrote the renderer before its tests. A first draw was needed to
 
 ## Stills (shots/galaxy/, not committed: shots/ is gitignored), phone looked at first
 
-`/home/user/motes-of-work/shots/galaxy/T5-{galaxy-wide,hood,core,system,twelve,close}-{390x844,1440x900}.png`
+`shots/galaxy/T5-{galaxy-wide,hood,core,system,twelve,close}-{390x844,1440x900}.png`
 
 - **T5-galaxy-wide-390x844.** It reads as a galaxy: a two-arm spiral with a soft core haze and a few dozen blue star points round the core. The six core bodies are a tight bright knot at the centre, and the 30 neighbourhood stars are crisp blue points scattered over the inner disc.
   - Nothing is blown out. An earlier draw was blown out: hundreds of shell motes piled into one white pixel. That is fixed by fading a star's or core body's shell into its glow below a 1–3 px radius.

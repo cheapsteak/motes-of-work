@@ -1,4 +1,4 @@
-import { chromium } from '/home/user/motes-of-work/node_modules/@playwright/test/index.mjs';
+import { chromium } from '../../../node_modules/@playwright/test/index.mjs';
 
 const OUT = '<scratchpad>/agents/aab52c85e544c464f';
 const query = process.argv[2] ?? '';

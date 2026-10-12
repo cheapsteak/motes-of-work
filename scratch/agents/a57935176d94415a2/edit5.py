@@ -1,7 +1,7 @@
 import os
 import re
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 p = 'src/timeline/keyframes.test.ts'
 s = open(p).read()
 

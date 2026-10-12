@@ -1,6 +1,6 @@
 from pathlib import Path
 
-p = Path('/home/user/motes-of-work/docs/specs/2026-10-06-act-2-storyboard-and-network.md')
+p = Path('docs/specs/2026-10-06-act-2-storyboard-and-network.md')
 s = p.read_text().rstrip('\n')
 s += '''
 

@@ -1,6 +1,6 @@
 import os
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 p = 'src/timeline/keyframes.test.ts'
 s = open(p).read()
 a = """  it('turns the twin to near full lock for the rest of the reveal, and holds still from rv-5 on', () => {

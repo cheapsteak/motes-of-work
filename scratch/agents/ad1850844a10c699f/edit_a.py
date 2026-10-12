@@ -1,5 +1,5 @@
 import os
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 
 def rep(p, old, new):
     s = open(p).read()

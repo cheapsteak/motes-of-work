@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { BG, generateBackground } from '/home/user/motes-of-work/src/galaxy/background';
+import { BG, generateBackground } from '../../../src/galaxy/background';
 
 it('probe', () => {
   const HOOD: [number, number, number] = [65 * Math.cos(0.9), 0, 65 * Math.sin(0.9)];

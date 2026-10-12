@@ -1,7 +1,7 @@
 # Design brief (round 2a): the build sequence, the frame's entrance and the "Done" orbit
 
 You are the art director for "Motes of Work", a scroll-driven essay on a three.js point cloud. Repo
-/home/user/motes-of-work (read-only for you except your output file). Current design:
+<repo> (read-only for you except your output file). Current design:
 docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md (§1 copy, §2 storyboard incl. §2.7 as built, §3 text
 engine). Look at the live frames in shots/task13/*.png. Another designer is working in parallel on the
 "drawing first" (blueprint) part of the spec section; stay out of that (spec section beats sp-1..sp-7).

@@ -1,4 +1,4 @@
-R = '/home/user/motes-of-work/e2e/machine.ts'
+R = 'e2e/machine.ts'
 s = open(R).read()
 
 

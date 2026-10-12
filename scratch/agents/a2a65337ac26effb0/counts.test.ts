@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { bike } from '../../../../../../../../home/user/motes-of-work/src/mechanisms/bike';
+import { bike } from '../../../../../../../..src/mechanisms/bike';
 it('c', () => {
   const counts = bike.parts.map(() => 0);
   for (const p of bike.samplePoints(30_000, 3)) counts[p.part]++;

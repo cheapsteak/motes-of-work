@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { it } from 'vitest';
-import { LINEAGE as NEW } from '/home/user/motes-of-work/src/galaxy/lineage';
-import { LINEAGE as OLD } from '/home/user/motes-of-work/src/network/lineage';
+import { LINEAGE as NEW } from '../../../src/galaxy/lineage';
+import { LINEAGE as OLD } from '../../../src/network/lineage';
 it('lin', () => {
   const out: string[] = [`old ${OLD.length} new ${NEW.length}`];
   const map: Record<string,string> = { rule: 'core', plan: 'star', code: 'planet' };

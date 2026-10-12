@@ -1,5 +1,5 @@
 // Usage: node render.mjs <outdir> <query> [<query> ...]; each query like p=0.3 or state=...; full page with panels.
-import { chromium } from '/home/user/motes-of-work/node_modules/@playwright/test/index.mjs';
+import { chromium } from '../../../node_modules/@playwright/test/index.mjs';
 const [out, ...queries] = process.argv.slice(2);
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });

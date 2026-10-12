@@ -89,7 +89,7 @@ TDD: this task is removal, not new behaviour. The tests I changed or wrote were 
 I confirmed they pass on the new code. I did not run them RED on the old code. Under the old code the label test would fail on `01 — The brief`, and the font-file test would fail on the Newsreader files.
 
 ## Screenshots (`?test=1`, fresh page per shot)
-Script: `.superpowers/sdd/2026-10-03-plan-3-bicycle/task11-shots.mjs`. Output in `/home/user/motes-of-work/shots/task11/`:
+Script: `.superpowers/sdd/2026-10-03-plan-3-bicycle/task11-shots.mjs`. Output in `shots/task11/`:
 - desktop-p0.09.png, desktop-p0.27.png, desktop-p0.45.png, desktop-p1.png (1440x900)
 - portrait-p0.09.png, portrait-p0.27.png, portrait-p0.45.png, portrait-p1.png (390x844)
 

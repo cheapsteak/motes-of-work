@@ -1,6 +1,6 @@
 # Act II, Task 4: the remaining eight sections and their copy
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. First read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. First read global-constraints.md and
 implementer-instructions.md in this folder, and the repo's CLAUDE.md.
 
 **Requirements:** docs/specs/2026-10-06-act-2-storyboard-and-network.md, §1 (the copy), §2 (conventions and

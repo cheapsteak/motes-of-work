@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/galaxy/generate.ts'
+p = 'src/galaxy/generate.ts'
 s = open(p).read()
 a = s.index("/**\n * Sets every body's lattice, motes and person set.")
 s = s[:a] + '''/**
@@ -55,7 +55,7 @@ assert old in s
 s = s.replace(old, new)
 open(p, 'w').write(s)
 
-q = '/home/user/motes-of-work/src/galaxy/zz-probe.test.ts'
+q = 'src/galaxy/zz-probe.test.ts'
 t = open(q).read()
 t = t.replace("      const g = G.generateGalaxy(seed * 7919, 'phone', 76000);\n", "      const g = G.generateGalaxy(seed * 7919, 'phone', 76000);\n      if (Math.max(...g.bodies.map((b) => b.born + b.dur)) > 1 + 1e-12) errs.push('late');\n")
 open(q, 'w').write(t)

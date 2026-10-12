@@ -1,12 +1,12 @@
 import { it } from 'vitest';
-import { mechanismAnchors } from '/home/user/motes-of-work/src/mechanisms/anchors';
-import { mechanisms } from '/home/user/motes-of-work/src/mechanisms';
-import { sectionSpans } from '/home/user/motes-of-work/src/scroll/progress';
-import { loadStory } from '/home/user/motes-of-work/src/story/loader';
-import { KeyframeSampler } from '/home/user/motes-of-work/src/timeline/keyframeSampler';
-import keyframes from '/home/user/motes-of-work/src/timeline/keyframes.json';
-import { portraitRig } from '/home/user/motes-of-work/src/scene/cameraRig';
-import { essayNetwork, NET_MOVES } from '/home/user/motes-of-work/src/timeline/netShots';
+import { mechanismAnchors } from '../../../src/mechanisms/anchors';
+import { mechanisms } from '../../../src/mechanisms';
+import { sectionSpans } from '../../../src/scroll/progress';
+import { loadStory } from '../../../src/story/loader';
+import { KeyframeSampler } from '../../../src/timeline/keyframeSampler';
+import keyframes from '../../../src/timeline/keyframes.json';
+import { portraitRig } from '../../../src/scene/cameraRig';
+import { essayNetwork, NET_MOVES } from '../../../src/timeline/netShots';
 it('code clearance', () => {
   const anchors = mechanismAnchors(mechanisms.bike);
   const spans = sectionSpans(loadStory());

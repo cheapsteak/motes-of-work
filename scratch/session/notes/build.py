@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-SRC = Path('/home/user/motes-of-work/docs/script/act-2.md')
+SRC = Path('docs/script/act-2.md')
 OUT = Path(__file__).parent / 'script-notes.html'
 TEMPLATE = Path(__file__).parent / 'template.html'
 SCRIPT_ID = 'act2-d3'  # bump with each draft so notes on an old draft never attach to the wrong line

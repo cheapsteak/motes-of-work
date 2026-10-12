@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/e2e/text.spec.ts'
+p = 'e2e/text.spec.ts'
 s = open(p).read()
 
 

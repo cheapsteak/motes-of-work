@@ -1,16 +1,16 @@
 import { it } from 'vitest';
-import { PerspectiveCamera, Vector3 } from '/home/user/motes-of-work/node_modules/three/build/three.module.js';
-import { networkTop, machineOnScreen } from '/home/user/motes-of-work/e2e/machine.ts';
-import { mechanisms } from '/home/user/motes-of-work/src/mechanisms';
-import { mechanismAnchors } from '/home/user/motes-of-work/src/mechanisms/anchors';
-import { boxCorners } from '/home/user/motes-of-work/src/network/cluster';
-import { nodeIndex } from '/home/user/motes-of-work/src/network/generate';
-import { applyCamera } from '/home/user/motes-of-work/src/scene/cameraRig';
-import { sectionSpans } from '/home/user/motes-of-work/src/scroll/progress';
-import { loadStory } from '/home/user/motes-of-work/src/story/loader';
-import { KeyframeSampler, type KeyframeFile } from '/home/user/motes-of-work/src/timeline/keyframeSampler';
-import keyframes from '/home/user/motes-of-work/src/timeline/keyframes.json';
-import { essayNetwork, NET_CENTRE, netShotOf } from '/home/user/motes-of-work/src/timeline/netShots';
+import { PerspectiveCamera, Vector3 } from '../../../node_modules/three/build/three.module.js';
+import { networkTop, machineOnScreen } from '../../../e2e/machine.ts';
+import { mechanisms } from '../../../src/mechanisms';
+import { mechanismAnchors } from '../../../src/mechanisms/anchors';
+import { boxCorners } from '../../../src/network/cluster';
+import { nodeIndex } from '../../../src/network/generate';
+import { applyCamera } from '../../../src/scene/cameraRig';
+import { sectionSpans } from '../../../src/scroll/progress';
+import { loadStory } from '../../../src/story/loader';
+import { KeyframeSampler, type KeyframeFile } from '../../../src/timeline/keyframeSampler';
+import keyframes from '../../../src/timeline/keyframes.json';
+import { essayNetwork, NET_CENTRE, netShotOf } from '../../../src/timeline/netShots';
 
 const story = loadStory();
 const spans = sectionSpans(story);

@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/galaxy/background.ts'
+p = 'src/galaxy/background.ts'
 s = open(p).read()
 
 

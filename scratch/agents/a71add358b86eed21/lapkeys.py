@@ -3,7 +3,7 @@
 import json
 
 D = '<scratchpad>/agents/a71add358b86eed21'
-P = '/home/user/motes-of-work/src/timeline/keyframes.json'
+P = 'src/timeline/keyframes.json'
 src = open(D + '/keys.py').read()
 fmt_src = src[src.index('def fmt'):src.index("open(P, 'w').write(fmt(d))")]
 exec(fmt_src)

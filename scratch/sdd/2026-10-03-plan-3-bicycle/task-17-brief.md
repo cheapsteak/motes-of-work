@@ -1,6 +1,6 @@
 # Task 17: the basket gets its own line and its own entrance
 
-Repo /home/user/motes-of-work, branch main (HEAD e251122 or later); commit there, do not push. Read global-constraints.md,
+Repo <repo>, branch main (HEAD e251122 or later); commit there, do not push. Read global-constraints.md,
 implementer-instructions.md and task-16-report.md in this folder.
 
 The author (2026-10-05): "'The front wheel turns, so you can steer.' We add the basket in that animation too. How about

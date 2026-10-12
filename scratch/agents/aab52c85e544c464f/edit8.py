@@ -7,7 +7,7 @@ def edit(p, pairs):
 
 
 edit(
-    "/home/user/mow-compare/src/compare/controls.ts",
+    "<mow-compare checkout>/src/compare/controls.ts",
     [
         (
             """  preset('Vibed (wrong twin)', 'Built fast from a vague prompt: a polished, working, wrong machine, cool throughout.', {""",
@@ -20,7 +20,7 @@ edit(
     ],
 )
 edit(
-    "/home/user/mow-compare/src/compare/controls.test.ts",
+    "<mow-compare checkout>/src/compare/controls.test.ts",
     [
         (
             """      'Vibed (wrong twin) — built fast from a vague prompt: a polished, working, wrong machine, cool throughout. No ghost.',""",
@@ -29,7 +29,7 @@ edit(
     ],
 )
 edit(
-    "/home/user/mow-compare/src/compare/compare.css",
+    "<mow-compare checkout>/src/compare/compare.css",
     [
         (
             """h2 {

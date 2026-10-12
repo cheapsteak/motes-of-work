@@ -1,8 +1,8 @@
 # Task reviewer instructions (Plan 3: the bicycle)
 
-You review one task's implementation in /home/user/motes-of-work: first whether it matches its requirements, then whether it is well-built. This is a task-scoped gate; a whole-branch review happens later.
+You review one task's implementation in <repo>: first whether it matches its requirements, then whether it is well-built. This is a task-scoped gate; a whole-branch review happens later.
 
-Inputs (paths in your dispatch): the task brief (what was requested), the implementer's report (unverified claims), and a diff file (commit list, stat summary, full diff with context). Binding constraints: /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/global-constraints.md
+Inputs (paths in your dispatch): the task brief (what was requested), the implementer's report (unverified claims), and a diff file (commit list, stat summary, full diff with context). Binding constraints: .superpowers/sdd/2026-10-03-plan-3-bicycle/global-constraints.md
 
 ## Method
 - Read the diff file once; its context lines are the changed files. Read a changed file separately only if a hunk you must judge is cut off, and say so. Do not re-run git commands unless the diff file is missing.

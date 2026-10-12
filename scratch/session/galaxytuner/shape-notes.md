@@ -329,7 +329,7 @@ rule.
 - Comparison: `galaxytuner/shots/shape-compare.png` (all six at phone size).
 - Measurement scripts in the scratchpad `work/`: `baseline.mjs` (bit-exactness), `metrics.mjs` (cross-arm profiles),
   `touch.mjs`, `halos.mjs`, `repotests.mjs`, `probe.mjs`. Tables: `final-profile*.txt`, `preset-table.md`.
-- The temporary Playwright scripts under `/home/user/motes-of-work/shots/` were deleted. The http.server was stopped
+- The temporary Playwright scripts under `shots/` were deleted. The http.server was stopped
   by PID.
 - Added in the second round:
   - `shots/shape-colour.png`;
@@ -675,7 +675,7 @@ Cross-arm, by the method of §9 (`work/soft/final-cliff.txt`):
     - the peek button is present.
   - Desktop: → → → reaches Wisps, with the camera unchanged.
   - The test ran before the last tuning step (`wispBias` 4.5 → 2), which changed only a preset value.
-- The temporary scripts under `/home/user/motes-of-work/shots/` were deleted, and the http.server was stopped by PID.
+- The temporary scripts under `shots/` were deleted, and the http.server was stopped by PID.
 
 ## 11. Wisps (reviewed) (fourth round): an independent review of Wisps, with code changes
 
@@ -787,7 +787,7 @@ The keys it takes from the shape defaults or WISPS without repeating them: `wisp
 `laneDepth` 0.6 (WISPS: 0.7), `oldDim` 0, `oldSharp` 2, `brightFloor` 0.3, `brightPow` 2.2, `bulgeMode` exp,
 `radialLaw` exp.
 
-**How it was tuned** (`work/rev/iter/`, `work/rev/v*.json`; the still script lived in `/home/user/motes-of-work/shots/`
+**How it was tuned** (`work/rev/iter/`, `work/rev/v*.json`; the still script lived in `shots/`
 and was deleted): the first draft (ridge 0.35, feed 0.7, power 5, warp 0.25, feathers 0.015 r wide) rendered as a
 diffuse spray: the ridged network spread the young stars evenly along the arm (Poisson-corrected CV 0.15) and the
 feathers were hairlines nobody could populate with 2,400 stars. Lower ridge and feed, power 8, shorter wisps and the
@@ -882,7 +882,7 @@ contrast floor, along-arm CV floor; the ≥ 95 % halo rule, which needs the auth
 - Scripts (scratchpad `work/rev/`): `baseline4.mjs` (hashes all four frozen presets), `field.mjs` (acceptance-field
   renders), `plot2.mjs` (population-coloured top-down plot), `interarm.mjs`, `hoodcrest.mjs`, `gentime.mjs`; logs
   `final-*.txt`, `progress.txt`; iteration images and variant JSONs in `iter/` and `v*.json`; pre-change backups
-  `*.before-review.*`. The temporary Playwright scripts under `/home/user/motes-of-work/shots/` were deleted and the
+  `*.before-review.*`. The temporary Playwright scripts under `shots/` were deleted and the
   http.server stopped by PID.
 
 ## 12. The neighbourhood at the galaxy wide (fourth round, follow-up): four representations and a zoom handover
@@ -1006,7 +1006,7 @@ the band around its first third in log distance.
   `bgHoodJitter` 21, the five page-level keys in `SHAPE_DEFAULTS`. `galaxy-tuner.html` rebuilt.
 - `shots/hood-compare.png`, the eight stills, and the composer `shots/hood-compose.html`.
 - `work/rev/hood-test.log` (the Playwright checks), `patch_hood.py`, backups `*.before-hood.*`. The temporary scripts
-  under `/home/user/motes-of-work/shots/` were deleted and the http.server stopped by PID.
+  under `shots/` were deleted and the http.server stopped by PID.
 
 ### 12.1 A second swipe axis, the pill, and Dissolve (late) (follow-up)
 

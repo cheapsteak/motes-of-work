@@ -2,7 +2,7 @@
 
 - Read your task brief first (path given in your dispatch). It is your requirements, with exact values to use verbatim.
 - Read global-constraints.md in this same directory: project-wide constraints binding every task (pinned versions, Chromium launch args, commit trailer, file layout, review focus).
-- Repo: /home/user/motes-of-work, branch `plan-1-foundation` (Plan 2 continues on the same branch). Node 22. `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` is preset; NEVER run `playwright install`. Rendering is SwiftShader (software).
+- Repo: <repo>, branch `plan-1-foundation` (Plan 2 continues on the same branch). Node 22. `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` is preset; NEVER run `playwright install`. Rendering is SwiftShader (software).
 - If anything is unclear, ask before starting (report NEEDS_CONTEXT with the question).
 
 ## Your job

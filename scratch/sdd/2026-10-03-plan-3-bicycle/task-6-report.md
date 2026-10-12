@@ -120,9 +120,9 @@ New and changed tests:
 
 ## What I saw in the shots (honest)
 Best shots:
-- /home/user/motes-of-work/shots/reveal-0.5.png
-- /home/user/motes-of-work/shots/reveal-0.9.png
-- /home/user/motes-of-work/shots/reveal-0.1.png
+- shots/reveal-0.5.png
+- shots/reveal-0.9.png
+- shots/reveal-0.1.png
 - Mannequin close-up: <scratchpad>/agents/a839cbcb474978ff7/frames/a55-close2.png (the reveal@0.55 state with a closer camera, panel visible)
 
 Per shot:

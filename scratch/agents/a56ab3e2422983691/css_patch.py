@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/style.css'
+p = 'src/style.css'
 s = open(p).read()
 
 

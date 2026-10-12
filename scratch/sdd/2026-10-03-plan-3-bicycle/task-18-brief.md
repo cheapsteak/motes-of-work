@@ -1,10 +1,10 @@
 # Task 18: auto-advance, with a faint countdown you can pause
 
-Worktree /home/user/mow-auto, branch `auto-advance` (from main 3e4d03e; node_modules symlinked). Commit there; do
-not push; do not touch /home/user/motes-of-work (another task is committing on main there; your commits will be
+Worktree <mow-auto checkout>, branch `auto-advance` (from main 3e4d03e; node_modules symlinked). Commit there; do
+not push; do not touch <repo> (another task is committing on main there; your commits will be
 cherry-picked, so keep them self-contained: a new module, a few lines in src/main.ts, src/config.ts and CSS; do not
 edit src/story/*.md, keyframes.json or src/mechanisms/**). Read global-constraints.md and implementer-instructions.md
-in /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/.
+in .superpowers/sdd/2026-10-03-plan-3-bicycle/.
 
 The author (2026-10-05): "Can we also add auto advance please, in case people don't realize they can scroll. Show a
 faint indicator on screen that dials down. Manual scroll pauses it. Click / tap it to resume. Start with 2s but we
@@ -60,8 +60,8 @@ is, with a 2s floor."
 - The full existing suite stays green: `E2E_PORT=4214 npx playwright test`.
 
 ## Verification
-tsc; vitest; full e2e on port 4214. Screenshots at 1440x900 and 390x844 into /home/user/mow-auto/shots/task18/: the
+tsc; vitest; full e2e on port 4214. Screenshots at 1440x900 and 390x844 into <mow-auto checkout>/shots/task18/: the
 indicator mid-dwell, paused, and during transit, at a brief line and at a reveal line.
 
-Report to /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/task-18-report.md; return only status,
+Report to .superpowers/sdd/2026-10-03-plan-3-bicycle/task-18-report.md; return only status,
 commits, one-line test summary, screenshot paths, concerns.

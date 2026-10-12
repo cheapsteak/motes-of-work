@@ -1,4 +1,4 @@
-PATH = "/home/user/motes-of-work/docs/specs/2026-10-05-act-1-build-and-orbit.md"
+PATH = "docs/specs/2026-10-05-act-1-build-and-orbit.md"
 s = open(PATH).read()
 
 
@@ -86,7 +86,7 @@ rep(
 # §2.5 markdown block (fenced: the story must contain it).
 a = s.index("```markdown\n<!-- page -->\n<!-- beat id=vb-brief")
 b = s.index("```\n", a + 12)
-cur = open("/home/user/motes-of-work/src/story/01-vibe-build.md").read()
+cur = open("src/story/01-vibe-build.md").read()
 c = cur.index("<!-- page -->\n<!-- beat id=vb-brief")
 block = cur[c:]
 if not block.endswith("\n"):

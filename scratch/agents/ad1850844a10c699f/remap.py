@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 OLD_L, NEW_L = 6.4, 7.2
 TURN_END, SHIFT, S3_HOLD_TO = 4.05, 0.8, 4.90
 

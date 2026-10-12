@@ -1,4 +1,4 @@
-PATH = "/home/user/motes-of-work/src/timeline/shots.test.ts"
+PATH = "src/timeline/shots.test.ts"
 s = open(PATH).read()
 old_a = s.index("  ['vibe-build', 0, 0.1, 'S0'")
 old_b = s.index("  ['rewind', 1, 1, 'S8'")

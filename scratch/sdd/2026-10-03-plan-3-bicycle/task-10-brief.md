@@ -1,11 +1,11 @@
 # Task 10: a live switcher between text treatments A, B and C
 
-Worktree: /home/user/mow-text, branch `text-switcher` (based on main bc2fac7). Commit there; do not push,
-do not touch /home/user/motes-of-work (another task is committing on main there in parallel; your commits
+Worktree: <mow-text checkout>, branch `text-switcher` (based on main bc2fac7). Commit there; do not push,
+do not touch <repo> (another task is committing on main there in parallel; your commits
 will be cherry-picked onto main afterwards, so keep them self-contained and avoid editing
 src/story/02-reveal.md, src/timeline/keyframes.json and src/mechanisms/**).
 
-Read global-constraints.md and implementer-instructions.md in /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/.
+Read global-constraints.md and implementer-instructions.md in .superpowers/sdd/2026-10-03-plan-3-bicycle/.
 
 ## Why
 Task 8 shipped text option B ("Motes") as the essay's look. The author wants to compare it live against the
@@ -46,8 +46,8 @@ C = Literata + Instrument Serif; B = Newsreader + Geist Mono (already self-hoste
 
 ## Screenshots
 With `?test=1&text=<x>` at 1440x900 and 390x844 for p in {0.09 (mid-build), 0.27 (brief done), 0.41
-(reveal)} for x in a, b, c into /home/user/mow-text/shots/task10/ — fresh page per URL. Look at them and say
+(reveal)} for x in a, b, c into <mow-text checkout>/shots/task10/ — fresh page per URL. Look at them and say
 honestly whether each is legible and faithful to its mockup.
 
-Report to /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/task-10-report.md; return
+Report to .superpowers/sdd/2026-10-03-plan-3-bicycle/task-10-report.md; return
 only status, commits, one-line test summary, screenshot paths, concerns.

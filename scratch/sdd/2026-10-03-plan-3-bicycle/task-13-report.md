@@ -192,7 +192,7 @@ These are also written into the storyboard as a new §2.7.
 ## Screenshots
 
 All are `?test=1` at full mote budget, with a fresh page per shot. They are in
-`/home/user/motes-of-work/shots/task13/`, at both `desktop-` (1440x900) and `portrait-` (390x844).
+`shots/task13/`, at both `desktop-` (1440x900) and `portrait-` (390x844).
 
 **Per beat**, at the middle of its hold: `{desktop,portrait}-<beat>.png` for all 20 beats, made by
 task12-shots.mjs.

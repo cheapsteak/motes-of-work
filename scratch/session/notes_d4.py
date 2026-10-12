@@ -1,6 +1,6 @@
 from pathlib import Path
 
-p = Path('/home/user/motes-of-work/tools/script-notes/build.py')
+p = Path('tools/script-notes/build.py')
 s = p.read_text()
 reps = [
     (

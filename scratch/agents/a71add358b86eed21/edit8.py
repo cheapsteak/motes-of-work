@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/mechanisms/bike/index.test.ts'
+p = 'src/mechanisms/bike/index.test.ts'
 s = open(p).read()
 s = s.replace("""import { FAULT_KEYS, ZERO_FAULTS, type Faults } from '../../timeline/sceneState';""",
               """import { defaultSceneState, FAULT_KEYS, ZERO_FAULTS, type Faults } from '../../timeline/sceneState';""")
@@ -38,7 +38,7 @@ s = s.replace("""  it('carries the order to the twin: its head tube rises into t
   it('carries the order to the twin: its head tube rises into the mast, and its top tube climbs from the stub to the mast join', () => {""")
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/src/story/brief.test.ts'
+p = 'src/story/brief.test.ts'
 s = open(p).read()
 s = s.replace("""describe("briefThresholds", () => {
   // The shipped order (src/story/01-vibe-build.md): seat and bars, wheels and chain, steering,

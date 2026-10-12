@@ -84,8 +84,8 @@ TDD evidence:
 5. **Stacks born near g = 1 are not finished building when the act ends** (growth stops at 1.00).
 
 Files:
-- /home/user/motes-of-work/src/network/cluster.ts and cluster.test.ts
-- /home/user/motes-of-work/src/network/generate.ts and generate.test.ts
-- /home/user/motes-of-work/src/network/lineage.ts
-- /home/user/motes-of-work/src/network/schedule.ts and schedule.test.ts
-- /home/user/motes-of-work/src/network/review.ts and review.test.ts
+- src/network/cluster.ts and cluster.test.ts
+- src/network/generate.ts and generate.test.ts
+- src/network/lineage.ts
+- src/network/schedule.ts and schedule.test.ts
+- src/network/review.ts and review.test.ts

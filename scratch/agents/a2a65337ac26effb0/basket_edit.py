@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/mechanisms/bike/shapes.ts'
+p = 'src/mechanisms/bike/shapes.ts'
 s = open(p).read()
 
 

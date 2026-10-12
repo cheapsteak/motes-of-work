@@ -1,6 +1,6 @@
 # Task 6 report: `strandbeest` mechanism
 
-Worktree `/home/user/mow-strandbeest`, branch `mech-strandbeest` (base f3421f1). E2E port 4175. Commit: 905ad1e feat: strandbeest mechanism.
+Worktree `<mow-strandbeest checkout>`, branch `mech-strandbeest` (base f3421f1). E2E port 4175. Commit: 905ad1e feat: strandbeest mechanism.
 
 ## What I implemented
 

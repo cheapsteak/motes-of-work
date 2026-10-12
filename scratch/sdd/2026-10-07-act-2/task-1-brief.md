@@ -1,6 +1,6 @@
 # Act II, Task 1: the network generator and the schedule
 
-Repo /home/user/motes-of-work, branch main; commit there, do not push. Read global-constraints.md and
+Repo <repo>, branch main; commit there, do not push. Read global-constraints.md and
 implementer-instructions.md in this folder, and the repo's CLAUDE.md (phone first, pure function of scroll).
 
 Requirements: docs/specs/2026-10-06-act-2-storyboard-and-network.md — read it whole once (you need the full

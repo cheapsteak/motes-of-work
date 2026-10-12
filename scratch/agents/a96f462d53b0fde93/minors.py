@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/e2e/clearance.spec.ts'
+p = 'e2e/clearance.spec.ts'
 s = open(p).read()
 old = """/** A wide shot: the camera on the network's framing centre (the shots that show all three layers). */
 function wide(state: SceneState): boolean {
@@ -42,7 +42,7 @@ assert old in s
 s = s.replace(old, new)
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/src/parity/parity.ts'
+p = 'src/parity/parity.ts'
 s = open(p).read()
 old = """    birth: f32(a.birth),
   });"""
@@ -52,7 +52,7 @@ s = s.replace(old, """    birth: f32(a.birth),
   });""")
 open(p, 'w').write(s)
 
-p = '/home/user/motes-of-work/docs/specs/2026-10-06-act-2-storyboard-and-network.md'
+p = 'docs/specs/2026-10-06-act-2-storyboard-and-network.md'
 s = open(p).read()
 old = """- N9: bearing −30, elevation 20, distance 66, not 50, 14, 60: from bearing 50 the three lit plans stand
   one behind another and the twelve read as ten shapes; from here test 12 counts twelve on both sizes."""

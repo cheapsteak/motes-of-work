@@ -43,7 +43,7 @@ rep('''    const t = moonTrack(j, m);
   const slot: SlotDraw = { R, orbit, e0: orbit.e, moons, tracks, trackPhase, pinned: pin?.moons !== undefined, ms: 0 };''')
 open(p, 'w').write(s)
 
-g = '/home/user/motes-of-work/src/galaxy/generate.ts'
+g = 'src/galaxy/generate.ts'
 t = open(g).read()
 a = t.index('/** A moon as drawn for its slot. */')
 b = t.index('/** A body before it has a row. */')

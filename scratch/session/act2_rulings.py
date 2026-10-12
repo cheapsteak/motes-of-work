@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-repo = Path('/home/user/motes-of-work')
+repo = Path('.')
 p = repo / 'docs/specs/2026-10-06-act-2-storyboard-and-network.md'
 s = p.read_text().rstrip('\n')
 s += '''

@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/docs/specs/2026-10-07-galaxy-orbits.md'
+p = 'docs/specs/2026-10-07-galaxy-orbits.md'
 s = open(p).read()
 R = [
     ("| zo-1, zo-2 | the bike's frame contracts into a planet, its wheels, bars, saddle and basket into moons; the camera lifts: P_a's star and planets, the neighbourhood, the galaxy with its core |",

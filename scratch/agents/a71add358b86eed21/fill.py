@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/task-14-report.md'
+p = '.superpowers/sdd/2026-10-03-plan-3-bicycle/task-14-report.md'
 s = open(p).read()
 s = s.replace('RESULTS_PLACEHOLDER', '''- **Typecheck.** `npx tsc --noEmit -p .`: clean.
 - **Unit tests.** `npx vitest run`: 52 files, 883 tests passed. The baseline was 52 files and 826
@@ -15,7 +15,7 @@ s = s.replace('RESULTS_PLACEHOLDER', '''- **Typecheck.** `npx tsc --noEmit -p .`
   - `clearance.spec`: 4 passed on the re-cut, and again with the lap.
   - `app.spec`: 16 passed.''')
 s = s.replace('SHOTS_PLACEHOLDER', '''`?test=1`, a fresh page per shot, full page (text and canvas), at 1440x900 (`desktop-`) and 390x844
-(`portrait-`). They are in `/home/user/motes-of-work/shots/task14/`, made by
+(`portrait-`). They are in `shots/task14/`, made by
 `.superpowers/sdd/2026-10-03-plan-3-bicycle/task14-at.mjs` with a preview server on 4205 (since
 stopped). Local values are vibe-build's.
 

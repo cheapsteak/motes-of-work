@@ -1,6 +1,6 @@
 # Task 8: text treatment (option B "Motes"), brief reorder, portrait framing, mannequin torso
 
-Repo: /home/user/motes-of-work, branch `main`. Commit on main; do NOT push (the controller pushes).
+Repo: <repo>, branch `main`. Commit on main; do NOT push (the controller pushes).
 Read first: global-constraints.md and implementer-instructions.md in this folder. Purity invariant holds:
 every frame and every brief tick is a pure function of scroll progress; no CSS transitions on ticks or panels.
 

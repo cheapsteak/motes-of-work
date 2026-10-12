@@ -1,4 +1,4 @@
-PATH = "/home/user/motes-of-work/docs/specs/2026-10-05-blueprint-and-build.md"
+PATH = "docs/specs/2026-10-05-blueprint-and-build.md"
 s = open(PATH).read()
 
 

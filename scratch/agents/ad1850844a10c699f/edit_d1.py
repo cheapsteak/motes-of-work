@@ -1,6 +1,6 @@
 import os
 
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 P = 'docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md'
 s = open(P).read()
 

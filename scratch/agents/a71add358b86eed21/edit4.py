@@ -1,4 +1,4 @@
-p = '/home/user/motes-of-work/src/story/loader.ts'
+p = 'src/story/loader.ts'
 s = open(p).read()
 s = s.replace("""import { marked } from 'marked';
 """, """import { marked } from 'marked';

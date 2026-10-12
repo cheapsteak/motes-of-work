@@ -1,5 +1,5 @@
-import { createServer } from '/home/user/motes-of-work/node_modules/vite/dist/node/index.js';
-const s = await createServer({ root: '/home/user/motes-of-work', cacheDir: process.argv[2] + '/vcache', server: { middlewareMode: true, hmr: false, watch: null }, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true, include: [] } });
+import { createServer } from '../../../node_modules/vite/dist/node/index.js';
+const s = await createServer({ root: '.', cacheDir: process.argv[2] + '/vcache', server: { middlewareMode: true, hmr: false, watch: null }, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true, include: [] } });
 const r = await s.ssrLoadModule('/src/mechanisms/bike/rider.ts');
 const k = r.riderSkeleton();
 const f = (v) => v.map((x) => x.toFixed(3)).join(',');

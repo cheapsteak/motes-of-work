@@ -1,6 +1,6 @@
 # Task 12: the text engine, the picture-book copy and the text-above-the-machine layout
 
-Repo /home/user/motes-of-work, branch main (HEAD at the latest commit); commit there, do not push. Read global-constraints.md
+Repo <repo>, branch main (HEAD at the latest commit); commit there, do not push. Read global-constraints.md
 and implementer-instructions.md in this folder. Do not change mote.glsl / mote.ts.
 
 Your requirements are the design doc: docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md — read it whole.

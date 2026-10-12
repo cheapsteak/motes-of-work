@@ -1,4 +1,4 @@
-p = '/home/user/mow-compare/src/compare/controls.ts'
+p = '<mow-compare checkout>/src/compare/controls.ts'
 s = open(p).read()
 def rep(old, new):
     global s
@@ -38,7 +38,7 @@ rep("""  root.append(
     el('div', { className: 'views', role: 'radiogroup', ariaLabel: 'View' }, ...viewRadios),""")
 open(p, 'w').write(s)
 
-p = '/home/user/mow-compare/src/compare/compare.css'
+p = '<mow-compare checkout>/src/compare/compare.css'
 s = open(p).read()
 rep("""h2 {
   margin: 9px 0 2px;""", """h2 {

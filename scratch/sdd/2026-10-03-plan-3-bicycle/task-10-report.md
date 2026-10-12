@@ -1,6 +1,6 @@
 # Task 10 report: a live switcher between text treatments A, B and C
 
-Worktree /home/user/mow-text, branch `text-switcher`, commits bc2fac7..261c430:
+Worktree <mow-text checkout>, branch `text-switcher`, commits bc2fac7..261c430:
 
 - d4495ad fonts: self-host Plex, Literata and Instrument Serif for text options A and C
 - 261c430 text: a live switcher between treatments A, B and C
@@ -45,7 +45,7 @@ Worktree /home/user/mow-text, branch `text-switcher`, commits bc2fac7..261c430:
 - Test-first note: the unit test was written before the module (it ran green once the module existed; the e2e specs were written after the CSS, so
   there is no separate RED run for them).
 
-## Screenshots (`?test=1&text=<x>&p=<p>`, fresh page each; /home/user/mow-text/shots/task10/, gitignored)
+## Screenshots (`?test=1&text=<x>&p=<p>`, fresh page each; <mow-text checkout>/shots/task10/, gitignored)
 
 `{desktop,portrait}-{build,brief,reveal}-{a,b,c}.png`, p = 0.09 / 0.27 / 0.41, desktop 1440x900, portrait 390x844 (18 files). I looked at
 desktop brief a/b/c, desktop build a/c, desktop reveal a/c, portrait brief a/b/c, portrait build a, portrait reveal c (the rest are the same

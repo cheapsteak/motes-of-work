@@ -4,7 +4,7 @@ import math
 import re
 import sys
 
-PATH = "/home/user/motes-of-work/src/timeline/keyframes.json"
+PATH = "src/timeline/keyframes.json"
 
 VB_OLD_L, VB_NEW_L = 8, 6.4
 RV_OLD_L, RV_NEW_L = 4, 3.2

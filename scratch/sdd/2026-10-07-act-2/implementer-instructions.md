@@ -1,9 +1,9 @@
 # Implementer instructions (Plan 3: the bicycle)
 
-Repository: /home/user/motes-of-work (branch plan-1-foundation). A self-paced, scroll-driven essay: a three.js point cloud of "motes" builds a machine. Vanilla three.js + Vite + TypeScript, vitest unit tests (Node environment, no DOM), Playwright e2e (Chromium via SwiftShader).
+Repository: <repo> (branch plan-1-foundation). A self-paced, scroll-driven essay: a three.js point cloud of "motes" builds a machine. Vanilla three.js + Vite + TypeScript, vitest unit tests (Node environment, no DOM), Playwright e2e (Chromium via SwiftShader).
 
-Binding constraints for every task: /home/user/motes-of-work/.superpowers/sdd/2026-10-03-plan-3-bicycle/global-constraints.md
-How mechanisms work and the lessons learned: /home/user/motes-of-work/docs/adding-a-mechanism.md
+Binding constraints for every task: .superpowers/sdd/2026-10-03-plan-3-bicycle/global-constraints.md
+How mechanisms work and the lessons learned: docs/adding-a-mechanism.md
 
 ## Before you begin
 If anything in your brief is unclear, ask now (reply NEEDS_CONTEXT with your questions) rather than guessing.

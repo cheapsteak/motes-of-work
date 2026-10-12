@@ -3,6 +3,12 @@
 Policy (see scratch/README.md): our own text sources go in whole; our own screenshots go in as
 reduced JPEGs; third-party material (downloaded pages, reference images, video frames), build
 outputs, vendored libraries, logs and probe images stay out. Prints a summary.
+
+Run it from the repo root (or set MOW_REPO to the repo's path). Copied text never keeps a machine
+path: the repo's own path becomes a repo-relative one (an import specifier becomes relative to the
+importing file), a `mow-<name>` sibling checkout becomes `<mow-<name> checkout>`, and the scratchpad
+becomes `<scratchpad>`. A file that still holds one afterwards is flagged and left out, because
+`tools/check-public.sh` fails on machine paths in tracked files.
 """
 
 import os
@@ -13,7 +19,7 @@ import sys
 from pathlib import Path
 
 S = Path(__file__).resolve().parent
-REPO = Path('/home/user/motes-of-work')
+REPO = Path(os.environ.get('MOW_REPO') or Path.cwd()).resolve()
 DEST = REPO / 'scratch'
 SDD = REPO / '.superpowers' / 'sdd'
 
@@ -33,7 +39,10 @@ SKIP_NAME = re.compile(r'^(https___.*|three\..*\.js|.*\.(log|pid|out|orig|bak)|w
 # (one per line); the generic secret patterns below always apply.
 _LOCAL = Path(__file__).resolve().parent / 'flag-terms.local.txt'
 _TERMS = [re.escape(t.strip()) for t in (_LOCAL.read_text().splitlines() if _LOCAL.exists() else []) if t.strip()]
-FLAG = re.compile('|'.join(_TERMS + [r'api[_-]?key', r'secret', r'BEGIN [A-Z ]*PRIVATE']), re.I)
+# The same machine-path patterns as tools/check-public.sh; they run after relativise(), so a hit is a path it missed.
+_MACHINE = [r'/home/[^/ ]+/', r'/Users/[^/ ]+/', r'/tmp/claude', r'/root/']
+FLAG = re.compile('|'.join(_TERMS + [r'api[_-]?key', r'secret', r'BEGIN [A-Z ]*PRIVATE'] + _MACHINE), re.I)
+CODE = {'.py', '.mjs', '.js', '.ts'}
 
 copied, images, skipped, flagged = [], [], [], []
 
@@ -42,8 +51,23 @@ def rel_to_three(target: Path) -> str:
     return os.path.relpath(REPO / 'node_modules/three/build/three.module.js', target.parent).replace(os.sep, '/')
 
 
+def relativise(s: str, dst: Path) -> str:
+    """Replace this machine's paths with portable ones (see the module docstring)."""
+    repo, code = re.escape(REPO.as_posix()), dst.suffix.lower() in CODE
+    if code and dst.suffix.lower() != '.py':
+        def imp(m: re.Match) -> str:
+            rel = os.path.relpath(REPO / m.group(2), dst.parent).replace(os.sep, '/')
+            return m.group(1) + (rel if rel.startswith('.') else './' + rel) + m.group(3)
+        s = re.sub(r'''((?:\bfrom|\bimport|\brequire)\s*\(?\s*['"])''' + repo + r'''/([^'"]+)(['"])''', imp, s)
+    s = s.replace(S.as_posix(), '<scratchpad>')
+    s = re.sub(r'/home/[^/ ]+/mow-(\{[^}]*\}|[\w-]+)', r'<mow-\1 checkout>', s)
+    s = re.sub(repo + r'/(?=[\w.@-])', '', s)
+    s = re.sub(repo + r'/', './' if code else '<repo>/', s)
+    return re.sub(repo + r'(?![\w-])', '.' if code else '<repo>', s)
+
+
 def copy_text(src: Path, dst: Path) -> None:
-    s = src.read_text(errors='replace')
+    s = relativise(src.read_text(errors='replace'), dst)
     if FLAG.search(s):
         flagged.append(str(src.relative_to(S)))
         return

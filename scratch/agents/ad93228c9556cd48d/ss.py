@@ -1,4 +1,4 @@
-PATH = "/home/user/motes-of-work/e2e/shots.spec.ts"
+PATH = "e2e/shots.spec.ts"
 s = open(PATH).read()
 a = s.index("/**\n * The cold open's named frames")
 b = s.index("];\n", a) + 3

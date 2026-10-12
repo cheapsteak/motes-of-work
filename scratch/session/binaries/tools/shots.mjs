@@ -1,6 +1,6 @@
 // Stills at 390x844 for each option in both framings, plus a labelled contact sheet and one frame with the ui.
 // Usage: node shots.mjs <base url> <out dir> [t]
-import { chromium } from '/home/user/motes-of-work/node_modules/playwright/index.mjs';
+import { chromium } from '../../../../node_modules/playwright/index.mjs';
 const [base, out, tArg] = process.argv.slice(2);
 const t = tArg ?? '120';
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

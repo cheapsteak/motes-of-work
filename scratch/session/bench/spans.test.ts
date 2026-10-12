@@ -1,6 +1,6 @@
-import { test } from '/home/user/motes-of-work/node_modules/vitest/dist/index.js';
-import { sectionSpans } from '/home/user/motes-of-work/src/scroll/progress';
-import { loadStory } from '/home/user/motes-of-work/src/story/loader';
+import { test } from '../../../node_modules/vitest/dist/index.js';
+import { sectionSpans } from '../../../src/scroll/progress';
+import { loadStory } from '../../../src/story/loader';
 
 test('spans', () => {
   const story = loadStory();

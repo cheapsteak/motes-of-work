@@ -1,5 +1,5 @@
 import os
-os.chdir('/home/user/motes-of-work')
+os.chdir('.')
 p='src/timeline/sceneState.ts'
 s=open(p).read()
 def rep(s, a, b):
