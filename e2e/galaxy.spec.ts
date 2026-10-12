@@ -1896,6 +1896,20 @@ const TERMINATOR_DAY_FLOOR: Record<string, number> = { B1: 1.5 };
  * subject's 0.5, so a day of 1 against it is a ratio of about 2 at most.
  */
 const DF1_DAY = 1.05;
+/** The close shot's ambients at which P1 stands 30° off the line of sight behind C1, and in front of it (the twin's search over 0-600 s). */
+const BACKLIT_AMBIENT = 551;
+const FRONTLIT_AMBIENT = 577.5;
+/**
+ * C1 lit from behind, its interior's light as a share of its front-lit interior's: at most the higher
+ * measured / 0.6 (the floors rule, for a ceiling). Measured, phone / desktop: 0.335 / 0.331 with the far
+ * side, 0.762 / 0.755 with its use sites deleted (shell.vert.glsl, body.frag.glsl), which this fails.
+ */
+const BACKLIT_SHARE = 0.56;
+/**
+ * C1 lit from behind, its crescent against its interior: 0.6 × the measured 6.22 / 6.75 (3.78 / 3.93
+ * without the far side, which BACKLIT_SHARE catches).
+ */
+const CRESCENT_FLOOR = 3.7;
 /**
  * The smallest planet ly-1's tests judge, CSS px across. The brief's 25 px leaves none: P_a's largest
  * planets at ly-1 are N0 and B1, 11.3 and 11.5 px on a phone, 11.9 and 12.2 on a desktop (measured).
@@ -2127,6 +2141,58 @@ for (const size of SIZES) {
       expect(sl, 'its light leans across the screen').toBeGreaterThan(0.2 * r);
       expect(day.n + night.n).toBeGreaterThan(1000);
       expect(day.mean / night.mean, 'C1: its half toward its light against the other').toBeGreaterThanOrEqual(DF1_DAY);
+      expect(errors).toEqual([]);
+    });
+
+    test('a planet lit from behind is a crescent', async ({ page }) => {
+      // The close shot on C1, healed (net.fix 1: no derp) and unlamped (its night the rest's 0.15), at two
+      // ambients where P1 stands 30° off the line of sight: behind C1 (BACKLIT_AMBIENT) and in front of it
+      // (FRONTLIT_AMBIENT). Lit from behind, its near hemisphere is at its night and its lit far one is seen
+      // through the lattice: the far side (fix round 1) dims that, so C1 reads as a crescent on its limb
+      // toward P1, its interior near dark. Lit from the front, its lit hemisphere faces the camera, where
+      // the far side changes nothing. So the backlit interior's light (within 0.55 R), as a share of the
+      // front-lit interior's, is the far side's dimming: at most BACKLIT_SHARE. And the backlit crescent
+      // (0.8-1 R, on the side of its light's projection on screen) stands over its interior by at least
+      // CRESCENT_FLOOR. Its shells and bodies alone, its moons' discs left out.
+      const errors: string[] = [];
+      const c1 = g.bodies[bodyIndex(g, 'C1')];
+      const frame = async (ambient: number) => {
+        await openT6(page, 'close', { fix: 1, lamp: Lamp.Off }, ambient, errors);
+        await call(page, 'isolate', ['net-shells', 'net-bodies']);
+        const png = PNG.sync.read(await canvasShot(page));
+        const { focal, project } = twinCamera(g, 'close', ambient, size);
+        const centre = bodyWorld(data, c1.index, ambient);
+        const at = project(centre);
+        const r = (c1.R * focal) / at.d;
+        const L = lightDir(data, c1.index, ambient);
+        const toward = project(centre.map((x, k) => x + c1.R * L[k]));
+        const [sx, sy] = [toward.x - at.x, toward.y - at.y];
+        const sl = Math.hypot(sx, sy);
+        const moons = g.bodies
+          .filter((m) => m.kind === 'moon' && m.planet === c1.index)
+          .map((m) => {
+            const q = project(bodyWorld(data, m.index, ambient));
+            return { x: q.x, y: q.y, r: (m.R * focal) / q.d + 3 };
+          });
+        const off = (x: number, y: number) => moons.every((m) => Math.hypot(x - m.x, y - m.y) > m.r);
+        const d = (x: number, y: number) => Math.hypot(x - at.x, y - at.y) / r;
+        const side = (x: number, y: number) => ((x - at.x) * sx + (y - at.y) * sy) / (sl * r);
+        return {
+          across: 2 * r,
+          crescent: meanLight(png, at.x, at.y, r, (x, y) => off(x, y) && d(x, y) >= 0.8 && d(x, y) <= 1 && side(x, y) > 0.5),
+          interior: meanLight(png, at.x, at.y, r, (x, y) => off(x, y) && d(x, y) < 0.55),
+        };
+      };
+      const back = await frame(BACKLIT_AMBIENT);
+      const front = await frame(FRONTLIT_AMBIENT);
+      const share = back.interior.mean / front.interior.mean;
+      const crescent = back.crescent.mean / Math.max(back.interior.mean, 1e-6);
+      measured('C1', `${back.across.toFixed(0)} px across: lit from behind, crescent ${back.crescent.mean.toFixed(1)} (${back.crescent.n} px), interior ${back.interior.mean.toFixed(1)} (${back.interior.n} px); lit from the front, interior ${front.interior.mean.toFixed(1)}; backlit interior over front-lit ${share.toFixed(3)}, crescent over interior ${crescent.toFixed(2)}`);
+      expect(back.crescent.n).toBeGreaterThan(100);
+      expect(back.interior.n).toBeGreaterThan(1000);
+      expect(front.interior.mean, 'lit from the front, C1 is drawn').toBeGreaterThan(20);
+      expect(share, 'lit from behind, its far hemisphere dimmed: its interior against the front-lit one').toBeLessThanOrEqual(BACKLIT_SHARE);
+      expect(crescent, 'lit from behind: its crescent against its interior').toBeGreaterThanOrEqual(CRESCENT_FLOOR);
       expect(errors).toEqual([]);
     });
 
