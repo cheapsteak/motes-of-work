@@ -127,3 +127,25 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **117fd24's message claims a shell.test timeout** its diff no longer holds (main's version was taken in the rebase).
 - [ ] **The `DROPOUT_MAX` splice comment names `bodyAttrs.ts`** but the value is `DROPOUT.maxLines` from `birth.ts`; the constant is generated in two places.
 - [ ] **The 8b side-by-sides shrink the decision strip to a 400 px thumbnail**; the full-size strip is what makes the comparison possible.
+
+## Task 7b (review of 26deda5..1eab68b: Important 1-4 fixed in rounds 1-2; re-reviewed at 628e070, all addressed)
+
+- [ ] **The plan's parity bar is looser than the brief's 1e-3** (`src/parity/parity.ts`, `e2e/parity.spec.ts`): least error over 256 time shifts with `shifted` unbounded (the body cases cap it at samples/50), and `px` relative to the screen's larger side (up to 1.44 CSS px passes on a desktop). Bound `shifted`; hold `px` in absolute CSS px.
+- [ ] **Magic numbers in the plan shaders and twin, not in `PLAN_LOOK`**: the tick's `smoothstep(0.85, 1, lf)`, the extension's 0.7 alpha, a 0.95, `0.15 * share`, `planDash`'s 0.02 edge, the dimension's literal 6/10/16 (constants exist), `d.j / 14`, the ellipses' 60 and 90 in `planAttrs.ts`.
+- [ ] **Stale slot wording** after the pools replaced the slots: `planMeshes.ts` header, `plan.vert.glsl`, `planScreen.vert.glsl`.
+- [ ] **`PlanStats.slots`** reports the first two systems in index order with full > 0, not the two in R by size, as its doc says.
+- [ ] **ls-1 on a desktop stands at s_px 30.7**, past the outer ring's window start of 30; unmarked only because the ramp's first 0.4 % stays under `LOD_VISIBLE`. The brief asked for 40. Thin margin.
+- [ ] **No purity fence asserts a chevron** any more (P5's system at 149 px is past PlanLeave 75-105); only the plan parity page covers the chevron GLSL.
+- [ ] **`lod.ts` overstates 0.45's win**: 0.40 had the lower worst light (5.7 % vs 7.7 %); 0.45 wins on worst dots and p95 only.
+- [ ] **A 6-dot dash rank piece can span parts of two dashes** on a large departure (period fixed in angle on large radii). Visual nicety.
+- [ ] **The twelve's H arrives in one step at df-3's lamp 5** (defect 0.4725: 7 → 359 dots in one 0.0025 step); lamp gating, but on a phone the neighbourhood's marks land at once.
+- [ ] **The frame drain covers only `pages.spec.ts` and the plan schematic describe**; any other DOM-only test that scrolls through the galaxy can still leave queued frames for the next test in its worker.
+- [ ] **The shard table is stale again** on 628e070 (slowest shard 3.1 min over the mean): refresh `tools/shard-times.json`.
+
+**Author calls from Task 7b** (provisional rulings in place; see the ledger):
+- The chevron window is 30 → 55 against the spec's 45 → 65, so chevrons show at df-5.
+- At df-5 on a phone about a third of H's dashes and chevrons dissolve whole at s_px 45-48 (the arcs' window is about 0.65 there); the decided still draws every one. Closing it means moving H's windows down.
+- On df-3's pull, lamp 1 lights only C1, so only C1's marks morph R → H; the rest of the system arrives at lamp 5.
+- The plain ring skips the open arc's 100° (budget: 3,742 of 3,800 at the hood, 4,778 without).
+- Continuity holds at 7 / 9 / 3.5 % (measured 5.6 / 7.7 / 2.8) against the spec's 3 % per step.
+- At ly-4 the binary pair draws no plan on a phone (s_px 22-26; in the hold lamp 2 narrows to star-4's system).
