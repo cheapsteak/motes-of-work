@@ -17,7 +17,8 @@
 // `?lib=body` compares the galaxy's motes in motion, bodyMote() (src/scene/node/bodyMote.ts), over the
 // shell and person motes' own attributes and the three textures: C1, its moons and P1 at the close
 // shot's states, R0 at its fix, and 64 hashed motes, at the pose and at 101 s, every field, up to a
-// time shift of a few float32 units of the ambient at a derp's cut.
+// time shift of a few float32 units of the ambient at a derp's cut; and the held planet's fill gate
+// (heldFill, re-skin Task 8) over rows, held rows and the hold.
 // `?lib=star` compares a star's look (src/scene/node/star.ts): starDot() over every dot index of four
 // seeds, starSpike() over every row and dot at five glow sizes and both spike counts, starBreath() at
 // four ambients and starTint() over the temperatures.
@@ -69,7 +70,7 @@ import { BAND_MARGIN_PX, EQ_A, NODE_DERP_DUR, NODE_DERP_PERIOD, SCATTER_AMP, SCA
 import { derp, derpEvent, DerpKind, type Derp } from '../scene/node/derp';
 import { BODY_KIND, BODY_TEXELS, packBodyData } from '../scene/node/bodyData';
 import { buildTrackAttrs, packShellData, SHELL_TEXELS } from '../scene/node/bodyAttrs';
-import { bodyMote, focusScatterRow, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyMote';
+import { bodyMote, focusScatterRow, heldFill, trackLampGain, type BodyMoteAttrs } from '../scene/node/bodyMote';
 import { feedGain, inFallEnd, inFallGain, streamBandMask, streamDot, streamGain } from '../scene/node/stream';
 import { AMBIENT_POSE } from '../galaxy/ambient';
 import { bodyWorld } from '../scene/node/orbit';
@@ -142,6 +143,7 @@ import {
   BODY_VERTEX,
   STREAM_DOT_VERTEX,
   TRACK_LAMP_VERTEX,
+  HELD_FILL_VERTEX,
   DERP_VERTEX,
   FREEZE_VERTEX,
   HASH_VERTEX,
@@ -1302,6 +1304,7 @@ function bodyCases(draw: Draw): ParityCase[] {
   uniforms.uHeld.value = [-1, -1];
   for (const c of streamCases(draw, uniforms)) cases.push(c);
   cases.push(trackLampCase(draw, uniforms));
+  cases.push(heldFillCase(draw, uniforms));
   (uniforms.uBodyTex.value as DataTexture).dispose();
   (uniforms.uStreamTex.value as DataTexture).dispose();
   return cases;
@@ -1360,6 +1363,44 @@ function trackLampCase(draw: Draw, uniforms: Record<string, IUniform>): ParityCa
   }
   mat.dispose();
   return { name: 'body: track lamp gain', maxError, samples };
+}
+
+/** The held fill case's scatter seconds: none, the window's edges, inside it and past it. */
+const HELD_FILL_S = [-1, 0, 0.16, 0.3599, 0.36, 0.5, 1.2];
+
+/**
+ * The held fill case of `?lib=body` (re-skin Task 8 review m2): heldFill(row, scatterS), the scatter haze's
+ * row-and-hold gate, GLSL against the TS twin, for C1, its moon C1-m5, another planet and a star, each as
+ * the held planet's row or not (uHeld.y C1, P1 or none), with the freeze holding or not, at HELD_FILL_S.
+ */
+function heldFillCase(draw: Draw, uniforms: Record<string, IUniform>): ParityCase {
+  const g = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
+  const rows = [g.ids.C1, g.ids['C1-m5'], g.ids.P1, g.bodies[g.ids.C1].star];
+  const samples = rows.flatMap((row) => HELD_FILL_S.map((sec) => [row, Math.fround(sec)] as const));
+  const mat = material(withGalaxyLibrary(HELD_FILL_VERTEX), PARITY_FRAGMENT, uniforms);
+  let maxError = 0;
+  let count = 0;
+  for (const held of [g.ids.C1, g.ids.P1, -1])
+    for (const holding of [0, 1]) {
+      uniforms.uHeld.value = [-1, held];
+      uniforms.uHolding.value = holding;
+      const geometry = pointsGeometry(samples.length);
+      geometry.setAttribute('aFillIn', new InstancedBufferAttribute(new Float32Array(samples.flat()), 2));
+      const points = new Points(geometry, mat);
+      points.frustumCulled = false; // positions come from gl_InstanceID
+      const out = draw(points);
+      geometry.dispose();
+      samples.forEach(([row, sec], i) => {
+        const want = heldFill(row, sec, { holding: holding === 1, freeze: { dress: 0, flash: 0, copy: 0, moon: -1, planet: held } });
+        const d = out[i * 4] - want;
+        maxError = Math.max(maxError, Number.isNaN(d) ? Infinity : Math.abs(d));
+        count++;
+      });
+    }
+  uniforms.uHeld.value = [-1, -1];
+  uniforms.uHolding.value = 0;
+  mat.dispose();
+  return { name: 'body: held fill gate', maxError, samples: count };
 }
 
 /** The stream dots sampled: every stream and the feed, dots 0, 3, 7 and 39, at four (streams, lamp) pairs. */

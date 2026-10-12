@@ -421,6 +421,27 @@ ${PLACE_ON_TEXEL}
 `;
 
 /**
+ * The held planet's fill (`?lib=body`'s held fill case, re-skin Task 8): bodyMote.glsl's heldFill(row,
+ * scatterS) per instance, under the freeze's uniforms (uHolding, uHeld), as body.vert.glsl calls it.
+ * Carries the galaxy's include marker: build with withGalaxyLibrary().
+ */
+export const HELD_FILL_VERTEX = /* glsl */ `
+precision highp float;
+precision highp int;
+
+${GALAXY_INCLUDE_MARKER}
+
+in vec3 position; // the single non-instanced vertex, at the origin
+in vec2 aFillIn; // the body row, its scatter seconds
+flat out vec4 vOut;
+
+void main() {
+  vOut = vec4(heldFill(int(round(aFillIn.x)), aFillIn.y), 0.0, 0.0, 0.0);
+${PLACE_ON_TEXEL}
+}
+`;
+
+/**
  * The galaxy's stream dots (`?lib=body`'s stream case): bodyMote.glsl's streamDot(), streamGain(),
  * inFallGain(), feedGain() and streamBandMask() per instance, as stream.vert.glsl calls them (the
  * in-fall's end, uInFallEnd, R1's strand join). Carries the galaxy's include marker: build with

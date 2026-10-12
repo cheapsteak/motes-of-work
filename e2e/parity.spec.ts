@@ -270,13 +270,18 @@ const BODY_TOLERANCE = 5e-4;
  * focus 0, 0.5 and 1, GLSL against bodyMote.ts. The planet lamp's own-orbit rule is the mirror pair's.
  */
 const TRACK_LAMP_CASE = 'body: track lamp gain';
+/**
+ * The scatter haze's gate (re-skin Task 8 review m2): heldFill() for C1, its moon, another planet and a star,
+ * each as the held planet's row or not, holding or not, about the window's edges, GLSL against bodyMote.ts.
+ */
+const HELD_FILL_CASE = 'body: held fill gate';
 
 test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   const { errors, ...parity } = await runParity(page, '&lib=body');
   expect(errors).toEqual([]);
   expect(parity.error).toBeUndefined();
   const byName = new Map(parity.cases.map((c) => [c.name, c]));
-  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, ...LEAK_BODY_CASES, ...TERMINATOR_BODY_CASES, TRACK_LAMP_CASE, 'hash01', 'pcg goldens'].sort());
+  expect([...byName.keys()].sort()).toEqual([...BODY_CASES, ...HELD_CASES, ...LEAK_BODY_CASES, ...TERMINATOR_BODY_CASES, TRACK_LAMP_CASE, HELD_FILL_CASE, 'hash01', 'pcg goldens'].sort());
   // N0's lattice but its point, every other mote (about 200); N0-m4's 27.
   for (const name of TERMINATOR_BODY_CASES) expect(byName.get(name)!.samples, name).toBeGreaterThan(name.includes('-m4') ? 20 : 100);
   for (const name of LEAK_BODY_CASES) expect(byName.get(name)!.samples, name).toBeGreaterThan(1000);
@@ -293,6 +298,8 @@ test('GLSL bodyMote() matches the TS reference', async ({ page }) => {
   expect(byName.get('body: 64 hashed motes at the pose')!.samples).toBe(64);
   // Every track row under seven lamps at three foci (the planet's own orbit and the moon tracks).
   expect(byName.get(TRACK_LAMP_CASE)!.samples).toBeGreaterThan(7 * 3 * 100);
+  // Four rows at seven scatter seconds, under three held rows, holding or not.
+  expect(byName.get(HELD_FILL_CASE)!.samples).toBe(4 * 7 * 3 * 2);
 });
 
 // The defect's leak, leakOffset() (`?lib=leak`, re-skin Task 8b): C1's dots under its wounds, its

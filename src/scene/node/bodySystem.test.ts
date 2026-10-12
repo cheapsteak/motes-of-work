@@ -535,25 +535,35 @@ describe('the freeze’s release (re-skin Task 8, from 8b’s review: M7)', () =
   const sampler = new KeyframeSampler(keyframes as unknown as KeyframeFile, spans);
   const span = spans.find((x) => x.id === 'defect')!;
   const stateAt = (local: number) => sampler.sample(span.start + local * (span.end - span.start));
-  const RELEASE = [0.405, 0.408, 0.412, 0.416, 0.42];
+  // The release as the keys have it, not a copy of their numbers: every defect-local point, by 0.0005, where
+  // the hold is let go and the dressing still shows (freeze.hold 0, freeze.dress × net.focus > 0). A hold or
+  // dressing key that opens the window earlier, or a fix key that lands later, puts an unmended frame in it.
+  const RELEASE_STEP = 0.0005;
+  const RELEASE = Array.from({ length: Math.round(1 / RELEASE_STEP) + 1 }, (_, k) => k * RELEASE_STEP).filter((l) => {
+    const s = stateAt(l);
+    return s.freeze.hold === 0 && s.freeze.dress * s.net.focus > 0;
+  });
+  /** `n` points of the release, evenly over it, its first and last among them. */
+  const releasePoints = (n: number): number[] => Array.from({ length: n }, (_, k) => RELEASE[Math.round((k * (RELEASE.length - 1)) / (n - 1))]);
   // Ambients across the hour, a wound's peak, and a second of 30 fps frames from 101 s (dropout cells).
   const AMBIENTS = [...Array.from({ length: 25 }, (_, k) => 7.3 + 143.1 * k), 99.45, 100.2, ...Array.from({ length: 30 }, (_, k) => 101 + k / 30)];
-  // Measured alone at load 0.9: 0.68 s (the dropout) and 1.7 s (the twin). A loaded run here takes up to 8
-  // times its alone time (the test-speed report), so 15 s and 40 s are 3 times that and over 5 times CI's.
-  const DROPOUT_TIMEOUT = 15_000;
-  const TWIN_TIMEOUT = 40_000;
+  // Measured alone at load 1.3: 0.84 s (the dropout) and 2.3 s (the twin), over the keys' release. A loaded
+  // run here takes up to 8 times its alone time (the test-speed report), so 25 s and 60 s are over 3 times
+  // that and over 5 times CI's.
+  const DROPOUT_TIMEOUT = 25_000;
+  const TWIN_TIMEOUT = 60_000;
 
   it('lands the fix on C1 before the hold lets go: v = 0 through the release, the dressing still up', () => {
     const { g: dg, data } = galaxyOf();
     const C1 = dg.ids.C1;
-    for (const l of RELEASE) {
-      const s = stateAt(l);
-      expect(s.freeze.hold, `hold at ${l}`).toBe(0);
-      expect(s.freeze.dress * s.net.focus, `dress at ${l}`).toBeGreaterThan(0);
-      expect(1 - bodyLight(C1, s.net, data).fix, `C1's v at ${l}`).toBe(0);
-    }
-    // The last held frame is mended already.
-    expect(1 - bodyLight(C1, stateAt(0.4045).net, data).fix).toBe(0);
+    // The window is the keys' (today 0.405 to 0.4205), one stretch, after the cut.
+    expect(RELEASE.length, 'a release to look at').toBeGreaterThan(10);
+    expect(RELEASE.every((l, i) => i === 0 || Math.abs(l - RELEASE[i - 1] - RELEASE_STEP) < 1e-9), 'one stretch').toBe(true);
+    for (const l of RELEASE) expect(1 - bodyLight(C1, stateAt(l).net, data).fix, `C1's v at ${l}`).toBe(0);
+    // The last held frame before it is mended already.
+    const lastHeld = RELEASE[0] - RELEASE_STEP;
+    expect(stateAt(lastHeld).freeze.hold, `held at ${lastHeld}`).toBe(1);
+    expect(1 - bodyLight(C1, stateAt(lastHeld).net, data).fix).toBe(0);
   });
 
   it('draws no dropout line on the piece through the release, at any ambient; with the fix withheld it would', () => {
@@ -562,7 +572,7 @@ describe('the freeze’s release (re-skin Task 8, from 8b’s review: M7)', () =
     const C1 = bodyIndex(g, 'C1');
     const freeze: FreezeFrame = { hero: { planet: C1, moon: bodyIndex(g, 'C1-m5'), forceScatter: true }, live: null, flashOn: false };
     let withheld = 0;
-    for (const l of RELEASE)
+    for (const l of releasePoints(5))
       for (const t of AMBIENTS) {
         const camera = galaxyShotCamera(GALAXY_SHOTS.close, g, data, size, t);
         const s = stateAt(l);
@@ -585,7 +595,7 @@ describe('the freeze’s release (re-skin Task 8, from 8b’s review: M7)', () =
     let moved = 0;
     // Every mote of the piece is a bodyMote() a copy a frame: the release's two ends and its middle, at
     // five ambients across the hour, a wound's peak, the slot after and a dropout second.
-    for (const l of [RELEASE[0], RELEASE[2], RELEASE[4]])
+    for (const l of releasePoints(3))
       for (const t of [7.3, 579.7, 1295.2, 2153.8, 3012.4, 99.45, 100.2, 101.5])
         for (const fix of [null, 0]) {
           const s = stateAt(l);
