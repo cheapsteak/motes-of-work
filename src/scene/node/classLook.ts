@@ -5,6 +5,7 @@
 // TS and the GLSL cannot drift; the planets' colours reach the shaders in the bodies texture (T6).
 import { STAR_TINT } from '../galaxy/spriteLook';
 import { hexToRgb } from './birth';
+import { LIGHTING } from '../lighting';
 
 /**
  * A star's dots (§4.3): `core` in a gaussian ball and `halo` round it, its shell motes (160); and its
@@ -71,6 +72,13 @@ export const STAR_LOOK = {
 export const PLANET_LOOK = { cool: ['#4DA3FF', '#3D8BFF', '#5BC0EB', '#46C2C9', '#6FA8DC'], hero: '#1FB0FF', starTint: 0.25,
   night: { rest: 0.15, subject: 0.5 }, edge: 0.2, fill: 0.035, farSide: { dim: 0.2, soft: 0.3 } } as const;
 
+/**
+ * A moon's far hemisphere's light (re-skin Task 9, the moon see-through): the night's, PLANET_LOOK.night.rest
+ * x LIGHTING.backfaceDim, where a planet's is PLANET_LOOK.farSide.dim. At 16-24 px a moon's lattice is
+ * open enough that its lit far side, at a planet's 0.2, showed through its night half.
+ */
+export const MOON_FAR_DIM = PLANET_LOOK.night.rest * LIGHTING.backfaceDim;
+
 /** The share of the halo's exponential law that lies inside its cut at haloMax (star.ts draws inside it). */
 export const STAR_HALO_CUT = 1 - Math.exp(-(STAR_LOOK.haloMax - STAR_LOOK.haloFrom) / STAR_LOOK.haloScale);
 
@@ -112,6 +120,7 @@ export function glslPlanetLookConstants(): string {
     `const float PLANET_NIGHT_SUBJECT = ${lit(PLANET_LOOK.night.subject)};`,
     `const float PLANET_FILL = ${lit(PLANET_LOOK.fill)};`,
     `const float PLANET_FAR_DIM = ${lit(PLANET_LOOK.farSide.dim)};`,
+    `const float PLANET_MOON_FAR_DIM = ${lit(MOON_FAR_DIM)}; // derived: night.rest x LIGHTING.backfaceDim`,
     `const float PLANET_FAR_SOFT = ${lit(PLANET_LOOK.farSide.soft)};`,
   ].join('\n');
 }

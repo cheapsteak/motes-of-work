@@ -92,7 +92,7 @@ import {
   withTerminatorLibrary,
 } from '../scene/node/shaderSource';
 import { farSide, lightDir, terminator } from '../scene/node/terminator';
-import { PLANET_LOOK } from '../scene/node/classLook';
+import { MOON_FAR_DIM, PLANET_LOOK } from '../scene/node/classLook';
 import { planDot, type PlanFrame } from '../scene/node/plan';
 import { PLAN_STRIDE, PLAN_TABLE_TEXELS } from '../scene/node/planAttrs';
 import { planStatic } from '../scene/node/planOnScreen';
@@ -1101,15 +1101,19 @@ function terminatorCases(draw: Draw): ParityCase[] {
   const data = packBodyData(g);
   const lit = g.bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon');
   const flat: Pick<TerminatorInput, 'n' | 'toStar'> = { n: [0, 0, 1], toStar: [0, 0, 1] };
-  const dirs: TerminatorInput[] = TERMINATOR_AMBIENTS.flatMap((t) => lit.map((b) => ({ term: [b.index, t, PLANET_LOOK.night.rest, 0], ...flat })));
+  const dirs: TerminatorInput[] = TERMINATOR_AMBIENTS.flatMap((t) => lit.map((b) => ({ term: [b.index, t, PLANET_LOOK.night.rest, PLANET_LOOK.farSide.dim], ...flat })));
   const shades: TerminatorInput[] = [];
-  for (const night of [PLANET_LOOK.night.rest, PLANET_LOOK.night.subject])
+  // The night of the rest and of the lamp's subject, with a planet's far side and a moon's (MOON_FAR_DIM).
+  for (const [night, dim] of [
+    [PLANET_LOOK.night.rest, PLANET_LOOK.farSide.dim],
+    [PLANET_LOOK.night.subject, MOON_FAR_DIM],
+  ])
     for (const toStar of TERMINATOR_TO_STAR)
       for (let i = 0; i < TERMINATOR_NORMALS; i++) {
         const y = 1 - (2 * (i + 0.5)) / TERMINATOR_NORMALS;
         const r = Math.sqrt(1 - y * y);
         const a = i * Math.PI * (3 - Math.sqrt(5));
-        shades.push({ term: [lit[0].index, 0, night, 0], n: [r * Math.cos(a), y, r * Math.sin(a)], toStar });
+        shades.push({ term: [lit[0].index, 0, night, dim], n: [r * Math.cos(a), y, r * Math.sin(a)], toStar });
       }
   const bodiesTex = floatTexture(data.bodies, BODY_TEXELS, data.bodyCount);
   const uniforms: Record<string, IUniform> = { uBodyTex: { value: bodiesTex }, uN0Row: { value: data.n0Row }, uPass: { value: 0 } };
@@ -1134,7 +1138,7 @@ function terminatorCases(draw: Draw): ParityCase[] {
       // The TS reference takes the inputs as the attributes carry them: float32.
       batch.forEach((b, i) => {
         const v = (x: readonly number[]) => x.map(f) as [number, number, number];
-        const want: TerminatorOut = { lightDir: lightDir(data, b.term[0], f(b.term[1])), terminator: terminator(v(b.n), v(b.toStar), f(b.term[2])), farSide: farSide(v(b.n), v(b.toStar)) };
+        const want: TerminatorOut = { lightDir: lightDir(data, b.term[0], f(b.term[1])), terminator: terminator(v(b.n), v(b.toStar), f(b.term[2])), farSide: farSide(v(b.n), v(b.toStar), f(b.term[3])) };
         passes.forEach((pass, j) => {
           for (const { field, offset } of pass) {
             fieldValues(want, field.name).forEach((x, q) => {

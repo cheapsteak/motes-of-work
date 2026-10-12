@@ -12,6 +12,7 @@ precision highp float;
 in vec3 vNormal;
 flat in vec3 vToStar;
 flat in float vNight;
+flat in float vFarDim;
 flat in vec3 vBase;
 in vec3 vViewNormal;
 in vec3 vToEye;
@@ -61,7 +62,7 @@ void main() {
     }
   }
   // Its terminator toward its star and its far side away from the camera (terminator.glsl), unless lit.
-  float lit = mix(terminator(normalize(vNormal), vToStar, vNight) * farSide(normalize(vViewNormal), normalize(vToEye)), 1.0, vHi);
+  float lit = mix(terminator(normalize(vNormal), vToStar, vNight) * farSide(normalize(vViewNormal), normalize(vToEye), vFarDim), 1.0, vHi);
   float f = 1.0 - abs(dot(normalize(vViewNormal), normalize(vToEye)));
   float a = min(1.0, (vFill * lit + vRim * GHOST_RIM * pow(f, GHOST_RIM_POW)) * vGain);
   vec3 colour = mix(mix(vBase, HUMAN, vWarm), EMBER, EMBER_MIX * vHi);

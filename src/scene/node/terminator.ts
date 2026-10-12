@@ -31,14 +31,15 @@ export function terminator(n: Vec3, toStar: Vec3, night: number): number {
 
 /**
  * The far side's light on a surface of unit normal `n` seen along the unit direction `toEye` (from the
- * surface to the camera), both in one space: mix(PLANET_LOOK.farSide.dim, 1, smoothstep(−soft, 0, n·V)).
- * 1 facing the camera and on the limb, `dim` on the hemisphere facing away, so a dotted planet lit from
- * behind reads as a crescent, not as its lit far side seen through its lattice.
+ * surface to the camera), both in one space: mix(dim, 1, smoothstep(−soft, 0, n·V)). 1 facing the camera
+ * and on the limb, `dim` on the hemisphere facing away (a planet's PLANET_LOOK.farSide.dim, a moon's
+ * MOON_FAR_DIM), so a dotted planet lit from behind reads as a crescent, not as its lit far side seen
+ * through its lattice.
  */
-export function farSide(n: Vec3, toEye: Vec3): number {
+export function farSide(n: Vec3, toEye: Vec3, dim: number = PLANET_LOOK.farSide.dim): number {
   const d = n[0] * toEye[0] + n[1] * toEye[1] + n[2] * toEye[2];
   const s = smoothstep(-PLANET_LOOK.farSide.soft, 0, d);
-  return PLANET_LOOK.farSide.dim * (1 - s) + s;
+  return dim * (1 - s) + s;
 }
 
 /**

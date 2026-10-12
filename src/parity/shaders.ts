@@ -350,7 +350,7 @@ ${TERMINATOR_INCLUDE_MARKER}
 ${glslTerminatorOutStruct()}
 
 in vec3 position; // the single non-instanced vertex, at the origin
-in vec4 aTermIn; // the body's row, the ambient, the night, 0
+in vec4 aTermIn; // the body's row, the ambient, the night, the far side's dim
 in vec3 aNormalIn; // the surface's unit normal
 in vec3 aToStarIn; // the unit direction to the star
 uniform int uPass;
@@ -360,7 +360,7 @@ void main() {
   TerminatorOut o;
   o.lightDir = lightDir(int(round(aTermIn.x)), aTermIn.y);
   o.terminator = terminator(aNormalIn, aToStarIn, aTermIn.z);
-  o.farSide = farSide(aNormalIn, aToStarIn); // the light's direction stands in for the eye's
+  o.farSide = farSide(aNormalIn, aToStarIn, aTermIn.w); // the light's direction stands in for the eye's
   ${passSelect(parityPasses(TERMINATOR_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}

@@ -27,6 +27,7 @@ uniform float uTwos;
 out vec3 vNormal; // world space: the icosphere's rest normal (its vertex's direction), for the terminator
 flat out vec3 vToStar; // world space: the unit direction to its own star (terminator.glsl lightDir)
 flat out float vNight; // its terminator's night: the planet lamp's subject's, or the rest's
+flat out float vFarDim; // its far hemisphere's light: a moon's PLANET_MOON_FAR_DIM, a planet's PLANET_FAR_DIM
 flat out vec3 vBase; // its colour (T6)
 out vec3 vViewNormal; // view space, for a ghost's rim
 out vec3 vToEye; // view space
@@ -87,6 +88,7 @@ void main() {
   vRim = ghost ? 1.0 : 0.0;
   vToStar = lightDir(row, uAmbient);
   vNight = planetLampSubject(row) ? PLANET_NIGHT_SUBJECT : PLANET_NIGHT_REST;
+  vFarDim = moon ? PLANET_MOON_FAR_DIM : PLANET_FAR_DIM;
   vBase = bodyBase(row);
   // The held planet's scatter haze (re-skin §4.5): its fill halved while the freeze holds its scatter out.
   vFill = PLANET_FILL * heldFill(row, d.scatterS);

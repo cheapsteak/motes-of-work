@@ -1932,6 +1932,13 @@ const BACKLIT_SHARE = 0.56;
  */
 const CRESCENT_FLOOR = 3.7;
 /**
+ * C1's moons of 16-24 px at df-1: the most of their night halves' px lit, pooled (re-skin Task 9, the moon
+ * see-through). Measured, phone / desktop: 0.266 / 0.285 with a moon's far side at MOON_FAR_DIM (0.075);
+ * 0.317 / 0.347 at a planet's 0.2, which this fails. Between the two, as no ceiling at measured / 0.6
+ * could catch the change.
+ */
+const MOON_SEEN = 0.3;
+/**
  * The smallest planet ly-1's tests judge, CSS px across. The brief's 25 px leaves none: P_a's largest
  * planets at ly-1 are N0 and B1, 11.3 and 11.5 px on a phone, 11.9 and 12.2 on a desktop (measured).
  */
@@ -2162,6 +2169,57 @@ for (const size of SIZES) {
       expect(sl, 'its light leans across the screen').toBeGreaterThan(0.2 * r);
       expect(day.n + night.n).toBeGreaterThan(1000);
       expect(day.mean / night.mean, 'C1: its half toward its light against the other').toBeGreaterThanOrEqual(DF1_DAY);
+      expect(errors).toEqual([]);
+    });
+
+    test('a moon of 16-24 px is not seen through at df-1', async ({ page }) => {
+      // At 16-24 px a moon's far hemisphere showed faintly through its lattice (the moon fix's concern 5):
+      // its back-facing shell motes take the night's gain, PLANET_LOOK.night.rest x LIGHTING.backfaceDim
+      // (MOON_FAR_DIM). Each of C1's moons 16-24 px across at df-1, where the twin draws it, its derp on:
+      // the lit px (any channel more than 24 over the background) in the half of its disc away from its
+      // light on screen, its night half, where its lit far hemisphere is seen through. Pooled over those
+      // moons, at most MOON_SEEN of their night halves' px are lit. (Its near hemisphere's own night, at
+      // the lamp's focus gain, lights some of them too, so one moon alone does not tell the two apart.)
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const f = await essayFrame(page, 'defect', 0.13, size);
+      await call(page, 'isolate', ['net-shells', 'net-bodies']);
+      const png = PNG.sync.read(await canvasShot(page));
+      const c1 = g.bodies[bodyIndex(g, 'C1')];
+      const c = twinClocks({ ...f.state.net, lamp: Math.round(f.state.net.lamp), lampRow: c1.index }, f.ambient, f.sysPx);
+      const sys = g.systems.indexOf(c1.star);
+      const disc = (b: (typeof g.bodies)[number]) => {
+        const centre = bodyCentre(b.index, bodyDerp(b.index, sys, c, data), f.ambient, data);
+        const q = f.project(centre);
+        return { b, centre, x: q.x, y: q.y, r: (b.R * f.focal) / q.d };
+      };
+      const planet = disc(c1);
+      const moons = g.bodies.filter((m) => m.kind === 'moon' && m.planet === c1.index).map(disc);
+      const judged = moons.filter((m) => 2 * m.r >= 16 && 2 * m.r <= 24 && m.x > m.r && m.y > m.r && m.x < size.width - m.r && m.y < size.height - m.r);
+      const seen = judged.map((m) => {
+        const L = lightDir(data, m.b.index, f.ambient);
+        const toward = f.project(m.centre.map((x, k) => x + m.b.R * L[k]));
+        const [sx, sy] = [toward.x - m.x, toward.y - m.y];
+        const clear = (x: number, y: number) =>
+          Math.hypot(x - planet.x, y - planet.y) > planet.r + 2 && moons.every((o) => o === m || Math.hypot(x - o.x, y - o.y) > o.r + 2);
+        let lit = 0;
+        let n = 0;
+        let sum = 0;
+        for (let y = Math.max(0, Math.floor(m.y - m.r)); y <= Math.min(png.height - 1, Math.ceil(m.y + m.r)); y++)
+          for (let x = Math.max(0, Math.floor(m.x - m.r)); x <= Math.min(png.width - 1, Math.ceil(m.x + m.r)); x++) {
+            const [px, py] = [x + 0.5, y + 0.5];
+            if (Math.hypot(px - m.x, py - m.y) > m.r || (px - m.x) * sx + (py - m.y) * sy >= 0 || !clear(px, py)) continue;
+            n++;
+            const v = lightAt(png, x, y);
+            sum += v[0] + v[1] + v[2];
+            if (v.some((c) => c > 24)) lit++;
+          }
+        return { id: m.b.id, across: 2 * m.r, lit, n, mean: sum / n };
+      });
+      const share = seen.reduce((a, m) => a + m.lit, 0) / seen.reduce((a, m) => a + m.n, 0);
+      measured('moons', `${seen.map((m) => `${m.id} ${m.across.toFixed(1)} px: ${m.lit} of ${m.n} px lit in its night half, mean ${m.mean.toFixed(1)}`).join('; ')}; pooled ${share.toFixed(3)}`);
+      expect(seen.length, 'moons of 16-24 px at df-1').toBeGreaterThanOrEqual(2);
+      expect(share, 'the lit share of their night halves').toBeLessThanOrEqual(MOON_SEEN);
       expect(errors).toEqual([]);
     });
 

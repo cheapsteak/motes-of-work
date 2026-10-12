@@ -4,7 +4,8 @@ import { AMBIENT_POSE } from '../../galaxy/ambient';
 import { galaxyBudget, generateGalaxy } from '../../galaxy/generate';
 import { hexToRgb } from './birth';
 import { bodyTexel, LIGHT_MODE, packBodyData } from './bodyData';
-import { PLANET_LOOK } from './classLook';
+import { LIGHTING } from '../lighting';
+import { MOON_FAR_DIM, PLANET_LOOK } from './classLook';
 import { bodyWorld } from './orbit';
 import { starTint } from './star';
 import { farSide, lightDir, planetTint, terminator } from './terminator';
@@ -76,6 +77,14 @@ describe('the terminator (re-skin §4.4)', () => {
 });
 
 describe('the far side (fix round 1: a crescent from behind)', () => {
+  it('is a moon’s night on its far hemisphere: night.rest x LIGHTING.backfaceDim, darker than a planet’s', () => {
+    expect(MOON_FAR_DIM).toBeCloseTo(PLANET_LOOK.night.rest * LIGHTING.backfaceDim, 15);
+    expect(MOON_FAR_DIM).toBeLessThan(PLANET_LOOK.farSide.dim);
+    expect(farSide([0, 0, -1], [0, 0, 1], MOON_FAR_DIM)).toBe(MOON_FAR_DIM);
+    expect(farSide([0, 0, 1], [0, 0, 1], MOON_FAR_DIM)).toBe(1);
+    expect(farSide([1, 0, 0], [0, 0, 1], MOON_FAR_DIM)).toBe(1);
+  });
+
   it('is whole facing the camera and on the limb, PLANET_LOOK.farSide.dim facing away, rising over its soft band', () => {
     const { dim, soft } = PLANET_LOOK.farSide;
     expect(farSide([0, 0, 1], [0, 0, 1])).toBe(1);

@@ -16,9 +16,10 @@ float terminator(vec3 n, vec3 toStar, float night) {
 }
 
 // The far side's light on a surface of unit normal n seen along the unit direction toEye (both in one
-// space): mix(PLANET_FAR_DIM, 1, smoothstep(-PLANET_FAR_SOFT, 0, n.V)). Whole on the near side and the limb.
-float farSide(vec3 n, vec3 toEye) {
-  return mix(PLANET_FAR_DIM, 1.0, smoothstep(-PLANET_FAR_SOFT, 0.0, dot(n, toEye)));
+// space): mix(dim, 1, smoothstep(-PLANET_FAR_SOFT, 0, n.V)), dim a planet's PLANET_FAR_DIM or a moon's
+// PLANET_MOON_FAR_DIM. Whole on the near side and the limb.
+float farSide(vec3 n, vec3 toEye, float dim) {
+  return mix(dim, 1.0, smoothstep(-PLANET_FAR_SOFT, 0.0, dot(n, toEye)));
 }
 
 #ifndef TERMINATOR_FRAGMENT

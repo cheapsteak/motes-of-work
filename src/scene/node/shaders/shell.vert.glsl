@@ -219,7 +219,7 @@ void main() {
   // Their far hemisphere, seen through the lattice, is dimmed (terminator.glsl farSide, on the mote's
   // rest normal as its terminator is, so a scattered or leaking dot keeps its side's light), unless lit.
   float far = 1.0;
-  if (kind == KIND_PLANET || kind == KIND_MOON) far = mix(farSide(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz)), 1.0, o.hi);
+  if (kind == KIND_PLANET || kind == KIND_MOON) far = mix(farSide(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz), kind == KIND_MOON ? PLANET_MOON_FAR_DIM : PLANET_FAR_DIM), 1.0, o.hi);
   // Where the shell is small on screen its motes overlap: each carries no more than its share of the disc.
   // A lit shell's gain shows where its motes stand apart; where they pile up it is spent within the
   // same share, so a lit disc is the same light in ember, not a white blot.
