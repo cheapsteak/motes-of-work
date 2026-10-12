@@ -80,6 +80,7 @@ difference the author accepts becomes a new row above.
 |---|---|---|---|
 | 21 (2026-10-10) | 62ed247 (branch `reskin-v21` in the archive repo `motes-of-work-private`) | the wisps galaxy, the late dissolve, the hold at ly-3, up-2, fx-3 and ls-1 | independent judge: PUBLISH; every built row matches |
 | 22 (2026-10-11) | a6c9dd7 (public `main`) | the wider neighbourhood, one S-type binary pair near its middle, ly-4's push-in on a planet being born, ly-5 opening on the first plan | independent judge: PUBLISH; every built row matches (pair orbits its barycentre, 15 degrees a minute riding the turn) |
+| 23 (2026-10-12) | 26deda5 (public `main`) | the black hole at the centre (16° close); the defect on it (an ember thread at up-1, the ring at tr-2, cooling through the fix); the defect's motion at df-1 (variant 18: scatter, two leaking wounds, dark dropout lines) | independent judge: PUBLISH; every built row matches; notes: the in-fall is invisible on a phone (pending look call), fx-1's fix is a quarter-screen transition after the camera lands, fx-2's knots come and go with the ambient |
 
 ## Process
 
