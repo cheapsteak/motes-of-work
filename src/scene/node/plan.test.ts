@@ -53,7 +53,7 @@ function clocksAt(ambient: number, over: Partial<PlanClocks> = {}): PlanClocks {
 /** A plan frame for the derp alone: the clocks at `t`, every system's derp whole (its size well past the derps' band). */
 function derpFrame(t: number, over: Partial<BodyClocks> = {}): PlanFrame {
   const clocks: BodyClocks = { ...clocksAt(t), sysPx: new Float32Array(32).fill(1e4), ...over };
-  return { t, sys: new Float32Array(0), range: new Float32Array(0), clocks, view: { view: [], projection: [], width: 1, height: 1 }, force: new Float32Array(LOD_COUNT).fill(-1), table: new Float32Array(0) };
+  return { t, sys: new Float32Array(0), range: new Float32Array(0), clocks, view: { view: [], projection: [], width: 1, height: 1 }, force: new Float32Array(LOD_COUNT).fill(-1), table: new Float32Array(0), used: [0, 0] };
 }
 
 /** A probe shot's plan frame on a screen, at the pose by default. */

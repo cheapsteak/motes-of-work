@@ -98,6 +98,8 @@ export interface PlanFrame {
   view: PlanView;
   force: Float32Array;
   table: Float32Array;
+  /** Each pool's used length, planUsed(range), once a frame: [world, screen] (uPlanUsed). */
+  used: [number, number];
 }
 
 /** A plan dot: its place (world; a screen mark's anchor), its centre on screen (CSS px from the top left), its colour, its alpha (before the LOD_VISIBLE cut) and its size (CSS px). */
@@ -158,7 +160,7 @@ export function planUsed(range: ArrayLike<number>): [number, number] {
  * Dot `i` of a pool's attributes `a` resolved against the frame: a pair's dot as it is; a pool's dot,
  * the system whose range holds it, then the run and the body whose ends do (−1 where none: unused).
  */
-export function planResolve(a: ArrayLike<number>, i: number, f: Pick<PlanFrame, 'range' | 'table'>): PlanAttrs {
+export function planResolve(a: ArrayLike<number>, i: number, f: Pick<PlanFrame, 'range' | 'table' | 'used'>): PlanAttrs {
   const o = i * PLAN_STRIDE;
   const owner = Math.round(a[o]);
   const out: PlanAttrs = { sys: owner, mark: Math.round(a[o + 1]), ord: Math.round(a[o + 2]), j: Math.round(a[o + 3]), n: Math.round(a[o + 6]), aux: a[o + 4], rank: a[o + 5], sys2: Math.round(a[o + 7]) };
@@ -167,7 +169,7 @@ export function planResolve(a: ArrayLike<number>, i: number, f: Pick<PlanFrame, 
   const at = out.j;
   out.sys = -1;
   // Past its pool's used length no range holds it (plan.glsl's uPlanUsed, planUsed).
-  if (at >= planUsed(f.range)[screen ? 1 : 0]) return out;
+  if (at >= f.used[screen ? 1 : 0]) return out;
   const systems = f.range.length / 4;
   let s = -1;
   for (let k = 0; k < systems; k++) {
@@ -1051,5 +1053,5 @@ export function planFrameOf(g: Galaxy, data: BodyData, table: Float32Array, inpu
   const third = order.length > 2 ? t3 : PLAN_NO_THIRD;
   for (let i = 0; i < n; i++) sys.set([sPx[i], culled[i] > 0 ? planFull(culled[i], third, soft) : 0, cull[i], input.real[i]], i * 4);
   const { table: laid, range } = planLayout(g, data, table, sys, input);
-  return { t: clocks.ambient, sys, range, clocks, view, force: input.force, table: laid };
+  return { t: clocks.ambient, sys, range, clocks, view, force: input.force, table: laid, used: planUsed(range) };
 }
