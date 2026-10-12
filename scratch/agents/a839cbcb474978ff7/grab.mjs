@@ -1,6 +1,6 @@
 // usage: node grab.mjs <outdir> name=query ...   (query appended to /index.html?test=1)
 import { createRequire } from 'node:module';
-const require = createRequire('package.json');
+const require = createRequire(new URL('../../../package.json', import.meta.url));
 const { chromium } = require('@playwright/test');
 const [outdir, ...pairs] = process.argv.slice(2);
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

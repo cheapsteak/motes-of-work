@@ -165,3 +165,14 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **ecd02dd's message says "shard table refreshed"**, but that commit only checks the item off (the refresh is 325d10a).
 - [ ] **§13.3's up-1 strand floor reads 415, not 0.6 × 697 = 418.** It predates Task 9.
 - [ ] **The new moon test's loaded local time is unmeasured**: its 300 s file timeout clears 5× CI (10.7 / 18.6 s), but the 3× loaded check has not been done.
+
+## Final whole-branch review (c71c2c0..06c6ab5: Important 1 machine paths, 2 the hood row, fixed in task-final)
+
+- [ ] **The flash guard's 3 % tolerance is nearly used up by the content spread** (all but 0.2 %): any change to C1's light at df-1 means re-measuring `FLASH_REFERENCE`.
+- [ ] **The held frame draws about 14,800 freeze-copy instances that the 93,500 cap never counts.**
+- [ ] **`PLAN_GATES` and `H_MARKS` / `R_MARKS` have no set-equality fence** between the lists.
+- [ ] **The plan's rank-seed literals are duplicated in TS and GLSL**, and the pair seeds overlap system 0's stalk seeds.
+- [ ] **`MOON_FAR_DIM` is derived from Act I's back-face lighting**, not from a constant of its own.
+- [ ] **The purity twin runs only at 1280×720.**
+- [ ] **The plan doc and `plan-constraints.md` still describe `instances.reserved`** (removed in 365fdb6); history, left as written.
+- [ ] **Git history before e0802aa keeps the machine paths** in `scratch/`; the tree is clean and `check-public.sh` now fails on any new path. Rewriting the public history is the author's call.
