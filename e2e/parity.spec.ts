@@ -3,13 +3,6 @@ import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { MECHANISM_IDS } from '../src/mechanisms';
 import { LOD_COUNT } from '../src/scene/node/lod';
 
-// The file's own timeout, which covers each test's fixtures too (a test's own setTimeout starts only once
-// its fixtures are up). A parity page takes 1-5 s on CI, but its browser context is set up after the
-// worker's previous test, and under SwiftShader that test's queued frames can hold the browser: in run
-// 38207231580 the freeze case's context took over the default 30 s to set up (its test then ran out
-// before its page opened). 2 min is 4 times that wait and far over 5 times a case's CI time.
-test.setTimeout(120_000);
-
 interface ParityCase {
   name: string;
   maxError: number;

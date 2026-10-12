@@ -23,6 +23,15 @@ test.describe('the pages', { tag: FULL_ONLY }, () => {
   // load 11-13 (beside two full unit suites) part 1 of 1440x900 took 2.3 min. 10 min is over 4 times that
   // loaded time and 5 times the slowest CI time.
   test.setTimeout(600_000);
+  // Each test here scrolls through the galaxy's sections and reads only the DOM, so the frames it
+  // queued under SwiftShader were the next test's wait: in run 38207231580 the freeze parity case, dealt
+  // to the worker after "one page at a time (390x844)", spent its whole 30 s setting up its browser
+  // context. Each test drains its own frames with a readback (galaxy.spec.ts's dissolve does the same),
+  // within its own 10 min.
+  test.afterEach(async ({ page }) => {
+    if (page.isClosed() || (await page.locator('#stage').count()) === 0) return;
+    await page.locator('#stage').screenshot();
+  });
   test.describe.configure({ mode: 'parallel' });
 
   /** The jump-and-scroll check's parts: each takes every PARTS-th of the samples, in their order. */

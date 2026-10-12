@@ -2243,15 +2243,23 @@ const PLAN_MESHES = ['net-plan', 'net-plan-screen'];
 /** H's marks and R's (planAttrs.ts PLAN_MARK): a system drawn in H lights only the first, one in R the second too. */
 const H_MARKS = ['ring', 'arc', 'node', 'chevron', 'deviation'];
 /**
- * The floors, 0.6 × measured (Task 7b, 2026-10-12): the plan's lit px at the hood probe (731 phone, 1,593
- * desktop) and the system shot (2,357, 3,788), and its ember px at df-5 (83 of 371, 238 of 1,396).
+ * The floors, 0.6 × measured (Task 7b, 2026-10-12; the phone's hood and df-5 re-measured in fix round 1,
+ * H brightened): the plan's lit px at the hood probe (1,514 phone, 1,593 desktop) and the system shot
+ * (2,357, 3,788), and its ember px at df-5 (136 of 690, 238 of 1,396).
  */
-const HOOD_PLAN_PX = { phone: 438, desktop: 955 };
+const HOOD_PLAN_PX = { phone: 908, desktop: 955 };
 const SYSTEM_PLAN_PX = { phone: 1414, desktop: 2272 };
-const DF5_EMBER_PX = { phone: 49, desktop: 142 };
-// Timing (each test's own setTimeout): measured locally at a load of 5-9, one worker, phone and desktop:
-// the wides 62 s and 121 s, H and R 77 s and 78 s, the ember 127 s and 135 s, the defect 46 s and 45 s,
-// ls-1 339 s and 332 s, the zoom-out 39 s and 37 s. Each timeout is at least 3 times the slower one.
+const DF5_EMBER_PX = { phone: 82, desktop: 142 };
+/**
+ * H read at df-5 on a phone (Task 7b fix round 1, review I2): its node crosses' dots and its chevrons'
+ * dots lit by the page, 0.6 × measured (127 and 60, the page's twin, 2026-10-12).
+ */
+const DF5_H_PHONE = { node: 76, chevron: 36 };
+// Timing (each test's own setTimeout), phone and desktop: locally at a load of 5-9, one worker, the wides
+// 62 s and 121 s, H and R 77 s and 78 s, the ember 127 s and 135 s, the defect 46 s and 45 s, ls-1 339 s
+// and 332 s, the zoom-out 39 s and 37 s; on CI (run 38209082401) the wides 60 s and 72 s, H and R 49 s
+// and 46 s, the ember 114 s and 108 s, the defect 34 s (desktop), ls-1 318 s and 318 s, the zoom-out 21 s
+// (phone). Each timeout is at least 3 times the slower local time and 5 times the slower CI one.
 const R_MARKS = ['bandEdge', 'stalk', 'outlineEq', 'outlineMer', 'graduation', 'centre', 'dimension', 'silhouette', 'numeral'];
 
 /** The essay's frame at section-local `local` of `section` at ambient `ambient` (the test mode's pose by default), the galaxy built. */
@@ -2284,6 +2292,12 @@ async function planScreenPixels(page: Page): Promise<{ lit: number; ember: numbe
 for (const size of SIZES) {
   test.describe(`the plan's schematic at ${size.width}x${size.height}`, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
+    // Each test drains the frames it queued with a readback (the zoom-out's scroll steps and the ls-1
+    // poses end on the test hook, not the canvas), so the next test in the worker does not wait them out.
+    test.afterEach(async ({ page }) => {
+      if (page.isClosed() || (await page.locator('#stage').count()) === 0) return;
+      await page.locator('#stage').screenshot();
+    });
 
     test('nothing is marked at the wides: the galaxy wide and fr-1', async ({ page }) => {
       test.setTimeout(480_000);
@@ -2317,7 +2331,7 @@ for (const size of SIZES) {
     });
 
     test('healthy systems carry no ember marks at zo-1 and ly-1; the twelve light ember arcs at df-5, none left by fx-4’s end', async ({ page }, testInfo) => {
-      test.setTimeout(480_000);
+      test.setTimeout(600_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       for (const [name, section, local] of [
@@ -2333,6 +2347,11 @@ for (const size of SIZES) {
       const px = await planScreenPixels(page);
       testInfo.annotations.push({ type: 'df-5', description: `${df5.ember} ember dots of ${df5.dots}, ${px.ember} ember px of ${px.lit}` });
       expect(df5.ember, 'df-5: ember dots').toBeGreaterThan(0);
+      if (size.label === 'phone') {
+        testInfo.annotations.push({ type: 'df-5 H', description: `${df5.byMark.node ?? 0} node dots, ${df5.byMark.chevron ?? 0} chevron dots` });
+        expect(df5.byMark.node ?? 0, 'df-5: H’s node crosses').toBeGreaterThanOrEqual(DF5_H_PHONE.node);
+        expect(df5.byMark.chevron ?? 0, 'df-5: H’s chevrons').toBeGreaterThanOrEqual(DF5_H_PHONE.chevron);
+      }
       expect(px.ember, 'df-5: ember px').toBeGreaterThanOrEqual(DF5_EMBER_PX[size.label]);
       await openPlanAt(page, 'fix', 0.99);
       expect((await planStats(page)).ember, 'fx-4’s end').toBe(0);
@@ -2391,7 +2410,7 @@ for (const size of SIZES) {
     });
 
     test('ls-1 is unmarked at every AMBIENT_GRID pose (the author’s ruling)', async ({ page }) => {
-      test.setTimeout(1_200_000);
+      test.setTimeout(1_800_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       for (const t of AMBIENT_GRID) {
