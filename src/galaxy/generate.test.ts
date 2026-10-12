@@ -664,13 +664,17 @@ describe('generateGalaxy', () => {
       expect(p.lattice, id).toEqual(planetLattice(p.R));
       for (const m of moonsOf(g, id)) expect(m.lattice, m.id).toEqual(moonLattice(m.R, p.R, planetLattice(p.R)));
     }
-    // Re-pinned by the re-skin's Task 7b (the design change: the plans' reservation, 4,854): on the
-    // story's seed the filler pays for it again, every unnamed planet a little thinner than its radius's
-    // lattice, the named ones whole (the planets and moons keep their room: below). From Task 5 to 7b,
-    // which freed the core's 5,520 instances, every planet kept its lattice (91,895 of 93,500). Where a
-    // seed's galaxy does not fit, the filler pays first (seed 2: planets thinned, the named ones whole).
+    // Re-pinned by the re-skin's Task 7b (the design change: the plans' reservation, 4,854), exactly: on
+    // the story's seed the filler pays for it again, 108 of the 110 planets (every one but the named two)
+    // a little thinner than its radius's lattice, 3,188 lattice points in all, the galaxy 93,456 of
+    // 93,500 (the planets and moons keep their room: below). From Task 5 to 7b, which freed the core's
+    // 5,520 instances, no planet was thinned (91,895 of 93,500). Where a seed's galaxy does not fit, the
+    // filler pays first (seed 2: planets thinned, the named ones whole).
     const thinned = (x: Galaxy) => kinds(x, 'planet').filter((p) => latticeCount(...p.lattice!) < latticeCount(...planetLattice(p.R)));
-    expect(thinned(g).length).toBeGreaterThan(0);
+    expect(thinned(g).length).toBe(108);
+    expect(kinds(g, 'planet').length - thinned(g).length).toBe(2);
+    expect(thinned(g).reduce((n, p) => n + latticeCount(...planetLattice(p.R)) - latticeCount(...p.lattice!), 0)).toBe(3_188);
+    expect(g.instances.total).toBe(93_456);
     for (const p of thinned(g)) expect(p.id !== HERO_PLANET && !FULL_DENSITY.includes(p.id), p.id).toBe(true);
     const tight = generateGalaxy(2, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
     expect(thinned(tight).length).toBeGreaterThan(0);
