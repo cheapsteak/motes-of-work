@@ -1,6 +1,6 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { FREEZE_PINS } from '../../galaxy/ambient';
+import { AMBIENT_GRID, FREEZE_PINS } from '../../galaxy/ambient';
 import { defaultSceneState } from '../../timeline/sceneState';
 import { FREEZE_BREATH_PX, FREEZE_COPY_PX, FREEZE_MOON_COPY_PX } from './birth';
 import { GALAXY_SHOTS, galaxyShotCamera, galaxyShotKeys } from '../../timeline/netShots';
@@ -54,18 +54,19 @@ describe('the freeze copies in the twin (Task 12 review: the copies counted in t
 });
 
 describe('the motes near the camera (re-skin Task 9)', () => {
-  it('at the desktop close, lamp off, no shell mote is drawn over MOTE_PX_MAX at any ambient', () => {
+  it('at the desktop close, lamp off, no shell mote is drawn over MOTE_PX_MAX at any AMBIENT_GRID pose', () => {
     // GALAXY_SHOTS.close with every body lit (lamp off): P1's star stands 2-4 units from the camera, its
     // dots 26 px across uncapped (measured; the essay's own close lamps C1 alone, at most 4.2 px). Every
-    // mote the twin draws, one ambient every 30 s over the hour, sized as shell.vert.glsl sizes it (spritePx:
-    // motePx, which ?lib=lod holds to the GLSL from 0.5 to 1000 CSS px a unit).
+    // mote the twin draws at the AMBIENT_GRID poses, sized as shell.vert.glsl sizes it (spritePx: motePx,
+    // which ?lib=lod holds to the GLSL from 0.5 to 1000 CSS px a unit). A mote stood over the cap at
+    // every one of 240 ambients over the hour (measured), so the poses lose nothing the hour found.
     const { data } = galaxyOf();
     const size = { width: 1440, height: 900 };
     const s = defaultSceneState();
     s.camera = galaxyShotKeys(GALAXY_SHOTS.close, g) as typeof s.camera;
     s.net = { ...s.net, show: 1, growth: 1, lamp: Lamp.Off };
     let [drawn, uncapped] = [0, 0];
-    for (let t = 0; t < 3600; t += 30) {
+    for (const t of AMBIENT_GRID) {
       const camera = galaxyShotCamera(GALAXY_SHOTS.close, g, data, size, t);
       camera.updateMatrixWorld();
       const eye = camera.getWorldPosition(new Vector3());
@@ -82,7 +83,7 @@ describe('the motes near the camera (re-skin Task 9)', () => {
     }
     expect(uncapped, 'a body stands beside the camera').toBeGreaterThan(20);
     expect(drawn).toBe(MOTE_PX_MAX);
-    // Measured 15.9 s on CI and 12.8 s locally with two workers on a loaded machine: 90 s is over 5x
-    // the one and 3x the other.
-  }, 90_000);
+    // Measured 1.4 s locally on a loaded machine (the hour's 120 ambients took 15.9 s on CI and 12.8 s
+    // here, so about 1.1 s on CI for these 8): 20 s is over 3x the one and 5x the other.
+  }, 20_000);
 });
