@@ -2258,11 +2258,13 @@ const DF5_EMBER_PX = { phone: 112, desktop: 229 };
  * fix round 1's H lit its dots as specks, a dash fixed in angle on a 15 px orbit one dot or none.
  */
 const DF5_H_PHONE = { node: 80, chevron: 64, dashes: 16, chevrons: 5 };
-// Timing (each test's own setTimeout), phone and desktop: locally at a load of 5-9, one worker, the wides
+// Timing (each test's own setTimeout), phone and desktop: locally at a load of 4-9, one worker, the wides
 // 62 s and 121 s, H and R 77 s and 78 s, the ember 127 s and 135 s, the defect 46 s and 45 s, ls-1 339 s
-// and 332 s, the zoom-out 39 s and 37 s; on CI (run 38209082401) the wides 60 s and 72 s, H and R 49 s
-// and 46 s, the ember 114 s and 108 s, the defect 34 s (desktop), ls-1 318 s and 318 s, the zoom-out 21 s
-// (phone). Each timeout is at least 3 times the slower local time and 5 times the slower CI one.
+// and 332 s, the zoom-out 72 s and 70 s; on CI (run 38220189913, the fix round 1 head) the wides 40 s and
+// 43 s, H and R 32 s and 32 s, the ember 72 s and 78 s, the defect 24 s and 19 s, ls-1 186 s and 216 s,
+// the zoom-out 66 s and 72 s. Each timeout is at least 3 times the slower local time and 5 times the
+// slower CI one: the wides 480 s (4.0x, 11x), H and R 300 s (3.8x, 9.4x), the ember 600 s (4.4x, 7.7x),
+// the defect 240 s (5.2x, 10x), ls-1 1,800 s (5.3x, 8.3x), the zoom-out 420 s (5.8x, 5.8x).
 const R_MARKS = ['bandEdge', 'stalk', 'outlineEq', 'outlineMer', 'graduation', 'centre', 'dimension', 'silhouette', 'numeral'];
 
 /** The essay's frame at section-local `local` of `section` at ambient `ambient` (the test mode's pose by default), the galaxy built. */
@@ -2429,7 +2431,7 @@ for (const size of SIZES) {
     test('the zoom-out draws the twin’s plan at every tenth of the plan’s life on its pull', async ({ page }) => {
       // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 4.6 % of the
       // dots and 6.1 % of the light, measured); the page is held to the twin along it.
-      test.setTimeout(240_000);
+      test.setTimeout(420_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
