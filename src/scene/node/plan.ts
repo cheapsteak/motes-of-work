@@ -1082,12 +1082,13 @@ export function planLayout(
  * A frame's plan values, pure (bodySystem.ts hands them to the shaders): each system's s_px (its outer
  * radius on screen about its star, CSS px; 0 behind the camera), cull (planCull: how far its outer ring
  * reaches inside the frame, and its star's view depth), real share; its full-detail gain, planFull of
- * its culled s_px (s_px × cull) over the third-largest's (0 when fewer than three are in frame: then
- * every system is in R) over ± PLAN_FULL_SOFT, or PLAN_FULL_SHARE of the third's where that is wider:
- * the two largest are drawn in R, the third at half and every smaller one less, so R passes from one
- * system to another as their sizes cross, never at a switch, and a system leaving the frame leaves R as
- * it fades (round 4's mock: `smooth(−24, 24, sizes[i] − third)` for every system); and the pools' layout
- * (planLayout).
+ * its drawn size over the third-largest's (every system whole when fewer than three are drawn), over
+ * 2 × PLAN_FULL_SOFT, or 2 × PLAN_FULL_SHARE of the second's drawn size where that is wider: the two
+ * largest are drawn in R and the third and every smaller one not at all, so R passes from one system
+ * to another as their sizes cross, never at a switch, and a system leaving the frame leaves R as it
+ * fades (round 4's mock: `smooth(−24, 24, sizes[i] − third)` for every system); and the pools' layout
+ * (planLayout). A system's drawn size is its s_px × its cull × how much of it the frame draws: its real
+ * share, its star's presence, and 0 where the lamp darkens every body of it.
  */
 export function planFrameOf(g: Galaxy, data: BodyData, table: Float32Array, input: PlanFrameInput): PlanFrame {
   const { view, clocks } = input;
@@ -1105,16 +1106,30 @@ export function planFrameOf(g: Galaxy, data: BodyData, table: Float32Array, inpu
     sPx.push(s);
     cull.push(front ? planCull(inside, at.depth, s) : 0);
   });
-  const culled = g.systems.map((_, i) => sPx[i] * cull[i]);
+  // How much of each system the frame draws (each a dissolve on all its dots, planDot): its real share,
+  // its star's presence, and none where the lamp darkens every one of its bodies. A system drawn faintly
+  // or not at all takes that much less of R from those drawn: in the essay's zoom-out pull, P_a's star
+  // not yet up and a neighbour coming into the frame unlit took the drawn system's R from 1 to 0.6 over
+  // four steps of 400 (fix round 2, review N1); under re-2's star lamp the dark neighbours held P5's at
+  // 0.18 (review m2).
+  const drawn = g.systems.map((star, i) => {
+    const bodies = Math.round(planTexel(table, i, 4)[2]);
+    let lit = lampGain(star, clocks, data) > 0;
+    for (let k = 0; k < bodies && !lit; k++) lit = lampGain(planBodyRow(table, i, k), clocks, data) > 0;
+    return lit ? Math.min(1, input.real[i]) * bodyPresence(star, clocks.growth, data) : 0;
+  });
+  const culled = g.systems.map((_, i) => sPx[i] * cull[i] * drawn[i]);
   const order = culled
     .map((c, i) => [c, i] as const)
     .filter(([c]) => c > 0)
     .sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-  // At most two systems in R (spec §4.7): the gain rises from the third-largest culled size, so the
+  // At most two systems in R (spec §4.7): the gain rises from the third-largest drawn size, so the
   // third and every smaller system are exactly 0, and R passes between neighbours only as the third's
-  // size crosses the second's. With fewer than three on screen, every one is whole.
+  // size crosses the second's. With fewer than three drawn, every one is whole. The ramp is a share of
+  // the second's size (lod.ts PLAN_FULL_SHARE).
+  const t2 = order.length > 2 ? order[1][0] : 0;
   const t3 = order.length > 2 ? order[2][0] : 0;
-  const soft = Math.max(PLAN_FULL_SOFT, PLAN_FULL_SHARE * t3);
+  const soft = Math.max(PLAN_FULL_SOFT, PLAN_FULL_SHARE * t2);
   const third = order.length > 2 ? t3 : PLAN_NO_THIRD;
   for (let i = 0; i < n; i++) sys.set([sPx[i], culled[i] > 0 ? planFull(culled[i], third, soft) : 0, cull[i], input.real[i]], i * 4);
   const { table: laid, range } = planLayout(g, data, table, sys, input);

@@ -2429,8 +2429,8 @@ for (const size of SIZES) {
     });
 
     test('the zoom-out draws the twin’s plan at every tenth of the plan’s life on its pull', async ({ page }) => {
-      // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 4.6 % of the
-      // dots and 6.1 % of the light, measured); the page is held to the twin along it.
+      // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 3.3 % of the dots and
+      // 3.8 % of the light on a phone, 3.7 % and 5.5 % on a desktop, measured); the page is held to the twin along it.
       test.setTimeout(420_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));

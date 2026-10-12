@@ -136,8 +136,9 @@ export const PURITY_SAMPLES: PuritySample[] = [
   // Reviewer, trace and fix keyed (Task 11), each at the pose and at 101 s: the ring moving over P5's
   // planets under re-2, the surge running out along R0's lineage, and the sweep from the neighbourhood.
   // Two fences: the sweep at 101 s, and the plan's schematic (re-skin Task 7b) at the ring's 101 s, where
-  // H and R both draw (1,710 dots: P5's bands, stalks and silhouettes, its neighbours' arcs, nodes,
-  // departures and chevrons), the frame's layout table re-laid and uploaded as it moves
+  // H and R both draw (2,775 dots: re-2's star lamp lights P5's system alone, whole in R at 149 px: its
+  // bands, stalks, outlines, graduations and silhouettes, its arcs closing, its nodes and its departures
+  // settling on the band), the frame's layout table re-laid and uploaded as it moves
   // (planMeshes.ts): the browser proves the page draws the schematic the twin computes.
   ...(
     [

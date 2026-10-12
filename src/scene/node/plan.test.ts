@@ -300,18 +300,27 @@ describe('the zoom is continuous', () => {
   // The provisional windows' guard (it asserts continuity, never a window): the TS twin's lit plan dots
   // and their light, Σ alpha × size², over 200 steps of a camera move (400 of the essay's zoom-out),
   // phone and desktop, the text band masked (streamBandMask).
-  // MEASURED (2026-10-12, fix round 1: at most two systems in R, H brightened), worst step / 95th
-  // percentile, of the scrub's most dots and most light:
-  //   zoom (hood shot to P_a's system shot)  phone 4.5 % 6.2 % / 2.4 % 2.3 %   desktop 3.9 % 4.1 % / 2.3 % 2.6 %
-  //   pan (P_a's system shot to P1's)       phone 5.9 % 6.9 % / 2.2 % 3.7 %   desktop 9.8 % 9.2 % / 3.2 % 3.0 %
-  //   edge (turned 36° about the eye)       phone 4.5 % 3.2 % / 1.9 % 2.3 %   desktop 2.2 % 2.0 % / 1.3 % 1.2 %
+  // MEASURED (2026-10-12, fix round 2: R ranked by drawn size, its ramp 0.45 of the second's; H's
+  // dashes and chevrons redrawn), worst step / 95th percentile, of the scrub's most dots and most light:
+  //   zoom (hood shot to P_a's system shot)  phone 5.6 % 4.0 % / 2.4 % 2.1 %   desktop 3.8 % 3.2 % / 2.6 % 2.5 %
+  //   pan (P_a's system shot to P1's)       phone 5.5 % 7.7 % / 2.3 % 2.8 %   desktop 3.2 % 3.9 % / 2.1 % 2.3 %
+  //   edge (turned 36° about the eye)       phone 1.9 % 3.1 % / 1.2 % 1.2 %   desktop 1.4 % 1.4 % / 0.6 % 0.5 %
   //   depth (12 units to 3)                 phone 1.5 % 0.7 % / 0.5 % 0.4 %   desktop 1.0 % 0.4 % / 0.4 % 0.3 %
-  //   zoom-out (the essay's pull, 0.5-0.95) phone 8.1 % 14.2 % / 2.3 % 2.1 %  desktop 5.4 % 7.1 % / 2.8 % 2.5 %
-  // The worst steps are where R passes between systems: since only the two largest have any (spec
-  // §4.7), a system's R falls as the third's size comes up to it (lod.ts planFull); before fix round 1,
-  // when the third had half, they were 6.9 % and 8.1 %. Round 4's own scrub (the mock) stepped 7 % of its
-  // dots and 6 % of its light at its worst; the brief asked 3 %. The bounds: the worst step at most 10 %
-  // of the dots and 16 % of the light, the 95th percentile at most 4 % of each.
+  //   zoom-out (the essay's pull, 0.5-0.95) phone 3.3 % 3.8 % / 2.3 % 2.1 %   desktop 3.7 % 5.5 % / 2.0 % 2.1 %
+  // The worst steps are where R passes between systems: only the two largest have any (spec §4.7), so a
+  // system's R falls as the third's size comes up to it (lod.ts planFull). Fix round 1 ranked every
+  // system in frame and ramped over 0.4 of the third's size: on the phone's zoom-out pull two systems
+  // not drawn (P_a's star not yet up, a neighbour coming in unlit) took the drawn one's R from 1 to 0.6
+  // in four steps, 14.2 % of the light in one, and the bounds were loosened to 10 % / 16 % / 4 %. The
+  // levers tried, worst dots / worst light / 95th percentile over all ten scrubs: the ramp over the
+  // third's size 9.3 / 13.8 / 3.7; over the second's at 0.2-0.4 at best 5.9 / 10.4 / 4.1 (0.3); over
+  // their geometric mean 8.9 / 12.2 / 4.5 at best (0.35); capped at 24 or 40 px 10.7 / 13.8 / 3.1 at best
+  // (40); the third's size eased over 30 or 50 % of the second's 11.3 / 15.8 / 3.4 at best (50 %); a slower cull (cull²)
+  // 15.5 / 18.8 / 3.3. Ranking by the size drawn (lamp × real share × presence) alone: 9.3 / 8.9 / 3.7;
+  // with the ramp 0.4, 0.45 and 0.5 of the second's: 6.4 / 5.7 / 3.5, 5.6 / 7.7 / 2.8 and 7.0 / 8.0 / 2.5.
+  // Round 4's own scrub (the mock) stepped 7 % of its dots and 6 % of its light at its worst. The bounds,
+  // round 1's again: the worst step at most 7 % of the dots and 9 % of the light, the 95th percentile at
+  // most 3.5 % of each.
   // Timing: a scrub is about 4 s at a load of 6-19 (the zoom tests one scrub each, the other three); the
   // timeout, 240 s, is over 20 times the loaded time and far over 5 times CI's.
   const scrub = (size: { width: number; height: number }, camAt: (x: number) => PerspectiveCamera, lamp = Lamp.Hood, frameAt?: (x: number) => PlanFrame, count = 200) => {
@@ -333,10 +342,10 @@ describe('the zoom is continuous', () => {
   };
   const expectContinuous = (r: ReturnType<typeof scrub>, label: string) => {
     expect(r.most[0], `${label}: not vacuous`).toBeGreaterThan(200);
-    expect(r.worst[0], `${label}: dots`).toBeLessThanOrEqual(0.1);
-    expect(r.worst[1], `${label}: light`).toBeLessThanOrEqual(0.16);
-    expect(r.p95[0], `${label}: dots p95`).toBeLessThanOrEqual(0.04);
-    expect(r.p95[1], `${label}: light p95`).toBeLessThanOrEqual(0.04);
+    expect(r.worst[0], `${label}: dots`).toBeLessThanOrEqual(0.07);
+    expect(r.worst[1], `${label}: light`).toBeLessThanOrEqual(0.09);
+    expect(r.p95[0], `${label}: dots p95`).toBeLessThanOrEqual(0.035);
+    expect(r.p95[1], `${label}: light p95`).toBeLessThanOrEqual(0.035);
   };
   const camera = (size: { width: number; height: number }, fov: number, eye: Vector3, at: Vector3): PerspectiveCamera => {
     const c = new PerspectiveCamera(fov, size.width / size.height, 0.1, 5000);

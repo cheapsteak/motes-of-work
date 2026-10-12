@@ -380,8 +380,11 @@ describe("the plan's schematic fence (re-skin Task 7b)", () => {
     uploads.render(stage.scene);
     const stats = stage.galaxy()!.bodies.plan();
     expect(stats.dots).toBeGreaterThan(1000);
-    // H's marks and R's (the second system's R partial since at most two systems are in R: no equator or graduations).
-    for (const mark of ['arc', 'node', 'deviation', 'chevron', 'bandEdge', 'stalk', 'silhouette']) expect(stats.byMark[mark], mark).toBeGreaterThan(0);
+    // H's marks and R's: re-2's star lamp lights P5's system alone, so it is whole in R (no dark neighbour
+    // takes a place in R: plan.ts planFrameOf ranks the drawn sizes). At 149 px its outline's equator
+    // and its graduations are coming in (140 -> 180), and its chevrons have left (PlanLeave, 75 -> 105).
+    for (const mark of ['arc', 'node', 'deviation', 'bandEdge', 'stalk', 'outlineEq', 'outlineMer', 'graduation', 'silhouette']) expect(stats.byMark[mark], mark).toBeGreaterThan(0);
+    expect(stats.slots[1], 'P5’s system alone in R').toBe(-1);
     // Both meshes draw over the one table, as the frame laid it out (uploaded, not stale).
     const read = gpuInputs(stage.scene, stage.camera, uploads) as { draws: Record<string, { name: string; material: { uniforms: Record<string, { data: Plain }> } }> };
     const plans = Object.values(read.draws).filter((d) => d.name.startsWith('net-plan'));

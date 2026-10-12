@@ -440,7 +440,7 @@ describe("the plan's level of detail", () => {
     expect(planFull(100 + 24, 100)).toBe(1);
     expect(planFull(100 + 12, 100)).toBeCloseTo(0.5, 12);
     expect(planFull(5, -1e30)).toBe(1);
-    // A wider soft (plan.ts: PLAN_FULL_SHARE of the third's size) widens it the same way.
+    // A wider soft (plan.ts: PLAN_FULL_SHARE of the second's drawn size) widens it the same way.
     expect(planFull(100, 100, 40)).toBe(0);
     expect(planFull(180, 100, 40)).toBe(1);
   });
