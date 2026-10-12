@@ -69,7 +69,8 @@ export const FLASH_PLAN: FlashChunk[] = flashChunks(FLASH_FRAMES, FLASH_CHUNKS, 
  * How far from the reference the median of a chunk's part may lie, and how far the line is moved the strict
  * way for it. The measured parts lay within 1.1 % of the reference; on the render with the planets'
  * terminator and far side (re-skin Task 7) they lie within 2.8 % (phone 1.0084, 1.0221, 0.9869, 0.9725;
- * desktop 1.0088, 1.0217, 0.9889, 0.9720). 3 % leaves room for a render that differs a little, and moves the
+ * desktop 1.0088, 1.0217, 0.9889, 0.9720), and with the moons' far side dimmed (re-skin Task 9) phone 1.0080,
+ * 1.0218, 0.9870, 0.9720 and desktop 1.0086, 1.0211, 0.9886, 0.9716. 3 % leaves room for a render that differs a little, and moves the
  * line less than the swings sit from it (swings at 0.100 to 0.139 of the median were measured, 0.097 is the
  * lowest line judged).
  */
@@ -82,10 +83,13 @@ export const FLASH_TOLERANCE = 0.03;
  * 0.918-1.282 of the median; CI's run 38174324079). Re-measured for the planets' terminator and far side
  * (re-skin Task 7), which shade C1 by design and lower its box's light by about a third: every frame of the
  * run drawn in one throwaway test at 1x on SwiftShader, as the chunks draw them. The whole run, at its own
- * line: phone 11 swings, 1 flash, range 0.920-1.294; desktop 10 swings, 1 flash, range 0.912-1.303. Each
- * chunk prints its part's median on the test, to read the reference off a CI run again.
+ * line: phone 11 swings, 1 flash, range 0.920-1.294; desktop 10 swings, 1 flash, range 0.912-1.303 (603061 and
+ * 695806). Re-measured the same way for the moons' far side (re-skin Task 9: MOON_FAR_DIM dims C1's moons'
+ * far hemispheres, -0.4 %, which moved the last part 3.2 % off the old reference): phone 11 swings, 1 flash,
+ * range 0.920-1.295; desktop 10 swings, 1 flash, range 0.912-1.304. Each chunk prints its part's median on
+ * the test, to read the reference off a CI run again.
  */
-export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 603061, desktop: 695806 };
+export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 600387, desktop: 692895 };
 
 /**
  * The swings (changes over 10 % of the reference x (1 + FLASH_TOLERANCE)) each chunk must own, per size.
