@@ -156,3 +156,12 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - ✗ **A lit planet's dust is drawn round its ember point**, never over it (4390bcb). It is invisible at the essay's df-5 (85 px of a phone frame); at re-1 and re-2 the lit planets' centres are slightly smaller, deeper ember discs.
 - ✗ **C1's moons' far hemispheres are dimmer** (`MOON_FAR_DIM` 0.075, a planet's 0.2; 5659f7e). At df-1 the lower moons read a little more as crescents, which bears on the pending crescent call (option A).
 - ✗ **The dotted orbits at DPR 1**: the mean dot reads (54 over the background at re-1), but half of re-1's dots sit just under the 40 that reads (median 39 / 37). Check them on a real phone.
+
+## Task 9 (review of 2dc1c63..325d10a: Important 1, the moon see-through bound, fixed in round 1)
+
+- [ ] **`litPointPx` and the dust mask in `shell.vert.glsl` have no TS twin or parity case.**
+- [ ] **The moon see-through test isolates `net-shells` only**: a 16-24 px moon's icosphere fill and rim (drawn at full gain) are not measured.
+- [ ] **The `uFace` test hook computes n·V twice** in `shell.vert.glsl`. Cosmetic.
+- [ ] **ecd02dd's message says "shard table refreshed"**, but that commit only checks the item off (the refresh is 325d10a).
+- [ ] **§13.3's up-1 strand floor reads 415, not 0.6 × 697 = 418.** It predates Task 9.
+- [ ] **The new moon test's loaded local time is unmeasured**: its 300 s file timeout clears 5× CI (10.7 / 18.6 s), but the 3× loaded check has not been done.

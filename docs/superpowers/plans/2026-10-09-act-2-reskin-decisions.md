@@ -73,6 +73,7 @@ difference the author accepts becomes a new row above.
 | `defect-v18-burst-leak-dropout-strip.png` | df-1, df-2 (motion: watch it live) | 8b | |
 | `ly5-opening-compare-phone.png` (row B) | ly-5's opening, phone, layers 3.50 to 3.58: the first plan in frame by 3.52, no empty sky | 1e | 1e task review: matches the B row |
 | (no still) fewer, fainter star spikes | ly-3, fr-1 | 1b and later | v21 judge: matches (2 faint spiked stars of 25 at ly-3, none at fr-1) |
+| `freeze-frame-mock-held-phone.png` (the mock `docs/mocks/freeze-frame.html` held: local 0.33, the freeze on, UI hidden) | df-2 held, defect 0.33, phone | 8 (and the galaxy plan's Task 12) | Task 9 sheet: the mechanics match (additive copies, cyan, both bursts, the doubled moon beside its empty outline); softer than the mock (the held planet and the copy gain), a pending author call |
 
 ## Published versions
 
