@@ -142,7 +142,7 @@ describe('the plan is the orbit, without the derp', () => {
     // Dashes: on for 7 of every 11 parts of a period, fixed in angle.
     let on = 0;
     const N = 11_000;
-    for (let i = 0; i < N; i++) on += planDash((i / N) * 10 * PLAN_LOOK.arc.dashPeriod, 0, PLAN_LOOK.arc.dashPeriod) > 0.5 ? 1 : 0;
+    for (let i = 0; i < N; i++) on += planDash((i / N) * 10 * PLAN_LOOK.arc.dashPeriod, PLAN_LOOK.arc.dashPeriod) > 0.5 ? 1 : 0;
     expect(on / N).toBeCloseTo(7 / 11, 2);
     // The chevron's two legs meet at the arc's end: its first dot of each leg is the tip.
     const force = new Float32Array(LOD_COUNT).fill(-1);
@@ -261,7 +261,7 @@ describe('H read on a phone (Task 7b fix round 2, review I2)', () => {
       expect((L.span * rPx) / pitch).toBeGreaterThanOrEqual(Math.min(L.minDots, (L.span * rPx) / L.pitchMin) - 1e-9);
       const period = planDashPeriod(rPx, pitch);
       expect(period).toBeGreaterThanOrEqual(L.dashPeriod);
-      const lit = Array.from({ length: 4 * L.dashDots }, (_, s) => (planDash((s * pitch) / rPx, 0, period) > 0.5 ? 1 : 0));
+      const lit = Array.from({ length: 4 * L.dashDots }, (_, s) => (planDash((s * pitch) / rPx, period) > 0.5 ? 1 : 0));
       expect(lit.join(''), `${rPx} px`).toBe('111100'.repeat(4));
     }
     // Over the angle period (a large orbit, the arc closing past s_px 75) the dash is fixed in angle again.

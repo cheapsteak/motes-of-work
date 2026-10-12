@@ -79,7 +79,6 @@ describe('SALT', () => {
       hazePhase: 49,
       hazeAngle: 50,
       // The plan's schematic (re-skin Task 7b).
-      planDash: 51,
       planNode: 52,
       planOutline: 53,
       planRank: 54,

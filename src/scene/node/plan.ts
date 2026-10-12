@@ -397,9 +397,9 @@ export function planArcPitch(rPx: number): number {
   return Math.min(M.arc[2], Math.max(L.arc.pitchMin, (L.arc.span * rPx) / L.arc.minDots));
 }
 
-/** Whether angle `a` (rad, along a dashed curve from its start, plus the curve's phase in periods) is on a dash of `period` rad: 1 on, 0 in a gap, a 2 % soft edge. */
-export function planDash(a: number, phase: number, period: number): number {
-  const x = fract(a / period + phase);
+/** Whether angle `a` (rad, along a dashed curve from its start) is on a dash of `period` rad: 1 on, 0 in a gap, a 2 % soft edge. */
+export function planDash(a: number, period: number): number {
+  const x = fract(a / period);
   const on = L.arc.dash[0] / L.arc.dash[1];
   return 1 - smoothstep(on - 0.02, on, x) * (1 - smoothstep(1 - 0.02, 1, x));
 }
@@ -541,7 +541,7 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
       const r = runOf(span * elementsAt(data, row).a * ppu, pitch);
       const phi = span * r.u;
       pos = planOrbitPoint(data, row, E0 + phi, 0, t);
-      const on = close > 0 ? planDash(phi, 0, planDashPeriod(elementsAt(data, row).a * ppu, pitch)) : 1;
+      const on = close > 0 ? planDash(phi, planDashPeriod(elementsAt(data, row).a * ppu, pitch)) : 1;
       // The gaps fill by rank as the arc closes.
       alpha = mix(M.arc[0], M.bandFill[0], peel) * mix(planRank(close, d.rank), 1, on) * r.light;
       size = mix(M.arc[1], M.bandFill[1], peel);
@@ -607,7 +607,7 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
         const r = runOf(span * r0 * ppu, M.deviation[2]);
         const u = r.u;
         pos = at(u);
-        alpha = M.deviation[0] * dep * mix(planRank(pe, d.rank), 1, planDash(span * u, 0, planDashPeriod(r0 * ppu, M.deviation[2]))) * r.light;
+        alpha = M.deviation[0] * dep * mix(planRank(pe, d.rank), 1, planDash(span * u, planDashPeriod(r0 * ppu, M.deviation[2]))) * r.light;
         size = M.deviation[1] + (L.edge.size - M.deviation[1]) * pe;
       }
       ember = lit;

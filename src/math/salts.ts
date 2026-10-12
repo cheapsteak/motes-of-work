@@ -53,8 +53,8 @@ export const SALT = {
   hazePhase: 49, // a haze dot's phase in its lives, and each life's angle
   hazeAngle: 50,
   // The plan's schematic (plan.ts / plan.glsl, re-skin Task 7b), each hash of a plan dot's or a body's
-  // seed (planAttrs.ts): an orbit's dash phase, a node dot's own arrival rank, an outline's start angle,
-  planDash: 51,
+  // seed (planAttrs.ts): a node cross's own arrival rank, an outline's start angle,
+  // 51 was planDash, an orbit's dash phase, gone in Task 7b fix round 2 (a dash starts at its body).
   planNode: 52,
   planOutline: 53,
   planRank: 54, // and every other plan dot's arrival rank in its window's dissolve
