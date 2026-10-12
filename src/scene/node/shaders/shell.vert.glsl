@@ -73,6 +73,11 @@ float litHandover(float across) {
   return smoothstep(2.0 * LOOK_LIT_POINT_MAX, 4.0 * LOOK_LIT_POINT_MAX, across);
 }
 
+// A lit planet's point's diameter (CSS px): LOOK_LIT_POINT of the planet's disc, at least its lit floor and at most LOOK_LIT_POINT_MAX.
+float litPointPx(float across) {
+  return clamp(LOOK_LIT_POINT * across, max(PX_LIT_PLANET, LOOK_LIT_POINT_MIN), LOOK_LIT_POINT_MAX);
+}
+
 void main() {
   int row = int(round(aMote.x));
   int role = int(round(aMote.y));
@@ -140,7 +145,7 @@ void main() {
     // Lit, the point is an ember disc of LOOK_LIT_POINT of the planet's disc (at least its lit
     // floor), handing back to the lit shell as the planet grows on screen.
     float pointAcross = 2.0 * R * pxPerUnit(view) / uPixelRatio;
-    float litPx = clamp(LOOK_LIT_POINT * pointAcross, max(PX_LIT_PLANET, LOOK_LIT_POINT_MIN), LOOK_LIT_POINT_MAX);
+    float litPx = litPointPx(pointAcross);
     gain *= sysGain(LOD_PLANET_POINT, sys) * (1.0 - hi * litHandover(pointAcross));
     if (gain < LOD_VISIBLE) {
       gl_Position = MOTE_HIDDEN;
@@ -173,8 +178,16 @@ void main() {
   float bodyPx = 0.5 * across;
   // A star's or core body's shell hands over to its glow sprite as it shrinks under a few px.
   if (kind == KIND_STAR || kind == KIND_CORE) gain *= smoothstep(LOOK_SHELL_FADE_FROM, LOOK_SHELL_FADE_TO, bodyPx);
-  // A lit planet's shell is the dust round its ember point while the point stands for it.
-  if (kind == KIND_PLANET && role != ROLE_PERSON) gain *= mix(1.0, LOOK_LIT_DUST, o.hi * (1.0 - litHandover(2.0 * bodyPx)));
+  // A lit planet's shell is the dust round its ember point while the point stands for it: dimmed to
+  // LOOK_LIT_DUST, and none over the point's own disc, where it would only pale the ember toward white
+  // (re-skin Task 9, the twelve counted with their shells on). Over the point: the mote's rest normal,
+  // seen from the camera, falls within the point's share of the planet's disc on screen, a 1 px soft edge.
+  if (kind == KIND_PLANET && role != ROLE_PERSON) {
+    float stand = o.hi * (1.0 - litHandover(across));
+    float off = length((mat3(viewMatrix) * o.normal).xy);
+    float over = 1.0 - smoothstep(-0.5, 0.5, 0.5 * (off * across - litPointPx(across)));
+    gain *= mix(1.0, LOOK_LIT_DUST * (1.0 - over), stand);
+  }
   // A moon's shell comes in over its point as the moon grows on screen.
   if (kind == KIND_MOON && role != ROLE_PERSON) gain *= moonSphereGain(across);
   if (o.visible < 0.5 || gain < LOD_VISIBLE) {

@@ -780,32 +780,46 @@ for (const size of SIZES) {
   });
 }
 
-test.describe('Task 6, the twelve', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+/**
+ * The twelve's ember areas (test 12), the planet shells drawn: the bodies' light alone, so every mesh
+ * but the plan's schematic (re-skin §4.7). H's node crosses stand on the planned places, which are the
+ * bodies' own (a healthy body sits on its marks), so a phosphor cross over an ember point can cut it in
+ * two by design; the plan's own ember is the schematic's tests'.
+ */
+async function twelveAreas(page: Page): Promise<number[]> {
+  const { visible } = await drawStats(page);
+  await call(page, 'isolate', visible.filter((n) => !n.startsWith('net-plan')));
+  return emberComponents(PNG.sync.read(await canvasShot(page)), 8);
+}
 
-  test('the twelve light as twelve at the twelve probe', async ({ page }) => {
-    // df-5 on a phone (galaxy §14.4, test 12): growth 0.35, highlight 0.25, fix 0.1, lamp 5 on R0. The
-    // three stars written from the rule are ember discs (≥ 60 px²), the nine planets built from them
-    // ember points (8-60 px²); C1, fixed, is not ember. At TWELVE_AMBIENT all twelve are in the frame.
-    // The planet shells are forced off, so the planets are counted as their lit points: from the
-    // twelve's distance on a phone (87) the three systems are past the planet shells' band (25-50
-    // px), and C10's lit shell, 0.8 ember, pales its point one step past the classifier's ember.
-    const g = generateGalaxy(MOTE_SEED, galaxyTier(390, 844), galaxyBudget(MOTE_BUDGET_DESKTOP));
-    const data = packBodyData(g);
-    const { project } = twinCamera(g, 'twelve', TWELVE_AMBIENT, { width: 390, height: 844 });
-    for (const id of ['P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']) {
-      const p = project(bodyWorld(data, bodyIndex(g, id), TWELVE_AMBIENT));
-      expect(p.x > 0 && p.x < 390 && p.y > 0 && p.y < 844, `${id} in the frame`).toBe(true);
-    }
-    const errors: string[] = [];
-    await openT6(page, 'twelve', { growth: 0.35, highlight: 0.25, fix: 0.1, lamp: Lamp.Lineage, lampAt: trackIndex({ body: 'R0' }) }, TWELVE_AMBIENT, errors);
-    await call(page, 'forceLod', LodElement.PlanetShell, 0);
-    const areas = emberComponents(PNG.sync.read(await canvasShot(page)), 8);
-    expect(areas.filter((a) => a >= 60).length, `ember areas ${areas.join(' ')}`).toBe(3);
-    expect(areas.filter((a) => a < 60).length, `ember areas ${areas.join(' ')}`).toBe(9);
-    expect(errors).toEqual([]);
+for (const size of SIZES) {
+  test.describe(`Task 6, the twelve, at ${size.width}x${size.height}`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } });
+
+    test('the twelve light as twelve at the twelve probe', async ({ page }) => {
+      // df-5 (galaxy §14.4, test 12): growth 0.35, highlight 0.25, fix 0.1, lamp 5 on R0. The three
+      // stars written from the rule are ember discs (≥ 60 px²), the nine planets built from them ember
+      // points (8-60 px²); C1, fixed, is not ember. At TWELVE_AMBIENT all twelve are in the frame. The
+      // planet shells are drawn, on both screens (the shells-on classifier, re-skin Task 9): a lit
+      // mid-size shell is dust round its ember point, never over it (shell.vert.glsl), so the point stays
+      // ember. Measured: the points 11-14 px² on a phone, 11-24 on a desktop (with the dust over the
+      // point, the desktop's C10 fell apart into pieces under 8 px²).
+      const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
+      const data = packBodyData(g);
+      const { project } = twinCamera(g, 'twelve', TWELVE_AMBIENT, size);
+      for (const id of ['P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']) {
+        const p = project(bodyWorld(data, bodyIndex(g, id), TWELVE_AMBIENT));
+        expect(p.x > 0 && p.x < size.width && p.y > 0 && p.y < size.height, `${id} in the frame`).toBe(true);
+      }
+      const errors: string[] = [];
+      await openT6(page, 'twelve', { growth: 0.35, highlight: 0.25, fix: 0.1, lamp: Lamp.Lineage, lampAt: trackIndex({ body: 'R0' }) }, TWELVE_AMBIENT, errors);
+      const areas = await twelveAreas(page);
+      expect(areas.filter((a) => a >= 60).length, `ember areas ${areas.join(' ')}`).toBe(3);
+      expect(areas.filter((a) => a < 60).length, `ember areas ${areas.join(' ')}`).toBe(9);
+      expect(errors).toEqual([]);
+    });
   });
-});
+}
 
 // Task 10: test 12 on the essay's own df-5, as keyed (the twelve, lamp 5 on R0's lineage, growth,
 // highlight and fix as the keyframes have them), at the pose test mode stops the ambient at.
@@ -817,9 +831,9 @@ for (const size of SIZES) {
       // df-5's hold, from where it is full ink to where its page starts to fade (defect is 4.8
       // screens, its fade 0.1 / 4.8), at its middle: three stars written from the rule as ember discs
       // (≥ 60 px²), the nine planets built from them as ember points (8-60 px²; r > 200, r > b + 90,
-      // r > g + 70); C1, mended, is no part of any. As Task 6's twelve test, the planet shells are forced
-      // off, so the planets are counted as their lit points: a lit shell over its point pales the point
-      // past the classifier's ember (on a desktop C9 counts 5 px² with its shell, 11 without).
+      // r > g + 70); C1, mended, is no part of any. As Task 6's twelve test, the planet shells are drawn
+      // and the plan's marks are not counted (twelveAreas). Measured: the points 12-14 px² on a phone,
+      // 10-26 on a desktop (with the dust over the point, the desktop's C10 was 7).
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await openStage(page, '&mech=bike&n=500');
@@ -831,9 +845,9 @@ for (const size of SIZES) {
       const p = defect.start + local * (defect.end - defect.start);
       await openStage(page, `&mech=bike&p=${p}`);
       await page.waitForFunction(() => (window as unknown as { __motes: Hook }).__motes.lod() !== null);
-      await call(page, 'forceLod', LodElement.PlanetShell, 0);
+      const areas = await twelveAreas(page);
+      await call(page, 'isolate', null);
       const png = PNG.sync.read(await canvasShot(page));
-      const areas = emberComponents(png, 8);
       expect(areas.filter((a) => a >= 60).length, `ember areas ${areas.join(' ')}`).toBe(3);
       expect(areas.filter((a) => a < 60).length, `ember areas ${areas.join(' ')}`).toBe(9);
       // C1 excluded: no ember pixel within 3 px of where the twin draws it through the keyed camera (a
