@@ -33,6 +33,9 @@ uniform float uGlowCap[GALAXY_GLOW_MAX];
 // The freeze frame: the copies' offset direction (the rolled screen x, clip space) and the twos' tick.
 uniform vec2 uOffPx;
 uniform float uTwos;
+// Test mode (BodySystem.faceOnly): 0 every mote; 1 a planet's or moon's motes facing the camera only (n.V > 0), -1 only
+// those facing away past the far side's soft band (n.V < -PLANET_FAR_SOFT), where the far side's dim holds whole.
+uniform float uFace;
 
 out vec2 vUv;
 flat out float vType; // 1 the body base colour, toward 0 the person amber (galaxyMote.frag.glsl mixes them)
@@ -219,6 +222,10 @@ void main() {
   // Their far hemisphere, seen through the lattice, is dimmed (terminator.glsl farSide, on the mote's
   // rest normal as its terminator is, so a scattered or leaking dot keeps its side's light), unless lit.
   float far = 1.0;
+  if (uFace != 0.0 && (kind == KIND_PLANET || kind == KIND_MOON) && (uFace > 0.0 ? dot(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz)) <= 0.0 : dot(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz)) >= -PLANET_FAR_SOFT)) {
+    gl_Position = MOTE_HIDDEN;
+    return;
+  }
   if (kind == KIND_PLANET || kind == KIND_MOON) far = mix(farSide(normalize(mat3(viewMatrix) * o.normal), normalize(-view.xyz), kind == KIND_MOON ? PLANET_MOON_FAR_DIM : PLANET_FAR_DIM), 1.0, o.hi);
   // Where the shell is small on screen its motes overlap: each carries no more than its share of the disc.
   // A lit shell's gain shows where its motes stand apart; where they pile up it is spent within the

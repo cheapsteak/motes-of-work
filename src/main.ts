@@ -54,6 +54,8 @@ interface MotesTestHook {
   hoodLod(): { glowPx: number; real: number; far: number; x: number; y: number; unit: number; sx: number; sy: number }[] | null;
   /** Hold a LodElement's gain at `gain` (null lets go), and redraw. */
   forceLod(el: LodElement, gain: number | null): void;
+  /** Draw a planet's and a moon's shell motes whole (0), only its near hemisphere's (1) or only its far one's past the soft band (-1) (BodySystem.faceOnly), and redraw. */
+  faceOnly(side: -1 | 0 | 1): void;
   /** Draw only the named meshes (null: all of them again), and redraw. */
   isolate(names: string[] | null): void;
   /**
@@ -415,6 +417,10 @@ if (testMode) {
     },
     forceLod: (el, gain) => {
       bodiesOf()?.forceLod(el, gain);
+      requestFrame();
+    },
+    faceOnly: (side) => {
+      bodiesOf()?.faceOnly(side);
       requestFrame();
     },
     hole: () => {

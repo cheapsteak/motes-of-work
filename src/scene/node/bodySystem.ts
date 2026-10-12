@@ -169,6 +169,12 @@ export interface BodySystem {
   /** Test mode: hold an element's gain at `gain` whatever the systems' sizes, or (null) let go. */
   forceLod(el: LodElement, gain: number | null): void;
   /**
+   * Test mode: draw a planet's and a moon's shell motes whole (0), only those whose rest normal faces the
+   * camera (1), or only those that face away past the far side's soft band (-1, PLANET_LOOK.farSide.soft):
+   * a body's near hemisphere, and its far one where the far side's dim holds whole, apart.
+   */
+  faceOnly(side: -1 | 0 | 1): void;
+  /**
    * How many instances of each of its meshes the last frame's early-out skipped (earlyOut.ts, the
    * shaders' twin; re-skin §7), by mesh name: every instanced mesh, 0 for those with no early-out (the
    * icospheres, the bursts). Empty before the first frame that drew the galaxy.
@@ -348,6 +354,9 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
     uSysPx: { value: sysPx },
     uGlowCap: { value: glowCap },
     uLodForce: { value: force },
+    // Test mode (faceOnly): 0 draws every shell mote; 1 only a planet's or moon's motes that face the
+    // camera, -1 only those that face away past the far side's soft band (where its dim holds whole).
+    uFace: { value: 0 },
     uHoodHold: { value: 0 },
     uViewport: viewportPx,
     uPixelRatio: { value: 1 },
@@ -726,6 +735,10 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
 
     forceLod(el, gain) {
       force[el] = gain === null ? -1 : gain;
+    },
+
+    faceOnly(side) {
+      uniforms.uFace.value = side;
     },
 
     dispose() {
