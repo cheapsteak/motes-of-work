@@ -64,13 +64,13 @@ difference the author accepts becomes a new row above.
 | `galaxy-hood-dissolve-late-phone.png` | the galaxy wide and fr-1: the 30 read as ordinary arm stars, no lattice | 1c | 2026-10-10 task review and v21 judge: matches |
 | `galaxy-hood-dissolve-late-mid-phone.png` | the zoom-out at about zo-0.84 on a phone (the hand-over runs 0.80 to 0.88): the real forms fading | 1c | v21 judge: matches (real 1.00 to zo 0.80, 0.46 at 0.84, 0 from 0.87) |
 | `binaries-four-options-sheet.png` (b) | the hood shot, ly-3 | 1d | 2026-10-12 Task 9 sheet: matches (the spacing is as decided; the hood probe carries H). The hood shot is 120, which crops the core's six at the phone's left edge; no reader keys it, so it is a look-check framing only |
-| `binaries-s-type-close-phone.png` | the closest framing of a paired system (ly-3 or ly-4) | 1e, 7b | |
-| `black-hole-inspector-defaults-phone.png` | up-1 and tr-2 | 4, 5, 6 | |
-| `disk-motion-recommended.png` | ly-2, the hole at rest (motion: watch it live) | 4, 5 | |
-| `schematic-close-defect-phone.png` | df-1, df-2 | 7b | |
-| `schematic-neighbourhood-twelve-phone.png` | df-5 | 7b | |
-| `schematic-zoom-handover-strip.png` | df-3, the step back (scrub it) | 7b | |
-| `defect-v18-burst-leak-dropout-strip.png` | df-1, df-2 (motion: watch it live) | 8b | |
+| `binaries-s-type-close-phone.png` | the closest framing of a paired system (ly-3 or ly-4) | 1e, 7b | 2026-10-12 Task 9 sheet: matches (two systems round the barycentre, each with its dashed limit ring and ellipse); v22 judge: the pair orbits its barycentre |
+| `black-hole-inspector-defaults-phone.png` | up-1 and tr-2 | 4, 5, 6 | 2026-10-12 Task 9 sheet: matches, at the decided 16 degrees (the still is about 26); up-1 has R1's ember strand, tr-2 has R0's singled out; v23 judge: matches |
+| `disk-motion-recommended.png` | ly-2, the hole at rest (motion: watch it live) | 4, 5 | 2026-10-12 Task 9 sheet: matches (still frame); its motion is unchanged from v24 (judge23b's reading); v23 judge: matches |
+| `schematic-close-defect-phone.png` | df-1, df-2 | 7b | 2026-10-12 Task 9 sheet: matches as the framing allows (bands, outlines, stalks and the "2.3" dimension; the whole-system view and the star are out of frame); C1 reads as a half-lit disc, not a crescent: pending author call |
+| `schematic-neighbourhood-twelve-phone.png` | df-5 | 7b | 2026-10-12 Task 9 sheet: H is sparser than the still (about a third of its pieces dissolved at s_px 45-48) and the chevrons show thanks to the 30 to 55 window: both pending author call; the vocabulary and colours match; v24 judge: PUBLISH |
+| `schematic-zoom-handover-strip.png` | df-3, the step back (scrub it) | 7b | 2026-10-12 Task 9 sheet: matches on the zoom-out (one geometry, R into H); df-3's pull is a pending author call (only C1's marks morph, the rest arrive at lamp 5; ruled) |
+| `defect-v18-burst-leak-dropout-strip.png` | df-1, df-2 (motion: watch it live) | 8b | 2026-10-12 Task 9 sheet: matches (the wound's leak, the dark dropout line across C1, the held frame); v23 judge: matches |
 | `ly5-opening-compare-phone.png` (row B) | ly-5's opening, phone, layers 3.50 to 3.58: the first plan in frame by 3.52, no empty sky | 1e | 1e task review: matches the B row |
 | (no still) fewer, fainter star spikes | ly-3, fr-1 | 1b and later | v21 judge: matches (2 faint spiked stars of 25 at ly-3, none at fr-1) |
 | `freeze-frame-mock-held-phone.png` (the mock `docs/mocks/freeze-frame.html` held: local 0.33, the freeze on, UI hidden) | df-2 held, defect 0.33, phone | 8 (and the galaxy plan's Task 12) | Task 9 sheet: the mechanics match (additive copies, cyan, both bursts, the doubled moon beside its empty outline); softer than the mock (the held planet and the copy gain), a pending author call |
