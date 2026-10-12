@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { extname } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { test, type Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../src/config';
@@ -531,8 +530,8 @@ const LOOK_HEIGHT = 422;
 /**
  * The look sheet's rows: the decisions page's "Look check" table, in its order, each row's essay frames
  * at the framing the table names and its decided still (none for the spikes); and the freeze frame at
- * df-2 against the approved mock's held state (local 0.33, the freeze on, UI hidden), a row the table
- * does not have yet.
+ * df-2 against the approved mock's held state (freeze-frame-mock-held-phone.png: docs/mocks/freeze-frame.html
+ * at local 0.33, the freeze on, the UI hidden, 390x844), a row the table does not have yet.
  */
 function lookRows(): { name: string; still: string | null; frames: Frame[] }[] {
   return [
@@ -561,38 +560,13 @@ function lookRows(): { name: string; still: string | null; frames: Frame[] }[] {
     },
     { name: 'ly-5 opening (B): 3.50, 3.52, 3.55, 3.58', still: 'ly5-opening-compare-phone.png', frames: [3.5, 3.52, 3.55, 3.58].map((l) => at('layers', l / 4.3)) },
     { name: 'fewer, fainter spikes: ly-3, fr-1 (no still)', still: null, frames: [at('layers', 2.35 / 4.3), at('far', 0.53125)] },
-    { name: 'the freeze frame: df-2 held (defect 0.33) against the mock held (proposed row)', still: FREEZE_MOCK, frames: [at('defect', 0.33)] },
+    { name: 'the freeze frame: df-2 held (defect 0.33) against the mock held (proposed row)', still: 'freeze-frame-mock-held-phone.png', frames: [at('defect', 0.33)] },
   ];
 }
 
-/** The freeze frame's approved mock, as a look row's still: shot held (freezeMock), not read from LOOKS_DIR. */
-const FREEZE_MOCK = 'docs/mocks/freeze-frame.html';
-
-/** The freeze frame's mock held (local 0.33, the freeze on, UI hidden), served from the working tree by route. */
-async function freezeMock(page: Page): Promise<PNG> {
-  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
-  await page.route('http://mock.local/**', (route) => {
-    const path = decodeURIComponent(new URL(route.request().url()).pathname).slice(1);
-    if (!existsSync(path)) return route.fulfill({ status: 404, body: '' });
-    return route.fulfill({ status: 200, body: readFileSync(path), contentType: types[extname(path)] ?? 'application/octet-stream' });
-  });
-  await page.goto(`http://mock.local/${FREEZE_MOCK}`);
-  await page.waitForFunction(() => (window as unknown as { __mock?: unknown }).__mock !== undefined);
-  await page.click('#bFreeze');
-  await page.evaluate(() => {
-    const s = document.getElementById('scrub') as HTMLInputElement;
-    s.value = '0.33';
-    s.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await page.addStyleTag({ content: '#ui,#label{display:none!important}' });
-  // The mock draws on its own frames; two seconds lets the held frame come up (it holds once there).
-  await page.waitForTimeout(2_000);
-  return PNG.sync.read(await page.screenshot());
-}
-
 test('R9 look sheet: each look row, the essay beside its decided still, phone', async ({ page }) => {
-  // 31 frames and the mock: measured 8.5 min, one worker, at a load of 6-8 here; 30 min is over 3x that.
-  // Skipped in CI (SHOTS unset), so there is no CI time.
+  // 31 frames: measured 8.5 min (the mock then shot in the test, since a committed still), one worker, at
+  // a load of 6-8 here; 30 min is over 3x that. Skipped in CI (SHOTS unset), so there is no CI time.
   test.setTimeout(1_800_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -606,7 +580,7 @@ test('R9 look sheet: each look row, the essay beside its decided still, phone', 
     const cells: PNG[] = [];
     for (const f of look.frames) cells.push(toHeight(await frame(page, spans, f), LOOK_HEIGHT));
     if (look.still !== null) {
-      const still = look.still === FREEZE_MOCK ? await freezeMock(page) : PNG.sync.read(readFileSync(`${LOOKS_DIR}/${look.still}`));
+      const still = PNG.sync.read(readFileSync(`${LOOKS_DIR}/${look.still}`));
       // A wider gutter between the essay's frames and the decided still.
       cells.push(blank(4 * GUTTER, 1), toHeight(still, LOOK_HEIGHT));
     }
