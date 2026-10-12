@@ -377,7 +377,7 @@ describe("the plan's level of detail", () => {
   ];
   const RANKS = [0, 0.001, 0.13, 0.5, 0.77, 0.999];
 
-  it('holds the round-4 windows, value for value (the outer ring raised to 30 → 50; the chevrons in with the arcs, 30 → 55, Task 7b fix round 1)', () => {
+  it('holds the round-4 windows, value for value, but two: the outer ring raised to 30 → 50, and the chevrons moved from 45 → 65 to the arcs\' 30 → 55 so they show at df-5 (Task 7b fix round 1, a departure for the author)', () => {
     expect(PLAN.map((el) => [el, LOD_BANDS[el]])).toEqual([
       [5, [30, 50]],
       [6, [30, 55]],

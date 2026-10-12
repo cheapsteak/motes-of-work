@@ -62,8 +62,9 @@ export enum LodElement {
 
 /**
  * Each element's band of `s_px` (CSS px): invisible below the first, full by the second (§3.1, §12.2).
- * The plan's are round 4's windows (re-skin §4.7), the outer ring's raised to 30 → 50 by the author so
- * ls-1 stays unmarked; nothing of a plan is drawn below 30.
+ * The plan's are round 4's windows (re-skin §4.7) but two: the outer ring's raised to 30 → 50 by the
+ * author so ls-1 stays unmarked, and the chevrons' moved from 45 → 65 to the arcs' 30 → 55 so the decided
+ * df-5 still's chevrons show (Task 7b, a departure for the author). Nothing of a plan is drawn below 30.
  */
 export const LOD_BANDS: Record<LodElement, [number, number]> = {
   0: [10, 20],
