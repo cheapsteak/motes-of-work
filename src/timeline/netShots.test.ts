@@ -2173,7 +2173,9 @@ describe('the hole close (HOLE_CLOSE)', () => {
             if (d < least.d) least = { d, at: `${m.shot} ${at.join('@')} ${size.width} ${t}` };
           }
     expect(least.d, least.at).toBeGreaterThanOrEqual(20);
-  }, 1_200_000);
+    // Measured: 0.33 s alone, 0.68 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 10 s is 14.7 times the loaded time and over 33 times CI's.
+  }, 10_000);
 
   it('HOLE_CLOSE and its moves pass through no lit system: the camera stays outside systemOuter + 2 of every star', () => {
     const into = ACT_TWO_MOVES.flatMap((m, i) => ((HOLE_CLOSE_BEATS as readonly string[]).includes(m.shot) ? [m, ACT_TWO_MOVES[i + 1]].filter(Boolean) : []));
@@ -2190,7 +2192,9 @@ describe('the hole close (HOLE_CLOSE)', () => {
             }
           }
     expect(least.margin, least.at).toBeGreaterThan(0);
-  }, 1_200_000);
+    // Measured: 2.08 s alone, 5.21 s at load 8.6 (8 busy loops, 1 worker), 1.56 s on CI
+    // (run 38264919221). 20 s is 3.8 times the loaded time and 13 times CI's.
+  }, 20_000);
 
   it('fx-1 to fx-2 is one hold', () => {
     const i = ACT_TWO_MOVES.indexOf(LATE_MOVES.toFix);
@@ -2233,5 +2237,7 @@ describe('the hole close (HOLE_CLOSE)', () => {
       }
     // Some keyed frames there are lit by another lamp than the core's (the hood's, on the moves out).
     expect(checked).toBeGreaterThan(0);
-  }, 300_000);
+    // Measured: 54.91 s alone, 138.88 s at load 8.6 (8 busy loops, 1 worker), 40.75 s on CI
+    // (run 38264919221). 420 s is 3.0 times the loaded time and 10 times CI's.
+  }, 420_000);
 });

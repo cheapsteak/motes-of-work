@@ -286,7 +286,9 @@ describe('the kinds', () => {
     expect(DERP_STAR_SHIVER * DERP_WOBBLE).toBeCloseTo(4 * 0.06, 12);
     expect(maxW).toBeLessThanOrEqual(4 * 0.06 * R);
     expect(maxW).toBeGreaterThan(0.9 * 4 * 0.06 * R);
-  }, 30_000);
+    // Measured: 1.39 s alone, 3.16 s at load 8.6 (8 busy loops, 1 worker), 0.97 s on CI
+    // (run 38264919221). 15 s is 4.7 times the loaded time and 15 times CI's.
+  }, 15_000);
 
   it('a star and the core only shiver, except for the scatter', () => {
     for (const kind of [DerpKind.Burst, DerpKind.Skip, DerpKind.Stall, DerpKind.Reverse, DerpKind.Wobble])

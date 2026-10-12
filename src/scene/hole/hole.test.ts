@@ -172,7 +172,9 @@ describe('the disk', () => {
       const p = diskPlace(A.disk, i, 101);
       if (p.r <= HOLE_DISK.rise[0] || p.r >= HOLE_DISK.fade[1]) expect(diskDot(A.disk, i, v, 0).alpha).toBe(0);
     }
-  }, 120_000);
+    // Measured: 0.14 s alone, 0.20 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 25.0 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('each streak lives 3600/N and fades in and out', () => {
     for (const rb of [2.75, 3.4, 5, 7.7, 12]) {
@@ -248,7 +250,9 @@ describe('the disk', () => {
       });
     }
     console.info(`coherence (r < 4 / 4-7 / 7-12): ${rows.join('; ')}`);
-  }, 120_000);
+    // Measured: 0.10 s alone, 0.18 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 27.8 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('the disk is continuous across the hour', () => {
     const v0 = view(0);
@@ -270,7 +274,9 @@ describe('the disk', () => {
         worst = Math.max(worst, step(at0, at3600));
       }
     console.info(`the hour: max |diskDot(3600) - diskDot(0)| over every dot and both images = ${worst.toExponential(2)}`);
-  }, 120_000);
+    // Measured: 3.96 s alone, 9.11 s at load 8.6 (8 busy loops, 1 worker), 4.94 s on CI
+    // (run 38264919221). 30 s is 3.3 times the loaded time and 6 times CI's.
+  }, 30_000);
 
   it("keeps the reference's mix", () => {
     const rows: string[] = [];
@@ -291,7 +297,9 @@ describe('the disk', () => {
       [0.277, 0.319, 0.245, 0.158].forEach((ref, b) => expect(Math.abs(bins[b] / diskCount - ref), `t ${t} bin ${b}`).toBeLessThanOrEqual(0.02));
     }
     console.info(`the mix (streak share [r bins]): ${rows.join('; ')}`);
-  }, 120_000);
+    // Measured: 0.06 s alone, 0.23 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 21.7 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('hot spots are 2 % of lives, bright, short and larger', () => {
     let hot = 0;
@@ -409,7 +417,9 @@ describe('the jets and the knots', () => {
     const cycle = HOLE_DOTS.knotSlots * knotInterval(0.7);
     expect(launches.size).toBeGreaterThanOrEqual(Math.floor(600 / cycle) - 1);
     expect(launches.size).toBeLessThanOrEqual(Math.ceil(600 / cycle) + 1);
-  }, 120_000);
+    // Measured: 0.03 s alone, 0.07 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 71.4 times the loaded time and over 16 times CI's.
+  }, 5_000);
 });
 
 describe('the strands', () => {
@@ -529,7 +539,9 @@ describe('the infall', () => {
       }
     expect(trails).toBeGreaterThan(20);
     expect(infallDot(A.infall, 0, view(40)).sizeCss).toBe(1.6);
-  }, 120_000);
+    // Measured: 0.24 s alone, 0.67 s at load 8.6 (8 busy loops, 1 worker), 0.39 s on CI
+    // (run 38264919221). 10 s is 14.9 times the loaded time and 26 times CI's.
+  }, 10_000);
 });
 
 describe('the hourly wrap (Review Focus 3)', () => {
@@ -564,7 +576,9 @@ describe('the hourly wrap (Review Focus 3)', () => {
         if (k.ok && k.s < 0.5) launched = true;
       }
     expect(launched).toBe(true);
-  }, 120_000);
+    // Measured: 7.90 s alone, 19.64 s at load 8.6 (8 busy loops, 1 worker), 10.39 s on CI
+    // (run 38264919221). 60 s is 3.1 times the loaded time and 6 times CI's.
+  }, 60_000);
 });
 
 describe('the dots', () => {

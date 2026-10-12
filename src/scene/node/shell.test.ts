@@ -297,7 +297,9 @@ describe('shellWarp', () => {
       if (!(d <= LEAP_MAX)) fails.add(`unmorphed ${i}: ${d}`);
     }
     expect(fails.count, String(fails)).toBe(0);
-  }, 30_000);
+    // Measured: 0.70 s alone, 1.66 s at load 8.6 (8 busy loops, 1 worker), 1.00 s on CI
+    // (run 38264919221). 10 s is 6.0 times the loaded time and 10 times CI's.
+  }, 10_000);
 
   it('the sweep crosses in 80 ms and all are home by 0.36 s', () => {
     const at = (sec: number) => {
@@ -379,7 +381,9 @@ describe('shellWarp', () => {
       expect(landings[landings.length - 1].switched - landings[0].switched).toBeGreaterThan(0.07);
     }
     expect(seen).toBe(2);
-  }, 30_000);
+    // Measured: 0.17 s alone, 0.61 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 8.2 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it("the moon's scatter is capped at 0.30 R", () => {
     let moonTop = 0;

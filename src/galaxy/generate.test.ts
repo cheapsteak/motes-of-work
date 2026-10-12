@@ -685,7 +685,9 @@ describe('generateGalaxy', () => {
     }
     // Every body that carries the defect has a person set, but a core row, which draws nothing.
     for (const b of g.bodies) expect(b.personMotes > 0).toBe(b.cracked && b.kind !== 'core');
-  }, 30_000);
+    // Measured: 0.62 s alone, 1.30 s at load 8.6 (8 busy loops, 1 worker), 0.65 s on CI
+    // (run 38264919221). 10 s is 7.7 times the loaded time and 15 times CI's.
+  }, 10_000);
 
   it('stars are dots and spikes, not lattices', () => {
     for (const tier of ['desktop', 'phone'] as const) {
@@ -850,7 +852,9 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
     // Deterministic and seed-sensitive.
     expect(generateGalaxy(1, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP)).bodies.filter((b) => b.kind === 'bary')).toEqual(kinds(of(1), 'bary'));
     expect(kinds(of(2), 'bary').map((b) => b.id)).not.toEqual(kinds(of(1), 'bary').map((b) => b.id));
-  }, 240_000);
+    // Measured: 2.37 s alone, 4.84 s at load 8.6 (8 busy loops, 1 worker), 2.25 s on CI
+    // (run 38264919221). 20 s is 4.1 times the loaded time and 9 times CI's.
+  }, 20_000);
 
   it("keeps each binary star's planets inside its stable limit", () => {
     for (const seed of SEEDS) {
@@ -885,7 +889,9 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
         }
       }
     }
-  }, 240_000);
+    // Measured: 0.01 s alone, 0.04 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 125.0 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('the pair turns round a fixed barycentre', () => {
     for (const seed of [1, 2, 3, 7]) {
@@ -971,7 +977,9 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
       [3, 3],
     ]);
     expect(kinds(of(1), 'bary').map((c) => c.id)).toEqual(['bary-star-14-star-7']);
-  }, 240_000);
+    // Measured: 0.24 s alone, 0.70 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 7.1 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('keeps every birth: the planets are born as if no star were paired, those past a binary star\'s limit dropped', () => {
     for (const seed of SEEDS) {
@@ -992,7 +1000,9 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
           expect(all.slice(0, kept).map((q) => q.id).sort(), `${where} ${st.id}`).toEqual(planetsOf(x, st.index).map((q) => q.id).sort());
         }
     }
-  }, 240_000);
+    // Measured: 0.24 s alone, 0.37 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 13.5 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('places every seed, units at 1.5 × apart', () => {
     for (const seed of SEEDS) {
@@ -1012,7 +1022,9 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
         expect(anchorOf(x.bodies, a)).toEqual({ spot: c.spot, reach: a.orbit!.r });
       }
     }
-  }, 240_000);
+    // Measured: 0.20 s alone, 0.50 s at load 8.6 (8 busy loops, 1 worker), under 0.3 s (vitest's report line) on CI
+    // (run 38264919221). 5 s is 10.0 times the loaded time and over 16 times CI's.
+  }, 5_000);
 
   it('counts the budget with the pairs', () => {
     for (const seed of SEEDS)
@@ -1027,5 +1039,7 @@ describe('the S-type binaries (re-skin Task 1e)', () => {
         expect(x.instances.glow, where).toBe(STAR_COUNT);
         expect(x.instances.spikes, where).toBe(96 * STAR_COUNT);
       }
-  }, 240_000);
+    // Measured: 1.20 s alone, 2.57 s at load 8.6 (8 busy loops, 1 worker), 1.26 s on CI
+    // (run 38264919221). 10 s is 3.9 times the loaded time and 8 times CI's.
+  }, 10_000);
 });

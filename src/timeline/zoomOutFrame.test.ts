@@ -199,7 +199,9 @@ describe('the middle of the zoom-out is never empty (fix round 1, ruling C)', ()
           if (name === 'the galaxy wide')
             expect(before.filter((id) => id.startsWith('planet-')).sort(), where).toEqual(size.width === 390 ? [] : ['planet-4', 'planet-5', 'planet-6']);
         }
-  }, 120_000);
+    // Measured: 0.62 s alone, 1.67 s at load 8.6 (8 busy loops, 1 worker), 0.71 s on CI
+    // (run 38264919221). 10 s is 6.0 times the loaded time and 14 times CI's.
+  }, 10_000);
 
   it('the background reads as stars at the middle distances and as crisp points from afar', () => {
     // Far: the galaxy wide's 640 on a desktop, about 1.5 px a unit, keeps every star at HALO_PX (§4).
