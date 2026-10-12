@@ -140,7 +140,7 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - [ ] **A 6-dot dash rank piece can span parts of two dashes** on a large departure (period fixed in angle on large radii). Visual nicety.
 - [ ] **The twelve's H arrives in one step at df-3's lamp 5** (defect 0.4725: 7 → 359 dots in one 0.0025 step); lamp gating, but on a phone the neighbourhood's marks land at once.
 - [ ] **The frame drain covers only `pages.spec.ts` and the plan schematic describe**; any other DOM-only test that scrolls through the galaxy can still leave queued frames for the next test in its worker.
-- [ ] **The shard table is stale again** on 628e070 (slowest shard 3.1 min over the mean): refresh `tools/shard-times.json`.
+- [x] **The shard table is stale again** on 628e070 (slowest shard 3.1 min over the mean): refresh `tools/shard-times.json`. Done in 325d10a (Task 9, from run 38251323888).
 
 **Author calls from Task 7b** (provisional rulings in place; see the ledger):
 - The chevron window is 30 → 55 against the spec's 45 → 65, so chevrons show at df-5.
@@ -149,3 +149,10 @@ process rule adopted for the galaxy plan, carried into this one). Task 9 works t
 - The plain ring skips the open arc's 100° (budget: 3,742 of 3,800 at the hood, 4,778 without).
 - Continuity holds at 7 / 9 / 3.5 % (measured 5.6 / 7.7 / 2.8) against the spec's 3 % per step.
 - At ly-4 the binary pair draws no plan on a phone (s_px 22-26; in the hold lamp 2 narrows to star-4's system).
+
+**Author calls from Task 9** (nothing changed for them; each awaits the author):
+- ✗ **The galaxy wide on a phone** sits low and small (its light centred at row 524 of 844, columns 89-299). `frame` cannot raise or enlarge it: frame 0 is already the rig's highest placement. A bigger phone wide needs a portrait-only distance (a new mechanism), or `GALAXY_WIDE`'s distance or fov with the background's fingerprints re-measured.
+- ✗ **ly-4's planets** are 1-2 px points on their node crosses at the hold (R7-ly-4), reading as marks on the plan more than as planets. Judge it live.
+- ✗ **A lit planet's dust is drawn round its ember point**, never over it (4390bcb). It is invisible at the essay's df-5 (85 px of a phone frame); at re-1 and re-2 the lit planets' centres are slightly smaller, deeper ember discs.
+- ✗ **C1's moons' far hemispheres are dimmer** (`MOON_FAR_DIM` 0.075, a planet's 0.2; 5659f7e). At df-1 the lower moons read a little more as crescents, which bears on the pending crescent call (option A).
+- ✗ **The dotted orbits at DPR 1**: the mean dot reads (54 over the background at re-1), but half of re-1's dots sit just under the 40 that reads (median 39 / 37). Check them on a real phone.
