@@ -18,7 +18,37 @@ import { BODY_KIND, BODY_TEXELS, packBodyData } from './bodyData';
 import { bodyMote, type BodyClocks, type BodyMoteAttrs } from './bodyMote';
 import { createBodySystem } from './bodySystem';
 import { offScreenSkips, shellSkips, trackSkips, type EarlyOutFrame } from './earlyOut';
-import { glowPx, glslLodConstants, HOOD_LOD, hoodFar, hoodGlowPx, hoodHold, hoodReal, hoodSkip, HOSTLESS_REACH, LOD_BANDS, LOD_VISIBLE, LodElement, lodGain, lodLevel, lodSkip, lodSkipElement, motePx, PX, systemPx } from './lod';
+import {
+  glowPx,
+  glslLodConstants,
+  HOOD_LOD,
+  hoodFar,
+  hoodGlowPx,
+  hoodHold,
+  hoodReal,
+  hoodSkip,
+  HOSTLESS_REACH,
+  LOD_BANDS,
+  LOD_VISIBLE,
+  LodElement,
+  lodGain,
+  lodLevel,
+  lodSkip,
+  lodSkipElement,
+  motePx,
+  PLAN_CULL,
+  PLAN_FULL_SOFT,
+  PLAN_R_ELEMENTS,
+  PLAN_RAMP,
+  planCull,
+  planFull,
+  planGain,
+  planRank,
+  planSkip,
+  planWindow,
+  PX,
+  systemPx,
+} from './lod';
 import { bodyWorld } from './orbit';
 import { lodLibraryGlsl } from './shaderSource';
 
@@ -44,7 +74,7 @@ describe('lodGain', () => {
   });
 
   it('holds the bands of galaxy §3.1 and §12.2', () => {
-    expect(LOD_BANDS).toEqual({ 0: [10, 20], 1: [25, 50], 2: [60, 120], 3: [60, 120], 4: [60, 120] });
+    expect(Object.fromEntries(Object.entries(LOD_BANDS).slice(0, 5))).toEqual({ 0: [10, 20], 1: [25, 50], 2: [60, 120], 3: [60, 120], 4: [60, 120] });
   });
 });
 
@@ -134,8 +164,12 @@ describe('lod.glsl', () => {
   it('reads its constants from lod.ts and body.ts, spliced in', () => {
     const lib = lodLibraryGlsl();
     expect(lib).toContain(glslLodConstants());
-    expect(lib).toContain('const int LOD_COUNT = 5;');
-    expect(lib).toContain('const vec2 LOD_BANDS[LOD_COUNT] = vec2[5](vec2(10.0, 20.0), vec2(25.0, 50.0), vec2(60.0, 120.0), vec2(60.0, 120.0), vec2(60.0, 120.0));');
+    expect(lib).toContain('const int LOD_COUNT = 19;');
+    expect(lib).toContain(
+      'const vec2 LOD_BANDS[LOD_COUNT] = vec2[19](vec2(10.0, 20.0), vec2(25.0, 50.0), vec2(60.0, 120.0), vec2(60.0, 120.0), vec2(60.0, 120.0), ' +
+        'vec2(30.0, 50.0), vec2(30.0, 55.0), vec2(45.0, 65.0), vec2(55.0, 85.0), vec2(75.0, 105.0), vec2(75.0, 115.0), vec2(100.0, 150.0), ' +
+        'vec2(110.0, 150.0), vec2(120.0, 160.0), vec2(140.0, 180.0), vec2(140.0, 180.0), vec2(150.0, 180.0), vec2(160.0, 190.0), vec2(180.0, 210.0));',
+    );
     for (const el of ELEMENTS) expect(lib).toMatch(new RegExp(`const int LOD_[A-Z_]+ = ${el};`));
     expect(lib).toContain('const float GLOW_SCALE = 5.0;');
     expect(lib).toContain('const float GLOW_MIN_PX = 5.0;');
@@ -319,5 +353,122 @@ describe('the early-out at the galaxy wide', () => {
     const tracks = buildTrackAttrs(eg);
     for (let k = 0; k < tracks.count; k++) expect(trackSkips(f, edata, tracks.track[4 * k], tracks.track[4 * k + 2])).toBe(true);
     expect(esystem.skipped()['net-tracks']).toBe(tracks.count);
+  });
+});
+
+// ---- The plan's schematic (re-skin §4.7, Task 7b, round 4) ----
+
+describe("the plan's level of detail", () => {
+  const PLAN = [
+    LodElement.PlanRingOuter,
+    LodElement.PlanArc,
+    LodElement.PlanChevron,
+    LodElement.PlanRingInner,
+    LodElement.PlanLeave,
+    LodElement.PlanClose,
+    LodElement.PlanBand,
+    LodElement.PlanStalk,
+    LodElement.PlanOutline,
+    LodElement.PlanWire,
+    LodElement.PlanGrad,
+    LodElement.PlanCentre,
+    LodElement.PlanDim,
+    LodElement.PlanNum,
+  ];
+  const RANKS = [0, 0.001, 0.13, 0.5, 0.77, 0.999];
+
+  it('holds the round-4 windows, value for value (the outer ring raised to 30 → 50)', () => {
+    expect(PLAN.map((el) => [el, LOD_BANDS[el]])).toEqual([
+      [5, [30, 50]],
+      [6, [30, 55]],
+      [7, [45, 65]],
+      [8, [55, 85]],
+      [9, [75, 105]],
+      [10, [75, 115]],
+      [11, [100, 150]],
+      [12, [110, 150]],
+      [13, [120, 160]],
+      [14, [140, 180]],
+      [15, [140, 180]],
+      [16, [150, 180]],
+      [17, [160, 190]],
+      [18, [180, 210]],
+    ]);
+    expect(PLAN_RAMP).toBe(0.08);
+    expect(PLAN_FULL_SOFT).toBe(12);
+    // R's windows are the contiguous tail, as the GLSL tests them (el >= PLAN_R_FROM).
+    expect(PLAN_R_ELEMENTS).toEqual([11, 12, 13, 14, 15, 16, 17, 18]);
+    expect(lodLibraryGlsl()).toContain('const int PLAN_R_FROM = 11;');
+    // Nothing of a plan below s_px 30: the far level.
+    for (const el of PLAN) expect(LOD_BANDS[el][0]).toBeGreaterThanOrEqual(30);
+  });
+
+  it('brings each element in monotonically for every rank, PlanLeave out', () => {
+    for (const el of PLAN) {
+      for (const rank of RANKS) {
+        let last = el === LodElement.PlanLeave ? Infinity : -Infinity;
+        for (let s = 0; s <= 260; s += 0.5) {
+          const gain = planGain(el, s, rank, 1, 1, 1);
+          if (el === LodElement.PlanLeave) expect(gain, `${el} ${rank} ${s}`).toBeLessThanOrEqual(last);
+          else expect(gain, `${el} ${rank} ${s}`).toBeGreaterThanOrEqual(last);
+          last = gain;
+        }
+      }
+    }
+  });
+
+  it('opens the outer ring ahead of the arcs and nodes at every s_px in [30, 55]', () => {
+    for (let s = 30; s <= 55; s += 0.5) expect(planWindow(LodElement.PlanRingOuter, s, 1), `${s}`).toBeGreaterThanOrEqual(planWindow(LodElement.PlanArc, s, 1));
+    for (let s = 30; s <= 55; s += 0.5) for (const rank of RANKS) expect(planGain(LodElement.PlanRingOuter, s, rank, 1, 1, 1)).toBeGreaterThanOrEqual(planGain(LodElement.PlanArc, s, rank, 1, 1, 1));
+  });
+
+  it('dissolves a dot in by its rank over the ramp: 0 at w ≤ rank / 1.08, 1 at w ≥ (rank + 0.08) / 1.08', () => {
+    for (const h of RANKS) {
+      expect(planRank(h / 1.08, h)).toBe(0);
+      expect(planRank(Math.max(0, h / 1.08 - 0.01), h)).toBe(0);
+      expect(planRank((h + 0.08) / 1.08, h)).toBeCloseTo(1, 12);
+      expect(planRank((h + 0.08) / 1.08 + 0.01, h)).toBe(1);
+    }
+    // Every dot of a whole window shows (the ramp is inside it).
+    for (const h of RANKS) expect(planRank(1, h)).toBe(1);
+  });
+
+  it('gives R by the lead over the third: 0 at −12 s_px, 1 at +12; 1 with no third', () => {
+    expect(planFull(100 - 12, 100)).toBe(0);
+    expect(planFull(100 - 30, 100)).toBe(0);
+    expect(planFull(100 + 12, 100)).toBe(1);
+    expect(planFull(100, 100)).toBeCloseTo(0.5, 12);
+    expect(planFull(5, -1e30)).toBe(1);
+    // A wider soft (plan.ts: PLAN_FULL_SHARE of the third's size) widens it the same way.
+    expect(planFull(60, 100, 40)).toBe(0);
+    expect(planFull(140, 100, 40)).toBe(1);
+  });
+
+  it('culls a system softly: 0 a margin outside the frame or at the near depth, 1 inside beyond the far one', () => {
+    expect(planCull(-PLAN_CULL.marginPx, 20)).toBe(0);
+    expect(planCull(0, 20)).toBe(1);
+    expect(planCull(50, PLAN_CULL.depth[0])).toBe(0);
+    expect(planCull(50, PLAN_CULL.depth[1])).toBe(1);
+    // A system larger than the margin fades over its own outer radius on screen.
+    expect(planCull(-100, 20, 200)).toBeGreaterThan(0);
+    expect(planCull(-200, 20, 200)).toBe(0);
+    for (let x = -300; x <= 0; x += 5) expect(planCull(x, 20, 200)).toBeGreaterThanOrEqual(planCull(x - 5, 20, 200));
+  });
+
+  it('skips exactly: planSkip holds iff the gain is 0 for every rank', () => {
+    for (const el of PLAN) {
+      for (const s of [0, 29.9, 30, 30.01, 45, 55, 75, 100, 104.9, 105, 115, 150, 200, 210, 300]) {
+        for (const full of [0, 0.3, 1]) {
+          for (const cull of [0, 0.4, 1]) {
+            for (const real of [0, 0.5, 1]) {
+              const skip = planSkip(el, s, full, cull, real);
+              const gains = [0, ...RANKS].map((rank) => planGain(el, s, rank, full, cull, real));
+              if (skip) expect(gains.every((x) => x === 0), `${el} ${s} ${full} ${cull} ${real}`).toBe(true);
+              else expect(planGain(el, s, 0, full, cull, real), `${el} ${s} ${full} ${cull} ${real}`).toBeGreaterThan(0);
+            }
+          }
+        }
+      }
+    }
   });
 });

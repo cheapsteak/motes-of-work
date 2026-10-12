@@ -12,6 +12,10 @@ import holeLookTs from '../scene/hole/holeLook.ts?raw';
 import leakGlsl from '../scene/node/leak.glsl?raw';
 import leakTs from '../scene/node/leak.ts?raw';
 import dropoutTs from '../scene/node/dropout.ts?raw';
+import planGlsl from '../scene/node/plan.glsl?raw';
+import planScreenGlsl from '../scene/node/planScreen.glsl?raw';
+import planTs from '../scene/node/plan.ts?raw';
+import planAttrsTs from '../scene/node/planAttrs.ts?raw';
 import { glslSaltConstants, glslSaltName, SALT, type SaltName } from './salts';
 
 /** `name -> value` for every `const uint SALT_X = Nu;` line in a GLSL chunk. */
@@ -74,7 +78,12 @@ describe('SALT', () => {
       diskHot: 48,
       hazePhase: 49,
       hazeAngle: 50,
-      // The defect's leak and dropout (re-skin Task 8b), after the plan's 51-54 (Task 7b).
+      // The plan's schematic (re-skin Task 7b).
+      planDash: 51,
+      planNode: 52,
+      planOutline: 53,
+      planRank: 54,
+      // The defect's leak and dropout (re-skin Task 8b).
       leakOpen: 55,
       leakDir: 56,
       leakWidth: 57,
@@ -111,13 +120,15 @@ describe('salt call sites', () => {
       ['light.glsl', lightGlsl],
       ['hole.glsl', holeGlsl],
       ['leak.glsl', leakGlsl],
+      ['plan.glsl', planGlsl],
+      ['planScreen.glsl', planScreenGlsl],
     ]) {
       const calls = src.split('\n').filter((l) => /\bhash01\(/.test(l) && !/^\s*float hash01\(uint/.test(l));
       expect(calls.length, file).toBeGreaterThan(0);
       for (const line of calls) expect(line, file).toMatch(/hash01\(.*,\s*SALT_[A-Z0-9_]+\)/);
     }
     const generated = new Set(parseGlslSalts(glslSaltConstants()).keys());
-    const used = new Set([...(moteGlsl + instanceGlsl + lightGlsl + holeGlsl + leakGlsl).matchAll(/\bSALT_[A-Z0-9_]+/g)].map((m) => m[0]));
+    const used = new Set([...(moteGlsl + instanceGlsl + lightGlsl + holeGlsl + leakGlsl + planGlsl + planScreenGlsl).matchAll(/\bSALT_[A-Z0-9_]+/g)].map((m) => m[0]));
     expect(used.size).toBeGreaterThan(0);
     for (const name of used) expect(generated.has(name), name).toBe(true);
   });
@@ -132,6 +143,8 @@ describe('salt call sites', () => {
       ['holeLook.ts', holeLookTs],
       ['leak.ts', leakTs],
       ['dropout.ts', dropoutTs],
+      ['plan.ts', planTs],
+      ['planAttrs.ts', planAttrsTs],
     ]) {
       const calls = src.split('\n').filter((l) => /\bhash01\(/.test(l) && !/^import/.test(l));
       expect(calls.length, file).toBeGreaterThan(0);

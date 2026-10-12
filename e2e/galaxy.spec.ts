@@ -17,8 +17,12 @@ import { streamPixels } from '../src/scene/node/streamOnScreen';
 import { Lamp, trackIndex } from '../src/timeline/netTrack';
 import { BODY_LOOK, buildTrackAttrs, systemIndexOf, unitIndexOf } from '../src/scene/node/bodyAttrs';
 import { STAR_LOOK } from '../src/scene/node/classLook';
-import { AMBIENT_POSE } from '../src/galaxy/ambient';
-import { FULL_DETAIL_MAX, HOOD_LOD, LOD_BANDS, LodElement, MOON_POINT_PX, systemPx } from '../src/scene/node/lod';
+import { AMBIENT_GRID, AMBIENT_POSE } from '../src/galaxy/ambient';
+import { FULL_DETAIL_MAX, HOOD_LOD, LOD_BANDS, LOD_VISIBLE, LodElement, MOON_POINT_PX, systemPx } from '../src/scene/node/lod';
+import { planActual, planBodyRow, planDot, planResolve } from '../src/scene/node/plan';
+import { PLAN_DOTS, PLAN_MARK, PLAN_STRIDE } from '../src/scene/node/planAttrs';
+import { planClocksOf, planCount, planFrameAt, planStatic } from '../src/scene/node/planOnScreen';
+import { shown } from '../src/scene/ambientClock';
 import { canvasShot, openStage, readSpans, settle, targetScrollY } from './helpers';
 import { emberComponents } from './pixels';
 import { essayCameraAt } from './machine';
@@ -326,6 +330,9 @@ for (const size of SIZES) {
         'net-bodies': g.instances.bodies,
         'net-streams': g.instances.streams - STREAM_DOTS[1],
         'net-feed': STREAM_DOTS[1],
+        // The plan's two pools (re-skin Task 7b): the world marks and the pairs' own, and the screen marks.
+        'net-plan': g.instances.plan - PLAN_DOTS.screen,
+        'net-plan-screen': PLAN_DOTS.screen,
       });
       // The black hole's parts (re-skin Task 5), every one drawn at the galaxy wide.
       expect(Object.fromEntries(hole)).toEqual({
@@ -2221,6 +2228,194 @@ for (const size of SIZES) {
       expect(n).toBeGreaterThan(1000);
       expect(B).toBeGreaterThanOrEqual(0.95 * G);
       expect(G).toBeGreaterThanOrEqual(2 * R);
+      expect(errors).toEqual([]);
+    });
+  });
+}
+
+// ---- The plan's schematic (re-skin §4.7, Task 7b) ----
+
+interface PlanHook {
+  plan(): { dots: number; brightness: number; slots: [number, number]; byMark: Record<string, number>; ember: number } | null;
+}
+const planStats = (page: Page) => page.evaluate(() => (window as unknown as { __motes: PlanHook }).__motes.plan()!);
+const PLAN_MESHES = ['net-plan', 'net-plan-screen'];
+/** H's marks and R's (planAttrs.ts PLAN_MARK): a system drawn in H lights only the first, one in R the second too. */
+const H_MARKS = ['ring', 'arc', 'node', 'chevron', 'deviation'];
+/** The floors (0.6 × measured, Task 7b): the plan's lit px at the hood probe and the system shot, and its ember px at df-5. */
+const HOOD_PLAN_PX = { phone: 0, desktop: 0 };
+const SYSTEM_PLAN_PX = { phone: 0, desktop: 0 };
+const DF5_EMBER_PX = { phone: 1, desktop: 1 };
+const R_MARKS = ['bandEdge', 'stalk', 'outlineEq', 'outlineMer', 'graduation', 'centre', 'dimension', 'silhouette', 'numeral'];
+
+/** The essay's frame at section-local `local` of `section` at ambient `ambient` (the test mode's pose by default), the galaxy built. */
+async function openPlanAt(page: Page, section: string, local: number, ambient?: number): Promise<void> {
+  await openStage(page, '&mech=bike&n=500');
+  const span = (await readSpans(page)).find((x) => x.id === section);
+  if (!span) throw new Error(`no ${section} section`);
+  const p = span.start + local * (span.end - span.start);
+  await openStage(page, `&mech=bike&p=${p}${ambient === undefined ? '' : `&ambient=${ambient}`}`);
+  await page.waitForFunction(() => (window as unknown as { __motes: Hook }).__motes.lod() !== null);
+  await settle(page);
+}
+
+/** The plan's meshes alone: how many pixels they light, and how many of those are ember (red over green and blue). */
+async function planScreenPixels(page: Page): Promise<{ lit: number; ember: number; png: PNG }> {
+  await call(page, 'isolate', PLAN_MESHES);
+  const png = PNG.sync.read(await canvasShot(page));
+  await call(page, 'isolate', null);
+  const mask = litMask(png, 0);
+  let [lit, ember] = [0, 0];
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    lit++;
+    const [r, g, b] = [png.data[i * 4], png.data[i * 4 + 1], png.data[i * 4 + 2]];
+    if (r > g + 6 && r > b + 6) ember++;
+  }
+  return { lit, ember, png };
+}
+
+for (const size of SIZES) {
+  test.describe(`the plan's schematic at ${size.width}x${size.height}`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } });
+
+    test('nothing is marked at the wides: the galaxy wide and fr-1', async ({ page }) => {
+      const errors: string[] = [];
+      await openShot(page, 'galaxyWide', errors);
+      expect((await planStats(page)).dots, 'galaxyWide').toBe(0);
+      expect((await planScreenPixels(page)).lit, 'galaxyWide').toBe(0);
+      await openPlanAt(page, ...FR_1);
+      expect((await planStats(page)).dots, 'fr-1').toBe(0);
+      expect((await planScreenPixels(page)).lit, 'fr-1').toBe(0);
+      expect(errors).toEqual([]);
+    });
+
+    test('the neighbourhood is drawn in H at the hood probe, and P_a’s system in R at its system shot', async ({ page }, testInfo) => {
+      const errors: string[] = [];
+      await openShot(page, 'hood', errors);
+      const hood = await planStats(page);
+      for (const m of H_MARKS.slice(0, 3)) expect(hood.byMark[m] ?? 0, `hood: ${m}`).toBeGreaterThan(0);
+      for (const m of R_MARKS) expect(hood.byMark[m] ?? 0, `hood: ${m}`).toBe(0);
+      const hoodPx = (await planScreenPixels(page)).lit;
+      testInfo.annotations.push({ type: 'hood', description: `${hood.dots} dots, ${hoodPx} px` });
+      expect(hoodPx, 'hood: the plan’s pixels').toBeGreaterThan(HOOD_PLAN_PX[size.label]);
+      await openShot(page, 'system', errors);
+      const system = await planStats(page);
+      for (const m of ['bandEdge', 'outlineEq', 'outlineMer', 'silhouette', 'dimension', 'numeral']) expect(system.byMark[m] ?? 0, `system: ${m}`).toBeGreaterThan(0);
+      const systemPx = (await planScreenPixels(page)).lit;
+      testInfo.annotations.push({ type: 'system', description: `${system.dots} dots, ${systemPx} px` });
+      expect(systemPx, 'system: the plan’s pixels').toBeGreaterThan(SYSTEM_PLAN_PX[size.label]);
+      expect(errors).toEqual([]);
+    });
+
+    test('healthy systems carry no ember marks at zo-1 and ly-1; the twelve light ember arcs at df-5, none left by fx-4’s end', async ({ page }, testInfo) => {
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      for (const [name, section, local] of [
+        ['zo-1', 'zoom-out', 0.12],
+        ['ly-1', ...LY_1],
+      ] as const) {
+        await openPlanAt(page, section, local);
+        expect((await planStats(page)).ember, name).toBe(0);
+        expect((await planScreenPixels(page)).ember, name).toBe(0);
+      }
+      await openPlanAt(page, 'defect', 0.9);
+      const df5 = await planStats(page);
+      const px = await planScreenPixels(page);
+      testInfo.annotations.push({ type: 'df-5', description: `${df5.ember} ember dots of ${df5.dots}, ${px.ember} ember px of ${px.lit}` });
+      expect(df5.ember, 'df-5: ember dots').toBeGreaterThan(0);
+      expect(px.ember, 'df-5: ember px').toBeGreaterThanOrEqual(DF5_EMBER_PX[size.label]);
+      await openPlanAt(page, 'fix', 0.99);
+      expect((await planStats(page)).ember, 'fx-4’s end').toBe(0);
+      expect((await planScreenPixels(page)).ember, 'fx-4’s end').toBe(0);
+      expect(errors).toEqual([]);
+    });
+
+    test('the defect sits off its marks: at df-2 held, C1’s doubled moon stands off its planned outline, which the page draws', async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await openPlanAt(page, 'defect', 0.31);
+      const stats = await planStats(page);
+      expect(stats.byMark.silhouette ?? 0).toBeGreaterThan(0);
+      // The twin: the moon's planned place and its actual (derped) one, on screen.
+      const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
+      const data = dataOf(g);
+      const sampler = new KeyframeSampler(keyframes, await readSpans(page));
+      const span = (await readSpans(page)).find((x) => x.id === 'defect')!;
+      const s = sampler.sample(span.start + 0.31 * (span.end - span.start));
+      const t = shown(AMBIENT_POSE, s.freeze.hold);
+      const camera = essayCamera(s.camera, g, data, size, t);
+      const f = planFrameAt(g, data, camera, size, planClocksOf(g, s, t));
+      const proj = (w: readonly number[]) => {
+        const v = new Vector3(w[0], w[1], w[2]).project(camera);
+        return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height];
+      };
+      const sys = systemIndexOf(g);
+      const moons = g.bodies.filter((b) => b.host === g.ids.C1 && b.kind === 'moon');
+      const off = moons
+        .map((m) => {
+          const [a, p] = [proj(planActual(m.index, sys[m.index], f, data)), proj(bodyWorld(data, m.index, t))];
+          return { m, planned: p, away: Math.hypot(a[0] - p[0], a[1] - p[1]) };
+        })
+        .sort((x, y) => y.away - x.away)[0];
+      // About 30 px off on either screen (31 on a phone, 29 on a desktop, measured).
+      expect(off.away, off.m.id).toBeGreaterThan(20);
+      // The page draws the planned outline: the twin's silhouette dots of that moon each land on a lit
+      // pixel of the plan's meshes (within 1.5 px), and they ring its planned place, not its actual one.
+      const { pools } = planStatic(g);
+      const ring: number[][] = [];
+      for (let i = 0; i < pools.screen.length / PLAN_STRIDE; i++) {
+        const a = planResolve(pools.screen, i, f);
+        if (a.mark !== PLAN_MARK.silhouette || planBodyRow(f.table, a.sys, a.ord) !== off.m.index) continue;
+        const d = planDot(pools.screen, i, f, data);
+        if (d.alpha >= LOD_VISIBLE) ring.push(d.px);
+      }
+      expect(ring.length).toBeGreaterThan(6);
+      const { png } = await planScreenPixels(page);
+      const mask = litMask(png, 0);
+      const landed = ring.filter(([x, y]) => litNear(png, mask, x, y, 1.5) > 0).length;
+      expect(landed / ring.length).toBeGreaterThanOrEqual(0.8);
+      const mid = [ring.reduce((n, p) => n + p[0], 0) / ring.length, ring.reduce((n, p) => n + p[1], 0) / ring.length];
+      expect(Math.hypot(mid[0] - off.planned[0], mid[1] - off.planned[1])).toBeLessThan(3);
+      expect(errors).toEqual([]);
+    });
+
+    test('ls-1 is unmarked at every AMBIENT_GRID pose (the author’s ruling)', async ({ page }) => {
+      test.setTimeout(900_000);
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      for (const t of AMBIENT_GRID) {
+        await openPlanAt(page, 'lesson', 0.5, t);
+        expect((await planStats(page)).dots, `ls-1 at ${t}`).toBe(0);
+        expect((await planScreenPixels(page)).lit, `ls-1 at ${t}`).toBe(0);
+      }
+      expect(errors).toEqual([]);
+    });
+
+    test('the zoom-out draws the twin’s plan at every tenth of the plan’s life on its pull', async ({ page }) => {
+      // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 5 % of the dots
+      // and 7 % of the light); the page is held to the twin along it.
+      test.setTimeout(900_000);
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));
+      const data = dataOf(g);
+      await openPlanAt(page, 'zoom-out', 0.5);
+      const spans = await readSpans(page);
+      const span = spans.find((x) => x.id === 'zoom-out')!;
+      const sampler = new KeyframeSampler(keyframes, spans);
+      let most = 0;
+      for (let k = 0; k <= 10; k++) {
+        const p = span.start + (0.5 + 0.045 * k) * (span.end - span.start);
+        await page.evaluate((y) => window.scrollTo(0, y), await targetScrollY(page, p));
+        await settle(page);
+        const page_ = await planStats(page);
+        const s = sampler.sample(p);
+        const twin = planCount(g, data, planFrameAt(g, data, essayCamera(s.camera, g, data, size, AMBIENT_POSE), size, planClocksOf(g, s, AMBIENT_POSE))).dots;
+        most = Math.max(most, page_.dots);
+        expect(Math.abs(page_.dots - twin), `zoom-out@${(0.5 + 0.045 * k).toFixed(3)}: page ${page_.dots}, twin ${twin}`).toBeLessThanOrEqual(Math.max(3, 0.02 * twin));
+      }
+      expect(most).toBeGreaterThan(300);
       expect(errors).toEqual([]);
     });
   });

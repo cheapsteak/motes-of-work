@@ -11,6 +11,7 @@ import {
   LEAK_INCLUDE_MARKER,
   LOD_INCLUDE_MARKER,
   ORBIT_INCLUDE_MARKER,
+  PLAN_INCLUDE_MARKER,
   SHELL_INCLUDE_MARKER,
   STAR_INCLUDE_MARKER,
   TERMINATOR_INCLUDE_MARKER,
@@ -25,6 +26,7 @@ import {
   HOLE_PARITY_FIELDS,
   glslOrbitOutStruct,
   glslPassOutput,
+  glslPlanOutStruct,
   glslShellOutStruct,
   glslStarOutStruct,
   glslTerminatorOutStruct,
@@ -32,6 +34,7 @@ import {
   LOD_PARITY_FIELDS,
   ORBIT_PARITY_FIELDS,
   parityPasses,
+  PLAN_PARITY_FIELDS,
   SHELL_PARITY_FIELDS,
   STAR_PARITY_FIELDS,
   STREAM_PARITY_FIELDS,
@@ -582,6 +585,41 @@ void main() {
   o.ember = ember;
   o.px = holeDotPx(d.sizeCss, -d.view.z, 2.0);
   ${passSelect(parityPasses(HOLE_PARITY_FIELDS))}
+  else vOut = vec4(0.0);
+${PLACE_ON_TEXEL}
+}
+`;
+
+/**
+ * The plan's schematic (`?lib=plan`): plan.glsl's planResolve() and planScreen.glsl's planDot() per
+ * instance, over the pools' own attributes (planAttrs.ts: aPlan0, aPlan1), the bodies' textures and
+ * clocks, and the plan's own uniforms (the layout table, each system's s_px, full, cull and real share,
+ * its ranges, the camera), as plan.vert.glsl and planScreen.vert.glsl call it. Carries the plan's
+ * include marker: build with withPlanLibrary().
+ */
+export const PLAN_VERTEX = /* glsl */ `
+precision highp float;
+precision highp int;
+
+${PLAN_INCLUDE_MARKER}
+
+${glslPlanOutStruct()}
+
+in vec3 position; // the single non-instanced vertex, at the origin
+in vec4 aPlan0; // owner, mark, body ordinal, index in its run
+in vec4 aPlan1; // variant, rank, run, a pair's second system
+uniform int uPass;
+flat out vec4 vOut;
+
+void main() {
+  PlanDot p = planDot(planResolve(aPlan0, aPlan1));
+  PlanOut o;
+  o.pos = p.pos;
+  o.alpha = p.alpha;
+  o.rgb = p.rgb;
+  o.sizeCss = p.sizeCss;
+  o.px = p.px;
+  ${passSelect(parityPasses(PLAN_PARITY_FIELDS))}
   else vOut = vec4(0.0);
 ${PLACE_ON_TEXEL}
 }

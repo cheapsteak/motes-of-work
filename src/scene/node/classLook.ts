@@ -115,3 +115,146 @@ export function glslPlanetLookConstants(): string {
     `const float PLANET_FAR_SOFT = ${lit(PLANET_LOOK.farSide.soft)};`,
   ].join('\n');
 }
+
+// ---- The plan's schematic (re-skin §4.7, Task 7b) ----
+
+/**
+ * How a plan's schematic looks (re-skin §4.7; scratch/session/schematic/mock.html `drawPlan` and
+ * `drawRH`, concepts R and H). R's alphas and sizes are already × `bold`. A re-tune is a one-line change
+ * here: plan.ts reads these and glslPlanConstants() splices them into plan.glsl (shaderSource.ts).
+ *  - `phosphor`: hue 154, clear of the agents' blue, the frozen cyan, the amber, the ember and the jets' violet;
+ *  - `bandHalfWidth`: R's band is the orbit ± this (units); the closed arc is its fill on the centre line;
+ *  - `centreCircle`: R's small circle round the star (units); no crosshair (the spikes are the star's mark);
+ *  - `arc`: H's forward arc, `span` rad of eccentric anomaly ahead of the planned place; node k at
+ *    t + k·period·`nodeStep` (k < `nodes`); a dash is on for dash[0] of every dash[1] parts of a
+ *    `dashPeriod` (rad), fixed in angle so it never crawls as the camera zooms; a `chevron` at its end,
+ *    two legs `len` units long, `spread` rad off the arc's tangent;
+ *  - `deviation`: H's departure, from the body's drawn place curving out `out` units over `span` rad;
+ *  - `edge`: R's departure, the band's outer edge over ± `span` rad about the body's actual angle;
+ *  - `graduations`: `count` ticks on the outermost orbit, pushed `out` units, every `major`th long;
+ *    `len` units long (major, minor), of `dots` dots;
+ *  - `stalkFoot`: the stalk's foot cross's half-width (units); `nodeArm`: a node cross's;
+ *  - `outline`: a silhouette is `padPx` CSS px wider than its body, so its rim and the body's do not merge;
+ *    a moon's outline comes in by the moon's own diameter over `moonPx` CSS px;
+ *  - `dimension`: its extension past the line's end (`ext` units), its tick (± `tick` rad), its planned
+ *    value `along` the line and `offsetPx` off it, the actual value `past` units past the body, in
+ *    `decimals` decimals; the numerals stay `margin` CSS px inside the screen's sides;
+ *  - `numeral`: 5×7 dot-matrix numerals, a cell `pitchPx` CSS px, a dot `size` × the pitch (11 × 16 px a
+ *    glyph: the readable floor on a phone);
+ *  - `departure`: the derp's offset, in band half-widths, over which a body's departure marks rise;
+ *  - `stretch`: a mark too long for its dots may space them out to this many times its pitch, and past
+ *    that draws the part of itself nearest its planned place;
+ *  - `glowEdgePx`: nothing is drawn inside the star's glow sprite, fading in over this many CSS px past it;
+ *  - `binary`: a pair's marks (re-skin §4.10): the barycentre's cross (`crossLen` units, `crossDots` a
+ *    bar) and circle (`circle` units, `circleDots`), each star's ellipse, and its stable limit, dashed
+ *    `limitDash` of every 8 of `limitDots`;
+ *  - `marks`: per mark, [alpha, size CSS px, pitch CSS px] (0: a fixed count, no pitch).
+ */
+export const PLAN_LOOK = {
+  phosphor: '#8FE3C8',
+  bold: 1.2,
+  bandHalfWidth: 0.45,
+  centreCircle: 1.3,
+  arc: { span: 1.75, nodes: 3, nodeStep: 1 / 12, dash: [7, 11], dashPeriod: 0.2182, chevron: { len: 0.7, spread: 0.6 } },
+  deviation: { span: 1.2, out: 0.8 },
+  edge: { span: 0.3, size: 2.0 },
+  graduations: { count: 24, major: 6, len: [1.2, 0.5], dots: [4, 2], out: 1.2 },
+  stalkFoot: 0.3,
+  nodeArm: 0.35,
+  outline: { padPx: 2, moonPx: [10, 14] },
+  dimension: { ext: 0.7, tick: 0.045, along: 0.5, offsetPx: 16, decimals: 1, past: 2.6, margin: 16 },
+  numeral: { pitchPx: 2.5, size: 0.72 },
+  departure: [0.15, 0.6],
+  stretch: 3,
+  glowEdgePx: 2,
+  binary: { crossLen: 1.6, crossDots: 7, circle: 0.45, circleDots: 10, limitDots: 96, limitDash: 5 },
+  marks: {
+    ring: [0.42, 1.3, 7],
+    bandEdge: [0.6, 1.68, 5],
+    bandFill: [0.27, 1.43, 11],
+    arc: [0.6, 1.4, 3],
+    node: [0.66, 1.5, 0],
+    chevron: [0.6, 1.3, 3],
+    deviation: [0.95, 1.5, 3],
+    stalk: [0.72, 1.1, 4],
+    outline: [0.9, 1.4, 4],
+    wire: [0.5, 1.1, 4],
+    graduation: [0.66, 1.2, 0],
+    centre: [0.96, 1.1, 4],
+    dimension: [0.95, 1.2, 4],
+    numeral: [0.95, 1.8, 0],
+    binaryCross: [1.0, 1.6, 0],
+    binaryCircle: [0.9, 1.3, 0],
+    binaryEllipse: [0.5, 1.3, 0],
+    binaryLimit: [0.95, 1.7, 0],
+  },
+} as const;
+
+/**
+ * The plan's 5×7 dot-matrix numerals (mock.html FONT): 0-9 then '.', seven rows each, a row's five
+ * cells as bits, the leftmost the highest (16). Spliced into plan.glsl as a uint array.
+ */
+export const PLAN_FONT: readonly number[] = [
+  ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+  ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+  ['11111', '00010', '00100', '00010', '00001', '10001', '01110'],
+  ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+  ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+  ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
+  ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+  ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+  ['00000', '00000', '00000', '00000', '00000', '01100', '01100'],
+].flatMap((rows) => rows.map((r) => parseInt(r, 2)));
+
+/** The glyph index of '.' in PLAN_FONT (the digits are 0-9). */
+export const PLAN_GLYPH_POINT = 10;
+
+const planName = (k: string): string => `PLAN_${k.replace(/[A-Z]/g, (c) => `_${c}`).toUpperCase()}`;
+
+/** The constants plan.glsl reads, generated from PLAN_LOOK and PLAN_FONT (spliced by shaderSource.ts). */
+export function glslPlanConstants(): string {
+  const L = PLAN_LOOK;
+  const out = ["// The look of the plan's schematic, generated from src/scene/node/classLook.ts."];
+  out.push(`const vec3 PLAN_PHOSPHOR = ${vec3Of(L.phosphor)}; // ${L.phosphor}`);
+  for (const k of ['bold', 'bandHalfWidth', 'centreCircle', 'stalkFoot', 'nodeArm', 'stretch', 'glowEdgePx'] as const) out.push(`const float ${planName(k)} = ${lit(L[k])};`);
+  out.push(`const float PLAN_ARC_SPAN = ${lit(L.arc.span)};`);
+  out.push(`const int PLAN_ARC_NODES = ${L.arc.nodes};`);
+  out.push(`const float PLAN_ARC_NODE_STEP = ${lit(L.arc.nodeStep)};`);
+  out.push(`const vec2 PLAN_ARC_DASH = vec2(${L.arc.dash.map(lit).join(', ')});`);
+  out.push(`const float PLAN_ARC_DASH_PERIOD = ${lit(L.arc.dashPeriod)};`);
+  out.push(`const vec2 PLAN_CHEVRON = vec2(${lit(L.arc.chevron.len)}, ${lit(L.arc.chevron.spread)}); // len, spread`);
+  out.push(`const vec2 PLAN_DEVIATION = vec2(${lit(L.deviation.span)}, ${lit(L.deviation.out)}); // span, out`);
+  out.push(`const vec2 PLAN_EDGE = vec2(${lit(L.edge.span)}, ${lit(L.edge.size)}); // span, size`);
+  const gr = L.graduations;
+  out.push(`const int PLAN_GRAD_COUNT = ${gr.count};`);
+  out.push(`const int PLAN_GRAD_MAJOR = ${gr.major};`);
+  out.push(`const vec2 PLAN_GRAD_LEN = vec2(${gr.len.map(lit).join(', ')});`);
+  out.push(`const ivec2 PLAN_GRAD_DOTS = ivec2(${gr.dots.join(', ')});`);
+  out.push(`const float PLAN_GRAD_OUT = ${lit(gr.out)};`);
+  out.push(`const float PLAN_OUTLINE_PAD_PX = ${lit(L.outline.padPx)};`);
+  out.push(`const vec2 PLAN_MOON_PX = vec2(${L.outline.moonPx.map(lit).join(', ')});`);
+  const d = L.dimension;
+  out.push(`const float PLAN_DIM_EXT = ${lit(d.ext)};`);
+  out.push(`const float PLAN_DIM_TICK = ${lit(d.tick)};`);
+  out.push(`const float PLAN_DIM_ALONG = ${lit(d.along)};`);
+  out.push(`const float PLAN_DIM_OFFSET_PX = ${lit(d.offsetPx)};`);
+  out.push(`const float PLAN_DIM_DECIMALS = ${lit(d.decimals)};`);
+  out.push(`const float PLAN_DIM_PAST = ${lit(d.past)};`);
+  out.push(`const float PLAN_DIM_MARGIN = ${lit(d.margin)};`);
+  out.push(`const float PLAN_NUMERAL_PITCH = ${lit(L.numeral.pitchPx)};`);
+  out.push(`const float PLAN_NUMERAL_SIZE = ${lit(L.numeral.size)};`);
+  out.push(`const vec2 PLAN_DEPARTURE = vec2(${L.departure.map(lit).join(', ')});`);
+  const b = L.binary;
+  out.push(`const float PLAN_BIN_CROSS_LEN = ${lit(b.crossLen)};`);
+  out.push(`const int PLAN_BIN_CROSS_DOTS = ${b.crossDots};`);
+  out.push(`const float PLAN_BIN_CIRCLE = ${lit(b.circle)};`);
+  out.push(`const int PLAN_BIN_CIRCLE_DOTS = ${b.circleDots};`);
+  out.push(`const int PLAN_BIN_LIMIT_DOTS = ${b.limitDots};`);
+  out.push(`const int PLAN_BIN_LIMIT_DASH = ${b.limitDash};`);
+  for (const [k, v] of Object.entries(L.marks)) out.push(`const vec3 ${planName(`look${k[0].toUpperCase()}${k.slice(1)}`)} = vec3(${v.map(lit).join(', ')}); // alpha, size, pitch`);
+  out.push(`const uint PLAN_FONT[${PLAN_FONT.length}] = uint[${PLAN_FONT.length}](${PLAN_FONT.map((v) => `${v}u`).join(', ')});`);
+  out.push(`const int PLAN_GLYPH_POINT = ${PLAN_GLYPH_POINT};`);
+  return out.join('\n');
+}

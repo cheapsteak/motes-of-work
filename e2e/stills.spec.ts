@@ -371,6 +371,26 @@ const STILLS: Still[] = [
     ] as const
   ).map(([name, section, local]) => ({ tag: 'R7', name, query: '&mech=bike', at: { section, local } })),
   ...(process.env.SHOTS === '1' ? [{ tag: 'R7', name: 'pair-a0', query: pairClose(AMBIENT_POSE), at: { section: 'lesson', local: 0.5 } }] : []),
+  // The re-skin's Task 7b (re-skin §4.7): the plan's schematic. The hood probe (H) and P_a's system
+  // shot (R, healthy); the beats at their earlier stills' places: ly-3 and up-2 (the neighbourhood under
+  // s_px 30: nothing marked), ly-4 (H along the arm), df-1 and df-2 held (R on the defect), df-5 (the
+  // twelve's departures ember) and fx-4; and the zoom-out's middle of R (P_a at 154 px, zoom-out 0.62),
+  // with a strip of the pull from P_a's star coming up to the last of H (zoom-out 0.54 to 0.78).
+  { tag: 'R7b', name: 'hood', query: shot('hood') },
+  { tag: 'R7b', name: 'system', query: shot('system') },
+  ...(
+    [
+      ['ly-3', 'layers', 2.35 / 4.3],
+      ['ly-4', 'layers', 3.25 / 4.3],
+      ['df-1', 'defect', 0.13],
+      ['df-2', 'defect', 0.31],
+      ['df-5', 'defect', 0.9],
+      ['up-2', 'spread', 2.124 / 2.808],
+      ['fx-4', 'fix', 0.82],
+      ['zo-0.62', 'zoom-out', 0.62],
+      ...[0.54, 0.58, 0.62, 0.66, 0.7, 0.74, 0.78].map((l) => [`zoom-strip-${l.toFixed(2)}`, 'zoom-out', l] as const),
+    ] as const
+  ).map(([name, section, local]) => ({ tag: 'R7b', name, query: '&mech=bike', at: { section, local } })),
 ];
 
 /** The first frame from 101 s with the dropout's lines up (re-skin Task 8b), on a whole frame of the ambient. */

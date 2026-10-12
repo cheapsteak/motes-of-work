@@ -32,6 +32,8 @@
 // of normals, four light (or eye) directions and both nights (terminatorCases).
 // `?lib=hole` compares the black hole (src/scene/hole/hole.ts): the lens, and every part's dots from two
 // cameras at four ambients (holeCases.ts).
+// `?lib=plan` compares the plan's schematic (src/scene/node/plan.ts): every dot of both pools through the
+// galaxy shots' cameras, on a phone and a desktop, at three ambients (planCases.ts).
 import {
   BufferAttribute,
   DataTexture,
@@ -43,7 +45,9 @@ import {
   NoBlending,
   type Object3D,
   Matrix3,
+  Matrix4,
   OrthographicCamera,
+  Vector2,
   Vector3,
   Vector4,
   Points,
@@ -57,7 +61,7 @@ import {
 import { hash01, pcg } from '../math/hash';
 import { SALT } from '../math/salts';
 import { ACTIVE_MECHANISM, MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../config';
-import { galaxyBudget, generateGalaxy, type Body, type Galaxy } from '../galaxy/generate';
+import { galaxyBudget, generateGalaxy, SYS_MAX, type Body, type Galaxy } from '../galaxy/generate';
 import { mechanisms } from '../mechanisms';
 import type { Mechanism } from '../mechanisms/types';
 import { buildMoteAttrs, type MoteAttrs } from '../scene/mote/attributes';
@@ -82,12 +86,17 @@ import {
   withLeakLibrary,
   withLodLibrary,
   withOrbitLibrary,
+  withPlanLibrary,
   withShellLibrary,
   withStarLibrary,
   withTerminatorLibrary,
 } from '../scene/node/shaderSource';
 import { farSide, lightDir, terminator } from '../scene/node/terminator';
 import { PLANET_LOOK } from '../scene/node/classLook';
+import { planDot, type PlanFrame } from '../scene/node/plan';
+import { PLAN_STRIDE, PLAN_TABLE_TEXELS } from '../scene/node/planAttrs';
+import { planStatic } from '../scene/node/planOnScreen';
+import { PLAN_AMBIENTS, PLAN_CASES, PLAN_SIZES, planCaseFrame } from './planCases';
 import { buildHoleAttrs } from '../scene/hole/holeAttrs';
 import { HOLE_CAMERAS, HolePart, holeParityCases, holeParityView, holeReference, lensInput, type HoleCamera, type HoleSample } from './holeCases';
 import { starBreath, starDot, starSpike, starTint } from '../scene/node/star';
@@ -103,6 +112,7 @@ import {
   hoodSkip,
   LOD_BANDS,
   LOD_COUNT as LOD_BANDS_COUNT,
+  LOD_VISIBLE,
   lodGain,
   lodSkip,
   moonPointPx,
@@ -124,6 +134,7 @@ import {
   LOD_PARITY_FIELDS,
   ORBIT_PARITY_FIELDS,
   parityPasses,
+  PLAN_PARITY_FIELDS,
   SHELL_PARITY_FIELDS,
   STAR_PARITY_FIELDS,
   STREAM_PARITY_FIELDS,
@@ -154,6 +165,7 @@ import {
   ORBIT_VERTEX,
   PARITY_FRAGMENT,
   PARITY_SIZE,
+  PLAN_VERTEX,
   SHELL_VERTEX,
   STAR_VERTEX,
   TERMINATOR_VERTEX,
@@ -168,6 +180,8 @@ interface ParityCase {
   shifted?: number;
   /** Of those, how many the TS moves (the leak cases: not vacuous). */
   moved?: number;
+  /** Of those, how many the TS lights (the plan cases: not vacuous). */
+  lit?: number;
 }
 
 declare global {
@@ -225,8 +239,8 @@ function pointsGeometry(count: number): InstancedBufferGeometry {
 /** Render one object into the SIZE×SIZE float target and read it back. */
 type Draw = (object: Object3D) => Float32Array;
 
-type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'leak' | 'lod' | 'body' | 'freeze' | 'star' | 'terminator' | 'hole';
-const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'leak', 'lod', 'body', 'freeze', 'star', 'terminator', 'hole'];
+type Lib = 'mote' | 'orbit' | 'derp' | 'shell' | 'leak' | 'lod' | 'body' | 'freeze' | 'star' | 'terminator' | 'hole' | 'plan';
+const LIBS: readonly Lib[] = ['mote', 'orbit', 'derp', 'shell', 'leak', 'lod', 'body', 'freeze', 'star', 'terminator', 'hole', 'plan'];
 
 function run(lib: Lib): ParityCase[] {
   const canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -334,6 +348,9 @@ function run(lib: Lib): ParityCase[] {
   } else if (lib === 'hole') {
     // --- The black hole: every HoleOut field compared with the TS reference, from two cameras. ---
     for (const c of holeParity(draw)) cases.push(c);
+  } else if (lib === 'plan') {
+    // --- The plan's schematic: every PlanOut field compared with the TS reference, through the shots' cameras. ---
+    for (const c of planParity(draw)) cases.push(c);
   } else {
     // --- mote(): every MoteOut field compared with the TS reference, for every registered mechanism. ---
     for (const [id, mech] of Object.entries(mechanisms) as [string, Mechanism][]) {
@@ -1305,6 +1322,153 @@ function bodyCases(draw: Draw): ParityCase[] {
   for (const c of streamCases(draw, uniforms)) cases.push(c);
   cases.push(trackLampCase(draw, uniforms));
   cases.push(heldFillCase(draw, uniforms));
+  (uniforms.uBodyTex.value as DataTexture).dispose();
+  (uniforms.uStreamTex.value as DataTexture).dispose();
+  return cases;
+}
+
+/**
+ * `?lib=plan`: the plan's schematic (src/scene/node/plan.ts, re-skin §4.7), planDot() of every dot of
+ * both pools over their own attributes (planAttrs.ts), at each of PLAN_CASES' frames (planCases.ts) on
+ * each of PLAN_SIZES at each of PLAN_AMBIENTS: the layout table, each system's s_px, full, cull and real
+ * share, its ranges and the camera as the plan's meshes upload them (planMeshes.ts), every PlanOut
+ * field. A dot is matched up to a time shift of 16 float32 units of the ambient (PLAN_SHIFTS): at a
+ * derp's cut, as the body cases are, and where a derp moves fast (at 3599.9 s a departure's light
+ * changes 0.006 a unit, C13's departing 5 units a second, and the GPU's float32 phase is a fraction of a
+ * unit off). The error is absolute, but for a world place (pos), relative to its distance
+ * from the origin past 1 unit, and a place on screen (px), relative to the screen's larger side: both
+ * carry float32's relative rounding.
+ */
+/** The time shifts a plan dot may match the TS at, in float32 units of the ambient: every eighth of a unit out to 16, a derp's cut's (as the body cases') and a fast derp's float32 phase. */
+const PLAN_SHIFTS = Array.from({ length: 256 }, (_, k) => (k < 128 ? k - 128 : k - 127) / 8);
+
+function planParity(draw: Draw): ParityCase[] {
+  const g = generateGalaxy(MOTE_SEED, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
+  const data = packBodyData(g);
+  const { pools } = planStatic(g);
+  const tableTex = floatTexture(new Float32Array(g.systems.length * PLAN_TABLE_TEXELS * 4), PLAN_TABLE_TEXELS, g.systems.length);
+  const sys = new Float32Array(SYS_MAX * 4);
+  const range = new Float32Array(SYS_MAX * 4);
+  const uniforms: Record<string, IUniform> = {
+    uBodyTex: { value: floatTexture(data.bodies, BODY_TEXELS, data.bodyCount) },
+    uStreamTex: { value: floatTexture(data.streams, BODY_TEXELS, data.streamCount) },
+    uN0Row: { value: data.n0Row },
+    uGrowth: { value: 0 },
+    uFix: { value: 0 },
+    uHighlight: { value: 0 },
+    uShow: { value: 0 },
+    uAmbient: { value: 0 },
+    uFocus: { value: 0 },
+    uLamp: { value: 0 },
+    uLampRow: { value: -1 },
+    uForcedScatter: { value: -1 },
+    uHolding: { value: 0 },
+    uDress: { value: 0 },
+    uFlash: { value: 0 },
+    uFlashOn: { value: 1 },
+    uCopy: { value: 0 },
+    uHeld: { value: [-1, -1] },
+    uSysPx: { value: sysPxAll(0) },
+    uLodForce: { value: new Float32Array(LOD_BANDS_COUNT).fill(-1) },
+    uHoodHold: { value: 0 },
+    uViewport: { value: new Vector2(1, 1) },
+    uPixelRatio: { value: 1 },
+    uPlanTex: { value: tableTex },
+    uPlanSys: { value: sys },
+    uPlanRange: { value: range },
+    uPlanView: { value: new Matrix4() },
+    uPlanProj: { value: new Matrix4() },
+    uPass: { value: 0 },
+  };
+  const mat = material(withPlanLibrary(PLAN_VERTEX), PARITY_FRAGMENT, uniforms);
+  const passes = parityPasses(PLAN_PARITY_FIELDS);
+  const cases: ParityCase[] = [];
+  for (const c of PLAN_CASES) {
+    for (const size of PLAN_SIZES) {
+      for (const ambient of PLAN_AMBIENTS) {
+        const f = planCaseFrame(g, data, c, ambient, size);
+        (tableTex.image.data as Float32Array).set(f.table);
+        tableTex.needsUpdate = true;
+        sys.fill(0);
+        sys.set(f.sys.subarray(0, Math.min(f.sys.length, sys.length)));
+        range.fill(0);
+        range.set(f.range.subarray(0, Math.min(f.range.length, range.length)));
+        const k = f.clocks;
+        uniforms.uGrowth.value = k.growth;
+        uniforms.uFix.value = k.fix;
+        uniforms.uHighlight.value = k.highlight;
+        uniforms.uShow.value = k.show;
+        uniforms.uAmbient.value = f.t;
+        uniforms.uFocus.value = k.focus;
+        uniforms.uLamp.value = k.lamp;
+        uniforms.uLampRow.value = k.lampRow;
+        uniforms.uSysPx.value = k.sysPx;
+        uniforms.uLodForce.value = f.force;
+        (uniforms.uViewport.value as Vector2).set(size.width, size.height);
+        (uniforms.uPlanView.value as Matrix4).fromArray(Array.from(f.view.view));
+        (uniforms.uPlanProj.value as Matrix4).fromArray(Array.from(f.view.projection));
+        const side = Math.max(size.width, size.height);
+        const scaleOf = (field: string, v: number): number => (field === 'pos' ? Math.max(1, Math.abs(v)) : field === 'px' ? side : 1);
+        const at = (time: number): PlanFrame => ({ ...f, t: time, clocks: { ...k, ambient: time } });
+        let maxError = 0;
+        let samples = 0;
+        let shifted = 0;
+        let lit = 0;
+        for (const pool of [pools.world, pools.screen]) {
+          const n = pool.length / PLAN_STRIDE;
+          for (let from = 0; from < n; from += COUNT) {
+            const count = Math.min(COUNT, n - from);
+            const p0 = new Float32Array(count * 4);
+            const p1 = new Float32Array(count * 4);
+            for (let i = 0; i < count; i++) {
+              const o = (from + i) * PLAN_STRIDE;
+              p0.set(pool.subarray(o, o + 4), i * 4);
+              p1.set(pool.subarray(o + 4, o + 8), i * 4);
+            }
+            const geometry = pointsGeometry(count);
+            geometry.setAttribute('aPlan0', new InstancedBufferAttribute(p0, 4));
+            geometry.setAttribute('aPlan1', new InstancedBufferAttribute(p1, 4));
+            const points = new Points(geometry, mat);
+            points.frustumCulled = false; // positions come from gl_InstanceID
+            const outs = passes.map((_, pass) => {
+              uniforms.uPass.value = pass;
+              return draw(points);
+            });
+            geometry.dispose();
+            const errorAgainst = (want: ReturnType<typeof planDot>, i: number): number => {
+              let err = 0;
+              passes.forEach((pass, j) => {
+                for (const { field, offset } of pass) {
+                  fieldValues(want, field.name).forEach((v, q) => {
+                    const d = (outs[j][i * 4 + offset + q] - v) / scaleOf(field.name, v);
+                    err = Math.max(err, Number.isNaN(d) ? Infinity : Math.abs(d));
+                  });
+                }
+              });
+              return err;
+            };
+            const shifts = PLAN_SHIFTS.map((k) => k * ulp32(f.t));
+            for (let i = 0; i < count; i++) {
+              const want = planDot(pool, from + i, f, data);
+              if (want.alpha >= LOD_VISIBLE) lit++;
+              const err = errorAgainst(want, i);
+              let near = err;
+              if (err >= 1e-4) {
+                for (const e of shifts) near = Math.min(near, errorAgainst(planDot(pool, from + i, at(f.t + e), data), i));
+                if (near < err) shifted++;
+              }
+              maxError = Math.max(maxError, near);
+              samples++;
+            }
+          }
+        }
+        const where = ambient === AMBIENT_POSE ? 'the pose' : `${ambient} s`;
+        cases.push({ name: `plan: ${c.name}, ${size.width}x${size.height} at ${where}`, maxError, samples, shifted, lit });
+      }
+    }
+  }
+  mat.dispose();
+  tableTex.dispose();
   (uniforms.uBodyTex.value as DataTexture).dispose();
   (uniforms.uStreamTex.value as DataTexture).dispose();
   return cases;

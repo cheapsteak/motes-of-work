@@ -6,13 +6,16 @@ import { partTransforms } from '../scene/mote/partTransforms';
 import { defaultSceneState } from '../timeline/sceneState';
 import { moteLibraryGlsl } from '../scene/mote/shaderSource';
 import { derpLibraryGlsl } from '../scene/node/shaderSource';
-import { STAR_VERTEX, TERMINATOR_VERTEX } from './shaders';
+import { PLAN_VERTEX, STAR_VERTEX, TERMINATOR_VERTEX } from './shaders';
+import type { PlanDot } from '../scene/node/plan';
 import { ZERO_DERP } from '../scene/node/derp';
 import {
   STAR_PARITY_FIELDS,
   glslStarOutStruct,
   TERMINATOR_PARITY_FIELDS,
   glslTerminatorOutStruct,
+  PLAN_PARITY_FIELDS,
+  glslPlanOutStruct,
   DERP_PARITY_FIELDS,
   fieldValues,
   glslDerpStruct,
@@ -102,5 +105,15 @@ describe('DERP_PARITY_FIELDS', () => {
     for (const f of DERP_PARITY_FIELDS) expect(fieldValues(out, f.name), f.name).toHaveLength(f.size);
     expect(derpLibraryGlsl()).toContain(glslDerpStruct());
     expect(derpLibraryGlsl().match(/struct Derp\b/g)).toHaveLength(1);
+  });
+});
+
+describe('PLAN_PARITY_FIELDS', () => {
+  it('compares every PlanDot field, in the plan parity shader’s PlanOut struct', () => {
+    const dot: PlanDot = { pos: [0, 0, 0], px: [0, 0], rgb: [0, 0, 0], alpha: 0, sizeCss: 0 };
+    expect(PLAN_PARITY_FIELDS.map((f) => f.name).sort()).toEqual(Object.keys(dot).sort());
+    for (const f of PLAN_PARITY_FIELDS) expect(fieldValues(dot, f.name), f.name).toHaveLength(f.size);
+    expect(PLAN_VERTEX).toContain(glslPlanOutStruct());
+    for (const f of PLAN_PARITY_FIELDS) expect(PLAN_VERTEX).toContain(`o.${f.name} = p.${f.name};`);
   });
 });

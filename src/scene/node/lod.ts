@@ -20,17 +20,109 @@ import { STAR_LOOK } from './classLook';
 
 export { glowPx } from '../../galaxy/body';
 
-/** The elements that come in by size: planet points, planet shells, moons, their tracks, and the derps. */
+/**
+ * The elements that come in by size: planet points, planet shells, moons, their tracks, and the derps;
+ * then the plan's schematic (re-skin §4.7, Task 7b, round 4), which morphs H into R by element.
+ */
 export enum LodElement {
   PlanetPoint = 0,
   PlanetShell = 1,
   Moon = 2,
   Track = 3,
   Derp = 4,
+  /** H's outer ring: the first mark of a system. */
+  PlanRingOuter = 5,
+  /** The dashed forward arcs, the node at the body and the two nodes ahead. */
+  PlanArc = 6,
+  /** The direction chevrons. */
+  PlanChevron = 7,
+  /** The inner orbits' rings. */
+  PlanRingInner = 8,
+  /** The chevrons and the two nodes ahead leave (1 − w); the node at the body stays. */
+  PlanLeave = 9,
+  /** The dashes' gaps fill and the arc's span runs 100° → 360°; H's plain ring fades as the arc takes its place. */
+  PlanClose = 10,
+  /** R: the band edges peel out of the ring, the closed arc dims to the fill, the deviation settles on the edge. */
+  PlanBand = 11,
+  /** R: the stalks rise from the plane's foot. */
+  PlanStalk = 12,
+  /** R: the node at the body grows into its silhouette. */
+  PlanOutline = 13,
+  /** R: the outline's equator and meridian, and the moons' outlines. */
+  PlanWire = 14,
+  /** R: the graduations grow out of the outermost orbit. */
+  PlanGrad = 15,
+  /** R: the centre circle opens from the star's centre. */
+  PlanCentre = 16,
+  /** R: the dimension line draws from the centre outward. */
+  PlanDim = 17,
+  /** R: the numerals, last of all. */
+  PlanNum = 18,
 }
 
-/** Each element's band of `s_px` (CSS px): invisible below the first, full by the second (§3.1, §12.2). */
-export const LOD_BANDS: Record<LodElement, [number, number]> = { 0: [10, 20], 1: [25, 50], 2: [60, 120], 3: [60, 120], 4: [60, 120] };
+/**
+ * Each element's band of `s_px` (CSS px): invisible below the first, full by the second (§3.1, §12.2).
+ * The plan's are round 4's windows (re-skin §4.7), the outer ring's raised to 30 → 50 by the author so
+ * ls-1 stays unmarked; nothing of a plan is drawn below 30.
+ */
+export const LOD_BANDS: Record<LodElement, [number, number]> = {
+  0: [10, 20],
+  1: [25, 50],
+  2: [60, 120],
+  3: [60, 120],
+  4: [60, 120],
+  5: [30, 50],
+  6: [30, 55],
+  7: [45, 65],
+  8: [55, 85],
+  9: [75, 105],
+  10: [75, 115],
+  11: [100, 150],
+  12: [110, 150],
+  13: [120, 160],
+  14: [140, 180],
+  15: [140, 180],
+  16: [150, 180],
+  17: [160, 190],
+  18: [180, 210],
+};
+
+/** The plan's R windows: each is × its system's full-detail gain (planFull), so at most two systems are drawn in R. */
+export const PLAN_R_ELEMENTS: readonly LodElement[] = [
+  LodElement.PlanBand,
+  LodElement.PlanStalk,
+  LodElement.PlanOutline,
+  LodElement.PlanWire,
+  LodElement.PlanGrad,
+  LodElement.PlanCentre,
+  LodElement.PlanDim,
+  LodElement.PlanNum,
+];
+
+/** The plan's rank dissolve: a dot of a window shows once the window's fraction passes its hash rank, over this ramp. */
+export const PLAN_RAMP = 0.08;
+/**
+ * s_px: planFull's half-width (the mock's ±24 px of diameter), at least; or PLAN_FULL_SHARE of the
+ * third's culled size where that is wider (plan.ts planFrameOf). Two neighbours passing in a pan or a
+ * zoom cross each other's size by 20 to 30 px a step of a 200-step scrub (their outer rings crossing
+ * the frame's edge): over ±12 px R passed between them in a step or two, 7 % of the frame's plan dots
+ * and 13 % of their light at once; over 40 % of the third's size it takes several (measured: 4.4 % and
+ * 6.2 % at the worst step).
+ */
+export const PLAN_FULL_SOFT = 12;
+export const PLAN_FULL_SHARE = 0.4;
+/** No third system on screen (planFull's `third`): the GLSL's sentinel, −1e30. */
+export const PLAN_NO_THIRD = -1e30;
+/**
+ * The plan's soft culls (round 4): a system's marks fade over `marginPx` CSS px outside the frame, or
+ * over its own outer radius on screen where that is wider (so a large system leaving the frame in a
+ * zoom fades as its ring crosses the edge, not in a frame or two); over `depth` units of its star's
+ * view depth; and each dot over `near` units of its own, so no mark passes behind the camera. Round 4
+ * faded over 4 → 10 units, for the mock's cameras 20 units and more from a system; the essay's
+ * close-ups stand 5 units from P1's star (df-2 on a phone: 4.95) inside its system, where 4 → 10 left
+ * 7 % of its drawing, so the essay's are 1 → 2.5.
+ */
+export const PLAN_CULL = { marginPx: 40, depth: [1, 2.5], near: [0.5, 1.5] } as const;
 
 /** Below this gain an element is not drawn at all, so it costs nothing (§3.2). */
 export const LOD_VISIBLE = 0.02;
@@ -136,6 +228,50 @@ export function hoodSkip(kind: number, real: number): boolean {
 export function lodGain(el: LodElement, sysPx: number): number {
   const [lo, hi] = LOD_BANDS[el];
   return smoothstep(lo, hi, sysPx);
+}
+
+/**
+ * A system's full-detail gain for its plan (re-skin §4.7): smoothstep(−PLAN_FULL_SOFT, PLAN_FULL_SOFT)
+ * of its lead over `third`; 1 when there is no third (fewer than three on screen: `third` PLAN_NO_THIRD or less).
+ * plan.ts planFrameOf passes the third-largest culled s_px plus PLAN_FULL_SOFT, so the third system
+ * itself is at 0 and a slot changes hands only where its leaving system's gain has fallen to 0.
+ */
+export function planFull(sPx: number, third: number, soft = PLAN_FULL_SOFT): number {
+  return third <= PLAN_NO_THIRD ? 1 : smoothstep(-soft, soft, sPx - third);
+}
+
+/**
+ * A system's plan cull (re-skin §4.7): smoothstep(−margin, 0, how far its outer ring reaches inside the
+ * frame, CSS px), the margin PLAN_CULL.marginPx or its outer radius on screen `sPx`, whichever is wider,
+ * × smoothstep(PLAN_CULL.depth) of its star's view depth.
+ */
+export function planCull(insidePx: number, depth: number, sPx = 0): number {
+  return smoothstep(-Math.max(PLAN_CULL.marginPx, sPx), 0, insidePx) * smoothstep(PLAN_CULL.depth[0], PLAN_CULL.depth[1], depth);
+}
+
+/** A dot's share of a window `w` by its hash `rank`: clamp((w·1.08 − rank) / PLAN_RAMP, 0, 1), so counts ramp, not pop. */
+export function planRank(w: number, rank: number): number {
+  return Math.min(1, Math.max(0, (w * (1 + PLAN_RAMP) - rank) / PLAN_RAMP));
+}
+
+/** A plan element's window at `sPx` (its forced gain in test mode, `force` ≥ 0): × `full` for the R windows; 1 − w for PlanLeave. */
+export function planWindow(el: LodElement, sPx: number, full: number, force = -1): number {
+  const w = force >= 0 ? force : lodGain(el, sPx);
+  if (el === LodElement.PlanLeave) return 1 - w;
+  return PLAN_R_ELEMENTS.includes(el) ? w * full : w;
+}
+
+/**
+ * A plan dot's gain from one element (re-skin §4.7): the rank dissolve of its window (× full for the R
+ * windows; 1 − w for PlanLeave), × the cull's rank dissolve, × its star's hoodReal.
+ */
+export function planGain(el: LodElement, sPx: number, rank: number, full: number, cull: number, real: number, force = -1): number {
+  return planRank(planWindow(el, sPx, full, force), rank) * planRank(cull, rank) * real;
+}
+
+/** Whether planGain is 0 for every rank (exactly conservative: the early-out of a plan dot). */
+export function planSkip(el: LodElement, sPx: number, full: number, cull: number, real: number, force = -1): boolean {
+  return !(planWindow(el, sPx, full, force) > 0) || !(cull > 0) || !(real > 0);
 }
 
 /** A system's projected outer radius in CSS px: its `outer` radius at distance `dist` through a focal length of `focalPx` (CSS px). */
@@ -315,6 +451,13 @@ export function glslLodConstants(): string {
     `const int LOD_COUNT = ${LOD_COUNT};`,
     `const vec2 LOD_BANDS[LOD_COUNT] = vec2[${LOD_COUNT}](${bands.join(', ')});`,
     `const float LOD_VISIBLE = ${lit(LOD_VISIBLE)};`,
+    '// The plan (re-skin §4.7): its rank ramp, its full-detail gain\'s half-width, its culls, and which elements are R\'s.',
+    `const float PLAN_RAMP = ${lit(PLAN_RAMP)};`,
+    `const float PLAN_FULL_SOFT = ${lit(PLAN_FULL_SOFT)};`,
+    `const float PLAN_CULL_MARGIN = ${lit(PLAN_CULL.marginPx)};`,
+    `const vec2 PLAN_CULL_DEPTH = vec2(${PLAN_CULL.depth.map(lit).join(', ')});`,
+    `const vec2 PLAN_CULL_NEAR = vec2(${PLAN_CULL.near.map(lit).join(', ')});`,
+    `const int PLAN_R_FROM = ${Math.min(...PLAN_R_ELEMENTS)};`,
     `const vec2 MOON_POINT_PX = vec2(${MOON_POINT_PX.map(lit).join(', ')});`,
     `const float PX_MOON = ${lit(PX.moon[0])}; // PX: floors in CSS px`,
     `const float PX_MOTE = ${lit(PX.mote[0])};`,

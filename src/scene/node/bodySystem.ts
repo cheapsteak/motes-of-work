@@ -16,6 +16,7 @@
 //                bodies and tracks again, only while the dressing is up (freeze-frame §3.1), added
 //                over the frame (re-skin §4.5); the held planet's fill halved while its scatter is out
 //   net-ticks    the freeze frame's two bursts of dotted dashes, round the moon and the planet (tick.vert.glsl)
+//   net-plan, net-plan-screen   the plans' schematics, R up close and H in the neighbourhood (planMeshes.ts; re-skin §4.7)
 // The core rows draw nothing (re-skin Task 5): the black hole is drawn in their place (src/scene/hole/
 // holeSystem.ts), and every fragment shader here discards inside its shadow (uShadow, shared with it).
 // Everything moves in the vertex shaders (bodyMote.glsl at uAmbient): growth, light, the lamp and the
@@ -89,6 +90,7 @@ import { BODY_TEXELS, packBodyData } from './bodyData';
 import { shellSkips, spikeSkips, streamSkips, trackSkips, type EarlyOutFrame } from './earlyOut';
 import { detailPx, glowCaps, glowPx, hoodGlowPx, hoodHold, hoodReal, LOD_COUNT, LOD_VISIBLE, LodElement, lodLevel, onScreen, systemPx, type Viewport } from './lod';
 import { bodyWorld } from './orbit';
+import { createPlanMeshes, type PlanStats } from './planMeshes';
 import { inFallEmber, inFallEnd } from './stream';
 import { withDropoutConstants, withGalaxyLibrary, withTerminatorFragment } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
@@ -147,7 +149,7 @@ export const NO_FREEZE: FreezeFrame = Object.freeze({ hero: null, live: null, fl
 export interface BodySystem {
   object: Group;
   /** Instances per mesh; `bodies` includes the ghosts (`ghosts` of them). */
-  counts: BodyCounts & { ghosts: number; ticks: number };
+  counts: BodyCounts & { ghosts: number; ticks: number; plan: number; planScreen: number };
   /** One frame: the story's leaves, the camera, the screen, the ambient shown (the freeze pin while held) and the freeze frame's extras. */
   update(state: SceneState, camera: PerspectiveCamera, viewport: Viewport, ambient: number, freeze?: FreezeFrame): void;
   /** The last frame's projected system sizes (CSS px, as the shaders took them) and how many systems are at each level. */
@@ -183,6 +185,8 @@ export interface BodySystem {
   dropout(): { lines: [number, number][]; box: [number, number, number, number]; cx: number; cy: number; r: number } | null;
   /** Test mode: draw no dropout (true) or let it run (false), so a frame can be compared with and without its lines. */
   muteDropout(mute: boolean): void;
+  /** The plans' schematics at the last frame (re-skin §4.7; planMeshes.ts): their lit dots by the TS twin, the slots' systems. */
+  plan(): PlanStats;
   dispose(): void;
 }
 
@@ -398,6 +402,9 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
   const spikeMesh = mesh(spikeGeometry, spikeMaterial, 'net-spikes');
   const ringMesh = mesh(ringGeometry, ringMaterial, 'net-ring');
   group.add(trackMesh, bodyMesh, streamMesh, feedMesh, shellMesh, personMesh, glowMesh, spikeMesh, ringMesh);
+  // The plans' schematics (re-skin §4.7, Task 7b).
+  const plan = createPlanMeshes(g, data, uniforms, SCREEN);
+  group.add(...plan.meshes);
 
   // The freeze frame's two copies of the held piece (freeze-frame §3.1): its shell motes, its bodies
   // (the ghost among them) and its tracks drawn twice more, cold and warm, each copy's material saying
@@ -480,6 +487,8 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       streams: dots.streams.count,
       feed: dots.feed.count,
       ticks: ticks.count,
+      plan: plan.counts.plan,
+      planScreen: plan.counts.planScreen,
     },
 
     update(state, camera, viewport, ambient, freeze = NO_FREEZE) {
@@ -629,6 +638,10 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
         uniforms.uFixV.value = v;
         uniforms.uScatterOut.value = bodyDerp(planet, sysOf[planet], clocks, data).scatterS >= 0 ? v : 0;
       }
+      // The plans (re-skin §4.7): each system's real share is its star's; their twin dressed as the
+      // shaders are (freezeLook reads uDress, uFlash × uFlashOn and uHeld; the plans draw no copy).
+      const planFreeze = { dress, flash: freeze.flashOn ? flash : 0, copy: 0 as const, moon: freeze.hero?.moon ?? -1, planet: freeze.hero?.planet ?? -1 };
+      plan.update(camera, { width: w, height: h }, { ...clocks, freeze: planFreeze }, lastHood.map((x) => x.real), force);
       const caps = glowCaps(sprites);
       glowCap.fill(0);
       glowCap.set(caps);
@@ -679,10 +692,12 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       dropoutMuted = mute;
     },
 
+    plan: () => plan.stats(),
+
     skipped() {
       const f = lastFrame;
       if (f === null) return {};
-      const out: Record<string, number> = {};
+      const out: Record<string, number> = { ...plan.skipped() };
       const count = (n: number, skips: (k: number) => boolean): number => {
         let k = 0;
         for (let i = 0; i < n; i++) if (skips(i)) k++;
@@ -698,6 +713,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
         const track = attr('aTrack');
         const spike = attr('aSpike');
         const dot = attr('aDot');
+        if (m.name in out) continue;
         const copy = Math.round(((m.material as RawShaderMaterial).uniforms.uCopy?.value as number | undefined) ?? 0);
         if (mote) out[m.name] = count(n, (k) => shellSkips(f, data, mote[4 * k], mote[4 * k + 1], mote[4 * k + 2], mote[4 * k + 3], copy));
         else if (track) out[m.name] = count(n, (k) => trackSkips(f, data, track[4 * k], track[4 * k + 2]));
@@ -716,6 +732,7 @@ export function createBodySystem(g: Galaxy, shadow: IUniform<Vector3>): BodySyst
       for (const geo of [shellGeometry, personGeometry, glowGeometry, spikeGeometry, trackGeometry, streamGeometry, feedGeometry, ringGeometry, bodyGeometry, spheres]) geo.dispose();
       for (const m of [shellMaterial, spikeMaterial, trackMaterial, streamMaterial, ringMaterial, bodyMaterial, tickMaterial, ...copyMaterials]) m.dispose();
       tickGeometry.dispose();
+      plan.dispose();
       for (const geo of copyGeometries) geo.dispose();
       bodiesTex.dispose();
       streamsTex.dispose();

@@ -74,6 +74,12 @@ interface MotesTestHook {
   /** Draw no dropout (true) or let it run (false), and redraw: a frame with and without its lines. */
   muteDropout(mute: boolean): void;
   /**
+   * The plans' schematics at the last frame (re-skin §4.7, Task 7b; BodySystem.plan, by the TS twin
+   * plan.ts): the lit plan dots (alpha at least LOD_VISIBLE), Σ alpha × size², the two slots' systems (in
+   * g.systems, −1 none), the lit dots by mark and how many are ember. Null before the galaxy is built.
+   */
+  plan(): ReturnType<BodySystem['plan']> | null;
+  /**
    * Hold the galaxy's ambient clock at `t` seconds (as `?ambient=t` does, without a reload), or (null)
    * let it go back to its own, and redraw: the defect's e2e steps a strip of frames on one page.
    */
@@ -420,6 +426,7 @@ if (testMode) {
       return { x: s.x / ratio, y: (drawingBuffer.y - s.y) / ratio, r: s.z / ratio, approach: hole.approach() };
     },
     dropout: () => bodiesOf()?.dropout() ?? null,
+    plan: () => bodiesOf()?.plan() ?? null,
     defectLuminance: (t, background) => {
       heldAmbient = t;
       bump();

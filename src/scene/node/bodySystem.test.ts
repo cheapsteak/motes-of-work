@@ -49,6 +49,7 @@ import starFrag from '../galaxy/shaders/star.frag.glsl?raw';
 import ringFrag from './shaders/ring.frag.glsl?raw';
 import holeFrag from '../hole/shaders/hole.frag.glsl?raw';
 import { createHoleSystem } from '../hole/holeSystem';
+import { planFrameAt, planPixels } from './planOnScreen';
 
 const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
 const shadow: IUniform<Vector3> = { value: new Vector3() };
@@ -112,17 +113,19 @@ describe('the body set, counted', () => {
   });
 
   it('draws every instance Galaxy.instances counts with the hole’s, and no more, within the budget', () => {
-    const { shells, persons, bodies, glow, spikes, tracks, streams, feed } = system.counts;
+    const { shells, persons, bodies, glow, spikes, tracks, streams, feed, plan, planScreen } = system.counts;
     // Σ every net-* count and Σ the hole's (re-skin Task 5: it is drawn, so nothing is reserved).
     const hole = createHoleSystem(g, packBodyData(g), shadow);
     const holeDrawn = Object.values(hole.counts).reduce((n, c) => n + c, 0);
     expect(holeDrawn).toBe(27_610);
-    expect(shells + persons + bodies + glow + spikes + tracks + streams + feed + holeDrawn).toBe(g.instances.total);
+    // The plans' two meshes (re-skin §4.7, Task 7b): the world pool with the pairs' marks, and the screen pool.
+    expect(plan + planScreen).toBe(g.instances.plan);
+    expect(shells + persons + bodies + glow + spikes + tracks + streams + feed + plan + planScreen + holeDrawn).toBe(g.instances.total);
     expect(g.instances.reserved).toBe(0);
     hole.dispose();
     expect(g.instances.total).toBeLessThanOrEqual(galaxyBudget(MOTE_BUDGET_DESKTOP));
     const sets = system.object.children.filter((o) => o.name.startsWith('net-') && !o.name.startsWith('net-copy') && o.name !== 'net-ring' && o.name !== 'net-ticks');
-    expect(sets.map((o) => o.name).sort()).toEqual(['net-bodies', 'net-feed', 'net-glow', 'net-persons', 'net-shells', 'net-spikes', 'net-streams', 'net-tracks']);
+    expect(sets.map((o) => o.name).sort()).toEqual(['net-bodies', 'net-feed', 'net-glow', 'net-persons', 'net-plan', 'net-plan-screen', 'net-shells', 'net-spikes', 'net-streams', 'net-tracks']);
   });
 });
 
@@ -405,7 +408,7 @@ describe('the shaders’ copies', () => {
     expect(galaxyMoteFrag).toContain('flat in vec3 vBase;');
     expect(galaxyMoteFrag).not.toContain('AGENT');
     const dots = system.object.children.filter((o) => o.name.startsWith('net-') && o.name !== 'net-bodies' && o.name !== 'net-ring' && !o.name.startsWith('net-copy-bodies'));
-    expect(dots.length).toBe(12);
+    expect(dots.length).toBe(14);
     for (const o of dots) expect(((o as Mesh).material as ShaderMaterial).fragmentShader, o.name).toBe(galaxyMoteFrag);
   });
 });
@@ -773,4 +776,52 @@ describe('the shadow stays black (re-skin §4.2)', () => {
     expect(materials.length).toBeGreaterThan(10);
     for (const m of materials) expect(m.uniforms.uShadow).toBe(shadow);
   });
+});
+
+describe("the plans' meshes (re-skin §4.7, Task 7b)", () => {
+  const data = packBodyData(g);
+  for (const size of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    it(`draw what the twin draws, the two largest systems in R, ${size.width}x${size.height}`, () => {
+      for (const shot of ['hood', 'system', 'twelve'] as const) {
+        const camera = galaxyShotCamera(GALAXY_SHOTS[shot], g, data, size, AMBIENT_POSE);
+        const s = defaultSceneState();
+        s.net = { ...s.net, show: 1, growth: 1 };
+        system.update(s, camera, { ...size, pixelRatio: 1 }, AMBIENT_POSE);
+        const stats = system.plan();
+        const f = planFrameAt(g, data, camera, size, { growth: 1, fix: 0, highlight: 0, show: 1, ambient: AMBIENT_POSE, focus: 0, lamp: s.net.lamp, lampRow: -1 });
+        expect(stats.dots, shot).toBe(planPixels(g, data, f).length);
+        expect(stats.dots, shot).toBeGreaterThan(300);
+        // R by the culled size's lead over the third: the two largest at least half, every other at most half.
+        const culled = Array.from({ length: g.systems.length }, (_, i) => [f.sys[i * 4] * f.sys[i * 4 + 2], f.sys[i * 4 + 1], i]).sort((a, b) => b[0] - a[0] || a[2] - b[2]);
+        expect(culled[0][1], shot).toBeGreaterThanOrEqual(0.5);
+        expect(culled[1][1], shot).toBeGreaterThanOrEqual(0.5);
+        for (const [, full] of culled.slice(2)) expect(full, shot).toBeLessThanOrEqual(0.5);
+        for (let k = 1; k < culled.length; k++) expect(culled[k][1]).toBeLessThanOrEqual(culled[k - 1][1]);
+        expect(stats.slots).toEqual(
+          Array.from({ length: g.systems.length }, (_, i) => i)
+            .filter((i) => f.sys[i * 4 + 1] > 0)
+            .slice(0, 2)
+            .concat([-1, -1])
+            .slice(0, 2),
+        );
+        // The early-out counts its skips, mesh by mesh.
+        const skipped = system.skipped();
+        expect(skipped['net-plan'], shot).toBeGreaterThan(0);
+        expect(skipped['net-plan'] + stats.dots, shot).toBeLessThanOrEqual(system.counts.plan + system.counts.planScreen);
+      }
+      // P_a's system shot: P_a in R, its bands and outlines drawn.
+      const camera = galaxyShotCamera(GALAXY_SHOTS.system, g, data, size, AMBIENT_POSE);
+      const s = defaultSceneState();
+      s.net = { ...s.net, show: 1, growth: 1 };
+      system.update(s, camera, { ...size, pixelRatio: 1 }, AMBIENT_POSE);
+      const stats = system.plan();
+      expect(stats.slots[0]).toBe(g.systems.indexOf(g.ids.P_a));
+      expect(stats.byMark.bandEdge).toBeGreaterThan(300);
+      expect(stats.byMark.silhouette).toBeGreaterThan(10);
+      expect(stats.byMark.numeral).toBeGreaterThan(10);
+    });
+  }
 });

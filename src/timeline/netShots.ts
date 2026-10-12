@@ -19,6 +19,8 @@ import { starTopPx } from '../scene/node/star';
 import { bodyWorld } from '../scene/node/orbit';
 import { streamPresence } from '../scene/node/stream';
 import { streamPixels, type StreamLeaves } from '../scene/node/streamOnScreen';
+import { visiblePlan } from '../scene/node/planOnScreen';
+import { shown } from '../scene/ambientClock';
 import { cameraChannels, cameraSpline, channelShot, lookFromBearing } from './cameraSpline';
 import { EASINGS } from './easing';
 import { progressOfSectionAt, splitSectionAt, type Keyframe, type KeyframeFile } from './keyframeSampler';
@@ -471,6 +473,8 @@ export interface KeyedFrame {
   show?: number;
   /** The leaves the stream and feed dots are drawn by, when the frame shows them (a keyed state's `net`). */
   streams?: StreamLeaves;
+  /** The keyed state the plan's schematic is drawn at, when the frame carries it (re-skin Task 7b). */
+  state?: Pick<SceneState, 'net' | 'freeze'>;
 }
 
 /** A probe shot as a keyed frame: its keys, its lamp, on its own target, everything built. */
@@ -489,8 +493,11 @@ export const RIM_BEARINGS = 72;
  *    circle, less half the largest sprite a body there can draw at that depth (a shell mote at the
  *    galaxy's largest grain, a lit planet's point at its largest, a moon's point);
  *  - every lit, up star's and core body's glow sprite (glowPx at its distance), less half of it;
- *  - and, for a frame that carries its stream leaves, every stream and feed dot the page lights, after
- *    the text band's mask (streamPixels; Task 11 review I1): the top of its pixel.
+ *  - for a frame that carries its stream leaves, every stream and feed dot the page lights, after
+ *    the text band's mask (streamPixels; Task 11 review I1): the top of its pixel;
+ *  - and, for a frame that carries its state, every plan dot the page lights (visiblePlan, re-skin
+ *    Task 7b: its rings, arcs, bands, outlines and dimensions; its numerals masked under the band) on
+ *    the screen's width, at the ambient shown: its top.
  * A point off the top of the screen is negative, and one behind the camera −Infinity: both fail the
  * band. Infinity when nothing is lit (the galaxy not shown, or nothing lit built).
  */
@@ -544,6 +551,9 @@ export function cylinderTop(
     top = Math.min(top, s.y - spriteHalfTop(b, glowPx(b.R, s.d, focal, GLOW_CAP.star), glowPx(b.R, s.d, focal, Infinity)));
   }
   if (frame.streams) for (const d of streamPixels(frame.streams, g, data, camera, size, t)) top = Math.min(top, d.y);
+  if (frame.state) {
+    for (const d of visiblePlan(g, data, frame.state, shown(t, frame.state.freeze.hold), camera, size)) if (d.x >= 0 && d.x <= size.width) top = Math.min(top, d.top);
+  }
   return top;
 }
 

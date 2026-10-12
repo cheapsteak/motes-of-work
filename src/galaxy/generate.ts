@@ -49,6 +49,7 @@ import {
 import { holeInstances } from './hole';
 import { streamFor } from './seeds';
 import { PLANET_LOOK, STAR_DOTS } from '../scene/node/classLook';
+import { planDotCount } from '../scene/node/planAttrs';
 import { FIRST, HOSTS, LINEAGE, OWN_FIXES, SOURCE, AGENT_RULE, type ScriptedBody } from './lineage';
 
 /** Out from the core to a star or from a star to a planet; sideways (a copy, a reused plan); in (C7 → R1). */
@@ -201,7 +202,8 @@ export interface Galaxy {
  * per planet and moon, none for a star or a core row, and a ghost per planet or moon that carries the
  * defect); the glow sprites (`net-glow`: one per star); the stream dots (`streamDots` per stream, and
  * the feed at `STREAM_DOTS[1]`); the stars' spikes (`net-spikes`: 96 dots a star); and the black hole
- * (re-skin §7: `holeInstances()`, its `hole-*` meshes). The core rows draw nothing (re-skin Task 5).
+ * (re-skin §7: `holeInstances()`, its `hole-*` meshes); and the plans' schematics (re-skin §4.7, Task 7b:
+ * `planDotCount`, its `net-plan` and `net-plan-screen`). The core rows draw nothing (re-skin Task 5).
  */
 export interface GalaxyInstances {
   shells: number;
@@ -212,6 +214,8 @@ export interface GalaxyInstances {
   streams: number;
   spikes: number;
   hole: number;
+  /** The plans' schematics (re-skin §4.7, Task 7b): planAttrs.ts PLAN_DOTS, the neighbourhood's H pools, the two slots and each binary pair's marks. */
+  plan: number;
   /** The hole's count while nothing drew it (the re-skin's Tasks 2-4); 0 since Task 5 draws it, so the drawn sets are the total. */
   reserved: number;
   /** Every field above but `reserved`: at most the budget. */
@@ -1468,7 +1472,7 @@ function personFor(b: Body, motes: number): number {
 
 /**
  * Sets every body's lattice, motes and person set, and returns every instance the galaxy draws. The
- * orbits, tracks, bodies, glow, streams, the stars' dots and spikes, and the hole are fixed; the
+ * orbits, tracks, bodies, glow, streams, the stars' dots and spikes, the hole and the plans are fixed; the
  * shells and person sets get the rest of the budget. The core rows draw nothing (re-skin Task 5: no
  * shell, person set, glow or icosphere), so they take none of it. A moon's lattice is its
  * planet's pitch (moonLattice), from its planet's lattice as fitted, so its motes are its planet's
@@ -1493,7 +1497,10 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   const icospheres = bodies.filter((b) => b.kind === 'planet' || b.kind === 'moon').length + ghosts;
   const spikes = stars * STAR_SPIKE_DOTS;
   const hole = holeInstances();
-  const fixed = tracks + icospheres + glow + dots + spikes + hole;
+  // The plans' reservation (re-skin §4.7): a binary pair's two stars share a barycentre host.
+  const pairs = new Set(bodies.filter((b) => b.kind === 'star' && b.host >= 0).map((b) => b.host)).size;
+  const plan = planDotCount(pairs);
+  const fixed = tracks + icospheres + glow + dots + spikes + hole + plan;
   const room = budget - fixed;
   const base = bodies.map(baseLattice);
   const named = bodies.map((b) => b.id === HERO_PLANET || FULL_DENSITY.includes(b.id));
@@ -1530,5 +1537,5 @@ function fitBudget(bodies: Body[], streams: readonly Stream[], budget: number): 
   const shells = bodies.reduce((n, b) => n + b.motes, 0);
   const persons = bodies.reduce((n, b) => n + b.personMotes, 0);
   // The hole is drawn (re-skin Task 5): nothing is reserved.
-  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, reserved: 0, total: shells + persons + fixed };
+  return { shells, persons, tracks, bodies: icospheres, glow, streams: dots, spikes, hole, plan, reserved: 0, total: shells + persons + fixed };
 }

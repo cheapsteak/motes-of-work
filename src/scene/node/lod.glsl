@@ -89,3 +89,33 @@ bool offScreenSkip(vec2 centreCss, float reachPx, float w, float h) {
 bool hoodSkip(int kind, float real) {
   return kind == LOD_KIND_STAR && !(real > 0.0);
 }
+
+// The plan's schematic (lod.ts planFull, planCull, planRank, planWindow, planGain, planSkip; re-skin
+// §4.7): a system's full-detail gain over the third (third -1e30: none), its soft cull, a dot's rank
+// dissolve, an element's window (x full for R's, the elements from PLAN_R_FROM; 1 - w for PlanLeave),
+// a dot's gain from it, and whether that gain is 0 for every rank (the early-out).
+float planFull(float sPx, float third, float soft) {
+  return third <= -1e30 ? 1.0 : smoothstep(-soft, soft, sPx - third);
+}
+
+float planCull(float insidePx, float depth, float sPx) {
+  return smoothstep(-max(PLAN_CULL_MARGIN, sPx), 0.0, insidePx) * smoothstep(PLAN_CULL_DEPTH.x, PLAN_CULL_DEPTH.y, depth);
+}
+
+float planRank(float w, float rank) {
+  return clamp((w * (1.0 + PLAN_RAMP) - rank) / PLAN_RAMP, 0.0, 1.0);
+}
+
+float planWindow(int el, float sPx, float full, float force) {
+  float w = force >= 0.0 ? force : lodGain(el, sPx);
+  if (el == LOD_PLAN_LEAVE) return 1.0 - w;
+  return el >= PLAN_R_FROM ? w * full : w;
+}
+
+float planGain(int el, float sPx, float rank, float full, float cull, float real, float force) {
+  return planRank(planWindow(el, sPx, full, force), rank) * planRank(cull, rank) * real;
+}
+
+bool planSkip(int el, float sPx, float full, float cull, float real, float force) {
+  return !(planWindow(el, sPx, full, force) > 0.0) || !(cull > 0.0) || !(real > 0.0);
+}

@@ -367,3 +367,30 @@ export const HOLE_PARITY_FIELDS: readonly ParityField<HoleOut>[] = [
 export function glslHoleOutStruct(): string {
   return glslOutStruct('HoleOut', 'HOLE_PARITY_FIELDS', HOLE_PARITY_FIELDS);
 }
+
+/**
+ * The plan's schematic (`?lib=plan`, src/scene/node/plan.ts, re-skin §4.7): a plan dot's place (world;
+ * a screen mark's anchor), its alpha before the LOD_VISIBLE cut, its colour, its CSS size and its
+ * centre on screen in CSS px from the top left.
+ */
+export interface PlanOut {
+  pos: Vec3;
+  alpha: number;
+  rgb: Vec3;
+  sizeCss: number;
+  px: [number, number];
+}
+
+/** What the plan parity mode compares. The plan parity shader's PlanOut struct is generated from this list (glslPlanOutStruct). */
+export const PLAN_PARITY_FIELDS: readonly ParityField<PlanOut>[] = [
+  { name: 'pos', size: 3 },
+  { name: 'alpha', size: 1 },
+  { name: 'rgb', size: 3 },
+  { name: 'sizeCss', size: 1 },
+  { name: 'px', size: 2 },
+];
+
+/** The GLSL PlanOut struct, from PLAN_PARITY_FIELDS. */
+export function glslPlanOutStruct(): string {
+  return glslOutStruct('PlanOut', 'PLAN_PARITY_FIELDS', PLAN_PARITY_FIELDS);
+}

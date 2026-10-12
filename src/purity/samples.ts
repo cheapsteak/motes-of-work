@@ -82,7 +82,8 @@ const FENCE = true as const;
 // rewritten every frame); the drawing mid-redraw (both ink part textures rewritten every frame); the reflow at 311 s
 // (the motes flown onto the galaxy's bodies, the camera riding the turn); the pull out to the galaxy
 // wide at 101 s (the background's far stars); the release mid-peel at 101 s (the copies' geometry cut
-// mid-scroll, the ticks, the shell texture re-packed off the pose); and the sweep at 101 s (streams).
+// mid-scroll, the ticks, the shell texture re-packed off the pose); the sweep at 101 s (streams); and
+// the reviewer's ring at 101 s (the plan's schematic: its layout table re-laid per frame).
 export const PURITY_SAMPLES: PuritySample[] = [
   ...ESSAY_FRACTIONS.map(
     (f, i): PuritySample => ({
@@ -134,13 +135,17 @@ export const PURITY_SAMPLES: PuritySample[] = [
   ...[AMBIENT_POSE, 101].map((ambient) => at('defect', 0.22, ambient, halfOf(4889), ambient === 101 ? FENCE : undefined)),
   // Reviewer, trace and fix keyed (Task 11), each at the pose and at 101 s: the ring moving over P5's
   // planets under re-2, the surge running out along R0's lineage, and the sweep from the neighbourhood.
+  // Two fences: the sweep at 101 s, and the plan's schematic (re-skin Task 7b) at the ring's 101 s, where
+  // H and R both draw (2,772 dots: P5's bands, outlines, stalks and graduations, its neighbours' arcs,
+  // nodes, departures and chevrons), the frame's layout table re-laid and uploaded as it moves
+  // (planMeshes.ts): the browser proves the page draws the schematic the twin computes.
   ...(
     [
       ['reviewer', 0.5, halfOf(1929)],
       ['trace', 0.8, halfOf(4547)],
       ['fix', 0.82, halfOf(4944)],
     ] as const
-  ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit, id === 'fix' && ambient === 101 ? FENCE : undefined))),
+  ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit, id !== 'trace' && ambient === 101 ? FENCE : undefined))),
   // The black hole (re-skin Task 5), each at the pose and at 101 s: ly-2's midpoint on the hole close,
   // tr-2's hold on it (trace 0.52) and fx-1's (fix 0.08). Its disk, jets, knots and in-fall all run on
   // the ambient, so a jump, a scroll and a detour must land on the same dots. A scene of their own

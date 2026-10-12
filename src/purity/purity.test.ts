@@ -369,3 +369,24 @@ describe('gpuInputs throws on what it does not model, rather than read it as equ
     expect(() => read(holding(new Mesh(tri(), raw({ uOdd: { value: { a: 1 } } }))))).toThrow(/uniform uOdd: a value of this kind/);
   });
 });
+
+describe("the plan's schematic fence (re-skin Task 7b)", () => {
+  // Measured: one stage drawn once, 1 s alone.
+  it('draws H and R at the fence the browser renders, the frame laid out in the table the GPU holds', { timeout: 60_000 }, () => {
+    const sample = PURITY_SAMPLES.find((s) => s.section === 'reviewer' && s.fence)!;
+    const stage = freshStage();
+    const uploads = new Uploads();
+    drawStep(stage, { p: sample.p(spans), ambient: held(sample) });
+    uploads.render(stage.scene);
+    const stats = stage.galaxy()!.bodies.plan();
+    expect(stats.dots).toBeGreaterThan(1000);
+    for (const mark of ['arc', 'node', 'deviation', 'chevron', 'bandEdge', 'stalk', 'outlineEq', 'graduation', 'silhouette']) expect(stats.byMark[mark], mark).toBeGreaterThan(0);
+    // Both meshes draw over the one table, as the frame laid it out (uploaded, not stale).
+    const read = gpuInputs(stage.scene, stage.camera, uploads) as { draws: Record<string, { name: string; material: { uniforms: Record<string, { data: Plain }> } }> };
+    const plans = Object.values(read.draws).filter((d) => d.name.startsWith('net-plan'));
+    expect(plans.map((d) => d.name).sort()).toEqual(['net-plan', 'net-plan-screen']);
+    const mesh = stage.galaxy()!.bodies.object.getObjectByName('net-plan') as Mesh;
+    const table = ((mesh.material as RawShaderMaterial).uniforms.uPlanTex.value as DataTexture).image.data as Float32Array;
+    for (const d of plans) expect(d.material.uniforms.uPlanTex.data, d.name).toBe(digestOf(table));
+  });
+});

@@ -92,7 +92,9 @@ function drawnInstances(x: Galaxy): number {
   const stars = kinds(x, 'star').length;
   // An icosphere per planet and moon: none for a star, a core row or a barycentre (which draw none).
   const icospheres = kinds(x, 'planet').length + kinds(x, 'moon').length;
-  return shells + tracks + icospheres + ghosts + glow + dots + 96 * stars + 27_610;
+  // The plans' schematics (re-skin §4.7, Task 7b): the two pools and a pair's marks per binary pair.
+  const pairs = new Set(kinds(x, 'star').filter((b) => b.host >= 0).map((b) => b.host)).size;
+  return shells + tracks + icospheres + ghosts + glow + dots + 96 * stars + 27_610 + 3_800 + 760 + 294 * pairs;
 }
 
 /**
@@ -662,12 +664,14 @@ describe('generateGalaxy', () => {
       expect(p.lattice, id).toEqual(planetLattice(p.R));
       for (const m of moonsOf(g, id)) expect(m.lattice, m.id).toEqual(moonLattice(m.R, p.R, planetLattice(p.R)));
     }
-    // Re-pinned by the re-skin's Task 5 (the design change: the core's 5,520 instances are freed): on the
-    // story's seed every planet now keeps its radius's lattice (91,895 of 93,500); until then the filler
-    // paid (some unnamed planet thinner than its lattice). Where a seed's galaxy does not fit, the filler
-    // still pays first (seed 2: 78 planets thinned, the named ones whole).
+    // Re-pinned by the re-skin's Task 7b (the design change: the plans' reservation, 4,854): on the
+    // story's seed the filler pays for it again, every unnamed planet a little thinner than its radius's
+    // lattice, the named ones whole (the planets and moons keep their room: below). From Task 5 to 7b,
+    // which freed the core's 5,520 instances, every planet kept its lattice (91,895 of 93,500). Where a
+    // seed's galaxy does not fit, the filler pays first (seed 2: planets thinned, the named ones whole).
     const thinned = (x: Galaxy) => kinds(x, 'planet').filter((p) => latticeCount(...p.lattice!) < latticeCount(...planetLattice(p.R)));
-    expect(thinned(g)).toEqual([]);
+    expect(thinned(g).length).toBeGreaterThan(0);
+    for (const p of thinned(g)) expect(p.id !== HERO_PLANET && !FULL_DENSITY.includes(p.id), p.id).toBe(true);
     const tight = generateGalaxy(2, 'desktop', galaxyBudget(MOTE_BUDGET_DESKTOP));
     expect(thinned(tight).length).toBeGreaterThan(0);
     for (const p of thinned(tight)) expect(p.id !== HERO_PLANET && !FULL_DENSITY.includes(p.id), p.id).toBe(true);
@@ -723,8 +727,10 @@ describe('generateGalaxy', () => {
       expect(i.reserved).toBe(0);
       expect(i.hole).toBe(holeInstances());
       expect(i.hole).toBe(27_610);
-      expect(i.total).toBe(i.shells + i.persons + i.tracks + i.bodies + i.glow + i.streams + i.spikes + i.hole);
+      expect(i.total).toBe(i.shells + i.persons + i.tracks + i.bodies + i.glow + i.streams + i.spikes + i.hole + i.plan);
       expect(i.total).toBeLessThanOrEqual(93_500);
+      // The plans' reservation (re-skin §4.7, Task 7b): the world pool 3,800, the screen pool 760, and the one pair's marks 294.
+      expect(i.plan).toBe(4_854);
       // The core rows: no shell, no person set, no lattice, no glow, no icosphere.
       for (const b of kinds(x, 'core')) expect([b.motes, b.personMotes, b.lattice], b.id).toEqual([0, 0, null]);
       expect(i.glow).toBe(30);

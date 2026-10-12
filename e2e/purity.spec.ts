@@ -23,9 +23,10 @@ test.describe('purity', { tag: FULL_ONLY }, () => {
   // Measured: a fence sample takes 0.8-1.9 min on CI beside a shard's other tests (runs 38166992199 and
   // 38170079659; the slowest fix@0.82, 66-114 s), about 2.3 min a sample locally at load 11-20 (the
   // test-speed report), the hole close 2.2 min at load 10-12 and fix@0.82 2.6 min at load 14-17, run to
-  // completion beside unit suites. 10 min is over 3 times the loaded time and 5 times the slowest CI one
-  // (4 min before: under 5 times CI's).
-  test.setTimeout(600_000);
+  // completion beside unit suites; the plan's fence, reviewer@0.5 at 101 s (re-skin Task 7b), 3.4 min alone
+  // at load 5-7. 12 min is over 3 times the slowest loaded time and 5 times the slowest CI one (4 min
+  // before: under 5 times CI's; 10 min before the plan's fence: under 3 times its loaded time).
+  test.setTimeout(720_000);
 
   const SCROLL_STEPS = 8;
   const HOP_STEPS = 4;

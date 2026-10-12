@@ -8,6 +8,7 @@ interface ParityCase {
   samples?: number;
   shifted?: number;
   moved?: number;
+  lit?: number;
 }
 
 // Every case renders the production vertex path (the real instanced attributes, instanceAttrs(),
@@ -357,4 +358,40 @@ test('GLSL hole twins match the TS reference (?lib=hole)', async ({ page }) => {
   expect(byName.get('hole: infallDot')!.samples).toBe(72 * 4 * 2);
   expect(byName.get('hole: strandDot')!.samples).toBe(250 * 4 * 3 * 4 * 2);
   expect(byName.get('hole: strandJoin')!.samples).toBe(2 * 4 * 2);
+});
+
+// The plan's schematic (`?lib=plan`, re-skin §4.7, Task 7b): planDot() of every dot of both pools (4,854)
+// through the galaxy shots' cameras (planCases.ts): the neighbourhood, P_a's system, the twelve lit and
+// mended, the defect close, the neighbourhood and the binary pair close with every plan window forced open; on a phone and a
+// desktop, at the ambients 0, the pose and 3599.9. Every PlanOut field to 1e-3: places in world units
+// past 1 relative to their size, places on screen relative to the screen's larger side, the rest
+// absolute; a dot matched up to a time shift of 16 float32 units of the ambient (a derp's cut, or a
+// fast derp's float32 phase: parity.ts PLAN_SHIFTS).
+const PLAN_CASES = [
+  'the neighbourhood',
+  'P_a, healthy',
+  'the twelve, lit',
+  'the twelve, mended',
+  'the defect close',
+  'the neighbourhood, every window open',
+  'the pair close, every window open',
+];
+const PLAN_FRAMES = PLAN_CASES.flatMap((c) =>
+  ['390x844', '1440x900'].flatMap((size) => ['0 s', 'the pose', '3599.9 s'].map((t) => `plan: ${c}, ${size} at ${t}`)),
+);
+
+test('GLSL plan twins match the TS reference (?lib=plan)', async ({ page }) => {
+  // Measured: 54 s locally at a load of 6-9, one worker. The timeout, 6 min, is over 6 times that.
+  test.setTimeout(360_000);
+  const { errors, ...parity } = await runParity(page, '&lib=plan');
+  expect(errors).toEqual([]);
+  expect(parity.error).toBeUndefined();
+  const byName = new Map(parity.cases.map((c) => [c.name, c]));
+  expect([...byName.keys()].sort()).toEqual([...PLAN_FRAMES, 'hash01', 'pcg goldens'].sort());
+  for (const c of parity.cases) expect(c.maxError, c.name).toBeLessThan(1e-3);
+  for (const name of PLAN_FRAMES) {
+    // Every dot of both pools, and enough of them lit that the comparison is not of hidden dots alone.
+    expect(byName.get(name)!.samples, name).toBe(4_854);
+    expect(byName.get(name)!.lit, name).toBeGreaterThan(300);
+  }
 });

@@ -26,7 +26,10 @@ import { instanceChunk, moteLibraryGlsl, splice, spliceAll } from '../mote/shade
 import { glslBodyMoteConstants, glslDerpConstants, glslFreezeConstants, glslLeakConstants, glslLightConstants, glslOrbitConstants, glslShellConstants } from './birth';
 import { glslGalaxyConstants } from './bodyAttrs';
 import { DROPOUT } from './birth';
-import { glslClassLookConstants, glslPlanetLookConstants } from './classLook';
+import { glslClassLookConstants, glslPlanConstants, glslPlanetLookConstants } from './classLook';
+import { glslPlanLayoutConstants } from './planAttrs';
+import planGlsl from './plan.glsl?raw';
+import planScreenGlsl from './planScreen.glsl?raw';
 import { glslHoleConstants } from '../hole/holeLook';
 import holeGlsl from '../hole/hole.glsl?raw';
 import { BODY_KIND } from './bodyData';
@@ -275,4 +278,24 @@ const DROPOUT_FRAGMENT_MARKER = '// #include DROPOUT constants (generated from s
 /** body.frag.glsl (or any fragment shader carrying the marker) with the dropout's constants: its most lines (re-skin Task 8b). */
 export function withDropoutConstants(fragment: string): string {
   return splice(fragment, DROPOUT_FRAGMENT_MARKER, `const int DROPOUT_MAX = ${DROPOUT.maxLines}; // birth.ts DROPOUT.maxLines`, 'body fragment shader');
+}
+
+const PLAN_CONSTANTS_MARKER = '// #include PLAN constants (generated from src/scene/node/classLook.ts and planAttrs.ts by shaderSource.ts)';
+/** The line the plan's vertex shaders (bodySystem.ts net-plan, net-plan-screen; the plan parity shader) carry where their libraries go. */
+export const PLAN_INCLUDE_MARKER = '// #include the galaxy library + plan.glsl + planScreen.glsl (spliced in by src/scene/node/shaderSource.ts)';
+
+const PLAN_LIBRARY = spliceAll(planGlsl, 'plan.glsl', [[PLAN_CONSTANTS_MARKER, `${glslPlanConstants()}\n${glslPlanLayoutConstants()}`]]);
+
+/** plan.glsl with its generated constants, and planScreen.glsl: the plan's marks, without the galaxy's libraries they read. */
+export function planLibraryGlsl(): string {
+  return `${PLAN_LIBRARY}\n${planScreenGlsl}`;
+}
+
+/**
+ * Splice the galaxy's libraries (withGalaxyLibrary's: bodyWorld, bodyDerp, bodyCentre, bodyLight,
+ * bodyPresence, lampGain, freezeLook, streamBandMask, lod.glsl's plan gains), then plan.glsl and
+ * planScreen.glsl (the plan's schematic, re-skin §4.7), into one of the plan's vertex shaders at its marker.
+ */
+export function withPlanLibrary(vertex: string): string {
+  return splice(vertex, PLAN_INCLUDE_MARKER, `${WITH_GALAXY}\n${planLibraryGlsl()}`, 'plan vertex shader');
 }

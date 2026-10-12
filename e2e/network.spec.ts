@@ -49,6 +49,8 @@ const GALAXY_MESHES = [
   'net-tracks',
   'net-streams',
   'net-feed',
+  'net-plan',
+  'net-plan-screen',
   'hole-disk',
   'hole-arch',
   'hole-ring',

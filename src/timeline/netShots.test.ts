@@ -104,6 +104,7 @@ import { Lamp, lampFocusRow, targetWorld, TRACK_TARGETS, trackIndex, trackPoint,
 import { defaultSceneState, type SceneState } from './sceneState';
 import { freezeTicks, galaxyPointTop, held, visibleGalaxy, visibleTracks } from '../scene/node/galaxyOnScreen';
 import { streamPixels } from '../scene/node/streamOnScreen';
+import { visiblePlan } from '../scene/node/planOnScreen';
 import { holeTop, holeTopBound } from '../scene/hole/holeOnScreen';
 import { holeFrame } from '../scene/hole/holeFrame';
 import { galacticToWorld } from '../scene/node/orbit';
@@ -141,6 +142,7 @@ function galaxyAt(s: SceneState, t: number): ReturnType<typeof visibleGalaxy> {
  * dots the page lights, after the text band's mask (streamPixels; Task 11 review I1: core-lamp-lit
  * stream dots stood in the band on a desktop while no twin had them), each the top of its pixel. And
  * the black hole's drawn dots (holeTop, re-skin Task 5): the close shots on the centre are held to it.
+ * And the plan's lit dots (visiblePlan, re-skin Task 7b), each its top.
  */
 function visibleClearance(s: SceneState, size: { width: number; height: number }, t: number): number {
   // The freeze's hold shows the pin, whatever the clock (main.ts).
@@ -155,6 +157,8 @@ function visibleClearance(s: SceneState, size: { width: number; height: number }
     if (at) top = Math.min(top, at.top);
   }
   for (const d of streamPixels(s.net, g, data, camera, size, t)) top = Math.min(top, d.y);
+  // The plan's schematic (re-skin Task 7b): every dot it lights on the screen's width, each its top.
+  for (const d of visiblePlan(g, data, s, t, camera, size)) if (d.x >= 0 && d.x <= size.width) top = Math.min(top, d.top);
   // The black hole drawn at the centre (re-skin Task 5): its twin's top, every part's dots.
   // Its dots only where they could stand highest (holeTopBound: no dot is higher than it).
   const bound = holeTopBound(s, t, camera, size.width, size.height);
@@ -173,7 +177,7 @@ const VISIBLE_LAMPS: readonly Lamp[] = [Lamp.Planet, Lamp.Lineage];
 function stateClearance(s: SceneState, size: { width: number; height: number }, t: number): number {
   const lamp = Math.round(s.net.lamp) as Lamp;
   if (VISIBLE_LAMPS.includes(lamp)) return visibleClearance(s, size, t);
-  return bandClearance({ camera: s.camera, lamp, lampAt: Math.round(s.net.lampAt), growth: s.net.growth, show: s.net.show, streams: s.net }, g, data, size, t);
+  return bandClearance({ camera: s.camera, lamp, lampAt: Math.round(s.net.lampAt), growth: s.net.growth, show: s.net.show, streams: s.net, state: s }, g, data, size, t);
 }
 
 describe('GALAXY_SHOTS', () => {
