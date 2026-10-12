@@ -82,6 +82,7 @@ describe('the motes near the camera (re-skin Task 9)', () => {
     }
     expect(uncapped, 'a body stands beside the camera').toBeGreaterThan(20);
     expect(drawn).toBe(MOTE_PX_MAX);
-    // 12.8 s measured locally with two workers on a loaded machine; 60 s is over 3x that and 5x CI's.
-  }, 60_000);
+    // Measured 15.9 s on CI and 12.8 s locally with two workers on a loaded machine: 90 s is over 5x
+    // the one and 3x the other.
+  }, 90_000);
 });

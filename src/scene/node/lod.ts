@@ -132,16 +132,16 @@ export const LOD_VISIBLE = 0.02;
 
 /**
  * The most a shell mote is drawn across, CSS px (re-skin Task 9): uncapped, a body beside the camera
- * drew motes 30-40 px across at the desktop close, so a lattice read as a few blobs.
+ * drew its motes as blobs (at the close probe with every body lit, P1's star dots 26 px across on a
+ * desktop, 32 on a phone).
  */
 export const MOTE_PX_MAX = 6;
 
 /**
  * Pixel floors and caps in CSS px (§3.2, §4, plan-constraints' halo amendment): a mote (a moon's as
- * a planet's: one material) never under its floor nor over MOTE_PX_MAX, a moon's point and a lit
- * planet's point never under their floor; a
- * background star 2 px and a bright one 3 px; and a star's glow sprite's cap (the core body's went
- * with its bodies, re-skin Task 5).
+ * a planet's: one material) never under its floor nor over MOTE_PX_MAX; a moon's point and a lit
+ * planet's point never under their floor; a background star 2 px and a bright one 3 px; and a star's
+ * glow sprite's cap (the core body's went with its bodies, re-skin Task 5).
  * The core's haze has its own look (src/scene/galaxy/galaxySystem.ts HAZE).
  */
 export const PX = {
