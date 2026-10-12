@@ -6,13 +6,15 @@
 
 // A screen mark's place (its anchor `pos`, its centre on screen `px`), alpha before the common factors,
 // size and ember share; false where the mark is not a screen mark.
-bool planScreenMark(PlanAttrs d, int s, int row, int planets, vec3 starW, float lit, inout vec3 pos, inout vec2 px, inout float alpha, inout float size, inout float ember) {
-  vec4 sv = uPlanSys[s];
-  float t = uAmbient;
+bool planScreenMark(PlanAttrs d, PlanCtx c, inout vec3 pos, inout vec2 px, inout float alpha, inout float size, inout float ember) {
+  vec4 sv = c.sv;
+  int row = c.row;
+  int planets = c.planets;
+  vec3 starW = c.starW;
+  float lit = c.lit;
   if (d.mark == PLAN_MARK_SILHOUETTE) {
-    vec3 c = bodyWorld(row, t);
-    vec4 at = planProject(c);
-    pos = c;
+    vec4 at = planProject(c.planned);
+    pos = c.planned;
     if (!(at.z > 0.0)) {
       alpha = 0.0;
       return true;
@@ -31,7 +33,7 @@ bool planScreenMark(PlanAttrs d, int s, int row, int planets, vec3 starW, float 
     return true;
   }
   if (d.mark == PLAN_MARK_NUMERAL) {
-    vec3 end = d.aux > 0.5 ? planActual(row, s) : bodyWorld(row, t);
+    vec3 end = d.aux > 0.5 ? c.actual : c.planned;
     float value = length(end - starW);
     // The value to one decimal (plan.ts planNumeral): its whole part's digits, the point, its tenth.
     float tenths = floor(max(0.0, value) * 10.0 + 0.5);
@@ -76,7 +78,7 @@ bool planScreenMark(PlanAttrs d, int s, int row, int planets, vec3 starW, float 
     px = vec2(x0 + float(6 * g + gc) * pitch, y0 + float(gr) * pitch);
     alpha = PLAN_LOOK_NUMERAL.x * bit;
     if (d.aux > 0.5) {
-      alpha *= max(planDeparture(row, s), lit);
+      alpha *= max(c.dep, lit);
       ember = lit;
     }
     return true;
@@ -86,41 +88,65 @@ bool planScreenMark(PlanAttrs d, int s, int row, int planets, vec3 starW, float 
 
 // Every plan dot (plan.ts planDot): its mark, then its star up, its body's lamp, the galaxy shown, the
 // freeze frame's dressing, nothing inside the star's glow sprite nor near the camera; its colour
-// phosphor to ember by its body's light, toward the freeze frame's tint.
-PlanDot planDot(PlanAttrs d) {
+// phosphor to ember by its body's light, toward the freeze frame's tint. `marks` says which marks the
+// shader draws: PLAN_MARKS_WORLD (plan.vert.glsl), PLAN_MARKS_SCREEN (planScreen.vert.glsl) or both (the
+// parity page); a literal there, so a vertex shader holds only its own marks' code.
+const int PLAN_MARKS_WORLD = 1;
+const int PLAN_MARKS_SCREEN = 2;
+PlanDot planDotOf(PlanAttrs d, int marks) {
   if (planSkips(d)) return planHidden();
   bool pair = planIsPair(d.mark);
-  int s = planSysOf(d);
-  vec4 sv = uPlanSys[s];
-  vec4 T4 = planTexel(s, 4);
-  int planets = int(round(T4.y));
-  int star = int(round(T4.w));
-  float ppu = sv.x / T4.x;
-  int el = planElement(d.mark, d.aux, d.ord, planets);
-  float gain = planGain(el, sv.x, d.rank, sv.y, sv.z, sv.w, uLodForce[el]);
-  int row = planMarkRow(d, s);
-  if (row < 0) return planHidden();
-  vec3 starW = bodyWorld(star, uAmbient);
-  float lit = d.mark == PLAN_MARK_GRADUATION || d.mark == PLAN_MARK_CENTRE || pair ? 0.0 : planLit(row);
+  PlanCtx c;
+  c.s = planSysOf(d);
+  c.sv = uPlanSys[c.s];
+  vec4 T4 = planTexel(c.s, 4);
+  c.planets = int(round(T4.y));
+  c.star = int(round(T4.w));
+  c.ppu = c.sv.x / T4.x;
+  int el = planElement(d.mark, d.aux, d.ord, c.planets);
+  float gain = planGain(el, c.sv.x, d.rank, c.sv.y, c.sv.z, c.sv.w, uLodForce[el]);
+  c.row = planMarkRow(d, c.s);
+  if (c.row < 0) return planHidden();
+  float t = uAmbient;
+  c.starW = bodyWorld(c.star, t);
+  c.lit = d.mark == PLAN_MARK_GRADUATION || d.mark == PLAN_MARK_CENTRE || pair ? 0.0 : planLit(c.row);
+  // Each place once a dot (PlanCtx): the body's planned and actual places, the orbit its mark is on.
+  c.planned = pair ? c.starW : bodyWorld(c.row, t);
+  bool actual = d.mark == PLAN_MARK_DEVIATION || (d.mark == PLAN_MARK_CHEVRON && d.aux > 0.5) ||
+    ((d.mark == PLAN_MARK_STALK || d.mark == PLAN_MARK_DIMENSION || d.mark == PLAN_MARK_NUMERAL) && d.aux > 0.5);
+  c.actual = actual ? planActual(c.row, c.s) : c.planned;
+  c.dep = actual ? planDeparture(c.actual, c.planned) : 0.0;
+  c.orbitRow = d.mark == PLAN_MARK_GRADUATION ? planBodyRow(c.s, c.planets - 1) : pair && d.mark != PLAN_MARK_BINARY_LIMIT ? c.star : c.row;
+  c.host = planHostWorld(c.orbitRow, t);
+  c.E0 = planE0(c.row, t);
+  c.normal = planNormal(c.row, t);
   PlanDot o = planHidden();
-  o.pos = starW;
+  o.pos = c.starW;
   bool screen = false;
   float ember = 0.0;
-  if (!planWorldMark(d, s, row, star, planets, ppu, starW, lit, o.pos, o.alpha, o.sizeCss, ember)) {
-    screen = planScreenMark(d, s, row, planets, starW, lit, o.pos, o.px, o.alpha, o.sizeCss, ember);
-    if (!screen) return planHidden();
+  bool drawn = false;
+  if ((marks & PLAN_MARKS_WORLD) != 0) drawn = planWorldMark(d, c, o.pos, o.alpha, o.sizeCss, ember);
+  if (!drawn && (marks & PLAN_MARKS_SCREEN) != 0) {
+    screen = planScreenMark(d, c, o.pos, o.px, o.alpha, o.sizeCss, ember);
+    drawn = screen;
   }
-  FreezeLook look = freezeLook(row, 1.0 - bodyLight(row).x);
-  int other = pair && d.ord < 0 ? planStarOf(d.sys == s ? d.sys2 : d.sys) : star;
-  float presence = max(bodyPresence(star), bodyPresence(other));
-  float lamp = max(lampGain(row), other == star ? 0.0 : lampGain(other));
+  if (!drawn) return planHidden();
+  FreezeLook look = freezeLook(c.row, 1.0 - bodyLight(c.row).x);
+  int other = pair && d.ord < 0 ? planStarOf(d.sys == c.s ? d.sys2 : d.sys) : c.star;
+  float presence = max(bodyPresence(c.star), bodyPresence(other));
+  float lamp = max(lampGain(c.row), other == c.star ? 0.0 : lampGain(other));
   vec4 q = planProject(o.pos);
   if (!screen) o.px = q.xy;
-  vec4 sc = planProject(starW);
-  float glowR = sc.z > 0.0 ? 0.5 * glowPx(bodyTexel(3, star).y, sc.w, planFocal(), HOOD_GLOW_CAP) : 0.0;
+  vec4 sc = planProject(c.starW);
+  float glowR = sc.z > 0.0 ? 0.5 * glowPx(bodyTexel(3, c.star).y, sc.w, planFocal(), HOOD_GLOW_CAP) : 0.0;
   float away = length(o.px - sc.xy);
   float clear = smoothstep(glowR, glowR + PLAN_GLOW_EDGE_PX, away) * smoothstep(PLAN_CULL_NEAR.x, PLAN_CULL_NEAR.y, q.z);
   o.alpha *= gain * planRank(presence, d.rank) * lamp * uShow * look.gain * clear * streamBandMask(o.px.y - 0.5 * o.sizeCss, uViewport.y / uPixelRatio);
   o.rgb = mix(mix(PLAN_PHOSPHOR, NODE_EMBER, ember), look.tint.rgb, look.tint.a);
   return o;
+}
+
+// Every plan dot, world marks and screen marks alike (the parity page).
+PlanDot planDot(PlanAttrs d) {
+  return planDotOf(d, PLAN_MARKS_WORLD | PLAN_MARKS_SCREEN);
 }

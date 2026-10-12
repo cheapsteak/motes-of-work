@@ -794,11 +794,11 @@ describe("the plans' meshes (re-skin §4.7, Task 7b)", () => {
         const f = planFrameAt(g, data, camera, size, { growth: 1, fix: 0, highlight: 0, show: 1, ambient: AMBIENT_POSE, focus: 0, lamp: s.net.lamp, lampRow: -1 });
         expect(stats.dots, shot).toBe(planPixels(g, data, f).length);
         expect(stats.dots, shot).toBeGreaterThan(300);
-        // R by the culled size's lead over the third: the two largest at least half, every other at most half.
+        // R by the culled size's lead over the third (spec §4.7, at most two systems in R): the largest
+        // in R, the third and every later one at 0.
         const culled = Array.from({ length: g.systems.length }, (_, i) => [f.sys[i * 4] * f.sys[i * 4 + 2], f.sys[i * 4 + 1], i]).sort((a, b) => b[0] - a[0] || a[2] - b[2]);
-        expect(culled[0][1], shot).toBeGreaterThanOrEqual(0.5);
-        expect(culled[1][1], shot).toBeGreaterThanOrEqual(0.5);
-        for (const [, full] of culled.slice(2)) expect(full, shot).toBeLessThanOrEqual(0.5);
+        expect(culled[0][1], shot).toBeGreaterThan(0);
+        for (const [, full] of culled.slice(2)) expect(full, shot).toBe(0);
         for (let k = 1; k < culled.length; k++) expect(culled[k][1]).toBeLessThanOrEqual(culled[k - 1][1]);
         expect(stats.slots).toEqual(
           Array.from({ length: g.systems.length }, (_, i) => i)

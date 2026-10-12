@@ -20,12 +20,13 @@ import {
   RGBAFormat,
   type IUniform,
   type PerspectiveCamera,
+  Vector2,
 } from 'three';
 import { SYS_MAX, systemOuter, type Galaxy } from '../../galaxy/generate';
 import type { BodyData } from './bodyData';
 import type { BodyClocks } from './bodyMote';
 import { LOD_VISIBLE } from './lod';
-import { planDot, planFrameOf, planResolve, planSkips, type PlanFrame } from './plan';
+import { planDot, planFrameOf, planResolve, planSkips, planUsed, type PlanFrame } from './plan';
 import { buildPlanAttrs, PLAN_MARK, PLAN_STRIDE, PLAN_TABLE_TEXELS, planTable } from './planAttrs';
 import { withPlanLibrary } from './shaderSource';
 import galaxyMoteFrag from './shaders/galaxyMote.frag.glsl?raw';
@@ -79,6 +80,7 @@ export function createPlanMeshes(g: Galaxy, data: BodyData, shared: Record<strin
     uPlanTex: { value: tableTex },
     uPlanSys: { value: sys },
     uPlanRange: { value: range },
+    uPlanUsed: { value: new Vector2() },
     uPlanView: { value: new Matrix4() },
     uPlanProj: { value: new Matrix4() },
   };
@@ -126,6 +128,7 @@ export function createPlanMeshes(g: Galaxy, data: BodyData, shared: Record<strin
       sys.set(f.sys.subarray(0, Math.min(f.sys.length, sys.length)));
       range.fill(0);
       range.set(f.range.subarray(0, Math.min(f.range.length, range.length)));
+      (own.uPlanUsed.value as Vector2).set(...planUsed(f.range));
       // The table's frame part: uploaded only when the layout moved.
       if (!f.table.every((v, i) => Object.is(v, tableData[i]))) {
         tableData.set(f.table);

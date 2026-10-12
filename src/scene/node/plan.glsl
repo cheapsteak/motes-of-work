@@ -13,6 +13,8 @@
 uniform highp sampler2D uPlanTex;
 uniform vec4 uPlanSys[GALAXY_SYS_MAX];
 uniform vec4 uPlanRange[GALAXY_SYS_MAX];
+// Each pool's used length, the last range's end (world, screen): planMeshes.ts planUsed.
+uniform vec2 uPlanUsed;
 uniform mat4 uPlanView;
 uniform mat4 uPlanProj;
 
@@ -74,6 +76,8 @@ PlanAttrs planResolve(vec4 a0, vec4 a1) {
   bool screen = owner == PLAN_POOL_SCREEN;
   int at = d.j;
   d.sys = -1;
+  // Past its pool's used length no range holds it: unused at once (most of a pool, most frames).
+  if (float(at) >= (screen ? uPlanUsed.y : uPlanUsed.x)) return d;
   int s = -1;
   for (int k = 0; k < GALAXY_SYS_MAX; k++) {
     vec4 rg = uPlanRange[k];
@@ -140,15 +144,18 @@ float planE0(int row, float t) {
   return keplerE(PLAN_TAU * fract(t2.w + orbitTurns(t, t2.z)), t1.y);
 }
 
-vec3 planOrbitPoint(int row, float E, float push, float t) {
+// A point of `row`'s orbit round `host` (its host's place in the world, planHostWorld) at eccentric
+// anomaly E, pushed `push` units out in the orbit's plane (plan.ts planOrbitPoint).
+vec3 planOrbitPoint(vec3 host, int row, float E, float push, float t) {
   vec3 local = planOrbitLocalE(bodyTexel(1, row), bodyTexel(2, row), E, t);
   float r = length(local);
-  return planHostWorld(row, t) + turnVec(local * (r > 0.0 ? 1.0 + push / r : 1.0), t);
+  return host + turnVec(local * (r > 0.0 ? 1.0 + push / r : 1.0), t);
 }
 
-vec3 planNode(int row, int k, float t) {
+// Node k of `row`'s orbit round `host` (plan.ts planNode).
+vec3 planNode(vec3 host, int row, int k, float t) {
   vec4 t2 = bodyTexel(2, row);
-  return planHostWorld(row, t) + turnVec(orbitLocal(bodyTexel(1, row), t2, t + float(k) * t2.z * PLAN_ARC_NODE_STEP), t);
+  return host + turnVec(orbitLocal(bodyTexel(1, row), t2, t + float(k) * t2.z * PLAN_ARC_NODE_STEP), t);
 }
 
 vec3 planNormal(int row, float t) {
@@ -166,10 +173,31 @@ vec3 planActual(int row, int sys) {
   return bodyCentre(row, bodyDerp(row, sys), uAmbient);
 }
 
-float planDeparture(int row, int sys) {
-  float off = length(planActual(row, sys) - bodyWorld(row, uAmbient));
-  return smoothstep(PLAN_DEPARTURE.x, PLAN_DEPARTURE.y, off / PLAN_BAND_HALF_WIDTH);
+// How far a body stands off its plan (plan.ts planDeparture), from its actual and planned places.
+float planDeparture(vec3 actual, vec3 planned) {
+  return smoothstep(PLAN_DEPARTURE.x, PLAN_DEPARTURE.y, length(actual - planned) / PLAN_BAND_HALF_WIDTH);
 }
+
+// What every mark of a dot reads of its system and body, each computed once a dot (planDot): the
+// galaxy library's heavy calls (bodyWorld's chain of hosts, bodyDerp) inline once in a shader, not at
+// every mark (each was a few seconds of a SwiftShader link).
+struct PlanCtx {
+  int s;
+  int row;
+  int star;
+  int planets;
+  vec4 sv;
+  float ppu;
+  float lit;
+  vec3 starW;
+  vec3 planned; // the body's planned place (bodyWorld)
+  vec3 actual; // where it stands (planActual), the planned place where no mark reads it
+  float dep; // planDeparture, 0 where no mark reads it
+  int orbitRow; // the orbit the mark is drawn on: the body's, the outermost planet's (graduations) or the star's (a pair's)
+  vec3 host; // that orbit's host's place (planHostWorld)
+  float E0; // the body's planned eccentric anomaly (planE0)
+  vec3 normal; // the body's orbit's normal (planNormal)
+};
 
 float planLit(int row) {
   vec3 l = bodyLight(row);
@@ -187,6 +215,11 @@ vec4 planProject(vec3 p) {
 
 float planFocal() {
   return 0.5 * (uViewport.y / uPixelRatio) * uPlanProj[1][1];
+}
+
+// A mark's reach in world units: units, or px CSS px on screen at ppu, whichever is longer (plan.ts planReach).
+float planReach(float units, float px, float ppu) {
+  return max(units, px / max(ppu, 1e-6));
 }
 
 // A run of n dots along a curve lenPx CSS px long at its pitch (plan.ts planRun): (u, light, share).
@@ -278,25 +311,30 @@ vec3 planDeviationAt(vec3 host, vec3 dirA, vec3 n, float r0, float span, float g
 
 // A world mark's place, alpha before its common factors, size and ember share (plan.ts planDot's
 // switch, the world marks); false where the mark is not a world mark.
-bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu, vec3 starW, float lit, inout vec3 pos, inout float alpha, inout float size, inout float ember) {
-  vec4 sv = uPlanSys[s];
+bool planWorldMark(PlanAttrs d, PlanCtx c, inout vec3 pos, inout float alpha, inout float size, inout float ember) {
+  vec4 sv = c.sv;
   float t = uAmbient;
+  int s = c.s;
+  int row = c.row;
+  float ppu = c.ppu;
+  vec3 starW = c.starW;
+  float lit = c.lit;
   if (d.mark == PLAN_MARK_RING) {
-    float E0 = planE0(row, t);
+    float E0 = c.E0;
     vec3 r = planRun(d.j, d.n, PLAN_TAU * bodyTexel(1, row).x * ppu, PLAN_LOOK_RING.z);
-    pos = planOrbitPoint(row, E0 + PLAN_TAU * (r.x - 0.5 * r.z), 0.0, t);
+    pos = planOrbitPoint(c.host, row, E0 + PLAN_TAU * (r.x - 0.5 * r.z), 0.0, t);
     alpha = PLAN_LOOK_RING.x * planRank(1.0 - planWin(LOD_PLAN_CLOSE, sv), d.rank) * r.y;
     size = PLAN_LOOK_RING.y;
     return true;
   }
   if (d.mark == PLAN_MARK_ARC) {
-    float E0 = planE0(row, t);
+    float E0 = c.E0;
     float close = planWin(LOD_PLAN_CLOSE, sv);
     float peel = planWin(LOD_PLAN_BAND, sv);
     float span = PLAN_ARC_SPAN + (PLAN_TAU - PLAN_ARC_SPAN) * close;
     vec3 r = planRun(d.j, d.n, span * bodyTexel(1, row).x * ppu, mix(PLAN_LOOK_ARC.z, PLAN_LOOK_BAND_FILL.z, peel));
     float phi = span * r.x;
-    pos = planOrbitPoint(row, E0 + phi, 0.0, t);
+    pos = planOrbitPoint(c.host, row, E0 + phi, 0.0, t);
     float on = planDash(phi, hash01(uint(row), SALT_PLAN_DASH));
     alpha = mix(PLAN_LOOK_ARC.x, PLAN_LOOK_BAND_FILL.x, peel) * mix(planRank(close, d.rank), 1.0, on) * r.y;
     size = mix(PLAN_LOOK_ARC.y, PLAN_LOOK_BAND_FILL.y, peel);
@@ -304,51 +342,53 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
     return true;
   }
   if (d.mark == PLAN_MARK_BAND_EDGE) {
-    float E0 = planE0(row, t);
+    float E0 = c.E0;
     float peel = planWin(LOD_PLAN_BAND, sv);
     float hw = PLAN_BAND_HALF_WIDTH * peel * (d.aux > 0.5 ? 1.0 : -1.0);
     vec3 r = planRun(d.j, d.n, PLAN_TAU * (bodyTexel(1, row).x + hw) * ppu, PLAN_LOOK_BAND_EDGE.z);
-    pos = planOrbitPoint(row, E0 + PLAN_TAU * (r.x - 0.5 * r.z), hw, t);
+    pos = planOrbitPoint(c.host, row, E0 + PLAN_TAU * (r.x - 0.5 * r.z), hw, t);
     alpha = PLAN_LOOK_BAND_EDGE.x * peel * r.y;
     size = PLAN_LOOK_BAND_EDGE.y;
     ember = lit;
     return true;
   }
   if (d.mark == PLAN_MARK_CHEVRON && d.aux < 0.5) {
-    float E0 = planE0(row, t);
+    float E0 = c.E0;
     float span = PLAN_ARC_SPAN + (PLAN_TAU - PLAN_ARC_SPAN) * planWin(LOD_PLAN_CLOSE, sv);
-    vec3 tip = planOrbitPoint(row, E0 + span, 0.0, t);
-    vec3 tangent = normalize(planOrbitPoint(row, E0 + span + 0.01, 0.0, t) - planOrbitPoint(row, E0 + span - 0.01, 0.0, t));
+    vec3 tip = planOrbitPoint(c.host, row, E0 + span, 0.0, t);
+    vec3 tangent = normalize(planOrbitPoint(c.host, row, E0 + span + 0.01, 0.0, t) - planOrbitPoint(c.host, row, E0 + span - 0.01, 0.0, t));
     int leg = d.j - 2 * (d.j / 2);
-    vec3 r = planRun(d.j / 2, d.n / 2, PLAN_CHEVRON.x * ppu, PLAN_LOOK_CHEVRON.z);
-    vec3 dir = -planRotate(tangent, planNormal(row, t), leg == 0 ? PLAN_CHEVRON.y : -PLAN_CHEVRON.y);
-    pos = tip + dir * (PLAN_CHEVRON.x * r.x);
+    float legLen = planReach(PLAN_CHEVRON.x, PLAN_CHEVRON.z, ppu);
+    vec3 r = planRun(d.j / 2, d.n / 2, legLen * ppu, PLAN_LOOK_CHEVRON.z);
+    vec3 dir = -planRotate(tangent, c.normal, leg == 0 ? PLAN_CHEVRON.y : -PLAN_CHEVRON.y);
+    pos = tip + dir * (legLen * r.x);
     alpha = PLAN_LOOK_CHEVRON.x * planRank(planWin(LOD_PLAN_LEAVE, sv), d.rank) * r.y;
     size = PLAN_LOOK_CHEVRON.y;
     ember = lit;
     return true;
   }
   if (d.mark == PLAN_MARK_DEVIATION || d.mark == PLAN_MARK_CHEVRON) {
-    vec3 actual = planActual(row, s);
-    vec3 host = planHostWorld(row, t);
+    vec3 actual = c.actual;
+    vec3 host = c.host;
     vec3 vA = actual - host;
     float rA = length(vA);
-    float rEdge = length(bodyWorld(row, t) - host) + PLAN_BAND_HALF_WIDTH;
+    float rEdge = length(c.planned - host) + PLAN_BAND_HALF_WIDTH;
     float pe = planWin(LOD_PLAN_BAND, sv);
     float r0 = rA + (rEdge - rA) * pe;
     float span = PLAN_DEVIATION.x - (PLAN_DEVIATION.x - 2.0 * PLAN_EDGE.x) * pe;
     float grow = PLAN_DEVIATION.y * (1.0 - pe);
     float a0 = -PLAN_EDGE.x * pe;
-    vec3 n = planNormal(row, t);
+    vec3 n = c.normal;
     vec3 dirA = rA > 0.0 ? vA / rA : vA;
-    float dep = max(planDeparture(row, s), lit);
+    float dep = max(c.dep, lit);
     if (d.mark == PLAN_MARK_CHEVRON) {
       vec3 tip = planDeviationAt(host, dirA, n, r0, span, grow, a0, 1.0);
       vec3 tangent = normalize(tip - planDeviationAt(host, dirA, n, r0, span, grow, a0, 0.98));
       int leg = d.j - 2 * (d.j / 2);
-      vec3 r = planRun(d.j / 2, d.n / 2, PLAN_CHEVRON.x * ppu, PLAN_LOOK_CHEVRON.z);
+      float legLen = planReach(PLAN_CHEVRON.x, PLAN_CHEVRON.z, ppu);
+      vec3 r = planRun(d.j / 2, d.n / 2, legLen * ppu, PLAN_LOOK_CHEVRON.z);
       vec3 dir = -planRotate(tangent, n, leg == 0 ? PLAN_CHEVRON.y : -PLAN_CHEVRON.y);
-      pos = tip + dir * (PLAN_CHEVRON.x * r.x);
+      pos = tip + dir * (legLen * r.x);
       alpha = PLAN_LOOK_DEVIATION.x * 0.95 * dep * planRank(1.0 - pe, d.rank) * r.y;
       size = PLAN_LOOK_CHEVRON.y;
     } else {
@@ -364,17 +404,17 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
     int k = d.j - PLAN_ARC_NODES * (d.j / PLAN_ARC_NODES);
     int arm = min(d.j / PLAN_ARC_NODES, PLAN_NODE_DOTS - 1);
     float outW = planWin(LOD_PLAN_OUTLINE, sv);
-    vec3 c = planNode(row, k, t);
-    float reach = PLAN_NODE_ARM * (k == 0 ? 1.0 - outW : 1.0);
+    vec3 at = planNode(c.host, row, k, t);
+    float reach = planReach(PLAN_NODE_ARM, PLAN_NODE_ARM_PX, ppu) * (k == 0 ? 1.0 - outW : 1.0);
     vec3 dir = arm == 1 ? vec3(1.0, 0.0, 0.0) : arm == 2 ? vec3(-1.0, 0.0, 0.0) : arm == 3 ? vec3(0.0, 0.0, 1.0) : arm == 4 ? vec3(0.0, 0.0, -1.0) : vec3(0.0);
-    pos = c + dir * reach;
+    pos = at + dir * reach;
     alpha = PLAN_LOOK_NODE.x * planRank(k == 0 ? 1.0 - outW : planWin(LOD_PLAN_LEAVE, sv), d.rank);
     size = PLAN_LOOK_NODE.y;
     return true;
   }
   if (d.mark == PLAN_MARK_STALK) {
     float w = planWin(LOD_PLAN_STALK, sv);
-    vec3 top = d.aux > 0.5 ? planActual(row, s) : bodyWorld(row, t);
+    vec3 top = d.aux > 0.5 ? c.actual : c.planned;
     vec3 foot = vec3(top.x, starW.y, top.z);
     if (d.j < 4) {
       float sgn = d.j - 2 * (d.j / 2) == 0 ? 1.0 : -1.0;
@@ -386,21 +426,21 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
       pos = foot + lift * min(1.0, r.x);
       alpha = PLAN_LOOK_STALK.x * w * r.y;
     }
-    if (d.aux > 0.5) alpha *= max(planDeparture(row, s), lit);
+    if (d.aux > 0.5) alpha *= max(c.dep, lit);
     size = PLAN_LOOK_STALK.y;
     ember = lit;
     return true;
   }
   if (d.mark == PLAN_MARK_OUTLINE_EQ || d.mark == PLAN_MARK_OUTLINE_MER) {
     float R = bodyTexel(3, row).y;
-    vec3 c = bodyWorld(row, t);
+    vec3 b = c.planned;
     vec3 r = planRun(d.j, d.n, PLAN_TAU * R * ppu, PLAN_LOOK_WIRE.z);
     vec2 sc = moteSinCos(PLAN_TAU * r.x);
-    if (d.mark == PLAN_MARK_OUTLINE_EQ) pos = c + vec3(R * sc.y, 0.0, R * sc.x);
+    if (d.mark == PLAN_MARK_OUTLINE_EQ) pos = b + vec3(R * sc.y, 0.0, R * sc.x);
     else {
-      vec3 h = vec3(starW.x - c.x, 0.0, starW.z - c.z);
+      vec3 h = vec3(starW.x - b.x, 0.0, starW.z - b.z);
       vec3 dir = length(h) > 0.0 ? h / length(h) : vec3(1.0, 0.0, 0.0);
-      pos = c + vec3(R * sc.y * dir.x, R * sc.x, R * sc.y * dir.z);
+      pos = b + vec3(R * sc.y * dir.x, R * sc.x, R * sc.y * dir.z);
     }
     alpha = PLAN_LOOK_WIRE.x * r.y;
     size = PLAN_LOOK_WIRE.y;
@@ -408,7 +448,6 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
   }
   if (d.mark == PLAN_MARK_GRADUATION) {
     float w = planWin(LOD_PLAN_GRAD, sv);
-    int outerRow = planBodyRow(s, planets - 1);
     int per = PLAN_GRAD_DOTS.x + (PLAN_GRAD_MAJOR - 1) * PLAN_GRAD_DOTS.y;
     int group = d.j / per;
     int r = d.j - per * group;
@@ -418,7 +457,7 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
     int k = major ? r : (r - PLAN_GRAD_DOTS.x) - PLAN_GRAD_DOTS.y * ((r - PLAN_GRAD_DOTS.x) / PLAN_GRAD_DOTS.y);
     float tickLen = (major ? PLAN_GRAD_LEN.x : PLAN_GRAD_LEN.y) * w;
     float push = PLAN_GRAD_OUT * w + (float(k) / float(m - 1) - 0.5) * tickLen;
-    pos = planOrbitPoint(outerRow, PLAN_TAU * float(tick) / float(PLAN_GRAD_COUNT), push, t);
+    pos = planOrbitPoint(c.host, c.orbitRow, PLAN_TAU * float(tick) / float(PLAN_GRAD_COUNT), push, t);
     alpha = PLAN_LOOK_GRADUATION.x * w;
     size = PLAN_LOOK_GRADUATION.y;
     return true;
@@ -436,11 +475,11 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
   if (d.mark == PLAN_MARK_DIMENSION) {
     float lf = planWin(LOD_PLAN_DIM, sv);
     float late = smoothstep(0.85, 1.0, lf);
-    vec3 end = d.aux > 0.5 ? planActual(row, s) : bodyWorld(row, t);
+    vec3 end = d.aux > 0.5 ? c.actual : c.planned;
     vec3 v = end - starW;
     float rr = length(v);
     if (d.j < 6) {
-      vec3 n = planNormal(row, t);
+      vec3 n = c.normal;
       vec3 a = planRotate(v, n, PLAN_DIM_TICK);
       vec3 b = planRotate(v, n, -PLAN_DIM_TICK);
       vec3 r = planRun(d.j, 6, length(a - b) * ppu, 3.0);
@@ -456,14 +495,14 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
       alpha = PLAN_LOOK_DIMENSION.x * r.y;
     }
     if (d.aux > 0.5) {
-      alpha *= max(planDeparture(row, s), lit);
+      alpha *= max(c.dep, lit);
       ember = lit;
     }
     size = PLAN_LOOK_DIMENSION.y;
     return true;
   }
   if (d.mark == PLAN_MARK_BINARY_CROSS) {
-    vec3 bary = planHostWorld(star, t);
+    vec3 bary = c.host;
     int bar = d.j / PLAN_BIN_CROSS_DOTS;
     float q = (float(d.j - PLAN_BIN_CROSS_DOTS * bar) / float(PLAN_BIN_CROSS_DOTS - 1) - 0.5) * PLAN_BIN_CROSS_LEN;
     pos = bary + (bar == 0 ? vec3(q, 0.0, 0.0) : vec3(0.0, 0.0, q));
@@ -472,7 +511,7 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
     return true;
   }
   if (d.mark == PLAN_MARK_BINARY_CIRCLE) {
-    vec3 bary = planHostWorld(star, t);
+    vec3 bary = c.host;
     vec2 sc = moteSinCos(PLAN_TAU * float(d.j) / float(PLAN_BIN_CIRCLE_DOTS));
     pos = bary + vec3(PLAN_BIN_CIRCLE * sc.y, 0.0, PLAN_BIN_CIRCLE * sc.x);
     alpha = PLAN_LOOK_BINARY_CIRCLE.x;
@@ -480,7 +519,7 @@ bool planWorldMark(PlanAttrs d, int s, int row, int star, int planets, float ppu
     return true;
   }
   if (d.mark == PLAN_MARK_BINARY_ELLIPSE) {
-    pos = planOrbitPoint(star, PLAN_TAU * float(d.j) / float(d.n), 0.0, t);
+    pos = planOrbitPoint(c.host, c.orbitRow, PLAN_TAU * float(d.j) / float(d.n), 0.0, t);
     alpha = PLAN_LOOK_BINARY_ELLIPSE.x;
     size = PLAN_LOOK_BINARY_ELLIPSE.y;
     return true;

@@ -27,7 +27,7 @@ void main() {
     gl_Position = MOTE_HIDDEN;
     return;
   }
-  PlanDot p = planDot(d);
+  PlanDot p = planDotOf(d, PLAN_MARKS_SCREEN);
   if (p.alpha < LOD_VISIBLE) {
     gl_Position = MOTE_HIDDEN;
     return;

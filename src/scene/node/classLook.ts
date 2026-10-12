@@ -128,12 +128,14 @@ export function glslPlanetLookConstants(): string {
  *  - `arc`: H's forward arc, `span` rad of eccentric anomaly ahead of the planned place; node k at
  *    t + k·period·`nodeStep` (k < `nodes`); a dash is on for dash[0] of every dash[1] parts of a
  *    `dashPeriod` (rad), fixed in angle so it never crawls as the camera zooms; a `chevron` at its end,
- *    two legs `len` units long, `spread` rad off the arc's tangent;
+ *    two legs `len` units long (at least `lenPx` CSS px on screen, so it reads in the neighbourhood: at
+ *    df-5 on a phone 0.7 units are 3 px), `spread` rad off the arc's tangent;
  *  - `deviation`: H's departure, from the body's drawn place curving out `out` units over `span` rad;
  *  - `edge`: R's departure, the band's outer edge over ± `span` rad about the body's actual angle;
  *  - `graduations`: `count` ticks on the outermost orbit, pushed `out` units, every `major`th long;
  *    `len` units long (major, minor), of `dots` dots;
- *  - `stalkFoot`: the stalk's foot cross's half-width (units); `nodeArm`: a node cross's;
+ *  - `stalkFoot`: the stalk's foot cross's half-width (units); `nodeArm`: a node cross's, at least
+ *    `nodeArmPx` CSS px on screen (0.35 units are 1.6 px at df-5 on a phone: a cross read as a dot);
  *  - `outline`: a silhouette is `padPx` CSS px wider than its body, so its rim and the body's do not merge;
  *    a moon's outline comes in by the moon's own diameter over `moonPx` CSS px;
  *  - `dimension`: its extension past the line's end (`ext` units), its tick (± `tick` rad), its planned
@@ -155,12 +157,13 @@ export const PLAN_LOOK = {
   bold: 1.2,
   bandHalfWidth: 0.45,
   centreCircle: 1.3,
-  arc: { span: 1.75, nodes: 3, nodeStep: 1 / 12, dash: [7, 11], dashPeriod: 0.2182, chevron: { len: 0.7, spread: 0.6 } },
+  arc: { span: 1.75, nodes: 3, nodeStep: 1 / 12, dash: [7, 11], dashPeriod: 0.2182, chevron: { len: 0.7, lenPx: 5, spread: 0.6 } },
   deviation: { span: 1.2, out: 0.8 },
   edge: { span: 0.3, size: 2.0 },
   graduations: { count: 24, major: 6, len: [1.2, 0.5], dots: [4, 2], out: 1.2 },
   stalkFoot: 0.3,
   nodeArm: 0.35,
+  nodeArmPx: 2.5,
   outline: { padPx: 2, moonPx: [10, 14] },
   dimension: { ext: 0.7, tick: 0.045, along: 0.5, offsetPx: 16, decimals: 1, past: 2.6, margin: 16 },
   numeral: { pitchPx: 2.5, size: 0.72 },
@@ -169,12 +172,12 @@ export const PLAN_LOOK = {
   glowEdgePx: 2,
   binary: { crossLen: 1.6, crossDots: 7, circle: 0.45, circleDots: 10, limitDots: 96, limitDash: 5 },
   marks: {
-    ring: [0.42, 1.3, 7],
+    ring: [0.55, 1.4, 7],
     bandEdge: [0.6, 1.68, 5],
     bandFill: [0.27, 1.43, 11],
-    arc: [0.6, 1.4, 3],
-    node: [0.66, 1.5, 0],
-    chevron: [0.6, 1.3, 3],
+    arc: [0.85, 1.5, 3],
+    node: [1.0, 1.8, 0],
+    chevron: [0.95, 1.6, 3],
     deviation: [0.95, 1.5, 3],
     stalk: [0.72, 1.1, 4],
     outline: [0.9, 1.4, 4],
@@ -218,13 +221,13 @@ export function glslPlanConstants(): string {
   const L = PLAN_LOOK;
   const out = ["// The look of the plan's schematic, generated from src/scene/node/classLook.ts."];
   out.push(`const vec3 PLAN_PHOSPHOR = ${vec3Of(L.phosphor)}; // ${L.phosphor}`);
-  for (const k of ['bold', 'bandHalfWidth', 'centreCircle', 'stalkFoot', 'nodeArm', 'stretch', 'glowEdgePx'] as const) out.push(`const float ${planName(k)} = ${lit(L[k])};`);
+  for (const k of ['bold', 'bandHalfWidth', 'centreCircle', 'stalkFoot', 'nodeArm', 'nodeArmPx', 'stretch', 'glowEdgePx'] as const) out.push(`const float ${planName(k)} = ${lit(L[k])};`);
   out.push(`const float PLAN_ARC_SPAN = ${lit(L.arc.span)};`);
   out.push(`const int PLAN_ARC_NODES = ${L.arc.nodes};`);
   out.push(`const float PLAN_ARC_NODE_STEP = ${lit(L.arc.nodeStep)};`);
   out.push(`const vec2 PLAN_ARC_DASH = vec2(${L.arc.dash.map(lit).join(', ')});`);
   out.push(`const float PLAN_ARC_DASH_PERIOD = ${lit(L.arc.dashPeriod)};`);
-  out.push(`const vec2 PLAN_CHEVRON = vec2(${lit(L.arc.chevron.len)}, ${lit(L.arc.chevron.spread)}); // len, spread`);
+  out.push(`const vec3 PLAN_CHEVRON = vec3(${lit(L.arc.chevron.len)}, ${lit(L.arc.chevron.spread)}, ${lit(L.arc.chevron.lenPx)}); // len, spread, lenPx`);
   out.push(`const vec2 PLAN_DEVIATION = vec2(${lit(L.deviation.span)}, ${lit(L.deviation.out)}); // span, out`);
   out.push(`const vec2 PLAN_EDGE = vec2(${lit(L.edge.span)}, ${lit(L.edge.size)}); // span, size`);
   const gr = L.graduations;

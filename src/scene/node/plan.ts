@@ -27,7 +27,7 @@ import { hexToRgb, NODE_PALETTE } from './birth';
 import { bodyTexel, type BodyData } from './bodyData';
 import { bodyCentre, bodyDerp, bodyLight, bodyPresence, freezeLook, lampGain, pieceOf, type BodyClocks } from './bodyMote';
 import { PLAN_FONT, PLAN_GLYPH_POINT, PLAN_LOOK } from './classLook';
-import { LodElement, PLAN_CULL, PLAN_FULL_SHARE, PLAN_FULL_SOFT, planCull, planFull, planGain, planRank, planSkip, planWindow } from './lod';
+import { LodElement, PLAN_CULL, PLAN_FULL_SHARE, PLAN_FULL_SOFT, PLAN_NO_THIRD, planCull, planFull, planGain, planRank, planSkip, planWindow } from './lod';
 import { elementsAt, galaxyTurn, keplerE, orbitLocal, orbitTurns, bodyWorld, type OrbitParams } from './orbit';
 import {
   allocate,
@@ -138,6 +138,22 @@ export function planRunRank(s: number, r: number, k: number, j: number): number 
   return PLAN_RUNS[r][1] === PLAN_MARK.node ? hash01(seed >>> 0, SALT.planNode) : hash01(seed >>> 0, SALT.planRank);
 }
 
+/** A mark's reach in world units: `units`, or `px` CSS px on screen at `ppu` CSS px a unit, whichever is longer. */
+export function planReach(units: number, px: number, ppu: number): number {
+  return Math.max(units, px / Math.max(ppu, 1e-6));
+}
+
+/** Each pool's used length in a frame's ranges, the last range's end: [world, screen] (uPlanUsed). */
+export function planUsed(range: ArrayLike<number>): [number, number] {
+  let world = 0;
+  let screen = 0;
+  for (let k = 0; k < range.length / 4; k++) {
+    world = Math.max(world, range[k * 4 + 1]);
+    screen = Math.max(screen, range[k * 4 + 3]);
+  }
+  return [world, screen];
+}
+
 /**
  * Dot `i` of a pool's attributes `a` resolved against the frame: a pair's dot as it is; a pool's dot,
  * the system whose range holds it, then the run and the body whose ends do (−1 where none: unused).
@@ -150,6 +166,8 @@ export function planResolve(a: ArrayLike<number>, i: number, f: Pick<PlanFrame, 
   const screen = owner === PLAN_POOL.screen;
   const at = out.j;
   out.sys = -1;
+  // Past its pool's used length no range holds it (plan.glsl's uPlanUsed, planUsed).
+  if (at >= planUsed(f.range)[screen ? 1 : 0]) return out;
   const systems = f.range.length / 4;
   let s = -1;
   for (let k = 0; k < systems; k++) {
@@ -486,9 +504,10 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
         const tip = planOrbitPoint(data, row, E0 + span, 0, t);
         const tangent = norm(sub(planOrbitPoint(data, row, E0 + span + 0.01, 0, t), planOrbitPoint(data, row, E0 + span - 0.01, 0, t)));
         const leg = d.j % 2;
-        const r = planRun(Math.floor(d.j / 2), Math.floor(d.n / 2), L.arc.chevron.len * ppu, M.chevron[2]);
+        const legLen = planReach(L.arc.chevron.len, L.arc.chevron.lenPx, ppu);
+        const r = planRun(Math.floor(d.j / 2), Math.floor(d.n / 2), legLen * ppu, M.chevron[2]);
         const dir = scale(planRotate(tangent, planNormal(data, row, t), leg === 0 ? L.arc.chevron.spread : -L.arc.chevron.spread), -1);
-        pos = add(tip, scale(dir, L.arc.chevron.len * r.u));
+        pos = add(tip, scale(dir, legLen * r.u));
         alpha = M.chevron[0] * planRank(win(LodElement.PlanLeave), d.rank) * r.light;
         size = M.chevron[1];
         ember = lit;
@@ -514,9 +533,10 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
         const tip = at(1);
         const tangent = norm(sub(at(1), at(0.98)));
         const leg = d.j % 2;
-        const r = planRun(Math.floor(d.j / 2), Math.floor(d.n / 2), L.arc.chevron.len * ppu, M.chevron[2]);
+        const legLen = planReach(L.arc.chevron.len, L.arc.chevron.lenPx, ppu);
+        const r = planRun(Math.floor(d.j / 2), Math.floor(d.n / 2), legLen * ppu, M.chevron[2]);
         const dir = scale(planRotate(tangent, n, leg === 0 ? L.arc.chevron.spread : -L.arc.chevron.spread), -1);
-        pos = add(tip, scale(dir, L.arc.chevron.len * r.u));
+        pos = add(tip, scale(dir, legLen * r.u));
         alpha = M.deviation[0] * 0.95 * dep * planRank(1 - pe, d.rank) * r.light;
         size = M.chevron[1];
       } else {
@@ -534,7 +554,7 @@ export function planDot(a: ArrayLike<number>, i: number, f: PlanFrame, data: Bod
       const arm = Math.floor(d.j / L.arc.nodes);
       const out = win(LodElement.PlanOutline);
       const c = planNode(data, row, k, t);
-      const reach = L.nodeArm * (k === 0 ? 1 - out : 1);
+      const reach = planReach(L.nodeArm, L.nodeArmPx, ppu) * (k === 0 ? 1 - out : 1);
       const dirs: Vec3[] = [
         [0, 0, 0],
         [1, 0, 0],
@@ -766,6 +786,22 @@ export interface PlanFrameInput {
 /** The graduations' dots: every `major`th tick of dots[0], the rest of dots[1]. */
 export const PLAN_GRAD_DOTS = (L.graduations.count / L.graduations.major) * L.graduations.dots[0] + (L.graduations.count - L.graduations.count / L.graduations.major) * L.graduations.dots[1];
 
+/** The windows a run's ask is × (planLayout): every plan window but PlanLeave and PlanClose, which only shape what another opens. */
+const PLAN_GATES: readonly LodElement[] = [
+  LodElement.PlanRingOuter,
+  LodElement.PlanArc,
+  LodElement.PlanChevron,
+  LodElement.PlanRingInner,
+  LodElement.PlanBand,
+  LodElement.PlanStalk,
+  LodElement.PlanOutline,
+  LodElement.PlanWire,
+  LodElement.PlanGrad,
+  LodElement.PlanCentre,
+  LodElement.PlanDim,
+  LodElement.PlanNum,
+];
+
 /** A run a frame asks for: its system, run (PLAN_RUNS), body ordinal, the dots it would light whole, how much it shows (its window), whether its count is fixed (all or none). */
 export interface RunAsk {
   s: number;
@@ -854,6 +890,9 @@ export function planLayout(
     if (!(cull > 0 && real > 0 && sPx > 0) || !(bodyPresence(star, clocks.growth, data) > 0)) continue;
     const ppu = sPx / outer;
     const win = (e: LodElement): number => planWindow(e, sPx, full, force[e]);
+    // Every run's ask is × one of these windows: a system with all of them 0 (under s_px 30, the far
+    // level, nothing forced) asks for nothing, so it is passed by before its runs are walked.
+    if (!PLAN_GATES.some((e) => win(e) > 0)) continue;
     const starW = bodyWorld(data, star, t);
     const close = win(LodElement.PlanClose);
     const peel = win(LodElement.PlanBand);
@@ -864,7 +903,7 @@ export function planLayout(
     const ask = (r: number, k: number, want: number, show: number, fixed = false): void => {
       if (want > 0 && show > 0) asks.push({ s, r, k, want: fixed ? want : Math.floor(want) + 1, show: Math.min(1, show) * seen, fixed });
     };
-    const chevronDots = 2 * Math.floor((L.arc.chevron.len * ppu) / M.chevron[2] + 1);
+    const chevronDots = 2 * Math.floor((planReach(L.arc.chevron.len, L.arc.chevron.lenPx, ppu) * ppu) / M.chevron[2] + 1);
     PLAN_RUNS.forEach(([name, , , perBody], r) => {
       if (!perBody) {
         const fRow = focus;
@@ -916,7 +955,7 @@ export function planLayout(
             if (bad) ask(r, k, ((L.deviation.span - (L.deviation.span - 2 * L.edge.span) * peel) * (a + L.bandHalfWidth * peel) * ppu) / M.deviation[2], win(LodElement.PlanArc));
             break;
           case 'node':
-            ask(r, k, L.arc.nodes * (1 + (PLAN_NODE_DOTS - 1) * smoothstep(1.5, 3, L.nodeArm * ppu)), win(LodElement.PlanArc));
+            ask(r, k, L.arc.nodes * PLAN_NODE_DOTS, win(LodElement.PlanArc), true);
             break;
           case 'chevron':
             ask(r, k, chevronDots, win(LodElement.PlanChevron) * win(LodElement.PlanLeave));
@@ -1004,9 +1043,13 @@ export function planFrameOf(g: Galaxy, data: BodyData, table: Float32Array, inpu
     .map((c, i) => [c, i] as const)
     .filter(([c]) => c > 0)
     .sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  // At most two systems in R (spec §4.7): the gain rises from the third-largest culled size, so the
+  // third and every smaller system are exactly 0, and R passes between neighbours only as the third's
+  // size crosses the second's. With fewer than three on screen, every one is whole.
   const t3 = order.length > 2 ? order[2][0] : 0;
   const soft = Math.max(PLAN_FULL_SOFT, PLAN_FULL_SHARE * t3);
-  for (let i = 0; i < n; i++) sys.set([sPx[i], culled[i] > 0 ? planFull(culled[i], t3, soft) : 0, cull[i], input.real[i]], i * 4);
+  const third = order.length > 2 ? t3 : PLAN_NO_THIRD;
+  for (let i = 0; i < n; i++) sys.set([sPx[i], culled[i] > 0 ? planFull(culled[i], third, soft) : 0, cull[i], input.real[i]], i * 4);
   const { table: laid, range } = planLayout(g, data, table, sys, input);
   return { t: clocks.ambient, sys, range, clocks, view, force: input.force, table: laid };
 }

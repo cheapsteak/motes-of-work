@@ -73,7 +73,7 @@ export const LOD_BANDS: Record<LodElement, [number, number]> = {
   4: [60, 120],
   5: [30, 50],
   6: [30, 55],
-  7: [45, 65],
+  7: [30, 55],
   8: [55, 85],
   9: [75, 105],
   10: [75, 115],
@@ -87,7 +87,7 @@ export const LOD_BANDS: Record<LodElement, [number, number]> = {
   18: [180, 210],
 };
 
-/** The plan's R windows: each is × its system's full-detail gain (planFull), so at most two systems are drawn in R. */
+/** The plan's R windows: each is × its system's full-detail gain (planFull), which planFrameOf holds at 0 for the third-largest system and every smaller one, so at most two systems are drawn in R. */
 export const PLAN_R_ELEMENTS: readonly LodElement[] = [
   LodElement.PlanBand,
   LodElement.PlanStalk,
@@ -102,12 +102,12 @@ export const PLAN_R_ELEMENTS: readonly LodElement[] = [
 /** The plan's rank dissolve: a dot of a window shows once the window's fraction passes its hash rank, over this ramp. */
 export const PLAN_RAMP = 0.08;
 /**
- * s_px: planFull's half-width (the mock's ±24 px of diameter), at least; or PLAN_FULL_SHARE of the
- * third's culled size where that is wider (plan.ts planFrameOf). Two neighbours passing in a pan or a
- * zoom cross each other's size by 20 to 30 px a step of a 200-step scrub (their outer rings crossing
- * the frame's edge): over ±12 px R passed between them in a step or two, 7 % of the frame's plan dots
- * and 13 % of their light at once; over 40 % of the third's size it takes several (measured: 4.4 % and
- * 6.2 % at the worst step).
+ * s_px: half of planFull's ramp (the mock's ±24 px of diameter), at least; or PLAN_FULL_SHARE of the
+ * third's culled size where that is wider (plan.ts planFrameOf). The ramp rises from the third's size,
+ * so a system's R comes in only as it leads the third (at most two in R). Two neighbours passing in a
+ * pan or a zoom cross each other's size by 20 to 30 px a step of a 200-step scrub: over a 24 px ramp R
+ * passes between them in a step or two; over 80 % of the third's size it takes several. Measured over
+ * the scrubs (plan.test.ts) at 0.15, 0.25, 0.4, 0.7 and 1.0 of it, 0.4 had the lowest worst steps.
  */
 export const PLAN_FULL_SOFT = 12;
 export const PLAN_FULL_SHARE = 0.4;
@@ -231,13 +231,13 @@ export function lodGain(el: LodElement, sysPx: number): number {
 }
 
 /**
- * A system's full-detail gain for its plan (re-skin §4.7): smoothstep(−PLAN_FULL_SOFT, PLAN_FULL_SOFT)
- * of its lead over `third`; 1 when there is no third (fewer than three on screen: `third` PLAN_NO_THIRD or less).
- * plan.ts planFrameOf passes the third-largest culled s_px plus PLAN_FULL_SOFT, so the third system
- * itself is at 0 and a slot changes hands only where its leaving system's gain has fallen to 0.
+ * A system's full-detail gain for its plan (re-skin §4.7): smoothstep(0, 2 × `soft`) of its lead over
+ * `third`, exactly 0 at no lead; 1 when there is no third (fewer than three on screen: `third`
+ * PLAN_NO_THIRD or less). plan.ts planFrameOf passes the third-largest culled s_px, so the third system
+ * and every smaller one are at 0: at most two systems have any R (spec §4.7).
  */
 export function planFull(sPx: number, third: number, soft = PLAN_FULL_SOFT): number {
-  return third <= PLAN_NO_THIRD ? 1 : smoothstep(-soft, soft, sPx - third);
+  return third <= PLAN_NO_THIRD ? 1 : smoothstep(0, 2 * soft, sPx - third);
 }
 
 /**

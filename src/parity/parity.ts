@@ -93,7 +93,7 @@ import {
 } from '../scene/node/shaderSource';
 import { farSide, lightDir, terminator } from '../scene/node/terminator';
 import { PLANET_LOOK } from '../scene/node/classLook';
-import { planDot, type PlanFrame } from '../scene/node/plan';
+import { planDot, planUsed, type PlanFrame } from '../scene/node/plan';
 import { PLAN_STRIDE, PLAN_TABLE_TEXELS } from '../scene/node/planAttrs';
 import { planStatic } from '../scene/node/planOnScreen';
 import { PLAN_AMBIENTS, PLAN_CASES, PLAN_SIZES, planCaseFrame } from './planCases';
@@ -1376,6 +1376,7 @@ function planParity(draw: Draw): ParityCase[] {
     uPlanTex: { value: tableTex },
     uPlanSys: { value: sys },
     uPlanRange: { value: range },
+    uPlanUsed: { value: new Vector2() },
     uPlanView: { value: new Matrix4() },
     uPlanProj: { value: new Matrix4() },
     uPass: { value: 0 },
@@ -1393,6 +1394,7 @@ function planParity(draw: Draw): ParityCase[] {
         sys.set(f.sys.subarray(0, Math.min(f.sys.length, sys.length)));
         range.fill(0);
         range.set(f.range.subarray(0, Math.min(f.range.length, range.length)));
+        (uniforms.uPlanUsed.value as Vector2).set(...planUsed(f.range));
         const k = f.clocks;
         uniforms.uGrowth.value = k.growth;
         uniforms.uFix.value = k.fix;

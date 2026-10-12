@@ -167,7 +167,7 @@ describe('lod.glsl', () => {
     expect(lib).toContain('const int LOD_COUNT = 19;');
     expect(lib).toContain(
       'const vec2 LOD_BANDS[LOD_COUNT] = vec2[19](vec2(10.0, 20.0), vec2(25.0, 50.0), vec2(60.0, 120.0), vec2(60.0, 120.0), vec2(60.0, 120.0), ' +
-        'vec2(30.0, 50.0), vec2(30.0, 55.0), vec2(45.0, 65.0), vec2(55.0, 85.0), vec2(75.0, 105.0), vec2(75.0, 115.0), vec2(100.0, 150.0), ' +
+        'vec2(30.0, 50.0), vec2(30.0, 55.0), vec2(30.0, 55.0), vec2(55.0, 85.0), vec2(75.0, 105.0), vec2(75.0, 115.0), vec2(100.0, 150.0), ' +
         'vec2(110.0, 150.0), vec2(120.0, 160.0), vec2(140.0, 180.0), vec2(140.0, 180.0), vec2(150.0, 180.0), vec2(160.0, 190.0), vec2(180.0, 210.0));',
     );
     for (const el of ELEMENTS) expect(lib).toMatch(new RegExp(`const int LOD_[A-Z_]+ = ${el};`));
@@ -377,11 +377,11 @@ describe("the plan's level of detail", () => {
   ];
   const RANKS = [0, 0.001, 0.13, 0.5, 0.77, 0.999];
 
-  it('holds the round-4 windows, value for value (the outer ring raised to 30 → 50)', () => {
+  it('holds the round-4 windows, value for value (the outer ring raised to 30 → 50; the chevrons in with the arcs, 30 → 55, Task 7b fix round 1)', () => {
     expect(PLAN.map((el) => [el, LOD_BANDS[el]])).toEqual([
       [5, [30, 50]],
       [6, [30, 55]],
-      [7, [45, 65]],
+      [7, [30, 55]],
       [8, [55, 85]],
       [9, [75, 105]],
       [10, [75, 115]],
@@ -433,15 +433,16 @@ describe("the plan's level of detail", () => {
     for (const h of RANKS) expect(planRank(1, h)).toBe(1);
   });
 
-  it('gives R by the lead over the third: 0 at −12 s_px, 1 at +12; 1 with no third', () => {
-    expect(planFull(100 - 12, 100)).toBe(0);
+  it('gives R by the lead over the third: exactly 0 at no lead or less, 1 at +24 s_px; 1 with no third', () => {
+    // The third itself (lead 0) and every smaller system are exactly 0: at most two systems in R.
+    expect(planFull(100, 100)).toBe(0);
     expect(planFull(100 - 30, 100)).toBe(0);
-    expect(planFull(100 + 12, 100)).toBe(1);
-    expect(planFull(100, 100)).toBeCloseTo(0.5, 12);
+    expect(planFull(100 + 24, 100)).toBe(1);
+    expect(planFull(100 + 12, 100)).toBeCloseTo(0.5, 12);
     expect(planFull(5, -1e30)).toBe(1);
     // A wider soft (plan.ts: PLAN_FULL_SHARE of the third's size) widens it the same way.
-    expect(planFull(60, 100, 40)).toBe(0);
-    expect(planFull(140, 100, 40)).toBe(1);
+    expect(planFull(100, 100, 40)).toBe(0);
+    expect(planFull(180, 100, 40)).toBe(1);
   });
 
   it('culls a system softly: 0 a margin outside the frame or at the near depth, 1 inside beyond the far one', () => {

@@ -95,7 +95,7 @@ bool hoodSkip(int kind, float real) {
 // dissolve, an element's window (x full for R's, the elements from PLAN_R_FROM; 1 - w for PlanLeave),
 // a dot's gain from it, and whether that gain is 0 for every rank (the early-out).
 float planFull(float sPx, float third, float soft) {
-  return third <= -1e30 ? 1.0 : smoothstep(-soft, soft, sPx - third);
+  return third <= -1e30 ? 1.0 : smoothstep(0.0, 2.0 * soft, sPx - third);
 }
 
 float planCull(float insidePx, float depth, float sPx) {
