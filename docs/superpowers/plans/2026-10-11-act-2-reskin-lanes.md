@@ -57,7 +57,7 @@ regenerated after a rebase, never merged by hand.
   main checkout. Lane A's first task branches from `main`; a stacked task branches from the task before it in its
   lane (7b from `task-6`, 7 from `task-8b`, 8 from `task-7`) as soon as that task has its implementer report, so it
   does not wait for review.
-- **Ports.** Lane A 4195, lane B 4194, reviews 4198 and 4196, the main checkout 4199, previews 4193.
+- **Ports: one per task, never one per lane.** A stacked task runs while the task under it is still in a fix round, so two tasks of one lane can be live at once (on 2026-10-12 Task 8 was given Task 7's port and Task 7's e2e drew Task 8's build). The controller names a free port in each dispatch and records it in the ledger; in use so far: 4190-4197, reviews 4198 and 4196, the main checkout 4199.
 - **Tests.**
   - Locally: typecheck, the unit tests (`npx vitest run --maxWorkers=2`), and the e2e specs the task touches,
     with one worker.
