@@ -27,7 +27,10 @@ import {
   PLAN_RUNS,
   PLAN_STRIDE,
   PLAN_TABLE_TEXELS,
+  planRunScreen,
 } from './planAttrs';
+import planGlsl from './plan.glsl?raw';
+import planScreenGlsl from './planScreen.glsl?raw';
 import { planFrameAt } from './planOnScreen';
 import { pairCloseCamera } from '../../parity/planCases';
 
@@ -56,6 +59,15 @@ describe('the static pools', () => {
     expect(pairRuns().map((r) => r[2])).toEqual([14, 10, 60, 90, 60, 60]);
     // A pool's dot carries only its index; the frame says the rest.
     for (let j = 0; j < PLAN_DOTS.world; j += 997) expect(Array.from(attrs.world.subarray(j * PLAN_STRIDE, j * PLAN_STRIDE + 8))).toEqual([PLAN_POOL.world, 0, 0, j, 0, 0, 0, -1]);
+  });
+
+  it('give each mesh only its own marks: every world-pool run and pair mark is planWorldMark’s, every screen-pool run planScreenMark’s (planDotOf’s split)', () => {
+    const name = (glsl: string): number => PLAN_MARK[glsl.toLowerCase().replace(/_(.)/g, (_, c: string) => c.toUpperCase()) as keyof typeof PLAN_MARK];
+    const drawn = (src: string, fn: string): number[] => [...new Set([...src.slice(src.indexOf(`bool ${fn}(`)).split('\n}\n')[0].matchAll(/d\.mark == PLAN_MARK_([A-Z_]+)/g)].map((m) => name(m[1])))].sort((a, b) => a - b);
+    const pairMarks = Array.from({ length: PLAN_DOTS.pair }, (_, k) => attrs.world[(PLAN_DOTS.world + k) * PLAN_STRIDE + 1]);
+    const marks = (screen: boolean, extra: number[] = []): number[] => [...new Set([...PLAN_RUNS.filter((_, r) => planRunScreen(r) === screen).map((r) => r[1] as number), ...extra])].sort((a, b) => a - b);
+    expect(drawn(planGlsl, 'planWorldMark')).toEqual(marks(false, pairMarks));
+    expect(drawn(planScreenGlsl, 'planScreenMark')).toEqual(marks(true));
   });
 
   it('list each system’s bodies, planets inner to outer, then their moons', () => {
