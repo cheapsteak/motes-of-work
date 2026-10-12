@@ -35,6 +35,7 @@ import {
   lodLevel,
   lodSkip,
   lodSkipElement,
+  MOTE_PX_MAX,
   motePx,
   PLAN_CULL,
   PLAN_FULL_SOFT,
@@ -160,6 +161,18 @@ describe('systemPx', () => {
   });
 });
 
+describe('motePx', () => {
+  it('is the world diameter on screen, never under 1 CSS px nor over MOTE_PX_MAX (re-skin Task 9)', () => {
+    expect(MOTE_PX_MAX).toBe(6);
+    expect(PX.mote).toEqual([1, MOTE_PX_MAX]);
+    expect(motePx(0.07, 50)).toBeCloseTo(3.5, 12);
+    expect(motePx(0.07, 1)).toBe(1);
+    // A body beside the camera: 0.07 units at 500 px per unit would be 35 px.
+    expect(motePx(0.07, 500)).toBe(MOTE_PX_MAX);
+    expect(motePx(0.12, 50)).toBe(MOTE_PX_MAX);
+  });
+});
+
 describe('lod.glsl', () => {
   it('reads its constants from lod.ts and body.ts, spliced in', () => {
     const lib = lodLibraryGlsl();
@@ -173,6 +186,8 @@ describe('lod.glsl', () => {
     for (const el of ELEMENTS) expect(lib).toMatch(new RegExp(`const int LOD_[A-Z_]+ = ${el};`));
     expect(lib).toContain('const float GLOW_SCALE = 5.0;');
     expect(lib).toContain('const float GLOW_MIN_PX = 5.0;');
+    expect(lib).toContain('const float PX_MOTE_MAX = 6.0; // MOTE_PX_MAX');
+    expect(lib).toContain('return min(PX_MOTE_MAX, max(PX_MOTE, diameter * pxPerUnit));');
     expect(lib).toContain('const vec2 HOOD_LOD = vec2(11.0, 16.0);');
     expect(lib).toContain('const float HOOD_STAR_R = 0.9;');
     expect(lib).toContain('const float HOOD_GLOW_CAP = 18.0;');

@@ -131,14 +131,21 @@ export const PLAN_CULL = { marginPx: 40, depth: [1, 2.5], near: [0.5, 1.5] } as 
 export const LOD_VISIBLE = 0.02;
 
 /**
+ * The most a shell mote is drawn across, CSS px (re-skin Task 9): uncapped, a body beside the camera
+ * drew motes 30-40 px across at the desktop close, so a lattice read as a few blobs.
+ */
+export const MOTE_PX_MAX = 6;
+
+/**
  * Pixel floors and caps in CSS px (§3.2, §4, plan-constraints' halo amendment): a mote (a moon's as
- * a planet's: one material), a moon's point and a lit planet's point never under their floor; a
+ * a planet's: one material) never under its floor nor over MOTE_PX_MAX, a moon's point and a lit
+ * planet's point never under their floor; a
  * background star 2 px and a bright one 3 px; and a star's glow sprite's cap (the core body's went
  * with its bodies, re-skin Task 5).
  * The core's haze has its own look (src/scene/galaxy/galaxySystem.ts HAZE).
  */
 export const PX = {
-  mote: [1, Infinity],
+  mote: [1, MOTE_PX_MAX],
   moon: [1.5, Infinity],
   litPlanet: [3, Infinity],
   bgStar: 2,
@@ -169,9 +176,9 @@ export function moonPointPx(across: number): number {
   return Math.min(MOON_POINT_PX[0], Math.max(PX.moon[0], across));
 }
 
-/** A shell mote's diameter (CSS px) for a world `diameter` seen at `pxPerUnit` CSS px per unit: never under PX.mote's floor, every body's alike. */
+/** A shell mote's diameter (CSS px) for a world `diameter` seen at `pxPerUnit` CSS px per unit: within PX.mote's floor and cap, every body's alike. */
 export function motePx(diameter: number, pxPerUnit: number): number {
-  return Math.max(PX.mote[0], diameter * pxPerUnit);
+  return Math.min(PX.mote[1], Math.max(PX.mote[0], diameter * pxPerUnit));
 }
 
 /** A drawing buffer, as the renderer's systems take it: its size in device px and the pixel ratio. */
@@ -464,6 +471,7 @@ export function glslLodConstants(): string {
     `const vec2 MOON_POINT_PX = vec2(${MOON_POINT_PX.map(lit).join(', ')});`,
     `const float PX_MOON = ${lit(PX.moon[0])}; // PX: floors in CSS px`,
     `const float PX_MOTE = ${lit(PX.mote[0])};`,
+    `const float PX_MOTE_MAX = ${lit(PX.mote[1])}; // MOTE_PX_MAX`,
     `const float GLOW_SCALE = ${lit(GLOW_SCALE)}; // src/galaxy/body.ts`,
     `const float GLOW_MIN_PX = ${lit(GLOW_MIN_PX)};`,
     '// The early-out: the kinds and roles lodSkip tells apart (bodyData.ts BODY_KIND, birth.ts NodeRole), a host-less body\'s reach (in its R) and the margin.',

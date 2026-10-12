@@ -41,9 +41,10 @@ float moonPointPx(float across) {
   return min(MOON_POINT_PX.x, max(PX_MOON, across));
 }
 
-// A shell mote's diameter (CSS px) for a world diameter at pxPerUnit CSS px per unit, floored at PX_MOTE.
+// A shell mote's diameter (CSS px) for a world diameter at pxPerUnit CSS px per unit, floored at PX_MOTE
+// and capped at PX_MOTE_MAX.
 float motePx(float diameter, float pxPerUnit) {
-  return max(PX_MOTE, diameter * pxPerUnit);
+  return min(PX_MOTE_MAX, max(PX_MOTE, diameter * pxPerUnit));
 }
 
 // The early-out (lod.ts lodSkipElement, lodSkip, offScreenReachPx, offScreenSkip): a dot the late path

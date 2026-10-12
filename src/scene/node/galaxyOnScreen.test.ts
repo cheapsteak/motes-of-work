@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { FREEZE_PINS } from '../../galaxy/ambient';
 import { defaultSceneState } from '../../timeline/sceneState';
 import { FREEZE_BREATH_PX, FREEZE_COPY_PX, FREEZE_MOON_COPY_PX } from './birth';
-import { copyRisePx, galaxyOf, galaxyPointTop } from './galaxyOnScreen';
+import { GALAXY_SHOTS, galaxyShotCamera, galaxyShotKeys } from '../../timeline/netShots';
+import { Lamp } from '../../timeline/netTrack';
+import { copyRisePx, galaxyOf, galaxyPointTop, spritePx, visibleGalaxy } from './galaxyOnScreen';
+import { MOTE_PX_MAX } from './lod';
 
 const { g } = galaxyOf();
 
@@ -48,4 +51,37 @@ describe('the freeze copies in the twin (Task 12 review: the copies counted in t
     expect(off.top - on.top).toBeCloseTo(copyRisePx(s, moon), 12);
     expect(off.top - on.top).toBeGreaterThan(0.4);
   });
+});
+
+describe('the motes near the camera (re-skin Task 9)', () => {
+  it('at the desktop close, lamp off, no shell mote is drawn over MOTE_PX_MAX at any ambient', () => {
+    // GALAXY_SHOTS.close with every body lit (lamp off): P1's star stands 2-4 units from the camera, its
+    // dots 26 px across uncapped (measured; the essay's own close lamps C1 alone, at most 4.2 px). Every
+    // mote the twin draws, one ambient every 30 s over the hour, sized as shell.vert.glsl sizes it (spritePx:
+    // motePx, which ?lib=lod holds to the GLSL from 0.5 to 1000 CSS px a unit).
+    const { data } = galaxyOf();
+    const size = { width: 1440, height: 900 };
+    const s = defaultSceneState();
+    s.camera = galaxyShotKeys(GALAXY_SHOTS.close, g) as typeof s.camera;
+    s.net = { ...s.net, show: 1, growth: 1, lamp: Lamp.Off };
+    let [drawn, uncapped] = [0, 0];
+    for (let t = 0; t < 3600; t += 30) {
+      const camera = galaxyShotCamera(GALAXY_SHOTS.close, g, data, size, t);
+      camera.updateMatrixWorld();
+      const eye = camera.getWorldPosition(new Vector3());
+      const focal = 0.5 * size.height * camera.projectionMatrix.elements[5];
+      for (const p of visibleGalaxy(s, t)) {
+        if (p.diameter === undefined) continue;
+        const w = new Vector3(...p.pos);
+        const q = w.clone().project(camera);
+        if (Math.abs(q.x) > 1 || Math.abs(q.y) > 1 || q.z > 1) continue;
+        const d = w.distanceTo(eye);
+        drawn = Math.max(drawn, spritePx(p, focal, d));
+        uncapped = Math.max(uncapped, (p.diameter * focal) / d);
+      }
+    }
+    expect(uncapped, 'a body stands beside the camera').toBeGreaterThan(20);
+    expect(drawn).toBe(MOTE_PX_MAX);
+    // 12.8 s measured locally with two workers on a loaded machine; 60 s is over 3x that and 5x CI's.
+  }, 60_000);
 });
