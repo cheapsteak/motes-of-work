@@ -2242,10 +2242,16 @@ const planStats = (page: Page) => page.evaluate(() => (window as unknown as { __
 const PLAN_MESHES = ['net-plan', 'net-plan-screen'];
 /** H's marks and R's (planAttrs.ts PLAN_MARK): a system drawn in H lights only the first, one in R the second too. */
 const H_MARKS = ['ring', 'arc', 'node', 'chevron', 'deviation'];
-/** The floors (0.6 × measured, Task 7b): the plan's lit px at the hood probe and the system shot, and its ember px at df-5. */
-const HOOD_PLAN_PX = { phone: 0, desktop: 0 };
-const SYSTEM_PLAN_PX = { phone: 0, desktop: 0 };
-const DF5_EMBER_PX = { phone: 1, desktop: 1 };
+/**
+ * The floors, 0.6 × measured (Task 7b, 2026-10-12): the plan's lit px at the hood probe (731 phone, 1,593
+ * desktop) and the system shot (2,357, 3,788), and its ember px at df-5 (83 of 371, 238 of 1,396).
+ */
+const HOOD_PLAN_PX = { phone: 438, desktop: 955 };
+const SYSTEM_PLAN_PX = { phone: 1414, desktop: 2272 };
+const DF5_EMBER_PX = { phone: 49, desktop: 142 };
+// Timing (each test's own setTimeout): measured locally at a load of 5-9, one worker, phone and desktop:
+// the wides 62 s and 121 s, H and R 77 s and 78 s, the ember 127 s and 135 s, the defect 46 s and 45 s,
+// ls-1 339 s and 332 s, the zoom-out 39 s and 37 s. Each timeout is at least 3 times the slower one.
 const R_MARKS = ['bandEdge', 'stalk', 'outlineEq', 'outlineMer', 'graduation', 'centre', 'dimension', 'silhouette', 'numeral'];
 
 /** The essay's frame at section-local `local` of `section` at ambient `ambient` (the test mode's pose by default), the galaxy built. */
@@ -2280,6 +2286,7 @@ for (const size of SIZES) {
     test.use({ viewport: { width: size.width, height: size.height } });
 
     test('nothing is marked at the wides: the galaxy wide and fr-1', async ({ page }) => {
+      test.setTimeout(480_000);
       const errors: string[] = [];
       await openShot(page, 'galaxyWide', errors);
       expect((await planStats(page)).dots, 'galaxyWide').toBe(0);
@@ -2291,6 +2298,7 @@ for (const size of SIZES) {
     });
 
     test('the neighbourhood is drawn in H at the hood probe, and P_a’s system in R at its system shot', async ({ page }, testInfo) => {
+      test.setTimeout(300_000);
       const errors: string[] = [];
       await openShot(page, 'hood', errors);
       const hood = await planStats(page);
@@ -2309,6 +2317,7 @@ for (const size of SIZES) {
     });
 
     test('healthy systems carry no ember marks at zo-1 and ly-1; the twelve light ember arcs at df-5, none left by fx-4’s end', async ({ page }, testInfo) => {
+      test.setTimeout(480_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       for (const [name, section, local] of [
@@ -2332,6 +2341,7 @@ for (const size of SIZES) {
     });
 
     test('the defect sits off its marks: at df-2 held, C1’s doubled moon stands off its planned outline, which the page draws', async ({ page }) => {
+      test.setTimeout(240_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await openPlanAt(page, 'defect', 0.31);
@@ -2381,7 +2391,7 @@ for (const size of SIZES) {
     });
 
     test('ls-1 is unmarked at every AMBIENT_GRID pose (the author’s ruling)', async ({ page }) => {
-      test.setTimeout(900_000);
+      test.setTimeout(1_200_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       for (const t of AMBIENT_GRID) {
@@ -2393,9 +2403,9 @@ for (const size of SIZES) {
     });
 
     test('the zoom-out draws the twin’s plan at every tenth of the plan’s life on its pull', async ({ page }) => {
-      // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 5 % of the dots
-      // and 7 % of the light); the page is held to the twin along it.
-      test.setTimeout(900_000);
+      // The pull's continuity is the twin's (plan.test.ts: 400 steps, every step at most 4.6 % of the
+      // dots and 6.1 % of the light, measured); the page is held to the twin along it.
+      test.setTimeout(240_000);
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       const g = generateGalaxy(MOTE_SEED, galaxyTier(size.width, size.height), galaxyBudget(MOTE_BUDGET_DESKTOP));

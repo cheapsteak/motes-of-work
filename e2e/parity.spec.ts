@@ -381,7 +381,7 @@ const PLAN_FRAMES = PLAN_CASES.flatMap((c) =>
 );
 
 test('GLSL plan twins match the TS reference (?lib=plan)', async ({ page }) => {
-  // Measured: 54 s locally at a load of 6-9, one worker. The timeout, 6 min, is over 6 times that.
+  // Measured: 54 s and 45 s locally at a load of 6-9, one worker. The timeout, 6 min, is over 6 times that.
   test.setTimeout(360_000);
   const { errors, ...parity } = await runParity(page, '&lib=plan');
   expect(errors).toEqual([]);
