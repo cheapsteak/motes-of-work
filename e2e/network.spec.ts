@@ -320,11 +320,15 @@ function annuli(twin: Frame['twin']) {
 
 /**
  * The freeze frame's thresholds per screen. The bursts' were set on the mocks (freeze-frame §4). The double
- * image's (re-skin Task 8) are 0.6 × measured on SwiftShader at 1x: its contrast DOUBLE_CONTRAST_MEASURED, and
- * the ember-dominant px over C1's disc where the copies add (ADDED_EMBER_MEASURED; 33 / 47 on 8b's screen blend).
+ * image's (re-skin Task 8) are 0.6 × measured on SwiftShader at 1x (phone / desktop), under Task 7's far side
+ * (the planets' far hemisphere dimmed, 9b74fa4):
+ * - its contrast, DOUBLE_CONTRAST_MEASURED: 2.07 / 2.13 (0.87 / 1.10 before the far side);
+ * - the ember-dominant px over C1's disc where the copies add, ADDED_EMBER_MEASURED: 54 / 66. Re-pinned for the
+ *   far side, which leaves less of C1's far half under the warm copy to sum past 200 in red: 106 / 112 before it
+ *   (floors 63 / 67). The same frame with the copies screen-blended reads 27 / 37 (33 / 47 before the far side).
  */
-const DOUBLE_CONTRAST_MEASURED = { phone: 0.87, desktop: 1.1 };
-const ADDED_EMBER_MEASURED = { phone: 106, desktop: 112 };
+const DOUBLE_CONTRAST_MEASURED = { phone: 2.07, desktop: 2.13 };
+const ADDED_EMBER_MEASURED = { phone: 54, desktop: 66 };
 const FREEZE_SIZES = [
   { width: 390, height: 844, label: 'phone', moonLit: 60, planetLit: 160, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.phone, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.phone) },
   { width: 1440, height: 900, label: 'desktop', moonLit: 120, planetLit: 300, doubleContrast: 0.6 * DOUBLE_CONTRAST_MEASURED.desktop, addedEmber: Math.floor(0.6 * ADDED_EMBER_MEASURED.desktop) },

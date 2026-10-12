@@ -119,7 +119,12 @@ export const PURITY_SAMPLES: PuritySample[] = [
   // the fix landing on the held piece, and the release mid-peel (0.33, held, is above: re-skin Task 8's
   // added copies and the held planet's halved fill are the hold's, a step on the scroll). The hold shows
   // the pin whatever the clock; the release runs on it again (the focus's own motion back, times C1's v = 0).
-  ...[0.265, 0.395, 0.413].flatMap((l) => [AMBIENT_POSE, 101].map((ambient) => at('defect', l, ambient, MIN_LIT_PIXELS, l === 0.413 && ambient === 101 ? FENCE : undefined))),
+  // 0.265 takes half its least measured lit px (4,975 at both, the hold pinning them), as the other samples do:
+  // the hold halves the held planet's fill (re-skin Task 8, spec 4.5) under Task 7's far side, which takes it
+  // under the generic MIN_LIT_PIXELS (over 5,000 on 9b74fa4 alone).
+  ...[0.265, 0.395, 0.413].flatMap((l) =>
+    [AMBIENT_POSE, 101].map((ambient) => at('defect', l, ambient, l === 0.265 ? halfOf(4975) : MIN_LIT_PIXELS, l === 0.413 && ambient === 101 ? FENCE : undefined)),
+  ),
   // The defect's motion (re-skin Task 8b), df-1's close shot before the cut, at the pose and at 101 s:
   // the forced scatter, the leak's wounds (packed per frame into the shell texture) and the dropout's
   // lines (uniforms set per frame) all run on the ambient. A fence at 101 s, where the browser proves
