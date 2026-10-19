@@ -610,10 +610,30 @@ describe('the dots', () => {
     expect(holeDotPx(1.3, 10, 1)).toBeCloseTo(1.3 * 2.2, 12);
   });
 
-  it('dims the small hole', () => {
-    expect(holeSmallGain(10)).toBe(0.35);
+  it('dims the small hole by the area of its disk: (diskPx / 80)², 1 from 80 px up', () => {
+    expect(holeSmallGain(0)).toBe(0);
+    expect(holeSmallGain(-5)).toBe(0);
+    expect(holeSmallGain(40)).toBeCloseTo(0.25, 12);
+    expect(holeSmallGain(80)).toBe(1);
     expect(holeSmallGain(100)).toBe(1);
-    expect(holeSmallGain(52)).toBeCloseTo(0.675, 9);
+    expect(holeSmallGain(23.5)).toBeCloseTo(0.0863, 4);
+  });
+
+  it('holds the small hole’s light per screen area between two small sizes, its dots on their floor', () => {
+    // A phone's galaxy wide: focalY 835. A disk diskPx across stands at z = 2 fade focalY / diskPx; each
+    // dot (the disk's, 1.4 to 2.4 CSS px) is then holeDotPx wide, its light that squared times the gain.
+    const focalY = 835;
+    const lightPerArea = (diskPx: number, gain: number): number => {
+      const z = (2 * HOLE_DISK.fade[1] * focalY) / diskPx;
+      let light = 0;
+      for (const s of [1.4, 1.9, 2.4]) light += holeDotPx(s, z, 1) ** 2;
+      return (gain * light) / diskPx ** 2;
+    };
+    for (const s of [1.4, 1.9, 2.4]) expect(holeDotPx(s, (2 * HOLE_DISK.fade[1] * focalY) / 80, 1), `a dot of ${s} is on its floor at 80 px`).toBe(1);
+    const ref = lightPerArea(80, 1);
+    for (const d of [20, 23.5, 30, 45, 64, 79]) expect(lightPerArea(d, holeSmallGain(d)) / ref, `${d} px`).toBeCloseTo(1, 12);
+    // Undimmed, the same dots climb as the disk shrinks: (80 / 25)² the light per area at 25 px.
+    expect(lightPerArea(25, 1) / ref).toBeCloseTo((80 / 25) ** 2, 12);
   });
 
   it('seeds a hash from a slot and a launch index, in [0, 2^24)', () => {

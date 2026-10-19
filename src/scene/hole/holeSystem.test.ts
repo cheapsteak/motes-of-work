@@ -126,7 +126,7 @@ describe('the hole drawn', () => {
     const wide = galaxyShotCamera(GALAXY_SHOTS.galaxyWide, g, data, PHONE, AMBIENT_POSE);
     const f = holeFrame(lit(Lamp.Off), g, data, wide, PHONE, AMBIENT_POSE);
     expect(f.diskPx).toBeLessThan(24);
-    expect(f.gain).toBeCloseTo(0.35, 9);
+    expect(f.gain, 'the area rule: (diskPx / 80)²').toBeCloseTo((f.diskPx / 80) ** 2, 12);
     // A camera 300 off the hole, looking 60° away from it: the hole is in front, far off the screen's side.
     const centre = new Vector3(...galacticToWorld(data, [0, 0, 0], AMBIENT_POSE));
     const away = new PerspectiveCamera(40, PHONE.width / PHONE.height, 0.1, 4000);

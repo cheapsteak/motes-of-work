@@ -328,21 +328,31 @@ export function holeComp(part: keyof typeof HOLE_MOCK_DOTS): Readonly<{ gain: nu
 }
 
 /**
- * The small hole: the hole's parts × mix(gain[0], gain[1], smoothstep(px[0], px[1], the disk's
- * projected outer diameter in CSS px)). At the galaxy wides its 27,610 additive dots fall in about
- * 25 px and would saturate; the inspector never framed it from there.
+ * The small hole (§4.2): the hole's parts × holeSmallGain(the disk's projected outer diameter in CSS px).
+ * `ref`, in CSS px, is the diameter at which the gain is 1: the inspector's framing, and well under
+ * HOLE_CLOSE's (342 px on a phone).
  */
-export const HOLE_SMALL = { px: [24, 80], gain: [0.35, 1] } as const;
+export const HOLE_SMALL = { ref: 80 } as const;
 
-function smoothstep(e0: number, e1: number, x: number): number {
-  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
-  return t * t * (3 - 2 * t);
-}
-
-/** The small hole's gain at the disk's projected outer diameter `diskPx` (CSS px). */
+/**
+ * The small hole's gain at the disk's projected outer diameter `diskPx` (CSS px): its light per unit
+ * of screen area stays what it is at `HOLE_SMALL.ref`, as a resolved light source's does at any
+ * distance, so that only its size changes. Since the author's phone check of v25, where the hole at the
+ * galaxy wide, 25 px across, was a white ring and the brightest thing on screen.
+ *
+ * The hole is N additive dots on a disk of area A ∝ diskPx². A dot of CSS size s at depth z is
+ * p = s refDist / z px across (HOLE_DOT.near clamps the factor), and z = 2 fade focalY / diskPx, so
+ * p = 3 s diskPx / focalY (refDist 75, fade 12.5): a dot shrinks with the hole, lights p² px², and the
+ * light per area B ∝ g N p² / diskPx² (g the dots' brightness) is constant at g = 1. Until p meets
+ * the floor of one CSS px (HOLE_DOT.floor), at diskPx = focalY / (3 s): 116 to 199 px for the disk's
+ * dots (s 1.4 to 2.4) at a phone's galaxy wide (focalY 835), above `ref`. Under that every dot stays
+ * p_f = 1 px, so N p_f² px² of light falls on an area that keeps shrinking: B ∝ g / diskPx², and at
+ * g = 1 the hole climbs as it recedes, saturating where its dots overlap. Holding B at its value at
+ * `ref` (the dots are at p_f there too) gives g = (diskPx / ref)², which is 1 from `ref` up.
+ */
 export function holeSmallGain(diskPx: number): number {
-  const s = smoothstep(HOLE_SMALL.px[0], HOLE_SMALL.px[1], diskPx);
-  return HOLE_SMALL.gain[0] + (HOLE_SMALL.gain[1] - HOLE_SMALL.gain[0]) * s;
+  const r = Math.max(diskPx, 0) / HOLE_SMALL.ref;
+  return Math.min(r * r, 1);
 }
 
 /**
