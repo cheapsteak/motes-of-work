@@ -109,7 +109,12 @@ test('the defect’s first page stops where freeze-frame §1.1 has it: df-1 at 0
   expect(errors).toEqual([]);
 });
 
-test('over the fix on the held piece it scrolls slowly, so the gold lands, glows and mends in time to see (defect 0.36 to 0.405)', async ({ page }) => {
+test('over the fix on the held piece it never scrolls faster than the fix pace (defect 0.36 to 0.405)', async ({ page }) => {
+  // Its own timeout (the file's 90 s is 4.5 times the CI time of this test): CI took 20.2 s for the whole test
+  // (shard 4 of run 39215225153, 2 workers) and loaded local runs 17.8 to 20.7 s, with 12 s of that in the wait
+  // below. 120 s is 5.9 times the CI time and 5.8 times the slowest local one; the wait is 105 s, 5.2 times the
+  // whole test's CI time (the wait is only part of it) and inside the test's timeout.
+  test.setTimeout(120_000);
   // Started paused (reduced motion) at df-2's stop and resumed from the ring, it holds for the floor and then
   // crosses the fix at ?fixpace= (0.2 screens/s by default, whatever ?pace= is: 4 here). The span is checked in
   // scroll, not wall time: the frames here take seconds, and the page counts at most 0.25 s of transit per frame
@@ -140,7 +145,7 @@ test('over the fix on the held piece it scrolls slowly, so the gold lands, glows
   await ring(page).click();
   await expect(ring(page)).toHaveAttribute('aria-label', 'Pause auto-advance');
   // Measured: 12 s from the click to df-2b's stop at load 3, where the page's frames take seconds.
-  await page.waitForFunction((y) => window.scrollY >= y, page7[2], { timeout: 60_000 });
+  await page.waitForFunction((y) => window.scrollY >= y, page7[2], { timeout: 105_000 });
   const log = await page.evaluate(() => (window as unknown as { __scrollLog: [number, number][] }).__scrollLog);
   const innerHeight = await page.evaluate(() => window.innerHeight);
   const [from, to] = [yOf(0.36), yOf(0.405)];

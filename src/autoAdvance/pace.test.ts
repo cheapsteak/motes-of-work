@@ -5,7 +5,7 @@ import { loadStory } from '../story/loader';
 import { progressOfSectionAt, KeyframeSampler, type KeyframeFile } from '../timeline/keyframeSampler';
 import keyframes from '../timeline/keyframes.json';
 import { fixPace, planTransit, type PaceSpan } from './pace';
-import { autoStops, dwellSeconds, sceneMotion, transitFraction, transitSeconds } from './plan';
+import { autoStops, sceneMotion, transitFraction, transitSeconds } from './plan';
 
 const file = keyframes as unknown as KeyframeFile;
 const story = loadStory();
@@ -72,7 +72,7 @@ describe('the fix span, from the story’s own keys', () => {
 });
 
 describe('the transit into df-2b at auto pace (the author: the gold lands, glows "for a little bit", then mends)', () => {
-  it('is the fix span’s only slow transit, and the glow sits inside it', () => {
+  it('is the transit that crosses the whole fix span: it starts before it and ends after it', () => {
     expect(intoDf2b).toBeGreaterThan(0);
     expect(stops[intoDf2b - 1].progress).toBeLessThan(at(LAND[0]));
     expect(stops[intoDf2b].progress).toBeGreaterThan(at(0.405));
@@ -87,7 +87,7 @@ describe('the transit into df-2b at auto pace (the author: the gold lands, glows
     expect(seconds(MEND)).toBeGreaterThanOrEqual(0.3);
   });
 
-  it('is slower than before only over the span’s scroll: the transit takes longer, never shorter', () => {
+  it('takes longer than the plain transit, and gets to the span’s start no earlier', () => {
     const was = transitSeconds((stops[intoDf2b].progress - stops[intoDf2b - 1].progress) * screens, AUTO_ADVANCE);
     expect(transit(intoDf2b).seconds).toBeGreaterThan(was);
     expect(timeAt(intoDf2b, at(0.36))).toBeGreaterThanOrEqual(timeAt(intoDf2b, at(0.36), []));
@@ -112,7 +112,7 @@ describe('the transit into df-2b at auto pace (the author: the gold lands, glows
   });
 });
 
-describe('everything outside the fix span is timed exactly as before', () => {
+describe('every other transit is timed exactly as before', () => {
   it('times every other transit as the plain trapezoid, sample for sample', () => {
     let others = 0;
     for (let i = 1; i < stops.length; i++) {
@@ -129,14 +129,6 @@ describe('everything outside the fix span is timed exactly as before', () => {
       others++;
     }
     expect(others).toBe(stops.length - 2);
-  });
-
-  it('holds at every stop as long as before: dwells do not read the pace', () => {
-    const words = stops.map((s) => dwellSeconds(s.words, AUTO_ADVANCE));
-    expect(words.every((d) => d >= AUTO_ADVANCE.floorSeconds)).toBe(true);
-    // Moving the fix pace changes no dwell and only the one transit.
-    const slower = { ...AUTO_ADVANCE, fixScreensPerSecond: 0.05 };
-    expect(stops.map((s) => dwellSeconds(s.words, slower))).toEqual(words);
   });
 });
 

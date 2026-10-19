@@ -324,8 +324,8 @@ function positive(raw: string): number | null {
  * The settings for this page: `defaults` (src/config.ts) under the URL's overrides. `?auto=0` turns
  * it off and `?auto=1` on; test mode (`?test=1`) turns it off unless `?auto=1`, since the tests
  * rely on a still page. `?dwell=` is the floor in seconds, `?wps=` the words per second and
- * `?pace=` the transit pace in screens per second, `?fixpace=` the slower one over the fix. A value that does not parse is left out of the
- * settings and named in `ignored`.
+ * `?pace=` the transit pace in screens per second, `?fixpace=` the slower one over the fix. A value
+ * that does not parse is left out of the settings and named in `ignored`.
  */
 export function autoAdvanceSettings(
   params: URLSearchParams,
