@@ -1,11 +1,5 @@
-import {
-  dwellSeconds,
-  nextStopAfter,
-  stopScrollY,
-  transitFraction,
-  type AutoAdvanceSettings,
-  type Stop,
-} from './plan';
+import { planTransit, type PaceSpan, type Transit } from './pace';
+import { dwellSeconds, nextStopAfter, stopScrollY, type AutoAdvanceSettings, type Stop } from './plan';
 
 /**
  * Auto-advance, the DOM half: it holds at each stop (src/autoAdvance/plan.ts), then scrolls to the
@@ -33,7 +27,7 @@ export interface AutoAdvance {
 
 export type Phase =
   | { kind: 'dwell'; elapsed: number; duration: number }
-  | { kind: 'transit'; from: number; to: number; screens: number; elapsed: number }
+  | { kind: 'transit'; from: number; to: number; plan: Transit; elapsed: number }
   | { kind: 'paused' }
   | { kind: 'ended' };
 
@@ -43,13 +37,13 @@ export type Phase =
  * clears it from its start, clockwise, until it is gone. Waiting for the page to load it is full;
  * paused or ended it is empty.
  */
-export function arcDash(phase: Phase, settings: AutoAdvanceSettings): { start: number; length: number } {
+export function arcDash(phase: Phase): { start: number; length: number } {
   if (phase.kind === 'dwell') {
     if (!Number.isFinite(phase.duration) || phase.duration <= 0) return { start: 0, length: 1 };
     return { start: 0, length: Math.min(1, phase.elapsed / phase.duration) };
   }
   if (phase.kind === 'transit') {
-    const start = transitFraction(phase.elapsed, phase.screens, settings);
+    const start = phase.plan.fraction(phase.elapsed);
     return { start, length: 1 - start };
   }
   return { start: 0, length: 0 };
@@ -101,7 +95,7 @@ function createButton(): { button: HTMLButtonElement; arc: SVGElement } {
 export function mountAutoAdvance(
   stops: readonly Stop[],
   settings: AutoAdvanceSettings,
-  { startPaused }: { startPaused: boolean },
+  { startPaused, slow = [] }: { startPaused: boolean; slow?: readonly PaceSpan[] },
 ): AutoAdvance {
   const { button, arc } = createButton();
   document.body.append(button);
@@ -127,7 +121,7 @@ export function mountAutoAdvance(
       button.setAttribute('aria-label', label);
       button.title = label;
     }
-    const { start, length } = arcDash(phase, settings);
+    const { start, length } = arcDash(phase);
     // A gap of 2, longer than the path, keeps the dash from repeating.
     arc.setAttribute('stroke-dasharray', `${length.toFixed(4)} 2`);
     arc.setAttribute('stroke-dashoffset', (-start).toFixed(4));
@@ -146,13 +140,9 @@ export function mountAutoAdvance(
     const to = nextStopAfter(stopYs(), y);
     if (to < 0) return end();
     const r = range();
-    phase = {
-      kind: 'transit',
-      from: r > 0 ? y / r : 0,
-      to,
-      screens: (stopYs()[to] - y) / window.innerHeight,
-      elapsed: 0,
-    };
+    const from = r > 0 ? y / r : 0;
+    const screens = (stopYs()[to] - y) / window.innerHeight;
+    phase = { kind: 'transit', from, to, plan: planTransit(from, stops[to].progress, screens, slow, settings), elapsed: 0 };
   }
 
   function arrive(index: number): void {
@@ -167,7 +157,7 @@ export function mountAutoAdvance(
       if (phase.elapsed >= phase.duration) beginTransit();
     } else if (phase.kind === 'transit') {
       phase.elapsed += dt;
-      const f = transitFraction(phase.elapsed, phase.screens, settings);
+      const f = phase.plan.fraction(phase.elapsed);
       if (f >= 1) return arrive(phase.to);
       // Interpolated in progress, so a resize mid-transit keeps it on course.
       const p = phase.from + (stops[phase.to].progress - phase.from) * f;

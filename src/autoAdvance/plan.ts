@@ -48,6 +48,11 @@ export interface AutoAdvanceSettings {
   wordsPerSecond: number;
   /** Cruising speed between stops, in screens (viewport heights) per second. */
   transitScreensPerSecond: number;
+  /**
+   * The pace over the fix on the held piece, in screens per second, where it is slower than cruising
+   * (src/autoAdvance/pace.ts): the gold lands, the piece glows and then mends, each long enough to see.
+   */
+  fixScreensPerSecond: number;
   /** How long a transit takes to reach its pace, and to slow from it, in seconds. */
   easeSeconds: number;
   /** Extra hold before the very first stop's dwell, in seconds. */
@@ -264,7 +269,7 @@ export function dwellSeconds(words: number, s: Pick<AutoAdvanceSettings, 'floorS
   return Math.max(s.floorSeconds, reading);
 }
 
-type TransitSettings = Pick<AutoAdvanceSettings, 'transitScreensPerSecond' | 'easeSeconds'>;
+export type TransitSettings = Pick<AutoAdvanceSettings, 'transitScreensPerSecond' | 'easeSeconds'>;
 
 /** The ease of a transit `screens` long: the configured one, shortened for a transit too short to cruise. */
 function easeFor(screens: number, s: TransitSettings): number {
@@ -319,7 +324,7 @@ function positive(raw: string): number | null {
  * The settings for this page: `defaults` (src/config.ts) under the URL's overrides. `?auto=0` turns
  * it off and `?auto=1` on; test mode (`?test=1`) turns it off unless `?auto=1`, since the tests
  * rely on a still page. `?dwell=` is the floor in seconds, `?wps=` the words per second and
- * `?pace=` the transit pace in screens per second. A value that does not parse is left out of the
+ * `?pace=` the transit pace in screens per second, `?fixpace=` the slower one over the fix. A value that does not parse is left out of the
  * settings and named in `ignored`.
  */
 export function autoAdvanceSettings(
@@ -333,10 +338,11 @@ export function autoAdvanceSettings(
   if (auto !== null && !SWITCH.test(auto)) ignored.push(`auto=${auto}`);
   const on = auto !== null && SWITCH.test(auto) ? auto === '1' : null;
   settings.enabled = on ?? (testMode ? false : defaults.enabled);
-  const numbers: [string, 'floorSeconds' | 'wordsPerSecond' | 'transitScreensPerSecond'][] = [
+  const numbers: [string, 'floorSeconds' | 'wordsPerSecond' | 'transitScreensPerSecond' | 'fixScreensPerSecond'][] = [
     ['dwell', 'floorSeconds'],
     ['wps', 'wordsPerSecond'],
     ['pace', 'transitScreensPerSecond'],
+    ['fixpace', 'fixScreensPerSecond'],
   ];
   for (const [key, field] of numbers) {
     const raw = params.get(key);

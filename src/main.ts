@@ -1,5 +1,6 @@
 import { Color, InstancedBufferGeometry, type Mesh, Vector2, WebGLRenderer } from 'three';
 import { mountAutoAdvance, type AutoAdvance } from './autoAdvance/indicator';
+import { fixPace } from './autoAdvance/pace';
 import { autoAdvanceSettings, autoStops, sceneMotion } from './autoAdvance/plan';
 import { ACTIVE_MECHANISM, AUTO_ADVANCE, MOTE_BUDGET_DESKTOP, MOTE_SEED } from './config';
 import { mountCredits } from './credits/credits';
@@ -417,7 +418,8 @@ const autoAdvance: AutoAdvance | null = auto.settings.enabled
       // Each scene's stop waits for its motion, as the keyframes have it (not a ?state= override).
       autoStops(story, spans, (p) => sceneMotion(sampler.sample(p))),
       auto.settings,
-      { startPaused: reducedMotion.matches },
+      // Slower over the fix on the held piece, so the gold lands, glows and mends each long enough to see.
+      { startPaused: reducedMotion.matches, slow: fixPace(keyframes as unknown as KeyframeFile, spans, auto.settings) },
     )
   : null;
 

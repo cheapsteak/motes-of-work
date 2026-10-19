@@ -29,6 +29,7 @@ const DEFAULTS: AutoAdvanceSettings = {
   floorSeconds: 2,
   wordsPerSecond: 3,
   transitScreensPerSecond: 0.6,
+  fixScreensPerSecond: 0.2,
   easeSeconds: 0.5,
   startDelaySeconds: 0,
 };
@@ -452,18 +453,19 @@ describe('autoAdvanceSettings', () => {
     expect(autoAdvanceSettings(new URLSearchParams(''), { ...DEFAULTS, enabled: false }, false).settings.enabled).toBe(false);
   });
 
-  it('?dwell=, ?wps= and ?pace= set the floor, the reading pace and the transit pace', () => {
-    expect(parse('dwell=0.4&wps=50&pace=3').settings).toEqual({
+  it('?dwell=, ?wps=, ?pace= and ?fixpace= set the floor, the reading pace, the transit pace and the pace over the fix', () => {
+    expect(parse('dwell=0.4&wps=50&pace=3&fixpace=0.1').settings).toEqual({
       ...DEFAULTS,
       floorSeconds: 0.4,
       wordsPerSecond: 50,
       transitScreensPerSecond: 3,
+      fixScreensPerSecond: 0.1,
     });
   });
 
   it('ignores a value that is not a positive number, and says which', () => {
-    const { settings, ignored } = parse('dwell=-1&wps=fast&pace=0&auto=maybe');
+    const { settings, ignored } = parse('dwell=-1&wps=fast&pace=0&fixpace=-2&auto=maybe');
     expect(settings).toEqual(DEFAULTS);
-    expect(ignored).toEqual(['auto=maybe', 'dwell=-1', 'wps=fast', 'pace=0']);
+    expect(ignored).toEqual(['auto=maybe', 'dwell=-1', 'wps=fast', 'pace=0', 'fixpace=-2']);
   });
 });
