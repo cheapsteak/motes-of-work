@@ -117,7 +117,7 @@ export const PURITY_SAMPLES: PuritySample[] = [
     ] as const
   ).flatMap(([id, l, minLit]) => [AMBIENT_POSE, 101].map((ambient) => at(id, l, ambient, minLit))),
   // The freeze frame (Task 12; freeze-frame §4), each at the pose and at 101 s: the dressing mid-snap,
-  // the fix landing on the held piece, and the release mid-peel (0.33, held, is above: re-skin Task 8's
+  // the fix on the held piece (0.395: mending, its gold landed and its pulse done: the author on v25), and the release mid-peel (0.33, held, is above: re-skin Task 8's
   // added copies and the held planet's halved fill are the hold's, a step on the scroll). The hold shows
   // the pin whatever the clock; the release runs on it again (the focus's own motion back, times C1's v = 0).
   // 0.265 takes half its least measured lit px (4,975 at both, the hold pinning them), as the other samples do:

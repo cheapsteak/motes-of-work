@@ -7925,8 +7925,9 @@
     ],
     "net.fix": [
       { "at": "defect@0.36", "value": 0 },
-      { "at": "defect@0.37", "value": 0.05 },
-      { "at": "defect@0.4", "value": 0.08 },
+      { "at": "defect@0.374", "value": 0.03 },
+      { "at": "defect@0.388", "value": 0.05 },
+      { "at": "defect@0.404", "value": 0.08 },
       { "at": "defect@0.42", "value": 0.1 },
       { "at": "trace@0.97058824", "value": 0.1 },
       { "at": "fix@0.02173913", "value": 0.42 },

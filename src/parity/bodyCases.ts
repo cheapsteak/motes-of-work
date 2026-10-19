@@ -5,7 +5,8 @@ import { MOTE_SEED } from '../config';
 import { AMBIENT_POSE, FREEZE_PINS } from '../galaxy/ambient';
 import type { Galaxy } from '../galaxy/generate';
 import { hash01 } from '../math/hash';
-import { NODE_BIRTH_WINDOW, NODE_FIX_WINDOW, NodeRole } from '../scene/node/birth';
+import { NODE_BIRTH_WINDOW, NODE_FIX_WINDOW, NODE_LAND_WINDOW, NODE_PULSE_WINDOW, NodeRole } from '../scene/node/birth';
+import { nodeLanded } from '../scene/node/light';
 import { buildPersonAttrs, buildShellAttrs, type QuadSet } from '../scene/node/bodyAttrs';
 import type { BodyClocks, BodyMoteAttrs, FreezeClocks } from '../scene/node/bodyMote';
 import { Lamp } from '../timeline/netTrack';
@@ -64,7 +65,7 @@ export const BODY_ARMS_CASE: BodyCase = {
  * The freeze frame's held cases (freeze-frame §4 parity): C1's piece under the close shot's lamp at
  * full focus, the held system at full detail, C1's scatter forced FREEZE_SCATTER_S in, fully dressed,
  * at the pin only (the hold shows nothing else): at defect 0.33 (the fix not begun), the base draw; and
- * at 0.39 with the fix landing, mid-retraction (net.fix 0.07 there, v 0.26), its warm copy (turning
+ * at 0.3987 with the piece mending, mid-retraction (net.fix 0.07 there, v 0.26), its warm copy (turning
  * amber).
  * The pin stands off every cut of C1-m5's burst (ambient.ts FREEZE_PIN_OFFSET_S), so the TS and the
  * GLSL must agree at the very ambient, never across a cut.
@@ -80,7 +81,7 @@ export const BODY_HELD_CASES: BodyCase[] = [
     ambients: [AMBIENT_POSE],
   },
   {
-    name: '0.39, C1 held and fixing',
+    name: '0.399, C1 held and mending',
     motes: (g, all) => all.filter(ofPiece(g, 'C1')).filter((a, i) => a.role !== NodeRole.Builder || i % 5 === 0),
     clocks: (g) => ({
       ...quiet,
@@ -145,9 +146,21 @@ export const BODY_CASES: BodyCase[] = [
     clocks: (g) => ({ ...quiet, highlight: 0.5, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 0.6, sysPx: sysPxAll(200) }),
   },
   {
-    name: 'C1 and its moons, the fix landing',
+    name: 'C1 and its moons, mending',
     motes: (g, all) => all.filter(ofPiece(g, 'C1')).filter((a, i) => a.role !== NodeRole.Builder || i % 11 === 0),
     clocks: (g) => ({ ...quiet, fix: g.bodies[g.ids.C1].fixAt! - NODE_FIX_WINDOW / 3, lamp: Lamp.Planet, lampRow: g.ids.C1, sysPx: sysPxAll(90) }),
+  },
+  // The fix's order on the planet lamp's subject (the author on v25): its gold landing (the person motes
+  // in flight, nodeLanded's window), then its gold pulse (fixPulse, before the mend), at full focus.
+  {
+    name: 'C1 and its moons, the gold landing',
+    motes: (g, all) => all.filter(ofPiece(g, 'C1')).filter((a, i) => a.role !== NodeRole.Builder || i % 11 === 0),
+    clocks: (g) => ({ ...quiet, fix: nodeLanded(g.bodies[g.ids.C1].fixAt!) - NODE_LAND_WINDOW / 2, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 1, sysPx: sysPxAll(200) }),
+  },
+  {
+    name: 'C1 and its moons, the gold pulse',
+    motes: (g, all) => all.filter(ofPiece(g, 'C1')).filter((a, i) => a.role !== NodeRole.Builder || i % 11 === 0),
+    clocks: (g) => ({ ...quiet, fix: nodeLanded(g.bodies[g.ids.C1].fixAt!) + 0.4 * NODE_PULSE_WINDOW, lamp: Lamp.Planet, lampRow: g.ids.C1, focus: 1, sysPx: sysPxAll(200) }),
   },
   {
     name: 'P1, defect close',

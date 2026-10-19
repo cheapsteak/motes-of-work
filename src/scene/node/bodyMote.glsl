@@ -190,9 +190,19 @@ float focusGain(int row) {
   return planetLampSubject(row) ? mix(1.0, FOCUS_GAIN, uFocus) : 1.0;
 }
 
-// How much of its own orbit derp the focused piece's planet keeps (bodyMote.ts focusDerp): 1 - focus.
+// How much of its own orbit derp a body keeps (bodyMote.ts focusDerp): the planet lamp's subject, its
+// planet and moons, none, save its moons while the freeze holds (the derp the pin caught); every other
+// body all of it.
 float focusDerp(int row) {
-  return bodyKind(row) == KIND_PLANET && planetLampSubject(row) ? 1.0 - uFocus : 1.0;
+  if (!planetLampSubject(row)) return 1.0;
+  return uHolding > 0.5 && bodyKind(row) == KIND_MOON ? 1.0 : 0.0;
+}
+
+// The fix's gold pulse on row (bodyMote.ts fixPulse): on the planet lamp's subject, nodePulse of its
+// fixAt at net.fix, times net.focus; 0 on every other body.
+float fixPulse(int row) {
+  if (!planetLampSubject(row)) return 0.0;
+  return nodePulse(bodyTexel(4, row).x, uFix) * uFocus;
 }
 
 // Whether row's derp is a scatter in every slot (bodyMote.ts focusScatter, re-skin Task 8b): the planet
@@ -445,7 +455,8 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
     float Rp = bodyTexel(3, piece).y;
     spawn = bodyWorld(piece, t) + vec3(0.0, NODE_PERSON_HEIGHT * Rp, 0.0) + NODE_PERSON_SPREAD * Rp * j;
     ctrl = 0.5 * (spawn + land) + vec3(0.0, NODE_PERSON_BOW * Rp, 0.0);
-    settle = bodyTexel(4, row).x;
+    // On the planet lamp's subject the gold is home before its pulse and its mend; elsewhere with the mend.
+    settle = planetLampSubject(row) ? nodeLanded(bodyTexel(4, row).x) : bodyTexel(4, row).x;
   } else {
     vec3 arrival = vec3(0.0, 1.0, 0.0);
     if (a.host >= 0) {
@@ -466,7 +477,7 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
     settle = nodeSettle(t3.z, t3.w, mix(wrap, a.birth, BODY_BUILD_JITTER));
   }
   float clock = person ? uFix : uGrowth;
-  float window = person ? NODE_FIX_WINDOW : NODE_BIRTH_WINDOW;
+  float window = person ? (planetLampSubject(row) ? NODE_LAND_WINDOW : NODE_FIX_WINDOW) : NODE_BIRTH_WINDOW;
   float tt = nodeArrival(settle, clock, window);
   float e = 1.0 - (1.0 - tt) * (1.0 - tt) * (1.0 - tt);
   float om = 1.0 - e;
@@ -486,14 +497,16 @@ BodyMoteOut bodyMote(BodyMoteAttrs a) {
   }
   // A planet's or moon's shell mote: its terminator on its rest normal (the person's dust is unshaded).
   float shade = person ? 1.0 : bodyShade(row, normal, max(hi, surge), t);
+  // The fix's gold pulse on the focused piece, between the landing and the mend.
+  float pulse = fixPulse(row);
   BodyMoteOut o;
   o.pos = om * om * spawn + 2.0 * om * e * ctrl + e * e * land;
   o.normal = normal;
-  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * leakLight * uShow * lamp * el * look.gain * focusGain(row) * self * shade;
+  o.brightness = (mix(1.0 / NODE_SETTLED_BRIGHTNESS, 1.0, tt) + NODE_FLARE_GAIN * flare) * (1.0 + NODE_HI_GAIN * hi + surge) * (1.0 + SCATTER_OUT_GAIN * k) * leakLight * uShow * lamp * el * look.gain * focusGain(row) * self * shade * (1.0 + FIX_PULSE_GAIN * pulse);
   o.visible = uShow > 0.0 && clock >= settle - window && lamp > 0.0 && el >= LOD_VISIBLE && look.gain > 0.0 ? 1.0 : 0.0;
   o.settled = tt;
   o.hi = max(hi, surge);
-  o.warm = person ? 1.0 : light.x * (kind == KIND_MOON ? BODY_WARM_MOON : BODY_WARM);
+  o.warm = person ? 1.0 : max(light.x * (kind == KIND_MOON ? BODY_WARM_MOON : BODY_WARM), FIX_PULSE_WARM * pulse);
   o.tint = look.tint;
   o.offPx = look.offPx;
   return o;

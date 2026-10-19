@@ -18,13 +18,16 @@
 //  - Moon, a lattice mote of a moon: it flies its planet's stream the same way, and every mote of
 //    the moon lands at the moon's birth (the last 30 % of its planet's build: one event, a flare).
 //  - Person, the person's warm mote for a fix: it falls from above the piece (the planet, for a
-//    moon's) onto its host's sphere (the body itself, row = host), on `net.fix` at the body's fixAt,
-//    and stays there as amber dust.
+//    moon's) onto its host's sphere (the body itself, row = host), on `net.fix`, and stays there as
+//    amber dust. On the planet lamp's subject it is home by the body's nodeLanded(fixAt), before the
+//    piece glows (fixPulse) and mends (the author on v25: the gold lands, then glows, then the piece
+//    mends); on any other body, seen from afar in the sweep, it lands at its fixAt, with the mend.
 //
 // The defect, on a body that carries it (its derp seed), scaled by lodGain(Derp) on top of derp()'s
-// own `v` (the fix): a planet's and a moon's orbit derp goes on ν, r and the lift after Kepler, in
-// the galaxy's plane about its host, on its own (possibly quantised) clock; a star and a core body
-// shiver; every one of them offsets by the wobble; the shell takes the morph (A·v·gain) and the
+// own `v` (the fix), and none on the planet lamp's subject's paths (focusDerp, the author on v25: no
+// elastic skip, no moon wobble at the close-up): a planet's and a moon's orbit derp goes on ν, r and
+// the lift after Kepler, in the galaxy's plane about its host, on its own (possibly quantised) clock;
+// a star and a core body shiver; every one of them offsets by the wobble; the shell takes the morph (A·v·gain) and the
 // scatter (its leap and ring at v·gain), and after the scatter the leak (leak.ts, re-skin Task 8b: its
 // wounds move and dim their dots, at v·gain), the focused planet's every slot a scatter
 // (focusScatter). A star's dot cloud takes them as a shell does, each dot by
@@ -48,6 +51,7 @@ import {
   BODY_WARM,
   BODY_WARM_MOON,
   BURST_GHOST_GAIN,
+  FIX_PULSE,
   FOCUS_GAIN,
   FREEZE_DIM,
   FREEZE_FLASH,
@@ -63,6 +67,7 @@ import {
   NODE_FLARE_GAIN,
   NODE_FLARE_WIDTH,
   NODE_HI_GAIN,
+  NODE_LAND_WINDOW,
   NODE_PERSON_BOW,
   NODE_PERSON_HEIGHT,
   NODE_PERSON_SPREAD,
@@ -78,7 +83,7 @@ import { SHELL_LEAK_AT, SHELL_TEXELS } from './bodyAttrs';
 import { BODY_KIND, bodyTexel, type BodyData } from './bodyData';
 import { derp, type Derp } from './derp';
 import { freezeCopy, freezeScatterFill, type FreezeCopyIndex } from './freeze';
-import { nodeArrival, nodeLight, nodeSettle, nodeSpread } from './light';
+import { nodeArrival, nodeLanded, nodeLight, nodePulse, nodeSettle, nodeSpread } from './light';
 import { LOD_VISIBLE, LodElement, lodGain } from './lod';
 import { bodyWorld, elementsAt, galaxyTurn, orbitLocal, orbitTurns } from './orbit';
 import { llUnit, moteHashes, shellHome, shellK, shellWarpLeak, spinShell, type Shape, type ShellEvent } from './shell';
@@ -302,19 +307,34 @@ export function focusGain(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 
 }
 
 /**
- * How much of its own orbit derp the focused piece's planet keeps under the planet lamp: 1 − focus (its
- * scatter is its shell's and stays); every other body all of it.
+ * How much of its own orbit derp a body keeps (its scatter is its shell's and stays): the planet lamp's
+ * subject, its planet and its moons, none at any focus (the author on v25: the skip's elastic snap, on
+ * the planet as the focus came up and on all six moons at once, and the moons' wobble while the scatter,
+ * the leak and the dropout play, are gone), save its moons while the freeze holds, which keep the derp
+ * the pin caught (the moon off its path beside its ghost); every other body all of it. The lamp steps onto
+ * C1 where its system is under its derps' level of detail (lodGain(Derp) 0), so the step shows nothing.
  */
-export function focusDerp(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'focus'>, data: BodyData): number {
-  return kindOf(data, row) === BODY_KIND.planet && planetLampSubject(row, c, data) ? 1 - c.focus : 1;
+export function focusDerp(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'holding'>, data: BodyData): number {
+  if (!planetLampSubject(row, c, data)) return 1;
+  return c.holding === true && kindOf(data, row) === BODY_KIND.moon ? 1 : 0;
+}
+
+/**
+ * The fix's gold pulse on `row` (the author on v25; FIX_PULSE): on the planet lamp's subject, its planet
+ * and its moons together, nodePulse of its fixAt at `net.fix`, times `net.focus`; 0 on every other body.
+ * It runs after the person's motes are home and before the mend begins.
+ */
+export function fixPulse(row: number, c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'focus' | 'fix'>, data: BodyData): number {
+  if (!planetLampSubject(row, c, data)) return 0;
+  return nodePulse(bodyTexel(data.bodies, 4, row)[0], c.fix) * c.focus;
 }
 
 /**
  * The row whose derp is a scatter in every slot (re-skin Task 8b, the controller's ruling 1), −1 none:
  * the planet lamp's subject planet, while it carries the defect and `net.focus` is over FOCUS_SCATTER,
  * so a scatter (and its wounds) lands within NODE_DERP_PERIOD + (NODE_DERP_PERIOD − NODE_DERP_DUR) s
- * wherever the ambient stands. Its orbit derps are mostly gone there (focusDerp) and its moons keep
- * their own schedules. Not under the freeze: while it holds, or forces a row of its own, the held
+ * wherever the ambient stands. Its orbit derps are gone there (focusDerp), and its moons keep their
+ * own schedules' scatters, on their paths. Not under the freeze: while it holds, or forces a row of its own, the held
  * frame is the freeze's.
  */
 export function focusScatterRow(c: Pick<BodyClocks, 'lamp' | 'lampRow' | 'focus' | 'forcedScatter' | 'holding'>, data: BodyData): number {
@@ -517,13 +537,21 @@ export function bodyMoteFlight(a: BodyMoteAttrs, centre: Vec3, land: Vec3, t: nu
 }
 
 /**
- * When a mote lands and on which clock (bodyMote's step 3): a person mote at its body's fixAt on
- * `net.fix`; a builder or a moon mote on `net.growth` within its body's [born, born + dur], where its
- * shell wraps outward from its stream's arrival side (a moon's: all at once, at the moon's birth).
+ * When a mote lands and on which clock (bodyMote's step 3): a person mote on `net.fix`, on the planet
+ * lamp's subject by its body's nodeLanded(fixAt) over NODE_LAND_WINDOW (before its pulse and its mend),
+ * on any other body at its fixAt over NODE_FIX_WINDOW (with its mend); a builder or a moon mote on
+ * `net.growth` within its body's [born, born + dur], where its shell wraps outward from its stream's arrival side (a moon's: all at once, at the moon's birth).
  * `normal` is the mote's lattice normal as spun at the ambient.
  */
 export function bodyMoteSettle(a: BodyMoteAttrs, normal: Vec3, c: BodyClocks, data: BodyData): { settle: number; clock: number; window: number } {
-  if (a.role === NodeRole.Person) return { settle: bodyTexel(data.bodies, 4, a.row)[0], clock: c.fix, window: NODE_FIX_WINDOW };
+  if (a.role === NodeRole.Person) {
+    const fixAt = bodyTexel(data.bodies, 4, a.row)[0];
+    // On the planet lamp's subject the gold is home before its pulse and its mend (the author on v25);
+    // everywhere else (the sweep, seen from afar) it lands with the mend, as it always has.
+    return planetLampSubject(a.row, c, data)
+      ? { settle: nodeLanded(fixAt), clock: c.fix, window: NODE_LAND_WINDOW }
+      : { settle: fixAt, clock: c.fix, window: NODE_FIX_WINDOW };
+  }
   const [, , born, dur] = bodyTexel(data.bodies, 3, a.row);
   let arrival: Vec3 = [0, 1, 0];
   if (a.host >= 0) {
@@ -600,8 +628,10 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
   const self = star ? star.brightness * starDot(a.index, a.seed).gain * starBreath(star, t) : 1;
   // A planet's or moon's shell mote: its terminator on its rest normal (the person's dust is unshaded).
   const shade = person ? 1 : bodyShade(row, normal, Math.max(hi, surge), t, c, data);
+  // The fix's gold pulse on the focused piece, between the landing and the mend.
+  const pulse = fixPulse(row, c, data);
   const brightness =
-    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * leakLight * c.show * lamp * el * look.gain * focusGain(row, c, data) * self * shade;
+    (mix(1 / NODE_SETTLED_BRIGHTNESS, 1, tt) + NODE_FLARE_GAIN * flare) * (1 + NODE_HI_GAIN * hi + surge) * (1 + SCATTER_OUT_GAIN * k) * leakLight * c.show * lamp * el * look.gain * focusGain(row, c, data) * self * shade * (1 + FIX_PULSE.gain * pulse);
   return {
     pos,
     normal,
@@ -609,7 +639,7 @@ export function bodyMote(a: BodyMoteAttrs, c: BodyClocks, data: BodyMoteData): B
     visible: c.show > 0 && clock >= settle - window && lamp > 0 && el >= LOD_VISIBLE && look.gain > 0,
     settled: tt,
     hi: Math.max(hi, surge),
-    warm: person ? 1 : light.fix * (kind === BODY_KIND.moon ? BODY_WARM_MOON : BODY_WARM),
+    warm: person ? 1 : Math.max(light.fix * (kind === BODY_KIND.moon ? BODY_WARM_MOON : BODY_WARM), FIX_PULSE.warm * pulse),
     tint: look.tint,
     offPx: look.offPx,
   };

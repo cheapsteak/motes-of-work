@@ -17,6 +17,20 @@ vec3 nodeLight(float fixAt, float hiAt, float hop, float fix, float highlight) {
   return vec3(f, hi, surge);
 }
 
+// Where on net.fix the person's motes of a body fixed at fixAt are home (light.ts nodeLanded):
+// NODE_PULSE_WINDOW + NODE_FIX_WINDOW before it, so the gold lands, then pulses, then the mend begins.
+float nodeLanded(float fixAt) {
+  return fixAt - NODE_FIX_WINDOW - NODE_PULSE_WINDOW;
+}
+
+// The fix's pulse at fix (light.ts nodePulse): 16 u^2 (1 - u)^2, u the way through NODE_PULSE_WINDOW
+// from nodeLanded: up to 1 half way, 0 at both ends.
+float nodePulse(float fixAt, float fix) {
+  float u = clamp((fix - nodeLanded(fixAt)) / NODE_PULSE_WINDOW, 0.0, 1.0);
+  float w = u * (1.0 - u);
+  return 16.0 * w * w;
+}
+
 // Step 2's landing time for something built at `birth` (0..1) of its body's duration, on growth.
 float nodeSettle(float born, float dur, float birth) {
   return born + dur * birth;

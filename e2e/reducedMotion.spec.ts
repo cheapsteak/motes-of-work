@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { PNG } from 'pngjs';
 import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../src/config';
 import { AMBIENT_POSE } from '../src/galaxy/ambient';
 import { galaxyTier } from '../src/galaxy/background';
@@ -239,6 +240,12 @@ test.describe('reduced motion', { tag: FULL_ONLY }, () => {
       await page.waitForTimeout(GAP_MS);
       return grab(page);
     }
+    // The fix's stills (the author on v25), measured on a phone (SwiftShader, DPR 1, n 3000), blue-dominant
+    // px: 2,090 with the gold home (0.374), 748 glowing (0.381), 2,138 once the glow is gone (0.388): the
+    // glowing frame's share of each, 0.358 and 0.350, so a ceiling of 0.6 (the higher / 0.6). Lit px: 6,742
+    // before the mend (0.388) and 5,628 mended (0.404), a drop of 1,114, so a floor of 668 (0.6 x).
+    const GLOW_BLUE_MAX = 0.6;
+    const MEND_DROP = 668;
     const noFlash = `&state=${encodeURIComponent(JSON.stringify({ freeze: { flash: 0 } }))}`;
 
     test('no flash under reduced motion: the cut at 0.261 is the 0.2605 frame with the flash forced 0', async ({ page }) => {
@@ -250,6 +257,39 @@ test.describe('reduced motion', { tag: FULL_ONLY }, () => {
       const live = await cut(page, 'no-preference', 0.261);
       const liveOff = await cut(page, 'no-preference', 0.261, noFlash);
       expect(live === liveOff, 'the flash did not show without reduced motion').toBe(false);
+    });
+
+    test('the fix in order as stills: the gold home, then the piece glowing, then mended (the author on v25)', async ({ page }) => {
+      // Under reduced motion the ambient stands at the pose and every term of the fix is on the scroll, so a
+      // hand-scrolled reader sees the order as stills: at defect 0.374 the warm motes are home and the piece
+      // does not glow yet; at 0.381 it glows gold (the pulse's peak); at 0.404 it is mended, the glow gone
+      // and the bursts with it (they retract with the mend). The glow turns the cyan piece gold, so its
+      // blue-dominant px fall and come back before the mend (amber-hued px do not tell it: at n 3000 the
+      // warm motes, drawn large, are most of those, and a mended moon is tinted warm by design); the mend
+      // takes the bursts and the flung dots, so the lit px fall.
+      const read = async (local: number) => {
+        await cut(page, 'reduce', local);
+        // A screenshot, not the canvas's own read: toDataURL outside the frame reads a cleared buffer.
+        const png = PNG.sync.read(await page.locator('#stage').screenshot());
+        let blue = 0;
+        let lit = 0;
+        for (let i = 0; i < png.width * png.height; i++) {
+          const [r, g, b] = [png.data[i * 4], png.data[i * 4 + 1], png.data[i * 4 + 2]];
+          if (b > 0x12 + 24 && b > r + 40) blue++;
+          if (Math.abs(r - 0x0b) > 24 || Math.abs(g - 0x0d) > 24 || Math.abs(b - 0x12) > 24) lit++;
+        }
+        return { blue, lit };
+      };
+      const landed = await read(0.374);
+      const glowing = await read(0.381);
+      const glowGone = await read(0.388);
+      const mended = await read(0.404);
+      const all = { landed, glowing, glowGone, mended };
+      console.log(`fix stills: ${JSON.stringify(all)}`);
+      expect(landed.lit, 'render is blank').toBeGreaterThan(1000);
+      expect(glowing.blue, 'the piece glows gold after the gold is home').toBeLessThan(GLOW_BLUE_MAX * landed.blue);
+      expect(glowing.blue, 'and the glow is gone before the mend begins').toBeLessThan(GLOW_BLUE_MAX * glowGone.blue);
+      expect(mended.lit, 'then it mends: the bursts and the flung dots gone').toBeLessThan(glowGone.lit - MEND_DROP);
     });
 
     test('no twos under reduced motion: the held frame (0.33) is the same 3 s later; without it, it breathes', async ({ page }) => {

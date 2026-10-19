@@ -7,7 +7,8 @@ import { AMBIENT_GRID, AMBIENT_POSE } from '../src/galaxy/ambient';
 import { canvasShot, openStage, readSpans, settle, targetScrollY } from './helpers';
 import { galaxyOf } from '../src/scene/node/galaxyOnScreen';
 import { machineOnScreen } from './machine';
-import { NODE_FIX_WINDOW } from '../src/scene/node/birth';
+import { NODE_FIX_WINDOW, NODE_LAND_WINDOW } from '../src/scene/node/birth';
+import { nodeLanded } from '../src/scene/node/light';
 import { pageOut } from '../src/story/reveal';
 
 // The machine keeps out of the text (docs/specs/2026-10-04-act-1-storyboard-and-text-engine.md §4
@@ -177,7 +178,8 @@ for (const viewport of [
     });
 
     test(`the freeze frame's dressed frames clear the text, its bursts counted (${size})`, async ({ page }) => {
-      // freeze-frame §4: at defect 0.33 (held, dressed, rolled) and 0.395 (the fix landing on it), at
+      // freeze-frame §4: at defect 0.33 (held, dressed, rolled), 0.381 (the fix's gold pulse at its peak,
+      // the author on v25) and 0.395 (the piece mending), at
       // every AMBIENT_GRID pose (the hold shows the pin at each), the topmost lit thing (the planet's
       // burst's top dash, rolled) is MARGIN under the panel. machineOnScreen counts the bursts' motes.
       const errors = await open(page);
@@ -187,7 +189,7 @@ for (const viewport of [
       const defect = story.find((s) => s.id === 'defect')!;
       const bottom = await panelBottom(page, defect);
       const tops: number[] = [];
-      for (const local of [0.33, 0.395]) {
+      for (const local of [0.33, 0.381, 0.395]) {
         const state = sampler.sample(defect.start + local * (defect.end - defect.start));
         expect(state.freeze.hold, `held at ${local}`).toBe(1);
         for (const ambient of AMBIENT_GRID) {
@@ -211,7 +213,9 @@ for (const viewport of [
       test.setTimeout(480_000);
       // A fix's warm motes fall onto its piece from above and all count as landed at the same
       // instant, half way through their window (net.fix = fixAt - NODE_FIX_WINDOW / 2), when they
-      // still stand above it: the highest they are counted. The page grid steps over it.
+      // still stand above it: the highest they are counted. The page grid steps over it. C1's, the
+      // planet lamp's subject at its fix, land before its pulse and its mend (the author on v25):
+      // half way through NODE_LAND_WINDOW before nodeLanded(fixAt) (bodyMote.ts bodyMoteSettle).
       const errors = await open(page);
       const story = await sections(page);
       const spans = await readSpans(page);
@@ -221,7 +225,9 @@ for (const viewport of [
       );
       const fixes = galaxyOf()
         .g.bodies.filter((b) => b.kind !== 'moon')
-        .flatMap((n) => (n.fixAt === null ? [] : [{ id: n.id, onset: n.fixAt - NODE_FIX_WINDOW / 2 }]));
+        .flatMap((n) =>
+          n.fixAt === null ? [] : [{ id: n.id, onset: n.id === 'C1' ? nodeLanded(n.fixAt) - NODE_LAND_WINDOW / 2 : n.fixAt - NODE_FIX_WINDOW / 2 }],
+        );
       let checked = 0;
       const ids = new Set<string>();
       for (const [si, s] of story.entries()) {

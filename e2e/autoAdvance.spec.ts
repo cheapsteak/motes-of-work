@@ -97,10 +97,11 @@ test('the defect’s first page stops where freeze-frame §1.1 has it: df-1 at 0
   expect(page7[2]).toBeGreaterThanOrEqual(leaves - STOP_MARGIN_SCREENS / 4.8 - px);
   expect(page7[2]).toBeLessThanOrEqual(leaves + REST_WINDOW_SCREENS / 4.8 + px);
   // The freeze frame (Task 12, freeze-frame §1.3): no stop on the cut and the dressing's snap, the fix
-  // landing on the held piece, or the release.
+  // on the held piece (its landing from 0.36, its pulse and its mend to 0.404: the author on v25), or the
+  // release. The fix's span starts at 0.362, past df-2's stop (0.358 by its own check above).
   for (const [a, b] of [
     [0.26, 0.292],
-    [0.37, 0.405],
+    [0.362, 0.405],
     [0.405, 0.421],
   ])
     for (const l of page7) expect(l >= a - px && l <= b + px, `a stop at ${l.toFixed(4)} inside [${a}, ${b}]`).toBe(false);

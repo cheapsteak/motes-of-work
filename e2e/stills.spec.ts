@@ -153,8 +153,10 @@ const STILLS: Still[] = [
   ).map(([name, section, local]) => ({ tag: 'T11', name, query: '&mech=bike', at: { section, local } })),
   { tag: 'T11', name: 're-3-a101', query: '&mech=bike&ambient=101', at: { section: 'reviewer', local: 0.88 } },
   // The freeze frame (Task 12), through the defect's close-up as the mock's strip has it: live before the
-  // cut, the cut (its flash is off in test mode), the dressing coming in, dressed, held, the bursts
-  // part-way retracted (v 0.26), the fix landing, the release and the mended rest; and the held frame under reduced motion (the stage emulates it).
+  // cut, the cut (its flash is off in test mode), the dressing coming in, dressed, held, the fix's gold
+  // landing, the piece glowing, the bursts part-way retracted as it mends (v 0.26), near mended (the
+  // author on v25: lands, then glows, then mends), the release and the mended rest; and the held frame
+  // under reduced motion (the stage emulates it).
   ...(
     [
       ['0.250-live', 0.25],
@@ -162,8 +164,10 @@ const STILLS: Still[] = [
       ['0.272', 0.272],
       ['0.292-dressed', 0.292],
       ['0.330-held', 0.33],
-      ['0.390-retracting', 0.39],
-      ['0.395-fix', 0.395],
+      ['0.367-landing', 0.367],
+      ['0.381-glowing', 0.381],
+      ['0.399-retracting', 0.3987],
+      ['0.401-fix', 0.4013],
       ['0.413-release', 0.413],
       ['0.437-mended', 0.437],
     ] as const
@@ -343,7 +347,7 @@ const STILLS: Still[] = [
       ['0.250-live', 0.25],
       ['0.292-dressed', 0.292],
       ['0.330-held', 0.33],
-      ['0.390-retracting', 0.39],
+      ['0.399-retracting', 0.3987],
       ['0.413-release', 0.413],
       ['0.437-mended', 0.437],
     ] as const

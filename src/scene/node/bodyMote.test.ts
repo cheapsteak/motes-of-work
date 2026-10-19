@@ -4,13 +4,18 @@ import { MOTE_BUDGET_DESKTOP, MOTE_SEED } from '../../config';
 import { AMBIENT_POSE, FREEZE_PINS, pinnedMoon } from '../../galaxy/ambient';
 import { bodyIndex, galaxyBudget, generateGalaxy, type Body } from '../../galaxy/generate';
 import type { Vec3 } from '../../math/vec';
-import { Lamp } from '../../timeline/netTrack';
+import { Lamp, lampFocusRow } from '../../timeline/netTrack';
+import { sectionSpans } from '../../scroll/progress';
+import { loadStory } from '../../story/loader';
+import { KeyframeSampler, type KeyframeFile } from '../../timeline/keyframeSampler';
+import keyframes from '../../timeline/keyframes.json';
 import {
   BODY_MOTE_CONSTANTS,
   BURST_JITTER,
   EQ_A,
   EQ_SECOND,
   FOCUS_GAIN,
+  FIX_PULSE,
   FREEZE_COPY_GAIN,
   FREEZE_DIM,
   FREEZE_GREY,
@@ -24,6 +29,8 @@ import {
   NODE_BIRTH_WINDOW,
   NODE_FIX_WINDOW,
   NODE_HI_WINDOW,
+  NODE_LAND_WINDOW,
+  NODE_PULSE_WINDOW,
   NodeRole,
   SCATTER_MOON_CAP,
 } from './birth';
@@ -32,10 +39,12 @@ import {
   bodyCentre,
   bodyDerp,
   bodyLeak,
+  bodyLight,
   bodyMote,
   bodyMoteFlight,
   bodyMoteSettle,
   bodyShellEvent,
+  fixPulse,
   focusDerp,
   focusGain,
   focusScatter,
@@ -58,6 +67,7 @@ import { LOD_BANDS, LodElement } from './lod';
 import { bodyWorld, elementsAt, orbitLocal, orbitTurns } from './orbit';
 import { moteHashes, shellSeed, shellWarp, shellWarpLeak, spinShell } from './shell';
 import { streamControl } from './stream';
+import { nodeLanded, nodePulse } from './light';
 import { PLANET_LOOK } from './classLook';
 import { lightDir, terminator } from './terminator';
 
@@ -296,15 +306,30 @@ describe('the light', () => {
     expect(bodyMote(p, clocks({ fix: 1 }), data).warm).toBe(1);
   });
 
-  it('person motes fall on net.fix and land on their host’s sphere', () => {
+  it('person motes fall on net.fix and land on their host’s sphere before the mend begins', () => {
+    // The author on v25: the gold lands first, then the piece glows, then it mends. The landing ends
+    // NODE_PULSE_WINDOW + NODE_FIX_WINDOW before fixAt, where the mend (nodeLight's fix) has not begun.
+    // That order is the planet lamp's subject's (the close-up); any other body, seen from afar in the
+    // sweep, lands its motes with its mend, over NODE_FIX_WINDOW up to its fixAt, as before.
     const c1 = byId('C1');
     const data = dataAt(0);
+    const lit = { lamp: Lamp.Planet, lampRow: c1.index, focus: 1 };
+    const landed = nodeLanded(f32(c1.fixAt!));
+    expect(landed).toBeCloseTo(c1.fixAt! - NODE_FIX_WINDOW - NODE_PULSE_WINDOW, 6);
+    expect(landed - NODE_LAND_WINDOW).toBeGreaterThan(0);
     for (const a of motesOf(persons, c1.index)) {
-      expect(bodyMote(a, clocks({ fix: c1.fixAt! - NODE_FIX_WINDOW - 1e-6 }), data).visible).toBe(false);
-      const o = bodyMote(a, clocks({ fix: f32(c1.fixAt!) }), data);
+      expect(bodyMote(a, clocks({ fix: landed - NODE_LAND_WINDOW - 1e-6, ...lit }), data).visible).toBe(false);
+      const o = bodyMote(a, clocks({ fix: landed, ...lit }), data);
       expect(o.visible).toBe(true);
+      expect(o.settled).toBe(1);
       expect(Math.abs(dist(o.pos, bodyWorld(data, c1.index, 0)) - f32(c1.R))).toBeLessThan(1e-7);
+      // Off the planet lamp: the window before fixAt, as before.
+      expect(bodyMote(a, clocks({ fix: c1.fixAt! - NODE_FIX_WINDOW - 1e-6 }), data).visible).toBe(false);
+      expect(bodyMote(a, clocks({ fix: landed }), data).settled).toBeLessThan(1);
+      const home = bodyMote(a, clocks({ fix: f32(c1.fixAt!) }), data);
+      expect(Math.abs(dist(home.pos, bodyWorld(data, c1.index, 0)) - f32(c1.R))).toBeLessThan(1e-7);
     }
+    expect(bodyLight(c1.index, { fix: landed, highlight: 0 }, base).fix).toBe(0);
   });
 });
 
@@ -570,24 +595,157 @@ describe('the focused piece under the planet lamp', () => {
     expect(hexToRgb('#4DA3FF')[0] * FOCUS_GAIN).toBeLessThan(1);
   });
 
-  it('holds its planet on its orbit as the focus comes up (its scatter stays), and leaves its moons their derps', () => {
+  it('holds its planet and its moons on their paths at every focus (their scatters stay), the moons’ held pose kept while the freeze holds', () => {
+    // The author on v25: the piece "pulled back ... on a rubber bed ... snaps back with a wobble" (the
+    // skip, on the planet as the focus comes up and on all six moons at once, R0's seed being theirs), and
+    // the moons "wobble around" while the scatter, the leak and the dropout play. Under the planet lamp the
+    // piece's orbit derps are gone at every focus; its defect is its shell's.
     const sys = motesOf(shells, C1)[0].sys;
-    // Some ambient where C1 derps on its orbit.
-    const t = Array.from({ length: 2000 }, (_, i) => i * 0.3).find((x) => Math.abs(bodyDerp(C1, sys, clocks({ ambient: x }), base).dR) > 0.1)!;
-    expect(t).toBeDefined();
-    const free = bodyDerp(C1, sys, clocks({ ambient: t, ...lamp(0) }), base);
-    const held = bodyDerp(C1, sys, clocks({ ambient: t, ...lamp(1) }), base);
-    const half = bodyDerp(C1, sys, clocks({ ambient: t, ...lamp(0.5) }), base);
-    expect(Math.abs(free.dR)).toBeGreaterThan(0.1);
-    expect([held.dNu, held.dR, held.lift, ...held.wobble, held.orbitT, held.ghost].every((x) => x === 0)).toBe(true);
-    expect(half.dR).toBeCloseTo(free.dR / 2, 12);
-    expect(dist(bodyCentre(C1, held, t, base), bodyWorld(base, C1, t))).toBeLessThan(1e-9);
-    // A scatter is its shell's: it keeps its clock.
-    const ts = Array.from({ length: 4000 }, (_, i) => i * 0.137).find((x) => bodyDerp(C1, sys, clocks({ ambient: x }), base).scatterS >= 0)!;
-    expect(bodyDerp(C1, sys, clocks({ ambient: ts, ...lamp(1) }), base).scatterS).toBe(bodyDerp(C1, sys, clocks({ ambient: ts }), base).scatterS);
-    // Its moons keep theirs.
-    for (const tt of [t, ts]) expect(bodyDerp(moon, sys, clocks({ ambient: tt, ...lamp(1) }), base)).toEqual(bodyDerp(moon, sys, clocks({ ambient: tt }), base));
+    const orbitTerms = (d: ReturnType<typeof bodyDerp>) => [d.dNu, d.dR, d.lift, ...d.wobble, d.orbitT, d.ghost, d.ghostNu];
+    const derping = (row: number) => Array.from({ length: 2000 }, (_, i) => i * 0.3).find((x) => Math.abs(bodyDerp(row, sys, clocks({ ambient: x }), base).dR) > 0.01)!;
+    for (const row of [C1, ...g.bodies.filter((b) => b.kind === 'moon' && b.host === C1).map((b) => b.index)]) {
+      const t = derping(row);
+      expect(t, g.bodies[row].id).toBeDefined();
+      const free = bodyDerp(row, sys, clocks({ ambient: t }), base);
+      expect(Math.abs(free.dR)).toBeGreaterThan(0.01);
+      for (const focus of [0, 0.25, 0.5, 0.75, 1]) {
+        const held = bodyDerp(row, sys, clocks({ ambient: t, ...lamp(focus) }), base);
+        expect(orbitTerms(held).every((x) => x === 0), `${g.bodies[row].id} at focus ${focus}`).toBe(true);
+        expect(dist(bodyCentre(row, held, t, base), bodyCentre(row, { ...held, wobble: [0, 0, 0] }, t, base))).toBe(0);
+        expect(focusDerp(row, lamp(focus), base)).toBe(0);
+      }
+      // Off the planet lamp, nothing changes.
+      expect(bodyDerp(row, sys, clocks({ ambient: t, lamp: Lamp.Star, lampRow: C1, focus: 1 }), base)).toEqual(free);
+    }
+    // A scatter is its shell's: it keeps its clock, on the planet and on a moon.
+    for (const row of [C1, moon]) {
+      const ts = Array.from({ length: 4000 }, (_, i) => i * 0.137).find((x) => bodyDerp(row, sys, clocks({ ambient: x }), base).scatterS >= 0)!;
+      expect(bodyDerp(row, sys, clocks({ ambient: ts, ...lamp(0.4) }), base).scatterS).toBe(bodyDerp(row, sys, clocks({ ambient: ts }), base).scatterS);
+    }
+    // While the freeze holds, the moons keep their derp: the moon its pin caught off its path beside its
+    // ghost is the freeze's (at the pin, the only moon off its path); the planet keeps none.
+    const m = byId(FREEZE_PINS.C1.moon).index;
+    const pinned = bodyDerp(m, sys, clocks({ ambient: AMBIENT_POSE, ...lamp(1), holding: true }), base);
+    expect(pinned).toEqual(bodyDerp(m, sys, clocks({ ambient: AMBIENT_POSE }), base));
+    expect(Math.abs(pinned.dR) + Math.abs(pinned.dNu)).toBeGreaterThan(0);
+    expect(focusDerp(m, { ...lamp(1), holding: true }, base)).toBe(1);
+    expect(focusDerp(C1, { ...lamp(1), holding: true }, base)).toBe(0);
     expect(focusDerp(away, lamp(1), base)).toBe(1);
+  });
+});
+
+// ---- The defect beat as keyed (the author's notes on the published v25) ----
+
+describe('the defect beat in the keys (the author on v25)', () => {
+  const spans = sectionSpans(loadStory());
+  const sampler = new KeyframeSampler(keyframes as unknown as KeyframeFile, spans);
+  const span = spans.find((x) => x.id === 'defect')!;
+  const stateAt = (local: number) => sampler.sample(span.start + local * (span.end - span.start));
+  const C1 = bodyIndex(g, 'C1');
+  const pieceRows = [C1, ...g.bodies.filter((b) => b.kind === 'moon' && b.host === C1).map((b) => b.index)];
+  const sys = motesOf(shells, C1)[0].sys;
+  /** The clocks a frame at defect `local` hands bodyMote (galaxyOnScreen.ts visibleGalaxy's), at ambient `t`. */
+  const keyed = (local: number, t: number): BodyClocks => {
+    const s = stateAt(local);
+    const holding = s.freeze.hold >= 0.5 && s.net.focus > 0;
+    return clocks({
+      growth: s.net.growth,
+      fix: s.net.fix,
+      highlight: s.net.highlight,
+      show: s.net.show,
+      ambient: holding ? AMBIENT_POSE : t,
+      focus: s.net.focus,
+      lamp: Math.round(s.net.lamp),
+      lampRow: lampFocusRow(s.net.lampAt, g),
+      holding,
+      forcedScatter: holding && FREEZE_PINS.C1.path !== 'full' ? C1 : -1,
+    });
+  };
+
+  it('keeps the piece on its paths from the dive to the cut: no elastic skip, no moon wobble, against the twin', () => {
+    // df-1 at 30 fps over 15 s of the ambient (95-110 s: the six moons reverse, burst, wobble and skip
+    // together there, R0's seed being theirs), from the dive's landing through the push-in (focus 0 to 1,
+    // the planet on its own schedule until FOCUS_SCATTER) to the cut at 0.2605. Every body of the piece is
+    // where its path puts it (bodyCentre with no derp), to the bit; off the lamp the same frames derp.
+    const LOCALS = [0.01, 0.04, 0.08, 0.12, 0.16, 0.2, 0.22, 0.25];
+    let moved = 0;
+    for (const local of LOCALS)
+      for (let f = 0; f < 15 * 30; f++) {
+        const t = 95 + f / 30;
+        const c = keyed(local, t);
+        expect(c.holding).toBe(false);
+        for (const row of pieceRows) {
+          const d = bodyDerp(row, sys, c, base);
+          const onPath = bodyCentre(row, { ...d, dNu: 0, dR: 0, lift: 0, wobble: [0, 0, 0], orbitT: 0 }, t, base);
+          expect(dist(bodyCentre(row, d, t, base), onPath), `${g.bodies[row].id} at ${local}, ${t}`).toBe(0);
+          if (local === 0.22) {
+            const free = bodyDerp(row, sys, { ...c, lamp: Lamp.Off }, base);
+            if (dist(bodyCentre(row, free, t, base), onPath) > 0.05 * g.bodies[row].R) moved++;
+          }
+        }
+      }
+    // Not vacuous: unlit, the same moons are off their paths in many of these frames.
+    expect(moved).toBeGreaterThan(100);
+  });
+
+  it('lands the fix, then glows, then mends, in that order on the scroll (df-2b)', () => {
+    // The landing's end ≤ the pulse's start < its peak < the mend's start, each read off the twin at every
+    // 0.0005 of defect progress over df-2b: the person's motes on the piece all settled, fixPulse up, and
+    // nodeLight's fix (the mend: v = 1 − fix) begun, on C1 and on each of its moons.
+    const STEP = 0.0005;
+    const locals = Array.from({ length: Math.round((0.43 - 0.35) / STEP) + 1 }, (_, k) => 0.35 + k * STEP);
+    const data = dataAt(AMBIENT_POSE);
+    const motes = persons.count > 0 ? pieceRows.flatMap((row) => motesOf(persons, row)) : [];
+    expect(motes.length).toBeGreaterThan(100);
+    const first = (ok: (l: number) => boolean) => locals.find(ok) ?? Infinity;
+    const visibleAt = (l: number) => motes.some((a) => bodyMote(a, keyed(l, 101), data).visible);
+    const landedAt = (l: number) => motes.every((a) => bodyMote(a, keyed(l, 101), data).settled === 1);
+    const landFrom = first(visibleAt);
+    const landEnd = first(landedAt);
+    for (const row of pieceRows) {
+      const pulse = (l: number) => fixPulse(row, keyed(l, 101), base);
+      const mend = (l: number) => bodyLight(row, keyed(l, 101), base).fix;
+      const pulseStart = first((l) => pulse(l) > 0);
+      const peak = locals.reduce((best, l) => (pulse(l) > pulse(best) ? l : best), locals[0]);
+      const pulseEnd = first((l) => l > peak && pulse(l) === 0);
+      const mendStart = first((l) => mend(l) > 0);
+      const mended = first((l) => mend(l) === 1);
+      const release = first((l) => stateAt(l).freeze.hold < 0.5 && l > 0.3);
+      const id = g.bodies[row].id;
+      expect(landFrom, id).toBeGreaterThanOrEqual(0.36); // not before "So you fix it." comes up
+      expect(landEnd, id).toBeLessThanOrEqual(pulseStart);
+      expect(pulseStart, id).toBeLessThan(peak);
+      expect(peak, id).toBeLessThan(mendStart);
+      expect(pulseEnd, id).toBeLessThanOrEqual(mendStart); // it rises and falls before the mend
+      expect(pulse(peak), id).toBeGreaterThan(0.99);
+      expect(mended, id).toBeLessThan(release); // mended inside the held frame, as before
+      // The pulse spans 0.014 of defect progress (0.374-0.388, peak 0.381): 18 % of df-2b from its
+      // line (0.36) to its stop (0.437), about a fifth.
+      expect(pulseEnd - pulseStart, id).toBeGreaterThan(0.01);
+    }
+  }, 60_000);
+
+  it('glows the piece gold, and nothing else, by the pulse', () => {
+    const away = g.bodies.find((b) => b.kind === 'planet' && b.index !== C1)!.index;
+    const c1 = byId('C1');
+    const peak = nodeLanded(c1.fixAt!) + NODE_PULSE_WINDOW / 2;
+    expect(nodePulse(c1.fixAt!, peak)).toBeCloseTo(1, 9);
+    expect(nodePulse(c1.fixAt!, nodeLanded(c1.fixAt!))).toBe(0);
+    expect(nodePulse(c1.fixAt!, nodeLanded(c1.fixAt!) + NODE_PULSE_WINDOW)).toBeCloseTo(0, 9);
+    const at = (c: Partial<BodyClocks>) => clocks({ ambient: AMBIENT_POSE, fix: peak, lamp: Lamp.Planet, lampRow: C1, focus: 1, ...c });
+    for (const row of pieceRows) expect(fixPulse(row, at({}), base)).toBeCloseTo(1, 9);
+    expect(fixPulse(C1, at({ focus: 0.5 }), base)).toBeCloseTo(0.5, 9);
+    expect(fixPulse(away, at({}), base)).toBe(0);
+    expect(fixPulse(C1, at({ lamp: Lamp.Star }), base)).toBe(0);
+    // A shell mote at the peak: FIX_PULSE.gain brighter and at least FIX_PULSE.warm toward the amber;
+    // just before the pulse, its own light.
+    const data = dataAt(AMBIENT_POSE);
+    const a = motesOf(shells, C1)[5];
+    const lit = bodyMote(a, at({}), data);
+    const before = bodyMote(a, at({ fix: nodeLanded(c1.fixAt!) - 1e-6 }), data);
+    expect(lit.brightness).toBeCloseTo(before.brightness * (1 + FIX_PULSE.gain), 9);
+    expect(lit.warm).toBeCloseTo(FIX_PULSE.warm, 9);
+    expect(before.warm).toBe(0);
   });
 });
 
@@ -611,7 +769,7 @@ describe('the forced scatter (re-skin Task 8b)', () => {
           }
   });
 
-  it('makes every slot of its planet a scatter, and leaves its moons and every other body their own schedule', () => {
+  it('makes every slot of its planet a scatter, and leaves its moons their own scatters and every other body its own schedule', () => {
     const moon = g.bodies.find((b) => b.kind === 'moon' && b.host === C1)!.index;
     const c = (t: number) => clocks({ ambient: t, lamp: Lamp.Planet, lampRow: C1, focus: 1 });
     let scatters = 0;
@@ -621,7 +779,8 @@ describe('the forced scatter (re-skin Task 8b)', () => {
       const d = bodyDerp(C1, sys, c(t), base);
       expect(d.scatterS).toBe(ev.active ? ev.s * 1 : -1);
       if (d.scatterS >= 0) scatters++;
-      expect(bodyDerp(moon, sys, c(t), base)).toEqual(bodyDerp(moon, sys, clocks({ ambient: t }), base));
+      // A moon keeps its own schedule's scatters (its shell's); its orbit derp is held (focusDerp).
+      expect(bodyDerp(moon, sys, c(t), base).scatterS).toBe(bodyDerp(moon, sys, clocks({ ambient: t }), base).scatterS);
       for (const row of cracked.slice(0, 3)) expect(bodyDerp(row, sys, c(t), base)).toEqual(bodyDerp(row, sys, clocks({ ambient: t }), base));
     }
     // A scatter in every slot: its event runs 1 s of every 2.2.

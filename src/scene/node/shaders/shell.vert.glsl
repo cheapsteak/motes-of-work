@@ -111,10 +111,12 @@ void main() {
     vec3 centre = bodyCentre(row, bodyDerp(row, sys), uAmbient);
     vec3 light = bodyLight(row);
     float hi = max(light.y, light.z);
-    float warm = light.x * (kind == KIND_MOON ? BODY_WARM_MOON : BODY_WARM);
+    // The fix's gold pulse on the focused piece (bodyMote.glsl fixPulse), as on its shell motes.
+    float pulse = fixPulse(row);
+    float warm = max(light.x * (kind == KIND_MOON ? BODY_WARM_MOON : BODY_WARM), FIX_PULSE_WARM * pulse);
     // The freeze frame: a glow outside the held piece dims and greys; a held point is copied (none else).
     FreezeLook look = freezeLook(row, 1.0 - light.x);
-    float gain = (look.gain > 0.0 ? bodyPresence(row) * lampGain(row) * uShow * focusGain(row) : 0.0) * real;
+    float gain = (look.gain > 0.0 ? bodyPresence(row) * lampGain(row) * uShow * (1.0 + FIX_PULSE_GAIN * pulse) * focusGain(row) : 0.0) * real;
     vec4 view = toView(centre);
     if (role == ROLE_GLOW) {
       float focal = 0.5 * uViewport.y * projectionMatrix[1][1] / uPixelRatio;

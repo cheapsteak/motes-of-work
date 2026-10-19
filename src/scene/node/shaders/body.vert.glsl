@@ -93,8 +93,10 @@ void main() {
   // The held planet's scatter haze (re-skin §4.5): its fill halved while the freeze holds its scatter out.
   vFill = PLANET_FILL * heldFill(row, d.scatterS);
   vHi = max(light.y, light.z);
-  vGain = gain * uShow * (1.0 + BODY_HI_GAIN * vHi) * look.gain * focusGain(row);
-  vWarm = light.x * (moon ? BODY_WARM_MOON : BODY_WARM);
+  // The fix's gold pulse on the focused piece (bodyMote.glsl fixPulse), as on its shell motes.
+  float pulse = fixPulse(row);
+  vGain = gain * uShow * (1.0 + BODY_HI_GAIN * vHi) * look.gain * focusGain(row) * (1.0 + FIX_PULSE_GAIN * pulse);
+  vWarm = max(light.x * (moon ? BODY_WARM_MOON : BODY_WARM), FIX_PULSE_WARM * pulse);
   vTint = look.tint;
   vDrop = planetLampSubject(row) ? 1.0 : 0.0;
 }

@@ -182,7 +182,8 @@ test('GLSL freezeCopy(), freezeLimb(), freezeTick() and freezeScatterFill() matc
 });
 
 // The galaxy's motes in motion, bodyMote() (`?lib=body`): C1 mid-build; C1 and its moons under the
-// close shot's lamp, lit, and with the fix landing (the person motes in flight); P1 lit under the lamp
+// close shot's lamp, lit, mending, and at full focus with the fix's gold landing (the person motes in
+// flight) and its gold pulse (the author on v25: lands, glows, then mends); P1 lit under the lamp
 // at full focus; C7 at its fix in the sweep (R0 until the re-skin's Task 5: the core rows draw nothing);
 // and 64 motes hashed from every shell and person mote of the galaxy, each system at its own level of
 // detail, and the same 64 under the planet, star, core and lineage lamps (nearly all of them dark), and
@@ -196,7 +197,9 @@ test('GLSL freezeCopy(), freezeLimb(), freezeTick() and freezeScatterFill() matc
 const BODY_CASES = [
   'C1 building',
   'C1 and its moons, defect close',
-  'C1 and its moons, the fix landing',
+  'C1 and its moons, mending',
+  'C1 and its moons, the gold landing',
+  'C1 and its moons, the gold pulse',
   'P1, defect close',
   'P_a, its dots in flight',
   'P_a, its dots landed',
@@ -252,11 +255,11 @@ test('GLSL starDot(), starSpike(), starBreath() and starTint() match the TS refe
 
 /**
  * The freeze frame's held cases (freeze-frame §4): C1's piece held at the pin, its scatter forced, the
- * fix not begun (defect 0.33) and landing, mid-retraction (0.39). At the pin only: the hold shows nothing else.
+ * fix not begun (defect 0.33) and mending, mid-retraction (0.3987). At the pin only: the hold shows nothing else.
  * The pin stands half a tick of C1-m5's burst jitter off a cut (ambient.ts), so the TS twin and the
  * GLSL agree there at the very ambient: no sample needs the time shift.
  */
-const HELD_CASES = ['defect 0.33, C1 held', '0.39, C1 held and fixing'].map((c) => `body: ${c} at the pose`);
+const HELD_CASES = ['defect 0.33, C1 held', '0.399, C1 held and mending'].map((c) => `body: ${c} at the pose`);
 /** The leak on the focused planet (re-skin Task 8b): C1 at full focus, its forced slot 45 curving out (99.45 s) and lingering (100.2 s). */
 const LEAK_BODY_CASES = ['99.45 s', '100.2 s'].map((at) => `body: C1 leaking, focused at ${at}`);
 /** The terminator (re-skin Task 7): N0 under its planet lamp and its moon N0-m4, each at three phases of its orbit (bodyCases.ts). */

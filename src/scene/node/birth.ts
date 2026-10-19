@@ -6,8 +6,18 @@
 
 /** A builder mote sets out this far (on `net.growth`) before it lands, as a mote's settle window. */
 export const NODE_BIRTH_WINDOW = 0.012;
-/** A person mote sets out this far (on `net.fix`) before its body's fix lands. */
+/** A body's fix (its mend: nodeLight's `fix`, the derp's `v` 1 → 0) runs over this much of `net.fix`, up to its `fixAt`. */
 export const NODE_FIX_WINDOW = 0.03;
+/**
+ * The fix's order (the author on v25: "the yellow stuff should descend first ... glows yellow for a
+ * little bit, and then it should fix itself"), on `net.fix` before the planet lamp's subject's `fixAt`:
+ * the person's motes fall over NODE_LAND_WINDOW and are home NODE_PULSE_WINDOW + NODE_FIX_WINDOW
+ * before it (light.ts nodeLanded); the piece then glows gold over NODE_PULSE_WINDOW (nodePulse,
+ * FIX_PULSE); then it mends over NODE_FIX_WINDOW. No mending starts before the landing ends. Every
+ * other body (the sweep, seen from afar) keeps its motes landing with its mend over NODE_FIX_WINDOW.
+ */
+export const NODE_LAND_WINDOW = 0.025;
+export const NODE_PULSE_WINDOW = 0.02;
 /** A landing mote flares for this much of its clock either side of the landing. */
 export const NODE_FLARE_WIDTH = 0.004;
 /** The flare's brightness on top of the settled glow, at the instant of landing. */
@@ -76,6 +86,8 @@ export enum NodeRole {
 /** The constants light.glsl reads (the landing's window, the light, the surge, the ember mix). */
 const LIGHT_CONSTANT_LIST: readonly [string, number][] = [
   ['NODE_FIX_WINDOW', NODE_FIX_WINDOW],
+  ['NODE_LAND_WINDOW', NODE_LAND_WINDOW],
+  ['NODE_PULSE_WINDOW', NODE_PULSE_WINDOW],
   ['NODE_HI_WINDOW', NODE_HI_WINDOW],
   ['NODE_SURGE_FROM', NODE_SURGE_FROM],
   ['NODE_SURGE_PER_HOP', NODE_SURGE_PER_HOP],
@@ -489,17 +501,28 @@ export const LAMP_FLOOR = 0.3;
 /**
  * Under the planet lamp the subject (the piece the close shot holds) comes up toward the mocks' luminous
  * cyan by `net.focus` (the author, Task 12): its shell motes, points and bodies draw FOCUS_GAIN times as
- * bright at focus 1, the agents' blue saturating toward cyan on the screen blend, short of white. Its
- * planet holds still on its orbit there: its own orbit derp (all but the scatter, which its shell draws)
- * falls away with the focus, so the close-up frames it where the shot aims, its moons round it, and the
- * defect shows in its shell and its moons.
+ * bright at focus 1, the agents' blue saturating toward cyan on the screen blend, short of white. The
+ * piece holds still on its paths there (bodyMote.ts focusDerp; the author on v25, who found the skip's
+ * elastic snap and the moons' wobble silly): its planet's and its moons' orbit derps (all but the
+ * scatter, which their shells draw) are gone at every focus, so the close-up frames it where the shot
+ * aims, its moons round it, and the defect shows in its shell: the scatter, the leak and the dropout.
+ * While the freeze holds, its moons keep the derp the pin caught (the moon off its path beside its ghost).
  */
 export const FOCUS_GAIN = 2.5;
 /**
+ * The fix's pulse on the planet lamp's subject (bodyMote.ts fixPulse; the author on v25): at its peak
+ * the piece's shell motes, points and bodies are mixed FIX_PULSE.warm toward the person's amber and
+ * drawn 1 + FIX_PULSE.gain as bright, rising and falling over NODE_PULSE_WINDOW between the landing
+ * and the mend. The gain is below 1 on purpose: the piece stands at FOCUS_GAIN, where the amber
+ * brightened saturates to cream-white on the screen blend (0.85 and +0.8 read white on a phone); at half
+ * its light the amber reads gold.
+ */
+export const FIX_PULSE = { warm: 1, gain: -0.5 } as const;
+/**
  * The forced scatter's gate (re-skin Task 8b, the controller's ruling 1): while the planet lamp's
  * subject planet carries the defect and `net.focus` is over this, its derp is a scatter in every slot,
- * so the reader never waits for the first (bodyMote.ts focusScatter). Its orbit derp is mostly gone
- * there (focusDerp: 1 − focus), and its moons keep their own schedules.
+ * so the reader never waits for the first (bodyMote.ts focusScatter). Its orbit derp is gone there
+ * (focusDerp), and its moons keep their own schedules' scatters, their orbit derps held too.
  */
 export const FOCUS_SCATTER = 0.5;
 
@@ -526,6 +549,8 @@ const BODY_MOTE_CONSTANT_LIST: readonly [string, number][] = [
   ['BODY_WARM_MOON', BODY_WARM_MOON],
   ['LAMP_FLOOR', LAMP_FLOOR],
   ['FOCUS_GAIN', FOCUS_GAIN],
+  ['FIX_PULSE_WARM', FIX_PULSE.warm],
+  ['FIX_PULSE_GAIN', FIX_PULSE.gain],
   ['SCATTER_OUT_GAIN', SCATTER_OUT_GAIN],
   ['SCATTER_MOON_CAP', SCATTER_MOON_CAP],
   ['SCATTER_AMP_MAX', SCATTER_AMP[0] + SCATTER_AMP[1]],

@@ -431,18 +431,19 @@ for (const size of FREEZE_SIZES) {
       expect([live.moon, live.planet]).toEqual([expect.any(Number), expect.any(Number)]);
       expect(live.moon).toBeLessThanOrEqual(8);
       expect(live.planet).toBeLessThanOrEqual(8);
-      // Mid-retraction (v 0.26 at 0.39: the fix runs 0.37-0.40 on C1): some dashes still stand, fewer than
-      // held, and the planet's ring has come in with its shell.
-      const fixing = await counts(0.39);
-      const fixingFrame = await defectFrame(page, 0.39, ticksOnly);
-      note('bursts at 0.39', `moon ${fixing.moon}, planet ${fixing.planet}, twin ${fixing.twin} of ${held.twin.ticks.length}`);
+      // Mid-retraction (v 0.26 at 0.3987: C1 mends over 0.388-0.404, after its gold lands and glows, the
+      // author on v25; v was 0.26 at 0.39 when the mend ran 0.37-0.40): some dashes still stand, fewer
+      // than held, and the planet's ring has come in with its shell.
+      const fixing = await counts(0.3987);
+      const fixingFrame = await defectFrame(page, 0.3987, ticksOnly);
+      note('bursts at 0.3987', `moon ${fixing.moon}, planet ${fixing.planet}, twin ${fixing.twin} of ${held.twin.ticks.length}`);
       expect(fixing.twin, 'some dashes still stand').toBeGreaterThan(0);
       expect(fixing.twin, 'fewer than held').toBeLessThan(held.twin.ticks.length);
       expect(fixing.moon + fixing.planet, 'and draw').toBeGreaterThan(0);
       expect(fixing.moon).toBeLessThan(moonLit);
       expect(fixing.planet).toBeLessThan(planetLit);
       expect(annuli(fixingFrame.twin).inner / fixingFrame.twin.planet.r, 'the ring in toward the shell').toBeLessThan(a.inner / held.twin.planet.r);
-      for (const l of [0.4, 0.437]) {
+      for (const l of [0.404, 0.437]) {
         const done = await counts(l);
         expect(done.moon, `moon at ${l}`).toBeLessThanOrEqual(8);
         expect(done.planet, `planet at ${l}`).toBeLessThanOrEqual(8);
@@ -469,7 +470,7 @@ for (const size of FREEZE_SIZES) {
       const coldWarm = colourWhere(coldCopy.png, WARM, inRect);
       const live = await defectFrame(page, 0.25);
       const liveEmber = colourWhere(live.png, EMBER, inRect);
-      const fixing = await defectFrame(page, 0.395);
+      const fixing = await defectFrame(page, 0.4013);
       const fixingEmber = colourWhere(fixing.png, EMBER, inRect);
       const fixingWarm = colourWhere(fixing.png, WARM, inRect);
       // The fix's amber on the piece itself (its shells, persons, bodies and tracks; the copies left out):
@@ -477,10 +478,10 @@ for (const size of FREEZE_SIZES) {
       // whole frame's amber no longer rises with the fix alone.
       const own = { only: ['net-shells', 'net-persons', 'net-bodies', 'net-tracks'] };
       const heldWarm = colourWhere((await defectFrame(page, 0.33, own)).png, AMBERISH, inRect);
-      const fixingAmber = colourWhere((await defectFrame(page, 0.395, own)).png, AMBERISH, inRect);
+      const fixingAmber = colourWhere((await defectFrame(page, 0.4013, own)).png, AMBERISH, inRect);
       note(
         'split',
-        `0.33: ember ${ember}, blue ${blue}, warm copy ${warmLit} warm / ${warmCold} cold, cold copy ${coldLit} cold / ${coldWarm} warm, amberish ${heldWarm}; 0.25: ember ${liveEmber}; 0.395: ember ${fixingEmber}, warm ${fixingWarm}, amberish ${fixingAmber}`,
+        `0.33: ember ${ember}, blue ${blue}, warm copy ${warmLit} warm / ${warmCold} cold, cold copy ${coldLit} cold / ${coldWarm} warm, amberish ${heldWarm}; 0.25: ember ${liveEmber}; 0.4013: ember ${fixingEmber}, warm ${fixingWarm}, amberish ${fixingAmber}`,
       );
       expect(ember, 'ember-dominant').toBeGreaterThanOrEqual(SPLIT.ember);
       expect(blue, 'blue-dominant outside the limb').toBeGreaterThanOrEqual(SPLIT.blue);
@@ -493,7 +494,7 @@ for (const size of FREEZE_SIZES) {
       expect(fixingAmber, 'the amber up as it lands').toBeGreaterThanOrEqual(heldWarm + SPLIT.amberRise);
       // And the whole frame's amber as it lands, the copies' with the piece's (review m3).
       const fixingFrameAmber = colourWhere(fixing.png, AMBERISH, inRect);
-      note('split amber', `the whole frame at 0.395: ${fixingFrameAmber} amber-hued px`);
+      note('split amber', `the whole frame at 0.4013: ${fixingFrameAmber} amber-hued px`);
       expect(fixingFrameAmber, 'the whole frame amber as it lands').toBeGreaterThanOrEqual(SPLIT.frameAmber);
       expect(fixingWarm, 'the warm half turned amber, not ember').toBeGreaterThan(fixingEmber);
     });

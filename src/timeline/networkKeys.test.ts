@@ -23,6 +23,8 @@ import { feedAlpha, RING, ringAt, visitHold, type RingVisit } from '../galaxy/re
 import {
   NODE_FIX_WINDOW,
   NODE_FLARE_WIDTH,
+  NODE_LAND_WINDOW,
+  NODE_PULSE_WINDOW,
   NODE_HI_WINDOW,
   NODE_NEVER,
   NODE_SURGE_FROM,
@@ -31,7 +33,7 @@ import {
   NODE_SURGE_WINDOW,
 } from '../scene/node/birth';
 import { packBodyData } from '../scene/node/bodyData';
-import { nodeLight } from '../scene/node/light';
+import { nodeLanded, nodeLight } from '../scene/node/light';
 import { sectionSpans } from '../scroll/progress';
 import { loadStory } from '../story/loader';
 import { fadeWidth, pageOut } from '../story/reveal';
@@ -152,19 +154,28 @@ describe('the schedule fence (test 5, for zoom-out to defect)', () => {
     expect(next).toBe(node('R0').fixAt);
     const df2b = beatAt('defect', 'df-2b');
     expect(df2b).toBe(0.36);
-    // The fix's keys: 0 to "So you fix it.", the person's motes falling 0.37-0.40 (C1 whole at 0.40), FIX_TWELVE by 0.42.
+    // The fix's keys (the author on v25: the gold lands, then the piece glows, then it mends): 0 to
+    // "So you fix it.", the person's motes falling 0.36-0.374 (home at nodeLanded), the pulse 0.374-0.388,
+    // the mend 0.388-0.404 (C1 whole at 0.404, before the hold lets go at 0.405), FIX_TWELVE by 0.42.
     const fixKeys = (keyframes as unknown as KeyframeFile).tracks['net.fix'].filter((k) => typeof k.at === 'string' && k.at.startsWith('defect@'));
-    expect(fixKeys.map((k) => [k.at, k.value])).toEqual([
+    const want: [string, number][] = [
       ['defect@0.36', 0],
-      ['defect@0.37', 0.05],
-      ['defect@0.4', c1],
+      ['defect@0.374', nodeLanded(c1)],
+      ['defect@0.388', c1 - NODE_FIX_WINDOW],
+      ['defect@0.404', c1],
       ['defect@0.42', FIX_TWELVE],
-    ]);
+    ];
+    expect(fixKeys.map((k) => k.at)).toEqual(want.map(([at]) => at));
+    fixKeys.forEach((k, i) => expect(k.value as number, String(k.at)).toBeCloseTo(want[i][1], 12));
+    expect(nodeLanded(c1)).toBeCloseTo(c1 - NODE_FIX_WINDOW - NODE_PULSE_WINDOW, 12);
     for (const l of steps(0, df2b, 60)) expect(s('defect', l).net.fix, `defect@${l}`).toBe(0);
     for (const l of steps(0.42, 1, 60)) expect(s('defect', l).net.fix, `defect@${l}`).toBe(FIX_TWELVE);
-    // C1's warm motes set out after df-2b comes up (a fix window before its fixAt) and have landed by 0.40...
-    expect(when('defect', (x) => x.net.fix, c1 - NODE_FIX_WINDOW)).toBeGreaterThan(df2b);
-    expect(when('defect', (x) => x.net.fix, c1)).toBeCloseTo(0.4, 6);
+    // C1's warm motes set out after df-2b comes up (a landing window before nodeLanded) and are home by
+    // 0.374; it pulses to 0.388 and is mended by 0.404...
+    expect(when('defect', (x) => x.net.fix, nodeLanded(c1) - NODE_LAND_WINDOW)).toBeGreaterThan(df2b);
+    expect(when('defect', (x) => x.net.fix, nodeLanded(c1))).toBeCloseTo(0.374, 6);
+    expect(when('defect', (x) => x.net.fix, c1 - NODE_FIX_WINDOW)).toBeCloseTo(0.388, 6);
+    expect(when('defect', (x) => x.net.fix, c1)).toBeCloseTo(0.404, 6);
     // ...and the next fix's have not set out by the section's end.
     expect(FIX_TWELVE).toBeLessThan(next - NODE_FIX_WINDOW);
   });
