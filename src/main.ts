@@ -255,7 +255,23 @@ const drawingBuffer = new Vector2();
  */
 function ensureNetwork(): void {
   // The tier is the screen's at load: a resize keeps every count.
-  if (stage?.buildGalaxy(galaxyTier(window.innerWidth, window.innerHeight))) networkBuiltAt = frameCount;
+  if (stage?.buildGalaxy(galaxyTier(window.innerWidth, window.innerHeight))) {
+    networkBuiltAt = frameCount;
+    warmPrograms();
+  }
+}
+
+/**
+ * Compiles every material in the scene, hidden ones included, ahead of the frame that first draws it.
+ * three.js otherwise compiles a material inside the first render that shows it, and the galaxy's
+ * programs are large (eight of 40-134 KB of GLSL): on a phone the zoom-out froze for seconds while
+ * they compiled. With KHR_parallel_shader_compile this compiles off the main thread; without it the
+ * driver still starts early, so the first frame that needs a program no longer waits for all of it.
+ * It draws nothing, so no frame depends on when it runs.
+ */
+function warmPrograms(): void {
+  if (!renderer || !stage) return;
+  void renderer.compileAsync(stage.scene, stage.camera).catch((e: unknown) => console.warn('Shader warm-up failed', e));
 }
 
 /**
@@ -325,7 +341,11 @@ function draw(now: number): void {
   }
   renderer.render(scene, camera);
   frameCount++;
-  if (frameCount === 1) scheduleNetworkBuild();
+  if (frameCount === 1) {
+    // Act I's late materials (the ghost, the spec sheet) compile now, the galaxy's once it is built.
+    warmPrograms();
+    scheduleNetworkBuild();
+  }
 }
 
 function frame(now: number): void {
