@@ -11,7 +11,8 @@ import { packBodyData } from '../node/bodyData';
 import { bodyPresence } from '../node/bodyMote';
 import { galacticToWorld } from '../node/orbit';
 import { HOLE_PARTS, holeFrame } from './holeFrame';
-import { holeComp, STRANDS } from './holeLook';
+import { holeDotPx } from './hole';
+import { HOLE_DISK, HOLE_SMALL, holeComp, holeSmallGain, STRANDS } from './holeLook';
 import { createHoleSystem } from './holeSystem';
 
 const g = generateGalaxy(MOTE_SEED, 'phone', galaxyBudget(MOTE_BUDGET_DESKTOP));
@@ -122,11 +123,36 @@ describe('the hole drawn', () => {
     expect(shadow.value.z).toBeGreaterThan(10);
   });
 
+  it('holds the small hole’s light per screen area as it recedes, above and below its dots’ floor, and dims it as a point under HOLE_SMALL.point', () => {
+    // The phone's galaxy wide, whose camera sets focalY. A disk diskPx across stands at z = 2 fade focalY /
+    // diskPx; each dot (the disk's size range, with the disk's compensation) is holeDotPx wide there, and
+    // lights that squared; the hole's light per area is gain × the sum over the dots / diskPx².
+    const wide = galaxyShotCamera(GALAXY_SHOTS.galaxyWide, g, data, PHONE, AMBIENT_POSE);
+    const focalY = 0.5 * PHONE.height * wide.projectionMatrix.elements[5];
+    const sizes = [HOLE_DISK.size[0], (HOLE_DISK.size[0] + HOLE_DISK.size[1]) / 2, HOLE_DISK.size[1]].map((s) => s * holeComp('disk').size);
+    const dotPx = (s: number, diskPx: number): number => holeDotPx(s, (2 * HOLE_DISK.fade[1] * focalY) / diskPx, 1);
+    const lightPerArea = (diskPx: number, gain: number): number => (gain * sizes.reduce((n, s) => n + dotPx(s, diskPx) ** 2, 0)) / diskPx ** 2;
+    const ref = lightPerArea(HOLE_SMALL.ref, 1);
+    // Above the floor, the dots shrink with the disk (p = 3 s diskPx / focalY, the near clamp still clear):
+    // the largest dot at gain 1 holds its light per area by itself, with no gain to help.
+    const big = sizes[2];
+    const above = [160, 240, 400];
+    for (const d of above) expect(dotPx(big, d), `${d} px: the largest dot is above its floor`).toBeGreaterThan(1);
+    for (const d of above) expect(((dotPx(big, d) / d) ** 2) / (dotPx(big, above[0]) / above[0]) ** 2, `${d} px`).toBeCloseTo(1, 12);
+    // Below it, every dot is on its floor at `ref` and under, so the gain alone holds the light per area, down to `point`.
+    for (const s of sizes) expect(dotPx(s, HOLE_SMALL.ref), `a dot of ${s.toFixed(2)} px on its floor at ref`).toBe(1);
+    for (const d of [HOLE_SMALL.point, 57, 64, 72, 79]) expect(lightPerArea(d, holeSmallGain(d)) / ref, `${d} px`).toBeCloseTo(1, 12);
+    // Undimmed it would climb as (ref / d)²; under `point` it falls by (d / point)² more.
+    expect(lightPerArea(25, 1) / ref).toBeCloseTo((HOLE_SMALL.ref / 25) ** 2, 12);
+    for (const d of [20, 23.5, 30, 45]) expect(lightPerArea(d, holeSmallGain(d)) / ref, `${d} px`).toBeCloseTo((d / HOLE_SMALL.point) ** 2, 12);
+  });
+
   it('dims at the galaxy wide (the small hole), and its parts skip whole when it is off screen', () => {
     const wide = galaxyShotCamera(GALAXY_SHOTS.galaxyWide, g, data, PHONE, AMBIENT_POSE);
     const f = holeFrame(lit(Lamp.Off), g, data, wide, PHONE, AMBIENT_POSE);
     expect(f.diskPx).toBeLessThan(24);
-    expect(f.gain).toBeCloseTo(0.35, 9);
+    expect(f.gain, 'the small hole rule').toBeCloseTo(holeSmallGain(f.diskPx), 12);
+    expect(f.gain, 'the area rule, and under the point size once more').toBeCloseTo((f.diskPx / 80) ** 2 * (f.diskPx / 50) ** 2, 12);
     // A camera 300 off the hole, looking 60° away from it: the hole is in front, far off the screen's side.
     const centre = new Vector3(...galacticToWorld(data, [0, 0, 0], AMBIENT_POSE));
     const away = new PerspectiveCamera(40, PHONE.width / PHONE.height, 0.1, 4000);

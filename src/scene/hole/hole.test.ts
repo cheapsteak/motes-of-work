@@ -610,10 +610,18 @@ describe('the dots', () => {
     expect(holeDotPx(1.3, 10, 1)).toBeCloseTo(1.3 * 2.2, 12);
   });
 
-  it('dims the small hole', () => {
-    expect(holeSmallGain(10)).toBe(0.35);
+  it('dims the small hole by the area of its disk, and once more as a point: min(1, (d / 80)²) × min(1, (d / 50)²)', () => {
+    expect(holeSmallGain(0)).toBe(0);
+    expect(holeSmallGain(-5)).toBe(0);
+    expect(holeSmallGain(80)).toBe(1);
     expect(holeSmallGain(100)).toBe(1);
-    expect(holeSmallGain(52)).toBeCloseTo(0.675, 9);
+    // From the point size up, the area rule alone: the wides where the hole is a subject keep it.
+    expect(holeSmallGain(50)).toBeCloseTo((50 / 80) ** 2, 12);
+    expect(holeSmallGain(64)).toBeCloseTo(0.64, 12);
+    // Under it, once more by (d / 50)², and continuous there.
+    expect(holeSmallGain(25)).toBeCloseTo((25 / 80) ** 2 * 0.25, 12);
+    expect(holeSmallGain(49.999)).toBeCloseTo(holeSmallGain(50.001), 3);
+    expect(holeSmallGain(23.5)).toBeCloseTo((23.5 / 80) ** 2 * (23.5 / 50) ** 2, 12);
   });
 
   it('seeds a hash from a slot and a launch index, in [0, 2^24)', () => {

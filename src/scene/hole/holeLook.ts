@@ -328,21 +328,50 @@ export function holeComp(part: keyof typeof HOLE_MOCK_DOTS): Readonly<{ gain: nu
 }
 
 /**
- * The small hole: the hole's parts × mix(gain[0], gain[1], smoothstep(px[0], px[1], the disk's
- * projected outer diameter in CSS px)). At the galaxy wides its 27,610 additive dots fall in about
- * 25 px and would saturate; the inspector never framed it from there.
+ * The small hole (§4.2): the hole's parts × holeSmallGain(the disk's projected outer diameter in CSS px).
+ *  - `ref`, in CSS px, is the diameter at which the gain is 1: the inspector's framing, and well under
+ *    HOLE_CLOSE's (342 px on a phone);
+ *  - `point`, in CSS px, is the diameter under which the hole is a point, not a subject: under the
+ *    smallest wide where it is one (up-2's 57 px on a phone).
  */
-export const HOLE_SMALL = { px: [24, 80], gain: [0.35, 1] } as const;
+export const HOLE_SMALL = { ref: 80, point: 50 } as const;
 
-function smoothstep(e0: number, e1: number, x: number): number {
-  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
-  return t * t * (3 - 2 * t);
-}
-
-/** The small hole's gain at the disk's projected outer diameter `diskPx` (CSS px). */
+/**
+ * The small hole's gain at the disk's projected outer diameter `diskPx` (CSS px), since the author's
+ * phone check of v25, where the hole at the galaxy wide, 25 px across, was a white ring and the
+ * brightest thing on screen: min(1, (diskPx / ref)²) × min(1, (diskPx / point)²).
+ *
+ * The first factor keeps the hole's light per unit of screen area what it is at `ref`, as a resolved
+ * light source's is at any distance, so that only its size changes. The hole is N additive dots on a
+ * disk of area A ∝ diskPx². A dot of CSS size s at depth z is p = s refDist / z px across
+ * (HOLE_DOT.near clamps the factor), and z = 2 fade focalY / diskPx, so p = 3 s diskPx / focalY
+ * (refDist 75, fade 12.5): a dot shrinks with the hole, lights p² px², and the light per area
+ * B ∝ g N p² / diskPx² (g the dots' brightness) is constant at g = 1. Until p meets the floor of one
+ * CSS px (HOLE_DOT.floor), at diskPx = focalY / (3 s): 116 to 199 px for the disk's dots (s 1.4 to
+ * 2.4) at a phone's galaxy wide (focalY 835). `lift` (HOLE_DISK) swells the brightest, Doppler-boosted
+ * dots by up to 1.05 px (s up to 3.6 with holeComp's size), and those reach the floor last, at about
+ * 78 px: from there down every dot is on the floor, which is why `ref` is 80 and not the 116 to 199
+ * px of the rest. Under that every dot stays p_f = 1 px, so N p_f² px² of light falls on an area that
+ * keeps shrinking: B ∝ g / diskPx², and at g = 1 the hole climbs as it recedes, saturating where its
+ * dots overlap. Holding B at its value at `ref` gives g = (diskPx / ref)², which is 1 from `ref` up.
+ *
+ * The second factor is a ruling, not a derivation (the author's "too bright" at the galaxy wide). A
+ * floor dot lights more of a screen at a higher pixel ratio (its soft edge, HOLE_DOT.edge, is a fixed
+ * device px: 0.35, 0.48 and 0.56 CSS px² at ratios 1, 2 and 3), so a phone's far hole is brighter
+ * than a desktop's, and held at the surface brightness of 80 px, where the rim is white-hot, it was
+ * still the brightest thing at the galaxy wide: at a pixel ratio of 3, 53 to 60 CSS px² at 70%
+ * luminance, against the arms' and knots' brightest feature of under 1. Under `point` it dims once
+ * more, by (diskPx / point)²: the first rule found to bring its peak under the brightest star's there
+ * (0.69 and 0.62 of full against 0.77 and 0.72; the exponent 1 leaves 28 and 24, 1.5 leaves
+ * 8 and 4, 1.75 leaves 1.2 and 0.4), its rim a pale thread round a dark centre. It is 1 from `point` up,
+ * so the wides where the hole is a subject (ly-3, up-2, tr-1, 57 px and over on a phone) keep the area
+ * rule alone.
+ */
 export function holeSmallGain(diskPx: number): number {
-  const s = smoothstep(HOLE_SMALL.px[0], HOLE_SMALL.px[1], diskPx);
-  return HOLE_SMALL.gain[0] + (HOLE_SMALL.gain[1] - HOLE_SMALL.gain[0]) * s;
+  const d = Math.max(diskPx, 0);
+  const area = Math.min(d / HOLE_SMALL.ref, 1) ** 2;
+  const point = Math.min(d / HOLE_SMALL.point, 1) ** 2;
+  return area * point;
 }
 
 /**

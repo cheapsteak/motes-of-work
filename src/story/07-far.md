@@ -1,7 +1,7 @@
 ---
 id: far
 length: 1.6
-alt: The whole galaxy from far above, turning slowly: a bright core and two spiral arms, every star a point and every planet too small to see. Nothing is marked, and more keep appearing.
+alt: The whole galaxy from far above, turning slowly: a small warm glow at its centre and two spiral arms, every star a point and every planet too small to see. Nothing is marked, and more keep appearing.
 draft: true
 ---
 
