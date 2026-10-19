@@ -264,14 +264,20 @@ function ensureNetwork(): void {
 /**
  * Compiles every material in the scene, hidden ones included, ahead of the frame that first draws it.
  * three.js otherwise compiles a material inside the first render that shows it, and the galaxy's
- * programs are large (eight of 40-134 KB of GLSL): on a phone the zoom-out froze for seconds while
- * they compiled. With KHR_parallel_shader_compile this compiles off the main thread; without it the
- * driver still starts early, so the first frame that needs a program no longer waits for all of it.
- * It draws nothing, so no frame depends on when it runs.
+ * programs are large (about a dozen programs link by the galaxy's build, most of them 95-134 KB of
+ * GLSL): on a phone the zoom-out froze for seconds while they compiled. With
+ * KHR_parallel_shader_compile this compiles off the main thread; without it the driver still starts
+ * early, so the first frame that needs a program no longer waits for all of it. It draws nothing, so
+ * no frame depends on when it runs. It is never fatal: compile can throw before it returns a
+ * promise, and the promise can reject, so both are caught.
  */
 function warmPrograms(): void {
   if (!renderer || !stage) return;
-  void renderer.compileAsync(stage.scene, stage.camera).catch((e: unknown) => console.warn('Shader warm-up failed', e));
+  try {
+    renderer.compileAsync(stage.scene, stage.camera).catch((e: unknown) => console.warn('Shader warm-up failed', e));
+  } catch (e) {
+    console.warn('Shader warm-up failed', e);
+  }
 }
 
 /**
