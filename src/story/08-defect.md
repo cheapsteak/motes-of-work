@@ -1,7 +1,7 @@
 ---
 id: defect
 length: 4.8
-alt: The view dives to one planet with its moons far out in a star's system, like any other. Watched up close, it breathes, comes apart and re-forms, a few of its dots seep out and snap back, dark lines flicker across it, and a moon stutters. The view holds still on the piece, one moon caught off its path beside a faint double of itself, the planet's dots flung out, marks drawn round both. Warm gold dots land on the planet and its moons, and they run smooth. The view pulls back to three stars: they and nine of their planets light up red-orange, red-orange arcs curving off their drawn paths, and the mended planet stays dark among them.
+alt: The view dives to one planet with its moons far out in a star's system, like any other. Watched up close, it breathes, comes apart and re-forms, a few of its dots seep out and snap back, and dark lines flicker across it, while its moons keep to their paths. The view holds still on the piece, one moon caught off its path beside a faint double of itself, the planet's dots flung out, marks drawn round both. Warm gold dots land on the planet and its moons, the whole piece glows gold for a moment, and then it runs smooth. The view pulls back to three stars: they and nine of their planets light up red-orange, red-orange arcs curving off their drawn paths, and the mended planet stays dark among them.
 draft: true
 ---
 

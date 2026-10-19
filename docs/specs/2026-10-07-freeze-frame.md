@@ -93,6 +93,11 @@ held 2 s.
 | 0.421–0.4392 | **the mended piece, live**: df-2b's rest (2 s) is here: the planet a perfect sphere, six moons running on their ellipses, warm dust on all of it | |
 | 0.4392–0.4808 | the pull-out, the page fading, `net.focus` 1 → 0, as today | |
 
+*The fix's rows (0.37-0.40) are superseded by docs/specs/2026-10-09-act-2-reskin.md §13.6 (the author on
+v25): the warm motes land over 0.36-0.374, the piece glows gold over 0.374-0.388, and it mends over
+0.388-0.404, inside the same hold. And the defect moon no longer derps before the cut: under the planet
+lamp the piece holds its paths; the cut's jump to the pin is the only time it leaves its path.*
+
 Why the cut is at 0.2605: df-1's rest at 0.238 must be live (the reader watches; "if you watch" is
 earned there), and the cut must come after df-2 is legible so "you can see it" is read *on* the held
 frame. Why the release is at 0.405 and not on the page turn: df-2b's rest has to show the orbit going
