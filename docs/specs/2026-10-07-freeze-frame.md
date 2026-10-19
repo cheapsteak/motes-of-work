@@ -148,7 +148,8 @@ stops fall where §1.1 says: df-1's at 0.238 (before the cut), df-2's at 0.358 (
 since 0.292, the fix not begun), df-2b's at 0.437 (the dressing gone since 0.421). None is inside the
 flash, the cut, the dressing's snap or the release, so a reader at auto pace never rests on a bright
 frame or on a jump. The hold runs from 0.2605 to 0.405: df-2's whole rest (3 s) plus its transit in
-(≈ 0.8 s) plus the fix (≈ 0.4 s): about four and a half seconds.
+(≈ 0.8 s) plus the fix (≈ 1.1 s: auto-advance goes slower over it, `fixScreensPerSecond`, so the gold's
+landing, glow and mend each last about a third of a second): about five seconds.
 
 ### 1.4 What the freeze adds to the truth of the lines
 

@@ -11,6 +11,7 @@ import { readSpans, scrollY, settle } from './helpers';
 // 10.5-17.5 s in loaded local runs, and 22.7 s run to completion at load 11.7-13 beside two full unit
 // suites; it ran out of this once, at load 17-20, the run in which every test ran at half speed or worse.
 // 90 s is nearly 6 times the CI time and nearly 4 times the slowest completed loaded one.
+// The fix's slow span (src/autoAdvance/pace.ts) lengthens a walk to the end by 0.68 s of transit at any pace, small beside these.
 test.setTimeout(90_000);
 
 const FAST = '&auto=1&dwell=0.4&wps=100&pace=4&mech=bike&n=3000';
@@ -105,6 +106,59 @@ test('the defect’s first page stops where freeze-frame §1.1 has it: df-1 at 0
     [0.405, 0.421],
   ])
     for (const l of page7) expect(l >= a - px && l <= b + px, `a stop at ${l.toFixed(4)} inside [${a}, ${b}]`).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('over the fix on the held piece it scrolls slowly, so the gold lands, glows and mends in time to see (defect 0.36 to 0.405)', async ({ page }) => {
+  // Started paused (reduced motion) at df-2's stop and resumed from the ring, it holds for the floor and then
+  // crosses the fix at ?fixpace= (0.2 screens/s by default, whatever ?pace= is: 4 here). The span is checked in
+  // scroll, not wall time: the frames here take seconds, and the page counts at most 0.25 s of transit per frame
+  // (indicator.ts MAX_STEP), so a wall-clock span says nothing. The page's own frame timestamps do: the logger
+  // runs first in each frame and reads the scroll the frame before it left, so a step from one logged frame to
+  // the next is the page's step of the earlier frame, over min(0.25 s, the time since the frame before it).
+  // Inside the span no step may be more than the fix pace over that time (the plain pace would take 4 screens/s).
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    const log: [number, number][] = [];
+    (window as unknown as { __scrollLog: [number, number][] }).__scrollLog = log;
+    const tick = (now: number) => {
+      log.push([now, window.scrollY]);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const errors = await open(page);
+  const { stops } = (await auto(page)) ?? { stops: [] };
+  const spans = await readSpans(page);
+  const range = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  const defect = spans.find((x) => x.id === 'defect');
+  if (!defect) throw new Error('no defect section');
+  const yOf = (local: number) => (defect.start + local * (defect.end - defect.start)) * range;
+  const page7 = stops.filter((y) => y > yOf(0) && y < yOf(0.46));
+  expect(page7).toHaveLength(3);
+  await page.evaluate((y) => window.scrollTo(0, y), page7[1]);
+  await ring(page).click();
+  await expect(ring(page)).toHaveAttribute('aria-label', 'Pause auto-advance');
+  // Measured: 12 s from the click to df-2b's stop at load 3, where the page's frames take seconds.
+  await page.waitForFunction((y) => window.scrollY >= y, page7[2], { timeout: 60_000 });
+  const log = await page.evaluate(() => (window as unknown as { __scrollLog: [number, number][] }).__scrollLog);
+  const innerHeight = await page.evaluate(() => window.innerHeight);
+  const [from, to] = [yOf(0.36), yOf(0.405)];
+  let inside = 0;
+  let travelled = 0;
+  for (let i = 1; i + 1 < log.length; i++) {
+    const before = log[i][1];
+    const after = log[i + 1][1];
+    if (before < from || after > to || after === before) continue;
+    const dt = Math.min(0.25, (log[i][0] - log[i - 1][0]) / 1000);
+    // Two px of slack for the page rounding each step to a pixel.
+    expect(after - before, `the step at ${before}px over ${dt.toFixed(3)} s`).toBeLessThanOrEqual(0.2 * dt * innerHeight + 2);
+    inside++;
+    travelled += after - before;
+  }
+  // The span was crossed in steps (not in one jump), and the steps account for most of it.
+  expect(inside).toBeGreaterThanOrEqual(3);
+  expect(travelled).toBeGreaterThan((to - from) * 0.5);
   expect(errors).toEqual([]);
 });
 
