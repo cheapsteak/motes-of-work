@@ -587,7 +587,7 @@ test.describe('the freeze frame, 390x844', () => {
     const moonRow = g.ids[FREEZE_PINS.C1.moon];
     const sys = g.systems.indexOf(g.bodies[g.ids.C1].star);
     const ghostAt = (f: Frame, ambient: number) => {
-      const c: BodyClocks = { growth: f.state.net.growth, fix: f.state.net.fix, highlight: f.state.net.highlight, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4) };
+      const c: BodyClocks = { growth: f.state.net.growth, fix: f.state.net.fix, highlight: f.state.net.highlight, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4), holding: holdingOf(f) };
       const d = bodyDerp(moonRow, sys, c, data);
       const { camera } = essayCameraAt(f.state, 390, 844, ambient);
       const project = (p: readonly number[]) => {
@@ -625,7 +625,7 @@ test.describe('the freeze frame, 390x844', () => {
     // 0.6 rad of its home, a moon wide) nothing is lit but the piece's own bodies; on the held frame
     // the same region holds the ghost.
     const along = (f: Frame, ambient: number) => {
-      const c: BodyClocks = { growth: f.state.net.growth, fix: f.state.net.fix, highlight: f.state.net.highlight, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4) };
+      const c: BodyClocks = { growth: f.state.net.growth, fix: f.state.net.fix, highlight: f.state.net.highlight, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4), holding: holdingOf(f) };
       const d = bodyDerp(moonRow, sys, c, data);
       const { camera } = essayCameraAt(f.state, 390, 844, ambient);
       return Array.from({ length: 61 }, (_, k) => {
@@ -894,12 +894,21 @@ function circleFit(points: [number, number][]): { x: number; y: number; r: numbe
 }
 
 /** C1's six moons on screen at a frame (twin centres, radii), the ghost not among them. */
+/**
+ * Whether the freeze holds in frame `f`, as the page has it (bodySystem.ts: `freeze.hold` up in a focused
+ * frame): under the planet lamp the piece's moons keep their derp only then (the author on v25; bodyMote.ts
+ * focusDerp), so a twin of a held frame must say so, or it puts the pinned moon back on its path.
+ */
+function holdingOf(f: Frame): boolean {
+  return f.state.freeze.hold >= 0.5 && f.state.net.focus > 0;
+}
+
 function pieceMoons(f: Frame, at = AMBIENT_POSE): TickSourceOnScreen[] {
   const { g, data } = galaxyOf();
   const size = { width: f.png.width, height: f.png.height };
   const { camera, ambient } = essayCameraAt(f.state, size.width, size.height, at);
   const { forcedScatter } = heldOf(f.state, at, g);
-  const c: BodyClocks = { growth: 1, fix: f.state.net.fix, highlight: 0, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4), forcedScatter };
+  const c: BodyClocks = { growth: 1, fix: f.state.net.fix, highlight: 0, show: 1, ambient, focus: 1, lamp: 1, lampRow: g.ids.C1, sysPx: new Float32Array(32).fill(1e4), forcedScatter, holding: holdingOf(f) };
   const sys = g.systems.indexOf(g.bodies[g.ids.C1].star);
   const eye = camera.getWorldPosition(new Vector3());
   const focal = 0.5 * size.height * camera.projectionMatrix.elements[5];

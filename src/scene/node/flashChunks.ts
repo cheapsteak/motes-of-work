@@ -11,7 +11,8 @@
 // THE LINE. flashGuard() takes a swing as 10 % of the median of the series it is given, so a chunk judged
 // at its own median would judge at another line than the whole run: a swing within a few percent of the
 // line can change sides. Every chunk is judged against one reference instead, FLASH_REFERENCE, the median
-// of the whole 300 frames of the size (measured when this was written, below), as follows.
+// of the whole 300 frames of the size (measured when this was written, below), or a value the parts'
+// medians all lie within FLASH_TOLERANCE of (the argument below holds for any such reference), as follows.
 //   - Flashes: at the line 10 % of reference x (1 - FLASH_TOLERANCE). The whole run is judged at 10 % of its
 //     own median M. Each chunk asserts that the median of the frames it owns is within FLASH_TOLERANCE of the
 //     reference. The owned frames of the chunks partition the run, and the median of a union lies between the
@@ -88,8 +89,16 @@ export const FLASH_TOLERANCE = 0.03;
  * far hemispheres, -0.4 %, which moved the last part 3.2 % off the old reference): phone 11 swings, 1 flash,
  * range 0.920-1.295; desktop 10 swings, 1 flash, range 0.912-1.304. Each chunk prints its part's median on
  * the test, to read the reference off a CI run again.
+ *
+ * Re-measured the same way when the piece's moons stopped derping at the close-up (the author on v25:
+ * bodyMote.ts focusDerp): the whole run's median is 599,690 / 691,831 (-0.1 %), at its own line phone 10
+ * swings, 1 flash, range 0.921-1.296, desktop 10 swings, 1 flash, range 0.913-1.306. The median barely moved,
+ * but the parts spread: their medians are 1.0086, 1.0229, 0.9868, 0.9699 (phone) and 1.0096, 1.0227, 0.9894,
+ * 0.9710 (desktop) of it, the last part 3.0 % under (CI read 3.1 % on the old reference, run 39206857570).
+ * So the reference is now the centre of the four parts' medians, 597,531 / 689,652: the parts lie at 1.0122,
+ * 1.0266, 0.9904, 0.9734 and 1.0128, 1.0259, 0.9925, 0.9741 of it, within 2.7 %, FLASH_TOLERANCE unchanged.
  */
-export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 600387, desktop: 692895 };
+export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 597531, desktop: 689652 };
 
 /**
  * The swings (changes over 10 % of the reference x (1 + FLASH_TOLERANCE)) each chunk must own, per size.
@@ -97,6 +106,9 @@ export const FLASH_REFERENCE: Record<'phone' | 'desktop', number> = { phone: 600
  * (re-skin Task 7; before it, phone 3, 3, 2, 0 and desktop 2, 3, 2, 1): phone 4, 3, 3, 0; desktop 3, 3, 3, 0
  * (the whole run, at its own line: 11 and 10). Each floor is the measured count less one, kept at 1 where
  * the count is 1, so that a size's floors sum to 7 (phone) and 6 (desktop), over the whole run's bar of 4.
+ * With the moons on their paths (the author on v25) the counts at the whole run's median x (1 + tolerance)
+ * are phone 4, 3, 2, 0 and desktop 3, 3, 3, 0; the centred reference lies under that median, so its line
+ * is lower and counts no fewer: the floors stand.
  * The last stretch has no swing at either size (the scatter rises there more slowly than a swing a frame):
  * its floor is 0, and the rise check guards it.
  */
